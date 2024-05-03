@@ -1,0 +1,30 @@
+# python
+__pycache__/
+*.py[cod]
+/.vs
+.idea/
+venv/
+.venv/
+.vscode/
+.mypy_cache/
+*error.log
+
+# file folders for users
+/output/
+/input/
+!/input/example.png
+/models/
+/temp/
+/custom_nodes/
+!custom_nodes/example_node.py.example
+extra_model_paths.yaml
+
+# Build dir
+**/dist/
+
+# js dependencies
+**/node_modules/
+
+# Environment variables
+.env.*
+!.env.*example
