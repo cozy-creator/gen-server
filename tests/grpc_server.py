@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../gen_server')))
 
-from gen_server.server import ComfyServicer
+from gen_server.grpc_server import ComfyServicer
 from protobuf.node_defs_v1_pb2 import NodeDefRequest
 
 def test_local_method_call():
