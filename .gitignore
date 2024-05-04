@@ -5,7 +5,8 @@ __pycache__/
 .idea/
 venv/
 .venv/
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .mypy_cache/
 *error.log
 
@@ -14,6 +15,10 @@ venv/
 /temp/
 /output/
 /models/**
+
+# User-installed extensions
+extensions/*
+!extensions/core/
 
 # Build dir
 **/dist/

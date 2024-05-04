@@ -1,7 +1,7 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../protobuf')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../protobuf')))
 
 import grpc
 from google.protobuf import empty_pb2
@@ -9,6 +9,7 @@ from protobuf import JobSnapshot, JobStatus, UserHistory, NodeDefs, ModelCatalog
 from protobuf import ComfyGRPCServiceServicer, add_ComfyGRPCServiceServicer_to_server
 from protobuf import ComfyRequest, JobSnapshot, JobStatus, JobId, JobIds, UserId, UserHistory, NodeDefRequest, NodeDefs, NodeDefinition, ModelCatalogRequest, ModelCatalog, Models, LocalFiles, LocalFile
 from concurrent import futures
+
 
 class ComfyServicer(ComfyGRPCServiceServicer):
     def Run(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
