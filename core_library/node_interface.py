@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Tuple, Union, Any, BinaryIO, Protocol, TypedDict
+# Note that 'named tensors' are a thing in pytorch; we should use them when possible
+
+from typing import runtime_checkable, Dict, List, Optional, Tuple, Union, Any, BinaryIO, Protocol, TypedDict
 
 
 class InputSpec(TypedDict):
@@ -6,11 +8,14 @@ class InputSpec(TypedDict):
     edge_type: str
     spec: Dict[str, Any]
     required: bool
+
     
 class OutputSpec(TypedDict):
     display_name: str
     edge_type: str
 
+
+@runtime_checkable
 class NodeInterface(Protocol):
     """
     Protocol defining the interface for all node types.
@@ -46,9 +51,18 @@ class NodeInterface(Protocol):
         ...
         
     @property
-    def DESCRIPTION(self) -> Optional[str]:
+    def display_name(self) -> Optional[TypedDict[str, str]]:
         """
-        An optional property that should return the description of the node, if available.
+        A dictionary, where the keys are ISO 639-1 language-codes (such as 'en', 'zh', or 'ja') and the value is
+        the localized display-name of the node for that language.
+        """
+        return None
+    
+    @property
+    def description(self) -> Optional[TypedDict[str, str]]:
+        """
+        A dictionary, where the keys are ISO 639-1 language-codes (such as 'en', 'zh', or 'ja') and the value is
+        the localized description of the node for that language.
         """
         return None
 
