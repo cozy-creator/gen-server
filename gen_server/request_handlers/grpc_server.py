@@ -53,14 +53,10 @@ class ComfyServicer(ComfyGRPCServiceServicer):
     def SyncLocalFiles(self, request: empty_pb2.Empty, context: grpc.ServicerContext) -> LocalFiles:
         yield LocalFiles(added=[LocalFile(name="file1.txt")])
 
-def serve():
+def start_server(_host: str, port: int):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     add_ComfyGRPCServiceServicer_to_server(ComfyServicer(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port(f'[::]:{port}')
     server.start()
     print("Server started. Listening on port 50051.")
     server.wait_for_termination()
-
-if __name__ == '__main__':
-    serve()
-

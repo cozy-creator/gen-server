@@ -29,3 +29,4 @@ extensions/*
 # Environment variables
 .env.*
 !.env.*example
+.env
