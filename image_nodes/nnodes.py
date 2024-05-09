@@ -2,7 +2,7 @@ import torch
 from PIL import Image, ImageOps
 import numpy as np
 
-class ImageInvert:
+class ImageInvert1:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"image": ("IMAGE",)}}
@@ -28,5 +28,5 @@ class ImageInvert:
 
 def get_nodes():
     return {
-        "ImageInvert": ImageInvert,  # Map node name to class
+        "ImageInvert1": ImageInvert1,  # Map node name to class
     }

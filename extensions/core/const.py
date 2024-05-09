@@ -2,6 +2,7 @@
 
 
 CONSTANT_VALUE = 0  # The value to output
+
 class ConstantNode:
     def __init__(self):
         pass

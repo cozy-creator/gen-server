@@ -1,14 +1,15 @@
-from gen_server.executor.import_custom_nodes import discover_custom_nodes, load_core_nodes, generate_node_definitions
+from gen_server.executor.import_custom_nodes import discover_custom_nodes, load_all_nodes, generate_node_definitions, load_custom_node
 import json
-from folders import get_folder_paths
+from paths import get_folder_path
+
 
 
 if __name__ == "__main__":
     discover_custom_nodes()
 
-    core_nodes_path = get_folder_paths("core_nodes")
+    core_nodes_path = get_folder_path("extensions")
 
-    load_core_nodes(core_nodes_path)
+    load_custom_node(core_nodes_path)
 
     node_definitions = generate_node_definitions()
 

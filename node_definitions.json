@@ -1,47 +1,228 @@
 [
     {
-        "name": "image_nnodes.ImageInvert",
+        "name": "image_nnodes.ImageInvert1",
         "display_name": "Invert Image Colors",
-        "node_class": "<class 'image_nodes.nnodes.ImageInvert'>"
+        "category": "image",
+        "inputs": {
+            "required": {
+                "image": [
+                    "IMAGE"
+                ]
+            }
+        },
+        "outputs": [
+            "IMAGE"
+        ]
     },
     {
         "name": "image_nodes.ImageInvert",
         "display_name": "Invert Image Colors",
-        "node_class": "<class 'image_nodes.nodes.ImageInvert'>"
+        "category": "image",
+        "inputs": {
+            "required": {
+                "image": [
+                    "IMAGE"
+                ]
+            }
+        },
+        "outputs": [
+            "IMAGE"
+        ]
+    },
+    {
+        "name": "image_nodes.ImageInvert2",
+        "display_name": "Invert Image Colors",
+        "category": "image",
+        "inputs": {
+            "required": {
+                "image": [
+                    "IMAGE"
+                ]
+            }
+        },
+        "outputs": [
+            "IMAGE"
+        ]
     },
     {
         "name": "core.CLIPVisionEncode",
         "display_name": "clip_vision",
-        "node_class": "<class 'clip_vision_encoder.CLIPVisionEncode'>"
-    },
-    {
-        "name": "core.Denoiser",
-        "display_name": "Denoiser",
-        "node_class": "<class 'denoiser.Denoiser'>"
+        "category": "conditioning",
+        "inputs": {
+            "required": {
+                "clip_vision": [
+                    "CLIP_VISION"
+                ],
+                "image": [
+                    "IMAGE"
+                ]
+            }
+        },
+        "outputs": [
+            "CLIP_VISION_OUTPUT"
+        ]
     },
     {
         "name": "core.ConstantNode",
         "display_name": "ConstantNode",
-        "node_class": "<class 'const.ConstantNode'>"
+        "category": "misc",
+        "inputs": null,
+        "outputs": [
+            "*"
+        ]
     },
     {
         "name": "core.ControlNetApply",
         "display_name": "ControlNetApply",
-        "node_class": "<class 'controlnet_apply.ControlNetApply'>"
+        "category": "conditioning",
+        "inputs": {
+            "required": {
+                "conditioning": [
+                    "CONDITIONING"
+                ],
+                "control_net": [
+                    "CONTROL_NET"
+                ],
+                "feature": [
+                    "TENSOR"
+                ],
+                "embedding": [
+                    "CONDITIONING"
+                ],
+                "strength": [
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.01
+                    }
+                ]
+            }
+        },
+        "outputs": [
+            "CONDITIONING"
+        ]
     },
     {
         "name": "core.DenoiseScheduler",
         "display_name": "DenoiseScheduler",
-        "node_class": "<class 'denoise_schedule.DenoiseScheduler'>"
+        "category": "sampling",
+        "inputs": {
+            "required": {
+                "model": [
+                    "MODEL"
+                ],
+                "scheduler_name": [
+                    [
+                        "normal",
+                        "karras",
+                        "exponential",
+                        "sgm_uniform",
+                        "simple",
+                        "ddim_uniform"
+                    ]
+                ],
+                "sampler_name": [
+                    [
+                        "euler",
+                        "euler_ancestral",
+                        "heun",
+                        "heunpp2",
+                        "dpm_2",
+                        "dpm_2_ancestral",
+                        "lms",
+                        "dpm_fast",
+                        "dpm_adaptive",
+                        "dpmpp_2s_ancestral",
+                        "dpmpp_sde",
+                        "dpmpp_sde_gpu",
+                        "dpmpp_2m",
+                        "dpmpp_2m_sde",
+                        "dpmpp_2m_sde_gpu",
+                        "dpmpp_3m_sde",
+                        "dpmpp_3m_sde_gpu",
+                        "ddpm",
+                        "lcm",
+                        "ddim",
+                        "uni_pc",
+                        "uni_pc_bh2"
+                    ]
+                ],
+                "steps": [
+                    "INT",
+                    {
+                        "default": 20,
+                        "min": 1,
+                        "max": 10000
+                    }
+                ],
+                "denoise": [
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.01
+                    }
+                ]
+            }
+        },
+        "outputs": [
+            "SIGMAS"
+        ]
     },
     {
         "name": "core.OpenAITextGeneration",
         "display_name": "OpenAITextGeneration",
-        "node_class": "<class 'openai_api.OpenAITextGeneration'>"
+        "category": "OpenAI",
+        "inputs": {
+            "required": {
+                "text": [
+                    "STRING",
+                    {
+                        "multiline": true
+                    }
+                ],
+                "model": [
+                    [
+                        "gpt-3.5-turbo",
+                        "gpt-3.5-turbo-0125",
+                        "gpt-3.5-turbo-1106",
+                        "gpt-3.5-turbo-0613",
+                        "gpt-4-turbo"
+                    ]
+                ]
+            },
+            "optional": {
+                "max_tokens": [
+                    "INT",
+                    {
+                        "default": 0
+                    }
+                ],
+                "temperature": [
+                    "INT",
+                    {
+                        "default": 1.0,
+                        "min": 0,
+                        "max": 2,
+                        "step": 0.01
+                    }
+                ]
+            }
+        },
+        "outputs": [
+            "STRING"
+        ]
     },
     {
-        "name": "core.TextEncoder",
-        "display_name": "TextEncoder",
-        "node_class": "<class 'text_encoder.TextEncoder'>"
+        "name": "new_node.ConstantNode",
+        "display_name": "ConstantNode",
+        "category": "misc",
+        "inputs": null,
+        "outputs": [
+            "*"
+        ]
     }
 ]
