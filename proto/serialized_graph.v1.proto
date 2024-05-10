@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package serialized_graph;
+
+// We use 'Struct' in this schema to be flexible and accomodate changes
+import "google/protobuf/struct.proto";
+
+message Position {
+  float x = 1;
+  float y = 2;
+}
+
+message Input {
+  string name = 1;
+  string type = 2;
+  bool optional = 3;
+}
+
+message Output {
+  string name = 1;
+  string type = 2;
+}
+
+message Widget {
+  string name = 1;
+  bool optional = 2;
+  string type = 3;
+  google.protobuf.Struct value = 4; // varies widely
+}
+
+message Widgets {
+  map<string, Widget> items = 1;
+}
+
+message NodeData {
+  string name = 1;
+  repeated Input inputs = 2;
+  repeated Output outputs = 3;
+  Widgets widget = 4;
+}
+
+message ComfyNode {
+  string id = 1;
+  string type = 2;
+  Position position = 3;
+  Position position_absolute = 4;
+  uint32 width = 5;
+  uint32 height = 6;
+}
+
+// what is 'dragging' and 'selected'? not relevant for serialization
+// for inputs and outputs, 'isHighlighted' is not needed
+// 'optional' should not exist inside of widgets.
+// input.optional may not be needed?
+// For edges, have the ID come higher
+
+message ComfyEdge {
+  string id = 1;
+  string source = 2;
+  string sourceHandle = 3;
+  string target = 4;
+  string targetHandle = 5;
+  string type = 6;
+}
+
+message SerializedGraph {
+  optional string graph_id = 1;
+  optional string author_id = 2;
+  optional string ancestor_graph_id = 3;
+  optional string title = 4;
+  optional string description = 5;
+  repeated ComfyNode nodes = 6;
+  repeated ComfyEdge edges = 7;
+}
+

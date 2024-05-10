@@ -1,0 +1,291 @@
+// These are more direct client-created workflows for client -> server -> worker
+syntax = "proto3";
+
+package comfy_request.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+
+import "serialized_graph.v1.proto";
+
+// ======= General Types ========
+
+// Message definition for WorkflowStep
+message WorkflowStep {
+  string class_type = 1;
+  google.protobuf.Struct inputs = 2; // Inputs are too idiosyncratic to be typed specifically
+}
+
+message FileReference {
+  string url = 1; // string must be a valid url
+  // Comfy UI terminology: key 'type', values 'temp' | 'output'
+  bool is_temp = 2; // if true, file is in a temporary S3 bucket
+}
+
+// TO DO: add conditional check for url conformity
+// Two files with the same hash are treated as equivalent; we use file-hashes as filenames.
+// File types returned:
+// image: png, jpg, svg, webp, gif
+// video: mp4
+// data: json (icluding RLE-encoded masks), npy (numpy array for embeddings)
+// TO DO: in the future, we may want more metadata, such as mask VS image VS latent preview
+message WorkflowFile {
+  string blake3_hash = 1; // unique identifier for the file; use this instead of a filename
+
+  // ComfyUI terminology: key 'format'
+  string mime_type = 2; // example: "video/h264-mp4", "image/png"
+
+  oneof data {
+    FileReference reference = 3;
+    bytes bytes = 4;
+  }
+}
+
+// It would be helpful to have blake3 hashes rather than filenames
+message LocalFile {
+  string name = 1;
+  string path = 2;
+  int64 size = 3; // in bytes
+  string mime_type = 4;
+}
+
+message LocalFiles {
+  repeated LocalFile added = 1;
+  repeated LocalFile updated = 2;
+  repeated LocalFile removed = 3;
+}
+
+enum JobStatus {
+  QUEUED = 0;
+  EXECUTING = 1;
+  COMPLETED = 2;
+  ERROR = 3;
+  ABORTED = 4;
+}
+
+// ======= Unary Request Types ========
+
+// message UserId {
+//   string user_id = 1;
+// }
+
+message JobId {
+  string job_id = 1;
+}
+
+// TO DO: add specific buckets for different users perhaps?
+// Private VS public outputs?
+//
+// Right now: output-files are saved to our DO S3 bucket, and all of them are publicly
+// available.
+// Temp-files are saved to our DO S3 temp bucket, which is wiped after 24 hours.
+// Corresponding records exist in Firestore for both.
+// If 'save outputs' is false, then the output files are saved to the temp bucket
+// In the future, API-clients can provide us with S3 secrets which we can use to upload
+// to their specified account.
+// In the future we may allow for S3 presigned urls as well.
+// In the future we may add support for webhook callbacks.
+// In the future we may allow for direct binary outputs (instead of uploading files to S3
+// and then returning urls)
+
+// If this job-id already exists, this new update will overwrite it.
+// Open-ended jobs will not be closed upon completion of their workflow. This allows for
+// clients to create recurring jobs, such as an auto-queue workflow that converts hand-drawn
+// images to new images every second.
+
+message OutputConfig {
+  // TO DO: consider implementing this
+  // enum ResponseFormat {
+  //   URL = 0;
+  //   BINARY = 1;
+  // }
+
+  // writes outputs to the specified collaborative graph
+  optional string write_to_graph_id = 1;
+
+  // Results will be persisted in a pulsar topic for querying later
+  // Defaults to true in the case of `Run`, and false in the case of `RunSync`
+  // optional bool persist_job_record = 2;
+
+  // Performs a callback to the webhook url with the outputs
+  optional string webhook_url = 2;
+
+  // optional ResponseFormat response_format = 8; // defaults to 'URL'
+}
+
+message ComfyRequest {
+  // This is a client-supplied identifier; it allows the client to associate responses
+  // or multiple requests with the same identifier. Useful for webhook callbacks.
+  optional string request_id = 1;
+
+  // keys are node_ids
+  map<string, WorkflowStep> workflow = 2;
+  optional serialized_graph.SerializedGraph serialized_graph = 3;
+
+  optional OutputConfig output_config = 4;
+}
+
+// ======= Unary Response Types ========
+
+// A list of job outputs from a user
+// message UserHistory {
+//   repeated JobOutput outputs = 1;
+// }
+
+// This is published to pulsar as a cumulative message; it contains all prior msg info
+message JobSnapshot {
+  // Metrics are cumulative for the entire job
+  message Metrics {
+    uint32 queue_seconds = 1;
+    uint32 execution_seconds = 2;
+  }
+
+  string job_id = 1;
+  optional string request_id = 2;
+  JobStatus status = 3;
+  repeated JobOutput outputs = 4;
+  optional Metrics metrics = 5;
+}
+
+// ======= Stream Response Types ========
+
+message JobOutput {
+  string node_id = 1; // id of the node in the original workflow that produced this output
+  string class_type = 2; // output node's class type
+  WorkflowFile file = 3;
+}
+
+// ====== Node Definition Messages ======
+
+// Specify subset of fully qualified extension names, to load their node defs
+// Leave empty to retrieve all node definitions
+message NodeDefRequest {
+  repeated string extension_ids = 1;
+}
+
+// Input specs are used for to populate input-widgets. Example:
+// number: min / max / step values for a number
+// string: multiline: true / false
+// or 'default' for any value really
+message NodeDefinition {
+  message InputDef {
+    string label = 1;
+    string edge_type = 2;
+    google.protobuf.Struct spec = 3;
+  }
+
+  message OutputDef {
+    string label = 1;
+    string edge_type = 2;
+  }
+
+  string display_name = 1;
+  string description = 2;
+  string category = 3;
+  repeated InputDef inputs = 4;
+  repeated OutputDef outputs = 5;
+  bool output_node = 6;
+}
+
+message NodeDefs {
+  map<string, NodeDefinition> defs = 1;
+}
+
+// ====== Model Info Messages ======
+
+message Models {
+  message Info {
+    string blake3_hash = 1;
+    string display_name = 2;
+  }
+
+  repeated Info info = 1;
+}
+
+// Maps base-family to model
+message ModelCatalog {
+  map<string, Models> models = 1;
+}
+
+// Leave blank to retrieve all models
+message ModelCatalogRequest {
+  repeated string base_family = 1;
+}
+
+message StatusMessage {
+  string sid = 1;
+  map<string, google.protobuf.Any> status = 2;
+}
+
+message ProgressMessage {
+  int32 max = 1;
+  string node = 2;
+  int32 value = 3;
+  string prompt_id = 4;
+}
+
+message ExecutingMessage {
+  string prompt_id = 1;
+  string node = 2;
+}
+
+message ExecutedMessage {
+  string node = 1;
+  string prompt_id = 2;
+  map<string, google.protobuf.Any> output = 3;
+}
+
+message ComfyMessage {
+  oneof message_type {
+    StatusMessage status = 1;
+    ProgressMessage progress = 2;
+    ExecutingMessage executing = 3;
+    ExecutedMessage executed = 4;
+    bytes data = 5;
+  }
+}
+
+
+// ====== Service Definitions ======
+
+service Comfy {
+  // Queue a workflow and receive the job id.
+  // Results can be retrieved from the graph-id or via a webhook callback.
+  rpc Run (ComfyRequest) returns (JobSnapshot) {};
+
+  // Queue a workflow and await its outputs (synchronous)
+  rpc RunSync (ComfyRequest) returns (stream JobOutput) {};
+
+  // Looks up the most current job state
+  rpc GetJob (JobId) returns (JobSnapshot) {};
+
+  // Looks up the most current job state
+  rpc StreamJob (JobId) returns (stream ComfyMessage) {};
+
+  // Cancels a specific job (regardless if it's running or queued)
+  // This is a combination of 'delete' and 'interrupt' from ComfyUI.
+  // rpc CancelJob (JobId) returns (google.protobuf.Empty) {};
+
+  // Cancels all queued (pending) jobs in a given session-id that this user created
+  // ComfyUI calls this 'clear'
+  // rpc PurgeSessionQueue (SessionId) returns (google.protobuf.Empty) {};
+
+  // Returns a list of outputs from a given user
+  // rpc GetUserHistory (UserId) returns (UserHistory) {};
+
+  // Removes the JobOutputs from memory for a given user
+  // rpc ClearUserHistory (UserId) returns (google.protobuf.Empty) {};
+
+  // Gets the definitions of all nodes supported by this server
+  rpc GetNodeDefinitions (NodeDefRequest) returns (NodeDefs) {};
+
+  // Get models, grouped by architecture
+  rpc GetModelCatalog (ModelCatalogRequest) returns (ModelCatalog) {};
+
+  // Streams updates to local-files in realtime.
+  // This is only used when running Comfy Creator with local files.
+  rpc SyncLocalFiles (google.protobuf.Empty) returns (stream LocalFiles) {};
+}
+
+
