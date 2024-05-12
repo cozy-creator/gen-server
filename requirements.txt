@@ -5,5 +5,5 @@ grpcio
 boto3~=1.34.99
 uuid~=1.30
 blake3~=0.4.1
-
+firebase-admin~=6.5.0
 pydantic~=2.7.1

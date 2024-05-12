@@ -1,3 +1,4 @@
+import pulsar
 from pulsar import Client, AuthenticationToken
 
 from gen_server.settings import settings
@@ -23,7 +24,19 @@ def create_producer(topic: str):
     return producer
 
 
-def add_topic_message(topic: str, *, message: bytes, properties: dict, namespace: str):
+def create_reader(topic: str):
+    reader = client.create_reader(topic)
+    return reader
+
+
+def create_subscription(topic: str, message_listener):
+    subscription = client.subscribe(topic, message_listener)
+    return subscription
+
+
+def add_topic_message(topic: str, *, message: bytes, properties: dict, namespace: str) -> pulsar.MessageId:
     producer = create_producer(f"persistent://{settings.pulsar.tenant}/{namespace}/{topic}")
-    producer.send(message, properties)
+    message_id = producer.send(content=message, properties=properties)
     producer.close()
+
+    return message_id

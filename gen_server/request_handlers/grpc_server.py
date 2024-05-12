@@ -1,7 +1,11 @@
 import os
 import sys
 from concurrent import futures
+from contextvars import ContextVar
+from pprint import pprint
+from typing import Optional
 
+from core_library.firebase import verify_token
 from gen_server.settings import settings
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -13,33 +17,44 @@ from uuid import uuid4
 from protobuf import ComfyGRPCServiceServicer, add_ComfyGRPCServiceServicer_to_server
 from protobuf import ComfyRequest, JobSnapshot, JobStatus, JobId, JobIds, UserId, UserHistory, NodeDefRequest, NodeDefs, \
     NodeDefinition, ModelCatalogRequest, ModelCatalog, Models, LocalFiles, LocalFile, Workflow
-from gen_server.cqueue.pulsar import add_topic_message
+from gen_server.cqueue.pulsar import add_topic_message, create_subscription
+
+user_id_var: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
 
 class ComfyServicer(ComfyGRPCServiceServicer):
     def Run(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
-        properties = {
-            "job_id": uuid4(),
-            "user_uid": context.invocation_metadata().get("user_id"),
-            "estimated_duration": 1000,
-            "publish_outputs_to_topic": True
-        }
+        global job_id
+        if user_id_var.get() is None:
+            return context.abort(grpc.StatusCode.UNAUTHENTICATED, "Authentication Required")
 
         try:
-            add_request_to_queue(request, properties)
+            job_id = handle_job_request(request, user_id_var.get())
         except Exception as e:
-            print(f"Error adding request to queue: {e}")
-            context.abort(grpc.StatusCode.INTERNAL, "Error adding request to queue")
+            context.abort(grpc.StatusCode.INTERNAL, "Failed to add job to queue")
 
         return JobSnapshot(
-            job_id=properties['job_id'].__str__(),
-            request_id=request.request_id,
-            status=JobStatus.QUEUED
+            job_id=job_id,
+            status=JobStatus.QUEUED,
+            request_id=request.request_id
         )
 
     def RunSync(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
+        global job_id
+        if user_id_var.get() is None:
+            return context.abort(grpc.StatusCode.UNAUTHENTICATED, "Authentication Required")
+
+        try:
+            job_id = handle_job_request(request, user_id_var.get())
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, "Failed to add job to queue")
+
+        success = wait_for_job_completion(job_id)
+        if not success:
+            context.abort(grpc.StatusCode.INTERNAL, "Failed to process job")
+
         job_snapshot = JobSnapshot(
-            job_id="job_456",
+            job_id=job_id,
             request_id=request.request_id,
             status=JobStatus.COMPLETED
         )
@@ -74,11 +89,51 @@ class ComfyServicer(ComfyGRPCServiceServicer):
 
 def add_request_to_queue(request: ComfyRequest, properties: dict):
     topic = get_affinity(request.workflow)
-    add_topic_message(topic, message=request.SerializeToString(), properties=properties,
-                      namespace=settings.pulsar.job_queue_namespace)
+    namespace = settings.pulsar.job_queue_namespace
+
+    message_id = add_topic_message(
+        topic,
+        namespace=namespace,
+        properties=properties,
+        message=request.SerializeToString()
+    )
+
+    if not message_id:
+        raise Exception("Failed to add job to queue")
+
+    return message_id
 
 
-def get_affinity(_request: Workflow):
+def handle_job_request(request: ComfyRequest, user_id: str):
+    properties = {
+        "job_id": str(uuid4()),
+        "user_uid": user_id_var.get(),
+        "estimated_duration": str(1000),
+        "publish_outputs_to_topic": str(True)
+    }
+
+    try:
+        message_id = add_request_to_queue(request, properties)
+        print(f"New message id: {message_id}")
+    except Exception as e:
+        print(f"Error adding request to queue: {e}")
+        raise Exception("Failed to add job to queue")
+
+    return properties['job_id']
+
+
+def wait_for_job_completion(job_id: str):
+    def listener(message, consumer):
+        print(f"Received message: {message}")
+        consumer.acknowledge(message)
+
+    topic = f"non-persistent://{settings.pulsar.tenant}/job-output/{job_id}"
+    create_subscription(topic, listener)
+
+    return True
+
+
+def get_affinity(_workflow: Workflow):
     return "sdxl-1"
 
 
@@ -91,35 +146,35 @@ def _unary_unary_rpc_terminator(code, details):
 
 class AuthenticationInterceptor(grpc.ServerInterceptor):
     def __init__(self):
+        self._header = 'authorization'
         self._terminator = _unary_unary_rpc_terminator(grpc.StatusCode.UNAUTHENTICATED, "Invalid auth details")
 
     def intercept_service(self, continuation, handler_call_details):
-        for key, value in handler_call_details.invocation_metadata:
-            if key.lower() == 'authorization':
-                parts = value.split(maxsplit=1)
-                if parts[0] != 'Bearer':
-                    raise ValueError('Invalid bearer token')
+        metadata = dict(handler_call_details.invocation_metadata)
+        if self._header in metadata:
+            value = metadata.get(self._header)
+            if value is None:
+                return self._terminator
 
-                # TODO: Authenticate token here
-                user_id = verify_token(parts[1])
-                if not user_id:
-                    return self._terminator
+            bearer_parts = value.split(maxsplit=1)
+            if bearer_parts[0] != 'Bearer':
+                return self._terminator
 
-                handler_call_details.invocation_metadata = handler_call_details.invocation_metadata + (
-                    'user_id', user_id)
+            user = verify_token(bearer_parts[1])
+            if not user:
+                return self._terminator
 
-                return continuation(handler_call_details)
+            if user_id_var.get() is not None:
+                print("Corrupted context var")
+
+            user_id_var.set(user['uid'])
+            return continuation(handler_call_details)
         else:
             return self._terminator
 
 
-def verify_token(token: str):
-    # TODO: Implement token verification
-    return "user_123"
-
-
 def start_server(_host: str, port: int):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(AuthenticationInterceptor()))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(AuthenticationInterceptor(),))
     add_ComfyGRPCServiceServicer_to_server(ComfyServicer(), server)
     server.add_insecure_port(f'[::]:{port}')
     server.start()

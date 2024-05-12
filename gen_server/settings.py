@@ -19,10 +19,15 @@ class PulsarConfig(BaseModel):
     job_queue_namespace: str
 
 
+class FirebaseConfig(BaseModel):
+    service_account: str
+
+
 class Settings(BaseSettings):
     environment: str
     s3: S3Config
     pulsar: PulsarConfig
+    firbase: FirebaseConfig
 
     read_chunk_size: int = 5 * 1024 * 1024
     upload_chunk_size: int = 5 * 1024 * 1024
