@@ -26,11 +26,31 @@ def load_all_safetensors_headers(directory):
                 headers[file_path] = header
     return headers
 
+
+model_type = {
+    "controlnet": "controlnet",
+    "conditioner": "sdxl",
+    "cond_stage_model": "sd1.5",
+    "lora": "lora",
+}
+
+
+def identify_model_type(metadata):
+    for key in metadata.keys():
+        for model in model_type.keys():
+            if model in key:
+                return model_type[model]
+    return "Unknown"
+
+
 with open('headers.md', 'w') as file:
     headers = load_all_safetensors_headers('./models')
     for file_path, metadata in headers.items():
         keys = metadata.keys()
+        
         file.write(f"File: {file_path}\n")
+        file.write(f"Model Type: {identify_model_type(metadata)}\n")
         file.write('\n'.join(keys))
         file.write('\n\n')
+
 
