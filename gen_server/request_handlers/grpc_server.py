@@ -5,7 +5,10 @@ from contextvars import ContextVar
 from pprint import pprint
 from typing import Optional
 
-from core_library.firebase import verify_token
+import pulsar
+
+from gen_server.common.readers import JobReader
+from gen_server.common.firebase import verify_token, Collection
 from gen_server.settings import settings
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -17,21 +20,16 @@ from uuid import uuid4
 from protobuf import ComfyGRPCServiceServicer, add_ComfyGRPCServiceServicer_to_server
 from protobuf import ComfyRequest, JobSnapshot, JobStatus, JobId, JobIds, UserId, UserHistory, NodeDefRequest, NodeDefs, \
     NodeDefinition, ModelCatalogRequest, ModelCatalog, Models, LocalFiles, LocalFile, Workflow
-from gen_server.cqueue.pulsar import add_topic_message, create_subscription
+from gen_server.job_queue.pulsar import add_topic_message, Pulsar, make_topic
 
-user_id_var: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
+context_user_uid: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
+queue = Pulsar(settings.pulsar)
 
 
 class ComfyServicer(ComfyGRPCServiceServicer):
     def Run(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
-        global job_id
-        if user_id_var.get() is None:
-            return context.abort(grpc.StatusCode.UNAUTHENTICATED, "Authentication Required")
-
-        try:
-            job_id = handle_job_request(request, user_id_var.get())
-        except Exception as e:
-            context.abort(grpc.StatusCode.INTERNAL, "Failed to add job to queue")
+        _ensure_context_user(context)
+        job_id = _send_job_request(request, context)
 
         return JobSnapshot(
             job_id=job_id,
@@ -40,38 +38,51 @@ class ComfyServicer(ComfyGRPCServiceServicer):
         )
 
     def RunSync(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
-        global job_id
-        if user_id_var.get() is None:
-            return context.abort(grpc.StatusCode.UNAUTHENTICATED, "Authentication Required")
+        _ensure_context_user(context)
+        job_id = _send_job_request(request, context)
 
         try:
-            job_id = handle_job_request(request, user_id_var.get())
+            snapshot = _wait_for_job_snapshot(job_id)
+            if not snapshot:
+                return context.abort(grpc.StatusCode.INTERNAL, "Failed to process job")
+            return snapshot
         except Exception as e:
-            context.abort(grpc.StatusCode.INTERNAL, "Failed to add job to queue")
-
-        success = wait_for_job_completion(job_id)
-        if not success:
-            context.abort(grpc.StatusCode.INTERNAL, "Failed to process job")
-
-        job_snapshot = JobSnapshot(
-            job_id=job_id,
-            request_id=request.request_id,
-            status=JobStatus.COMPLETED
-        )
-        return job_snapshot
+            return context.abort(grpc.StatusCode.INTERNAL, "Failed to retrieve job snapshot")
 
     def Stream(self, request: ComfyRequest, context: grpc.ServicerContext) -> JobSnapshot:
-        yield JobSnapshot(job_id="job_789", status=JobStatus.EXECUTING)
+        _ensure_context_user(context)
+        job_id = _send_job_request(request, context)
+
+        try:
+            for snapshots in stream_jobs(job_id):
+                yield snapshots
+        except Exception as e:
+            return context.abort(grpc.StatusCode.INTERNAL, "Failed to stream job snapshots")
 
     def CancelJob(self, request: JobId, context: grpc.ServicerContext) -> empty_pb2.Empty:
+        _ensure_context_user(context)
+        _request_job_cancellation(request)
         return empty_pb2.Empty()
 
     def GetJob(self, request: JobIds, context: grpc.ServicerContext) -> JobSnapshot:
-        for job_id in request.job_ids:
-            yield JobSnapshot(job_id=job_id, status=JobStatus.COMPLETED)
+        print(request)
+        reader = JobReader(queue)
+        jobs = reader.stream_ids(request.job_ids)
+
+        try:
+            for snapshot in jobs:
+                yield snapshot
+        except Exception as e:
+            return context.abort(grpc.StatusCode.INTERNAL, "Failed to stream job snapshots")
 
     def GetUserHistory(self, request: UserId, context: grpc.ServicerContext) -> UserHistory:
-        return UserHistory(jobs=[UserHistory.Job(id="job_abc"), UserHistory.Job(id="job_def")])
+        try:
+            reader = JobReader(queue)
+            jobs = reader.history(request.user_id)
+
+            return jobs
+        except Exception as e:
+            return context.abort(grpc.StatusCode.INTERNAL, "Failed to read user history")
 
     def GetNodeDefinitions(self, request: NodeDefRequest, context: grpc.ServicerContext) -> NodeDefs:
         node = NodeDefinition(display_name="whatever", description="whatever", category="none", ux_widgets=[],
@@ -81,56 +92,95 @@ class ComfyServicer(ComfyGRPCServiceServicer):
         return node_defs
 
     def GetModelCatalog(self, request: ModelCatalogRequest, context: grpc.ServicerContext) -> ModelCatalog:
-        return ModelCatalog(models={"base": Models(info=[Models.Info(blake3_hash="hash1")])})
+        collection = Collection("models")
+        query = collection.collection.where('family', 'in', request.base_family)
+
+        models = {}
+        for model in query.stream():
+            info = [Models.Info(**info.to_dict()) for info in model.get('info')]
+            models[model.key] = Models(info=info)
+
+        return ModelCatalog(models=models)
 
     def SyncLocalFiles(self, request: empty_pb2.Empty, context: grpc.ServicerContext) -> LocalFiles:
         yield LocalFiles(added=[LocalFile(name="file1.txt")])
 
 
-def add_request_to_queue(request: ComfyRequest, properties: dict):
-    topic = get_affinity(request.workflow)
-    namespace = settings.pulsar.job_queue_namespace
-
-    message_id = add_topic_message(
-        topic,
-        namespace=namespace,
-        properties=properties,
-        message=request.SerializeToString()
-    )
-
-    if not message_id:
-        raise Exception("Failed to add job to queue")
-
-    return message_id
-
-
-def handle_job_request(request: ComfyRequest, user_id: str):
+def _send_job_request(request: ComfyRequest, context: grpc.ServicerContext):
+    job_id = str(uuid4())
     properties = {
-        "job_id": str(uuid4()),
-        "user_uid": user_id_var.get(),
+        "job_id": job_id,
         "estimated_duration": str(1000),
+        "user_uid": context_user_uid.get(),
         "publish_outputs_to_topic": str(True)
     }
 
     try:
-        message_id = add_request_to_queue(request, properties)
-        print(f"New message id: {message_id}")
+        _add_request_to_queue(request, properties)
     except Exception as e:
-        print(f"Error adding request to queue: {e}")
-        raise Exception("Failed to add job to queue")
+        return context.abort(grpc.StatusCode.INTERNAL, "Failed to add job to queue")
+    _add_job_to_user_history(context_user_uid.get(), job_id, JobStatus.QUEUED)
+    return job_id
 
-    return properties['job_id']
+
+def _ensure_context_user(context: grpc.ServicerContext):
+    if context_user_uid.get() is None:
+        return context.abort(grpc.StatusCode.UNAUTHENTICATED, "Authentication Required")
 
 
-def wait_for_job_completion(job_id: str):
-    def listener(message, consumer):
-        print(f"Received message: {message}")
-        consumer.acknowledge(message)
+def _add_request_to_queue(request: ComfyRequest, properties: dict):
+    job_topic = make_topic(settings.pulsar.job_queue_namespace, get_affinity(request.workflow))
+    queue.publish(job_topic, message=request.SerializeToString(), properties=properties)
 
-    topic = f"non-persistent://{settings.pulsar.tenant}/job-output/{job_id}"
-    create_subscription(topic, listener)
 
-    return True
+def _add_job_to_user_history(user_uid: str, job_id: str, status: JobStatus):
+    history_topic = make_topic(settings.pulsar.user_history_namespace, user_uid)
+    message = UserHistory.Job(job_id=job_id, status=status).SerializeToString()
+    queue.publish(history_topic, message=message, partition_key=job_id)
+
+
+def _wait_for_job_snapshot(job_id: str):
+    topic = make_topic(settings.pulsar.job_snapshot_namespace, job_id)
+    listener_name = f"{settings.pulsar.job_snapshot_namespace}-{job_id}"
+    consumer = queue.subscribe(
+        topic,
+        receiver_queue_size=1,
+        consumer_name=listener_name,
+        subscription_name=listener_name,
+        consumer_type=pulsar.ConsumerType.Shared,
+    )
+
+    message = consumer.receive()
+    return JobSnapshot.FromString(message.data())
+
+
+def stream_jobs(job_id: str):
+    topic = make_topic(settings.pulsar.job_snapshot_namespace, job_id)
+    listener_name = f"{settings.pulsar.job_snapshot_namespace}-{job_id}"
+    consumer = queue.subscribe(
+        topic,
+        receiver_queue_size=1,
+        consumer_name=listener_name,
+        subscription_name=listener_name,
+        consumer_type=pulsar.ConsumerType.Shared
+    )
+
+    while True:
+        try:
+            message = consumer.receive()
+            yield JobSnapshot.FromString(message.data())
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+            break
+
+
+def _request_job_cancellation(request: JobId):
+    try:
+        print(f"Requesting job cancellation: {request.job_id}")
+        cancel_topic = make_topic(settings.pulsar.job_cancel_namespace, request.job_id)
+        queue.publish(cancel_topic, message=JobSnapshot(job_id=request.job_id).SerializeToString())
+    except Exception as e:
+        print(f"Error requesting job cancellation: {e}")
 
 
 def get_affinity(_workflow: Workflow):
@@ -164,10 +214,10 @@ class AuthenticationInterceptor(grpc.ServerInterceptor):
             if not user:
                 return self._terminator
 
-            if user_id_var.get() is not None:
+            if context_user_uid.get() is not None:
                 print("Corrupted context var")
 
-            user_id_var.set(user['uid'])
+            context_user_uid.set(user.uid)
             return continuation(handler_call_details)
         else:
             return self._terminator

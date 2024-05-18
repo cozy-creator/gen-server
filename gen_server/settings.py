@@ -1,7 +1,10 @@
+import os
 from typing import Optional
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
 
 
 class S3Config(BaseModel):
@@ -14,9 +17,13 @@ class S3Config(BaseModel):
 
 class PulsarConfig(BaseModel):
     tenant: str
+    rest_url: str
     service_url: str
-    token: Optional[str] = None
     job_queue_namespace: str
+    job_cancel_namespace: str
+    user_history_namespace: str
+    job_snapshot_namespace: str
+    auth_token: Optional[str] = None
 
 
 class FirebaseConfig(BaseModel):
@@ -27,7 +34,7 @@ class Settings(BaseSettings):
     environment: str
     s3: S3Config
     pulsar: PulsarConfig
-    firbase: FirebaseConfig
+    firebase: FirebaseConfig
 
     read_chunk_size: int = 5 * 1024 * 1024
     upload_chunk_size: int = 5 * 1024 * 1024
@@ -35,7 +42,7 @@ class Settings(BaseSettings):
     def is_production(self):
         return self.environment == "production"
 
-    model_config = SettingsConfigDict(env_file="../.env", env_nested_delimiter="__")
+    model_config = SettingsConfigDict(env_file=ENV_PATH, env_nested_delimiter="__")
 
 
 settings = Settings()

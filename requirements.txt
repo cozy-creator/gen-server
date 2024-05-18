@@ -1,4 +1,4 @@
-protobuf~=5.26.1
+protobuf>=4.25.3
 aiohttp~=3.9.5
 pydantic-settings~=2.2.1
 grpcio
@@ -7,3 +7,4 @@ uuid~=1.30
 blake3~=0.4.1
 firebase-admin~=6.5.0
 pydantic~=2.7.1
+pulsar-client>=3.5.0
