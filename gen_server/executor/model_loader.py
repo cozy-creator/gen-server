@@ -16,6 +16,7 @@ def parse_safetensors_header(file_path):
     print(f"Time taken to parse metadata: {end_time - start_time} seconds")
     return metadata
 
+
 def load_all_safetensors_headers(directory):
     headers = {}
     for root, dirs, files in os.walk(directory):
