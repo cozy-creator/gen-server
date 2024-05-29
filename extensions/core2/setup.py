@@ -20,8 +20,8 @@ setup(
             'widget2 = core2.widgets:Widget2',
         ],
         'comfy_creator.custom_nodes': [
-            'node1 = core2.custom_nodes.node1:Node1',
-            'node2 = core2.custom_nodes.node2:Node2',
+            'node1 = core2.custom_nodes.node1:get_nodes',
+            'node2 = core2.custom_nodes.node2:Node1',
         ]
     }
 )
