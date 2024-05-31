@@ -29,14 +29,14 @@ class NodeInterface(Protocol):
         ...
     
     @classmethod
-    def INPUT_TYPES(cls) -> Union[Dict[str, Dict[str, Union[Tuple[str], Tuple[str, Dict]]]], TypedDict[str, InputSpec]]:
+    def INPUT_TYPES(cls) -> Union[Dict[str, Dict[str, Union[Tuple[str], Tuple[str, Dict]]]], Dict[str, InputSpec]]:
         """
         Class method that should return a dictionary specifying the input types for the node.
         """
         ...
         
     @property
-    def RETURN_TYPES(self) -> Union[Tuple[str, ...], TypedDict[str, OutputSpec]]:
+    def RETURN_TYPES(self) -> Union[Tuple[str, ...], Dict[str, OutputSpec]]:
         """
         Specifies the return type (output) of the node. Legacy ComfyUI uses a tuple of strings, while modern
         Comfy Creator uses a dict, so that return-types can be specified by name rather than position.
@@ -51,7 +51,7 @@ class NodeInterface(Protocol):
         ...
         
     @property
-    def display_name(self) -> Optional[TypedDict[str, str]]:
+    def display_name(self) -> Optional[Dict[str, str]]:
         """
         A dictionary, where the keys are ISO 639-1 language-codes (such as 'en', 'zh', or 'ja') and the value is
         the localized display-name of the node for that language.
@@ -59,7 +59,7 @@ class NodeInterface(Protocol):
         return None
     
     @property
-    def description(self) -> Optional[TypedDict[str, str]]:
+    def description(self) -> Optional[Dict[str, str]]:
         """
         A dictionary, where the keys are ISO 639-1 language-codes (such as 'en', 'zh', or 'ja') and the value is
         the localized description of the node for that language.

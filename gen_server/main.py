@@ -11,6 +11,9 @@ from gen_server.settings import settings
 if __name__ == "__main__":
     initialize(json.loads(settings.firebase.service_account))
 
+    if args.run_web_server:
+        from request_handlers.web_server import start_server
+
     # if args.run_web_server:
     #     from request_handlers.web_server import start_server
     #
