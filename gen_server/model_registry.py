@@ -19,6 +19,7 @@ import re
 from diffusers.utils import is_accelerate_available
 if is_accelerate_available():
     from accelerate import init_empty_weights
+    from diffusers.models.modeling_utils import load_model_dict_into_meta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -152,46 +153,35 @@ DIFFUSERS_TO_LDM_MAPPING = {
 }
 
 
-def load_safetensors(safetensors_file: str, model_type: str = "sd1.5", component_name: Optional[str] = None) -> Dict[str, torch.Tensor]:
-
-    
-    # Get the relevant key prefixes for the target component
-    
-
+def load_safetensors(safetensors_file: str, model_type: str = "sd1", component_name: Optional[str] = None) -> Dict[str, torch.Tensor]:
     component_state_dict = {}
     
-    with safetensors.torch.safe_open(safetensors_file, framework="pt", device="cpu") as f:
+    with safetensors.safe_open(safetensors_file, framework="pt", device="cpu") as file:
         if component_name is not None:
             prefixes = key_prefixes[model_type][component_name]
-            for key in f.keys():
+            for key in file.keys():
                 for key_prefix in prefixes:
                     if key.startswith(key_prefix):
-                        component_state_dict[key] = f.get_tensor(key)
+                        component_state_dict[key] = file.get_tensor(key)
                         break
         else:
-            for key in f.keys():
-                component_state_dict[key] = f.get_tensor(key)
+            for key in file.keys():
+                component_state_dict[key] = file.get_tensor(key)
 
     
     return component_state_dict
 
 
 def load_unet(unet_state_dict: dict, config_file: str, device: str = "cpu", model_type: str ="sd1.5") -> UNet2DConditionModel:
-
     config = json.load(open(config_file))
 
     new_unet_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, config=config)
-    
 
     ctx = init_empty_weights if is_accelerate_available() else nullcontext
-
     with ctx():
         unet = UNet2DConditionModel(**config)
 
-
     if is_accelerate_available():
-        from diffusers.models.modeling_utils import load_model_dict_into_meta
-        print("Using accelerate")
         unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict, dtype=None)
         if unet._keys_to_ignore_on_load_unexpected is not None:
             for pat in unet._keys_to_ignore_on_load_unexpected:
@@ -367,3 +357,39 @@ def load_text_encoder_2(text_encoder_state_dict: dict, config_file: str, device:
     text_model.to(torch.bfloat16)
 
     return text_model
+
+
+
+index = {}
+files = []
+for file in files:
+    index[filename] = models_inside_of(file) # example: [ Unet2dCondition, AutoencoderKL, ClipTextModel ], diffusers classes 
+    index[filename] = architecture(file) # example: [DiffusionPipeline, SDXLPipeline]
+    index[filename] = lineage(file)
+
+# go through all safetensor files on civitai and see if they ALL have the same keys?
+# do some civitai models lack a vae, or text-encoder?
+# check keys used by diffusers
+
+# checkout what stability AI did for ComfyUI when it comes to stable cascade
+
+# what is the DiffusionPipeline generic in diffusers? how does playground v2 use this, rather than its own class
+# are their pytorch modules included in these architectures anywhere?
+# is the diffusers class pipe class uniqaue eneough?
+
+# are all Unet2dCondition models the same? Even an SDXL one and an SD1.5 one? If not, then we'll also need to
+# introduce the notion of lineage perhaps, in addition ot architecture
+
+# make a list of all the major model architectuers we need to support
+
+# a safetensors file can contain multiple models inside of it; we want
+# to be able to extract all models inside of a single file when possible
+
+# architecture === pytorch-module
+# diffusers classes are a higher-level interface built on top of pytorch-modules
+# the diffusers classes allow developers to interact with a generic API, without
+# worry about the specific pytorch module (there might be many of them)
+
+# in some cases you have very generic interfaces, like DiffusersPipeline, and then
+# you have more specific ones, like SDXLPipeline, which are specific to a given
+# architecture. I'm not sure why they did this...

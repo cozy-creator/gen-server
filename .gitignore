@@ -1,5 +1,6 @@
 # python
 __pycache__/
+*.egg-info/
 *.py[cod]
 /.vs
 .idea/
@@ -8,17 +9,13 @@ venv/
 .vscode/*
 !.vscode/settings.json
 .mypy_cache/
-*error.log
+*.log
 
 # file folders for users
 /input/
 /temp/
 /output/
 /models/**
-
-# User-installed extensions
-extensions/*
-!extensions/core/
 
 # Build dir
 **/dist/

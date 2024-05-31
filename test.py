@@ -63,10 +63,10 @@ def load_unet(safetensors_file: str, config_file: str, device: str = "cpu") -> U
     config = json.load(open(config_file))
     new_unet_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, config=config)
 
-    unet_config = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", subfolder="unet"
-    ).config
-    unet = UNet2DConditionModel.from_config(unet_config)
+    # unet_config = UNet2DConditionModel.from_pretrained(
+    #     "runwayml/stable-diffusion-v1-5", subfolder="unet"
+    # ).config
+    unet = UNet2DConditionModel.from_config(config)
     unet.load_state_dict(new_unet_state_dict, strict=False)
     unet.to(device)
     end_time = time.time()
@@ -79,8 +79,9 @@ def load_vae(safetensors_file: str, config_file: str, device: str = "cpu") -> Au
     vae_state_dict = slice_pipeline_safetensors(safetensors_file, "vae")
     config = json.load(open(config_file))
     new_vae_state_dict = convert_ldm_vae_checkpoint(vae_state_dict, config=config)
-
-    vae = AutoencoderKL.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="vae")
+    
+    vae = AutoencoderKL.from_config(config)
+    # vae = AutoencoderKL.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="vae")
     vae.load_state_dict(new_vae_state_dict)
     vae.to(device)
     end_time = time.time()
@@ -88,10 +89,12 @@ def load_vae(safetensors_file: str, config_file: str, device: str = "cpu") -> Au
     return vae
 
 
-def load_text_encoder(safetensors_file: str, device: str = "cpu") -> CLIPTextModel:
+def load_text_encoder(safetensors_file: str, config_file: str, device: str = "cpu") -> CLIPTextModel:
     start_time = time.time()
     text_encoder_state_dict = slice_pipeline_safetensors(safetensors_file, "text_encoder")
-
+    config = json.load(open(config_file))
+    
+    CLIPTextModel._from_config(config)
     text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
     text_encoder.load_state_dict(text_encoder_state_dict, strict=False)
     text_encoder.to(device)
@@ -103,13 +106,13 @@ def load_text_encoder(safetensors_file: str, device: str = "cpu") -> CLIPTextMod
 def main():
     overall_start_time = time.time()
     # Path to your pipeline safetensors file
-    safetensors_file = "./models/v1-5-pruned-emaonly.safetensors"
+    safetensors_file = "./models/meinamix.safetensors"
 
     start_time = time.time()
     # Load the individual components
     unet = load_unet(safetensors_file, "unet_config.json", device="cuda")
     vae = load_vae(safetensors_file, "vae_config.json", device="cuda")
-    text_encoder = load_text_encoder(safetensors_file, device="cuda")
+    text_encoder = load_text_encoder(safetensors_file, "text_encoder_config.json", device="cuda")
     end_time = time.time()
     print(f"Loading individual components took {end_time - start_time:.2f} seconds")
 
@@ -137,8 +140,8 @@ def main():
 
     start_time = time.time()
     # Generate images!
-    prompt = "A beautiful sunset on the mountains"
-    image = pipe(prompt, num_inference_steps=25).images[0]
+    prompt = "Beautiful anime woman, masterpiece, detailed"
+    image = pipe(prompt, num_inference_steps=25, negative_prompt="poor quality, worst quality, text, watermark").images[0]
     image.save("generated_image.png")
     end_time = time.time()
     print(f"Generating the image took {end_time - start_time:.2f} seconds")

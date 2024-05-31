@@ -1,5 +1,0 @@
-Metadata-Version: 2.1
-Name: image_nodes
-Version: 0.1.0
-Summary: Image manipulation utilities for ComfyUI
-Requires-Dist: pillow

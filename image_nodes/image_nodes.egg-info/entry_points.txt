@@ -1,3 +1,0 @@
-[comfyui_custom_nodes]
-image_nnodes = image_nodes.nnodes:get_nodes
-image_nodes = image_nodes.nodes:get_nodes

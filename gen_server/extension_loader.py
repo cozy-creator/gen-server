@@ -10,6 +10,70 @@ import sys
 import traceback
 
 
+# this might work
+def load_components(entry_point_group):
+    components = {}
+    for entry_point in pkg_resources.iter_entry_points(group=entry_point_group):
+        # entry-point-name is not guaranteed to be globally unique
+        # this means packages can overwrite each other by defining the same entry-point-name
+        # perhaps we should scope these then?
+        package_name = entry_point.dist.project_name  # Get the package name from the distribution
+        scoped_name = f"{package_name}.{entry_point.name}"
+        components[scoped_name] = entry_point.load()
+    return components
+
+# Architectures will be classes that can be used to detect models and instantiate them
+# api-endpoints will extend the aiohttp rest server somehow
+# widgets will somehow define react files to be somehow be imported by the client
+# custom nodes will define new nodes to be instantiated by the graph-editor
+architectures = load_components('comfy_creator.architectures')
+api_endpoints = load_components('comfy_creator.api')
+widgets = load_components('comfy_creator.widgets')
+custom_nodes = load_components('comfy_creator.custom_nodes')
+
+
+def load_custom_nodes():
+    # Dictionary to hold the loaded nodes from different packages
+    custom_nodes = {}
+
+    # Discover and load entry points from the 'comfyui_custom_nodes' group
+    for entry_point in pkg_resources.iter_entry_points('comfyui_custom_nodes'):
+        # Load the entry point (this executes the function or returns the object defined in setup.py)
+        get_nodes_func = entry_point.load()
+
+        # Call the function to get the nodes (assuming these functions return a list of node instances or definitions)
+        nodes = get_nodes_func()
+
+        # Store the nodes under the name provided in the entry point
+        custom_nodes[entry_point.name] = nodes
+
+    return custom_nodes
+
+
+class Architecture:
+    pass
+
+class ModelRegistry:
+    def __init__(self):
+        self.architectures = {}
+
+    def load_architectures(self):
+        for entry_point in pkg_resources.iter_entry_points('my_model_framework.architectures'):
+            arch_class = entry_point.load()
+            if issubclass(arch_class, Architecture):
+                self.register(arch_class)
+
+    def register(self, arch_class):
+        self.architectures[arch_class.id] = arch_class
+
+    def find_architecture(self, state_dict):
+        for arch in self.architectures.values():
+            if arch.detect(state_dict):
+                return arch
+        return None
+
+
+
 NODE_CLASSES = {}
 DISPLAY_NAMES = {}
 
