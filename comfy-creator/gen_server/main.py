@@ -1,14 +1,10 @@
 import json
-import os
-import sys
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from cli_args import args
-from gen_server.common.firebase import initialize
-from gen_server.settings import settings
-import extension_loader # discovers extensions
-from extension_loader import API_ENDPOINTS, ARCHITECTURES, CUSTOM_NODES, WIDGETS
+from .cli_args import args
+# from .common.firebase import initialize
+# from .settings import settings
+from .extension_loader import API_ENDPOINTS, ARCHITECTURES, CUSTOM_NODES, WIDGETS
 
 
 def main():
@@ -32,5 +28,5 @@ def main():
 
 
 if __name__ == "__main__":
-    initialize(json.loads(settings.firebase.service_account))
+    # initialize(json.loads(settings.firebase.service_account))
     main()

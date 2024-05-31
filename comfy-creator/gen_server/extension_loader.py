@@ -4,7 +4,7 @@ import inspect
 import json
 import pkg_resources
 import configparser
-from paths import get_folder_path
+from .paths import get_folder_path
 import logging
 import sys
 import traceback

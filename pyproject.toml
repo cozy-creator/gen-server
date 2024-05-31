@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm", "wheel"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["gen_server", "extensions", "model_registry", "protobuf"]
-namespaces = false
+where = ["comfy-creator"]
+include = ["*"]
 
 [project]
 name = "comfy-creator"
@@ -14,14 +14,17 @@ authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
 dependencies = [
-    "protobuf~=5.26.1",
-    "aiohttp~=3.9.5",
-    "pydantic-settings~=2.2.1",
+    "aiohttp>=3.9.5",
+    "blake3>=0.4.1",
+    "boto3>=1.34.99",
+    "firebase-admin>=6.5.0",
     "grpcio",
-    "boto3~=1.34.99",
-    "uuid~=1.30",
-    "blake3~=0.4.1",
-    "requests"
+    "protobuf",
+    "pulsar-client>=3.5.0",
+    "pydantic>=2.7.1",
+    "pydantic-settings>=2.2.1",
+    "requests",
+    "uuid~=1.30"
 ]
 
 [project.scripts]
@@ -37,7 +40,7 @@ architecture2 = "extensions.core2.arch2:Architecture2"
 
 [project.entry-points."comfy_creator.custom_nodes"]
 node1 = "extensions.core2.custom_nodes.node1:get_nodes"
-node2 = "extensions.core2.custom_nodes.node2:Node1"
+node2 = "extensions.core2.custom_nodes.node1:Node1"
 
 [project.entry-points."comfy_creator.widgets"]
 widget1 = "extensions.core2.widgets:Widget1"

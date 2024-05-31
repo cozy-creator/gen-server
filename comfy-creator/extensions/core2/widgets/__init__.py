@@ -1,4 +1,4 @@
-class Widgets:
+class Widget1:
     pass
 
 class Widget2:
