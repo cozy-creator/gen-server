@@ -1,0 +1,7 @@
+setup.py
+image_nodes.egg-info/PKG-INFO
+image_nodes.egg-info/SOURCES.txt
+image_nodes.egg-info/dependency_links.txt
+image_nodes.egg-info/entry_points.txt
+image_nodes.egg-info/requires.txt
+image_nodes.egg-info/top_level.txt

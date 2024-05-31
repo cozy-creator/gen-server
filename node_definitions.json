@@ -1,0 +1,47 @@
+[
+    {
+        "name": "image_nnodes.ImageInvert",
+        "display_name": "Invert Image Colors",
+        "node_class": "<class 'image_nodes.nnodes.ImageInvert'>"
+    },
+    {
+        "name": "image_nodes.ImageInvert",
+        "display_name": "Invert Image Colors",
+        "node_class": "<class 'image_nodes.nodes.ImageInvert'>"
+    },
+    {
+        "name": "core.CLIPVisionEncode",
+        "display_name": "clip_vision",
+        "node_class": "<class 'clip_vision_encoder.CLIPVisionEncode'>"
+    },
+    {
+        "name": "core.Denoiser",
+        "display_name": "Denoiser",
+        "node_class": "<class 'denoiser.Denoiser'>"
+    },
+    {
+        "name": "core.ConstantNode",
+        "display_name": "ConstantNode",
+        "node_class": "<class 'const.ConstantNode'>"
+    },
+    {
+        "name": "core.ControlNetApply",
+        "display_name": "ControlNetApply",
+        "node_class": "<class 'controlnet_apply.ControlNetApply'>"
+    },
+    {
+        "name": "core.DenoiseScheduler",
+        "display_name": "DenoiseScheduler",
+        "node_class": "<class 'denoise_schedule.DenoiseScheduler'>"
+    },
+    {
+        "name": "core.OpenAITextGeneration",
+        "display_name": "OpenAITextGeneration",
+        "node_class": "<class 'openai_api.OpenAITextGeneration'>"
+    },
+    {
+        "name": "core.TextEncoder",
+        "display_name": "TextEncoder",
+        "node_class": "<class 'text_encoder.TextEncoder'>"
+    }
+]

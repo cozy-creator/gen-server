@@ -1,0 +1,205 @@
+** ComfyUI startup time: 2024-04-30 20:16:16.290474
+[2024-04-30 20:16] ** Platform: Windows
+[2024-04-30 20:16] ** Python version: 3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]
+[2024-04-30 20:16] ** Python executable: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\.venv\Scripts\python.exe
+[2024-04-30 20:16] ** Log path: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\image_nodes\comfyui.log
+[2024-04-30 20:16] 
+Prestartup times for custom nodes:
+[2024-04-30 20:16]    0.2 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\ComfyUI-Manager
+[2024-04-30 20:16] 
+Total VRAM 16376 MB, total RAM 32508 MB
+[2024-04-30 20:16] Set vram state to: NORMAL_VRAM
+[2024-04-30 20:16] Device: cuda:0 NVIDIA GeForce RTX 4090 Laptop GPU : cudaMallocAsync
+[2024-04-30 20:16] VAE dtype: torch.bfloat16
+[2024-04-30 20:16] Using pytorch cross attention
+[2024-04-30 20:16] Adding extra search path checkpoints path/to/stable-diffusion-webui/models/Stable-diffusion
+[2024-04-30 20:16] Adding extra search path configs path/to/stable-diffusion-webui/models/Stable-diffusion
+[2024-04-30 20:16] Adding extra search path vae path/to/stable-diffusion-webui/models/VAE
+[2024-04-30 20:16] Adding extra search path loras path/to/stable-diffusion-webui/models/Lora
+[2024-04-30 20:16] Adding extra search path loras path/to/stable-diffusion-webui/models/LyCORIS
+[2024-04-30 20:16] Adding extra search path upscale_models path/to/stable-diffusion-webui/models/ESRGAN
+[2024-04-30 20:16] Adding extra search path upscale_models path/to/stable-diffusion-webui/models/RealESRGAN
+[2024-04-30 20:16] Adding extra search path upscale_models path/to/stable-diffusion-webui/models/SwinIR
+[2024-04-30 20:16] Adding extra search path embeddings path/to/stable-diffusion-webui/embeddings
+[2024-04-30 20:16] Adding extra search path hypernetworks path/to/stable-diffusion-webui/models/hypernetworks
+[2024-04-30 20:16] Adding extra search path controlnet path/to/stable-diffusion-webui/models/ControlNet
+[2024-04-30 20:16] Adding extra search path GPTcheckpoints path/to/stable-diffusion-webui/models/
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_latent
+[2024-04-30 20:16] nodes_latent.LatentAdd
+[2024-04-30 20:16] nodes_latent.LatentSubtract
+[2024-04-30 20:16] nodes_latent.LatentMultiply
+[2024-04-30 20:16] nodes_latent.LatentInterpolate
+[2024-04-30 20:16] nodes_latent.LatentBatch
+[2024-04-30 20:16] nodes_latent.LatentBatchSeedBehavior
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_hypernetwork
+[2024-04-30 20:16] nodes_hypernetwork.HypernetworkLoader
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_upscale_model
+[2024-04-30 20:16] nodes_upscale_model.UpscaleModelLoader
+[2024-04-30 20:16] nodes_upscale_model.ImageUpscaleWithModel
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_post_processing
+[2024-04-30 20:16] nodes_post_processing.ImageBlend
+[2024-04-30 20:16] nodes_post_processing.ImageBlur
+[2024-04-30 20:16] nodes_post_processing.ImageQuantize
+[2024-04-30 20:16] nodes_post_processing.ImageSharpen
+[2024-04-30 20:16] nodes_post_processing.ImageScaleToTotalPixels
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_mask
+[2024-04-30 20:16] nodes_mask.LatentCompositeMasked
+[2024-04-30 20:16] nodes_mask.ImageCompositeMasked
+[2024-04-30 20:16] nodes_mask.MaskToImage
+[2024-04-30 20:16] nodes_mask.ImageToMask
+[2024-04-30 20:16] nodes_mask.ImageColorToMask
+[2024-04-30 20:16] nodes_mask.SolidMask
+[2024-04-30 20:16] nodes_mask.InvertMask
+[2024-04-30 20:16] nodes_mask.CropMask
+[2024-04-30 20:16] nodes_mask.MaskComposite
+[2024-04-30 20:16] nodes_mask.FeatherMask
+[2024-04-30 20:16] nodes_mask.GrowMask
+[2024-04-30 20:16] nodes_mask.ThresholdMask
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_compositing
+[2024-04-30 20:16] nodes_compositing.PorterDuffImageComposite
+[2024-04-30 20:16] nodes_compositing.SplitImageWithAlpha
+[2024-04-30 20:16] nodes_compositing.JoinImageWithAlpha
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_rebatch
+[2024-04-30 20:16] nodes_rebatch.RebatchLatents
+[2024-04-30 20:16] nodes_rebatch.RebatchImages
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_model_merging
+[2024-04-30 20:16] nodes_model_merging.ModelMergeSimple
+[2024-04-30 20:16] nodes_model_merging.ModelMergeBlocks
+[2024-04-30 20:16] nodes_model_merging.ModelMergeSubtract
+[2024-04-30 20:16] nodes_model_merging.ModelMergeAdd
+[2024-04-30 20:16] nodes_model_merging.CheckpointSave
+[2024-04-30 20:16] nodes_model_merging.CLIPMergeSimple
+[2024-04-30 20:16] nodes_model_merging.CLIPMergeSubtract
+[2024-04-30 20:16] nodes_model_merging.CLIPMergeAdd
+[2024-04-30 20:16] nodes_model_merging.CLIPSave
+[2024-04-30 20:16] nodes_model_merging.VAESave
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_tomesd
+[2024-04-30 20:16] nodes_tomesd.TomePatchModel
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_clip_sdxl
+[2024-04-30 20:16] nodes_clip_sdxl.CLIPTextEncodeSDXLRefiner
+[2024-04-30 20:16] nodes_clip_sdxl.CLIPTextEncodeSDXL
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_canny
+[2024-04-30 20:16] nodes_canny.Canny
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_freelunch
+[2024-04-30 20:16] nodes_freelunch.FreeU
+[2024-04-30 20:16] nodes_freelunch.FreeU_V2
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_custom_sampler
+[2024-04-30 20:16] nodes_custom_sampler.SamplerCustom
+[2024-04-30 20:16] nodes_custom_sampler.BasicScheduler
+[2024-04-30 20:16] nodes_custom_sampler.KarrasScheduler
+[2024-04-30 20:16] nodes_custom_sampler.ExponentialScheduler
+[2024-04-30 20:16] nodes_custom_sampler.PolyexponentialScheduler
+[2024-04-30 20:16] nodes_custom_sampler.VPScheduler
+[2024-04-30 20:16] nodes_custom_sampler.SDTurboScheduler
+[2024-04-30 20:16] nodes_custom_sampler.KSamplerSelect
+[2024-04-30 20:16] nodes_custom_sampler.SamplerEulerAncestral
+[2024-04-30 20:16] nodes_custom_sampler.SamplerLMS
+[2024-04-30 20:16] nodes_custom_sampler.SamplerDPMPP_3M_SDE
+[2024-04-30 20:16] nodes_custom_sampler.SamplerDPMPP_2M_SDE
+[2024-04-30 20:16] nodes_custom_sampler.SamplerDPMPP_SDE
+[2024-04-30 20:16] nodes_custom_sampler.SplitSigmas
+[2024-04-30 20:16] nodes_custom_sampler.FlipSigmas
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_hypertile
+[2024-04-30 20:16] nodes_hypertile.HyperTile
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_model_advanced
+[2024-04-30 20:16] nodes_model_advanced.ModelSamplingDiscrete
+[2024-04-30 20:16] nodes_model_advanced.ModelSamplingContinuousEDM
+[2024-04-30 20:16] nodes_model_advanced.ModelSamplingStableCascade
+[2024-04-30 20:16] nodes_model_advanced.RescaleCFG
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_model_downscale
+[2024-04-30 20:16] nodes_model_downscale.PatchModelAddDownscale
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_images
+[2024-04-30 20:16] nodes_images.ImageCrop
+[2024-04-30 20:16] nodes_images.RepeatImageBatch
+[2024-04-30 20:16] nodes_images.ImageFromBatch
+[2024-04-30 20:16] nodes_images.SaveAnimatedWEBP
+[2024-04-30 20:16] nodes_images.SaveAnimatedPNG
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_video_model
+[2024-04-30 20:16] nodes_video_model.ImageOnlyCheckpointLoader
+[2024-04-30 20:16] nodes_video_model.SVD_img2vid_Conditioning
+[2024-04-30 20:16] nodes_video_model.VideoLinearCFGGuidance
+[2024-04-30 20:16] nodes_video_model.ImageOnlyCheckpointSave
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_sag
+[2024-04-30 20:16] nodes_sag.SelfAttentionGuidance
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_perpneg
+[2024-04-30 20:16] nodes_perpneg.PerpNeg
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_stable3d
+[2024-04-30 20:16] nodes_stable3d.StableZero123_Conditioning
+[2024-04-30 20:16] nodes_stable3d.StableZero123_Conditioning_Batched
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_sdupscale
+[2024-04-30 20:16] nodes_sdupscale.SD_4XUpscale_Conditioning
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_photomaker
+[2024-04-30 20:16] nodes_photomaker.PhotoMakerLoader
+[2024-04-30 20:16] nodes_photomaker.PhotoMakerEncode
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_cond
+[2024-04-30 20:16] nodes_cond.CLIPTextEncodeControlnet
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_morphology
+[2024-04-30 20:16] nodes_morphology.Morphology
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_stable_cascade
+[2024-04-30 20:16] nodes_stable_cascade.StableCascade_EmptyLatentImage
+[2024-04-30 20:16] nodes_stable_cascade.StableCascade_StageB_Conditioning
+[2024-04-30 20:16] nodes_stable_cascade.StableCascade_StageC_VAEEncode
+[2024-04-30 20:16] nodes_stable_cascade.StableCascade_SuperResolutionControlnet
+[2024-04-30 20:16] Here
+[2024-04-30 20:16] C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\comfy_extras\nodes_differential_diffusion
+[2024-04-30 20:16] nodes_differential_diffusion.DifferentialDiffusion
+[2024-04-30 20:16] ### Loading: ComfyUI-Manager (V2.16.1)
+[2024-04-30 20:16] ### ComfyUI Revision: UNKNOWN (The currently installed ComfyUI is not a Git repository)
+[2024-04-30 20:16] ------------------------------------------
+[2024-04-30 20:16] [34m### N-Suite Revision:[0m [32mdbeb9ae9 [0m
+[2024-04-30 20:16] Current version of packaging: 24.0
+[2024-04-30 20:16] Version of cpuinfo: Not found
+[2024-04-30 20:16] Current version of git: 3.1.43
+[2024-04-30 20:16] Current version of moviepy: 1.0.3
+[2024-04-30 20:16] Current version of cv2: 4.9.0
+[2024-04-30 20:16] Current version of skbuild: 0.17.6
+[2024-04-30 20:16] Version of typing: Not found
+[2024-04-30 20:16] Current version of diskcache: 5.6.3
+[2024-04-30 20:16] Current version of llama_cpp: 0.2.65
+[2024-04-30 20:16] Current version of timm: 0.9.16
+[2024-04-30 20:16] Path path/to/stable-diffusion-webui/models/ not valid.
+[2024-04-30 20:16] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/alter-list.json
+[2024-04-30 20:16] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/model-list.json
+[2024-04-30 20:16] 
+Import times for custom nodes:
+[2024-04-30 20:16]    0.0 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\Node1
+[2024-04-30 20:16]    0.0 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\Node2
+[2024-04-30 20:16]    0.0 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\execution-inversion-demo-comfyui
+[2024-04-30 20:16]    0.0 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\ComfyUI-Custom-Scripts
+[2024-04-30 20:16]    0.1 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\ComfyUI-Manager
+[2024-04-30 20:16]    0.8 seconds: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\ComfyUI-N-Nodes
+[2024-04-30 20:16] 
+[2024-04-30 20:16] Starting server
+
+[2024-04-30 20:16] To see the GUI go to: http://127.0.0.1:8188
+[2024-04-30 20:16] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/extension-node-map.json
+[2024-04-30 20:16] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
+[2024-04-30 20:16] FETCH DATA from: C:\Users\teggy\Desktop\Comfy_Creator\Comfy-Inference-API\custom_nodes\ComfyUI-Manager\extension-node-map.json
+[2024-04-30 20:23] 
+Stopped server

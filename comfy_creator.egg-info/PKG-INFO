@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: comfy-creator
+Version: 0.0.1
+Summary: Generative-AI server for content production
+Author-email: Paul Fidika <paul@fidika.com>
+Requires-Dist: protobuf~=5.26.1
+Requires-Dist: aiohttp~=3.9.5
+Requires-Dist: pydantic-settings~=2.2.1
+Requires-Dist: grpcio
+Requires-Dist: boto3~=1.34.99
+Requires-Dist: uuid~=1.30
+Requires-Dist: blake3~=0.4.1
+Requires-Dist: requests

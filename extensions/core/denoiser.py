@@ -7,5 +7,6 @@ class Denoiser():
         pass
 
     def forward(self):
+        print("Denoiser forward")
         pass
 

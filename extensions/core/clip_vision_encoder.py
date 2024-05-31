@@ -1,8 +1,7 @@
 # takes an image and produces an embedding
 class CLIPVisionEncode:
 
-
-    NAMESPACE = "clip_vision"
+    DISPLAY_NAME = "clip_vision"
 
     @classmethod
     def INPUT_TYPES(s):
@@ -17,5 +16,4 @@ class CLIPVisionEncode:
     def encode(self, clip_vision, image):
         output = clip_vision.encode_image(image)
         return (output,)
-    
 
