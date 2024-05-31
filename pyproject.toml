@@ -1,9 +1,13 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "setuptools-scm", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where = ["gen_server", "extensions", "model_registry", "protobuf"]
+namespaces = false
+
 [project]
-name = "ComfyCreator"
+name = "comfy-creator"
 description = "Generative-AI server for content production"
 version = "0.0.1"
 authors = [
@@ -31,10 +35,10 @@ endpoint2 = "extensions.core2.api.endpoint2:Endpoint2"
 architecture1 = "extensions.core2.arch1:Architecture1"
 architecture2 = "extensions.core2.arch2:Architecture2"
 
-[project.entry-points."comfy_creator.widgets"]
-widget1 = "extensions.core2.widgets:Widget1"
-widget2 = "extensions.core2.widgets:Widget2"
-
 [project.entry-points."comfy_creator.custom_nodes"]
 node1 = "extensions.core2.custom_nodes.node1:get_nodes"
 node2 = "extensions.core2.custom_nodes.node2:Node1"
+
+[project.entry-points."comfy_creator.widgets"]
+widget1 = "extensions.core2.widgets:Widget1"
+widget2 = "extensions.core2.widgets:Widget2"
