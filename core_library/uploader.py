@@ -2,7 +2,6 @@ import os
 from typing import Optional, Union
 
 from boto3 import session
-
 from gen_server.settings import S3Config
 
 

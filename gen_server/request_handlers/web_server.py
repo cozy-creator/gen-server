@@ -6,8 +6,34 @@ from aiohttp import web, MultipartReader, BodyPartReader
 from core_library.uploader import S3Uploader
 from gen_server.settings import settings
 from gen_server.utils import get_project_root, get_file_blake3_hash, get_file_mimetype, get_file_extension
+import os
+import json
+from importlib import import_module
+
+
+def discover_extensions():
+    extensions_dir = "extensions"
+    for item in os.listdir(extensions_dir):
+        item_path = os.path.join(extensions_dir, item)
+        if os.path.isdir(item_path):
+            yield item_path
+
+
+def register_extension_endpoints(app):
+    for extension_dir in discover_extensions():
+        manifest_path = os.path.join(extension_dir, "manifest.json")
+        try:
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+            api_module = import_module(f"{extension_dir}.api")
+            for endpoint_info in manifest.get("api", []):
+                app.router.add_route(endpoint_info["method"], endpoint_info["path"], getattr(api_module, endpoint_info["function"]))
+        except (ImportError, FileNotFoundError):
+            pass
+
 
 app = web.Application()
+register_extension_endpoints(app)
 
 
 def setup_routes(app: web.Application):
@@ -51,7 +77,7 @@ async def handle_file_upload(file: Union[MultipartReader, BodyPartReader, None])
         return upload_path
     else:
         return await persist_temp_file(fpath)
-
+    
 
 async def persist_temp_file(file_path: str):
     root = get_project_root()
@@ -94,7 +120,7 @@ async def save_temp_file(file: Union[MultipartReader, BodyPartReader, None]):
 
 
 def serve_static(app: web.Application):
-    dist_path = get_project_root().joinpath('web/dist');
+    dist_path = get_project_root().joinpath('web/dist')
     if not os.path.exists(dist_path):
         print(f"Web dist directory not found: {dist_path}")
         return

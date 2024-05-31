@@ -10,7 +10,6 @@ import sys
 import traceback
 
 
-
 NODE_CLASSES = {}
 DISPLAY_NAMES = {}
 
@@ -43,46 +42,6 @@ def discover_custom_nodes():
         except ImportError:
             print(f"Failed to import package: {package_name}")
 
-
-
-def load_nodes_from_directory(directory):
-    for filename in os.listdir(directory):
-        if filename == '__init__.py' or filename == '__pycache__':
-            continue
-        elif filename.endswith('.py'):
-            module_path = os.path.join(directory, filename)
-            load_custom_node(module_path)
-
-def load_all_nodes(extensions_dir):
-    for directory_name in os.listdir(extensions_dir):
-        directory_path = os.path.join(extensions_dir, directory_name)
-        if os.path.isdir(directory_path):
-            print(f"Loading nodes from directory: {directory_path}")
-            load_nodes_from_directory(directory_path)
-        else:
-            continue
-
-
-
-def load_core_node(core_nodes_dir):
-    for filename in os.listdir(core_nodes_dir):
-        if filename == '__init__.py' or filename == '__pycache__':
-            continue
-        elif filename.endswith('.py'):
-            module_name = os.path.splitext(filename)[0]
-            module_path = os.path.join(core_nodes_dir, filename)
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj):
-                    # Ensure it's a class defined in this module
-                    if obj.__module__ == module.__name__:
-                        # Construct the dictionary
-                        class_name = f"core.{obj.__name__}"
-                        NODE_CLASSES[class_name] = obj
-                        DISPLAY_NAMES[class_name] = getattr(obj, "DISPLAY_NAME", obj.__name__)
 
 def load_custom_node(extensions_dir):
     for root, dirs, files in os.walk(extensions_dir):

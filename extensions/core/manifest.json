@@ -1,0 +1,14 @@
+{
+    "api": [
+      {
+        "method": "POST",
+        "path": "/upload_image",
+        "function": "upload_image"
+      },
+      {
+        "method": "GET",
+        "path": "/other_endpoint",
+        "function": "another_function" 
+      }
+    ]
+  }
