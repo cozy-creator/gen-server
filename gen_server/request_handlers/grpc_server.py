@@ -17,13 +17,32 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../p
 import grpc
 from google.protobuf import empty_pb2
 from uuid import uuid4
-from protobuf import ComfyGRPCServiceServicer, add_ComfyGRPCServiceServicer_to_server
-from protobuf import ComfyRequest, JobSnapshot, JobStatus, JobId, JobIds, UserId, UserHistory, NodeDefRequest, NodeDefs, \
-    NodeDefinition, ModelCatalogRequest, ModelCatalog, Models, LocalFiles, LocalFile, Workflow
+from proto_defs import (
+    ComfyGRPCServiceServicer, 
+    add_ComfyGRPCServiceServicer_to_server,
+    ComfyRequest, 
+    JobSnapshot, 
+    JobStatus, 
+    JobId, 
+    JobIds, 
+    UserId, 
+    UserHistory, 
+    NodeDefRequest, 
+    NodeDefs,
+    NodeDefinition, 
+    ModelCatalogRequest, 
+    ModelCatalog, 
+    Models, 
+    LocalFiles, 
+    LocalFile, 
+    Workflow
+)
 from gen_server.job_queue.pulsar import add_topic_message, Pulsar, make_topic
 
 context_user_uid: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 queue = Pulsar(settings.pulsar)
+
+from concurrent import futures
 
 
 class ComfyServicer(ComfyGRPCServiceServicer):

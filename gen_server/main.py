@@ -7,21 +7,28 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cli_args import args
 from gen_server.common.firebase import initialize
 from gen_server.settings import settings
+import extension_loader # discovers extensions
+from extension_loader import API_ENDPOINTS, ARCHITECTURES, CUSTOM_NODES, WIDGETS
 
 
 def main():
-    if args.run_web_server:
-        from request_handlers.web_server import start_server
+    print(API_ENDPOINTS)
+    print(ARCHITECTURES)
+    print(CUSTOM_NODES)
+    print(WIDGETS)
+    
+    # if args.run_web_server:
+    #     from request_handlers.web_server import start_server
 
     # if args.run_web_server:
     #     from request_handlers.web_server import start_server
     #
     #     start_server(args.host, args.web_server_port)
 
-    if args.run_grpc:
-        from request_handlers.grpc_server import start_server
+    # if args.run_grpc:
+    #     from request_handlers.grpc_server import start_server
 
-        start_server(args.host, args.grpc_port)
+    #     start_server(args.host, args.grpc_port)
 
 
 if __name__ == "__main__":
