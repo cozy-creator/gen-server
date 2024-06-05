@@ -1,7 +1,7 @@
 from typing import Callable
 from diffusers import AutoencoderKL
-from spandrel import ArchSupport, Architecture, StateDict
-from spandrel.util import KeyCondition
+from spandrel_core import Architecture, StateDict
+from spandrel_core.util import KeyCondition
 import json
 from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
 import time

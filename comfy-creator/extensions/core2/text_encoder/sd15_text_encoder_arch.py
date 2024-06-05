@@ -1,5 +1,5 @@
-from spandrel import Architecture, StateDict
-from spandrel.util import KeyCondition
+from spandrel_core import Architecture, StateDict
+from spandrel_core.util import KeyCondition
 import json
 import time
 from transformers import CLIPTextModel, CLIPTextConfig
@@ -17,9 +17,9 @@ class SD15TextEncoderArch(Architecture[CLIPTextModel]):
         super().__init__(
             id="SD15TextEncoder",
             name="TextEncoder",
-            detect=KeyCondition.has_any(
+            detect=KeyCondition.has_all(
                 "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",
-                "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
+                # "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
             ),
         )
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Literal, Mapping, Sequence, Optional, Any
 import importlib
-import pkgutil
+import pkg_resources
 
 import torch
 
 from .canonicalize import canonicalize_state_dict
-from .model_descriptor import ArchId, Architecture, ModelDescriptor, StateDict
+from spandrel_core import ArchId, Architecture, ModelDescriptor, StateDict
 
 class UnsupportedModelError(Exception):
     """
@@ -65,15 +65,21 @@ class ArchRegistry:
         self._load_architectures()
 
     def _load_architectures(self):
-        for entry_point in pkgutil.iter_entry_points(group=f"{self._namespace}.architectures"):
+        print("Loading architectures")
+        for entry_point in pkg_resources.iter_entry_points(group=f"comfy_creator.architectures"):
             try:
                 module = importlib.import_module(entry_point.module_name)
-                arch_class = getattr(module, entry_point.name)
+                print(entry_point.attrs[0])
+                arch_class_name = entry_point.attrs[0] 
+                arch_class = getattr(module, arch_class_name)
                 if issubclass(arch_class, Architecture):
+                    print("Got Here")
+                    print(f"Loading architecture {entry_point.name}")
                     arch_support = ArchSupport.from_architecture(arch_class())
                     self.add(arch_support)
             except Exception as e:
                 print(f"Error loading architecture {entry_point.name}: {e}")
+
 
     def copy(self) -> ArchRegistry:
         """
