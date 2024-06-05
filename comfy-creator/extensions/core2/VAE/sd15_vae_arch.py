@@ -25,6 +25,7 @@ class SD15VAEArch(Architecture[AutoencoderKL]):
         start = time.time()
         config = json.load(open(f"{folders['vae']}/sd15_vae_config.json"))
         vae = AutoencoderKL(**config)
+        print("Here")
 
         vae_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("first_stage_model.")}
 

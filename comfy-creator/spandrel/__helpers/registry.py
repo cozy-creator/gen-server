@@ -69,12 +69,11 @@ class ArchRegistry:
         for entry_point in pkg_resources.iter_entry_points(group=f"comfy_creator.architectures"):
             try:
                 module = importlib.import_module(entry_point.module_name)
-                print(entry_point.attrs[0])
+                print(entry_point.attrs[0] )
                 arch_class_name = entry_point.attrs[0] 
                 arch_class = getattr(module, arch_class_name)
                 if issubclass(arch_class, Architecture):
-                    print("Got Here")
-                    print(f"Loading architecture {entry_point.name}")
+                    print(f"Loading architecture {entry_point.attrs[0]}")
                     arch_support = ArchSupport.from_architecture(arch_class())
                     self.add(arch_support)
             except Exception as e:
@@ -199,6 +198,7 @@ class ArchRegistry:
         state_dict = canonicalize_state_dict(state_dict)
 
         for arch in self._ordered:
+            print("here")
             if arch.detect(state_dict):
                 return arch.architecture.load(state_dict)
 

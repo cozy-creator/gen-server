@@ -10,9 +10,9 @@ folders = {
     "input": os.path.join(base_path, 'input'),
     "models": os.path.join(base_path, 'models'),
     "custom_architecture": os.path.join(base_path, 'custom_architecture'),
-    "vae": os.path.join(base_path, 'VAE'),
-    "unet": os.path.join(base_path, 'unet'),
-    "text_encoder": os.path.join(base_path, 'text_encoder'),
+    "vae": os.path.join(base_path, 'extensions/core2/VAE'),
+    "unet": os.path.join(base_path, 'extensions/core2/unet'),
+    "text_encoder": os.path.join(base_path, 'extensions/core2/text_encoder'),
 }
 
 

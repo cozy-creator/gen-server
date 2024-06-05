@@ -93,9 +93,10 @@ class ModelLoader:
         loaded_components = {}  # Initialize an empty dictionary
         for arch_support in self.registry.architectures("detection"):  # Iterate through all architectures
             try:
-                loaded_components.update(arch_support.architecture.load(state_dict))  # Update the dictionary with the loaded component
-            except:
-                pass
+                if arch_support.architecture.detect(state_dict):
+                    loaded_components.update(arch_support.architecture.load(state_dict))  # Update the dictionary with the loaded component
+            except Exception as e:
+                print(e)
 
         return loaded_components
 
