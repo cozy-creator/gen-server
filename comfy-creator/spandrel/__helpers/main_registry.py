@@ -38,7 +38,7 @@ from ..architectures import (
 )
 from .registry import ArchRegistry, ArchSupport
 
-MAIN_REGISTRY = ArchRegistry()
+MAIN_REGISTRY = ArchRegistry(namespace="comfy_creator")
 """
 The main architecture registry of spandrel.
 

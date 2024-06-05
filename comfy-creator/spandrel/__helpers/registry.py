@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal, Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence, Optional, Any
+import importlib
+import pkgutil
 
 import torch
 
 from .canonicalize import canonicalize_state_dict
 from .model_descriptor import ArchId, Architecture, ModelDescriptor, StateDict
-
 
 class UnsupportedModelError(Exception):
     """
@@ -55,17 +56,30 @@ class ArchRegistry:
     Architectures are detected/loaded in insertion order unless `before` is specified.
     """
 
-    def __init__(self):
+    def __init__(self, namespace: str):
+        self._namespace = namespace
         # the registry is copy on write internally
         self._architectures: Sequence[ArchSupport] = []
         self._ordered: Sequence[ArchSupport] = []
         self._by_id: Mapping[ArchId, ArchSupport] = {}
+        self._load_architectures()
+
+    def _load_architectures(self):
+        for entry_point in pkgutil.iter_entry_points(group=f"{self._namespace}.architectures"):
+            try:
+                module = importlib.import_module(entry_point.module_name)
+                arch_class = getattr(module, entry_point.name)
+                if issubclass(arch_class, Architecture):
+                    arch_support = ArchSupport.from_architecture(arch_class())
+                    self.add(arch_support)
+            except Exception as e:
+                print(f"Error loading architecture {entry_point.name}: {e}")
 
     def copy(self) -> ArchRegistry:
         """
         Returns a copy of the registry.
         """
-        new = ArchRegistry()
+        new = ArchRegistry(self._namespace)
         new._architectures = self._architectures
         new._ordered = self._ordered
         new._by_id = self._by_id
