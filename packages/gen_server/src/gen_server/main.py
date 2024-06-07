@@ -4,16 +4,19 @@ import json
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .extension_loader import API_ENDPOINTS, CUSTOM_NODES, WIDGETS
-from gen_server.arch_registry import load_models
+from .extension_loader import API_ENDPOINTS, CUSTOM_NODES, WIDGETS, load_components
+from gen_server.arch_registry import load_models, ArchDefinition
 
 
 def main():
     print(API_ENDPOINTS)
     print(CUSTOM_NODES)
     print(WIDGETS)
+    print(WIDGETS)
     
-    whatever = load_models.from_file("../../models/meinamix.safetensors")
+    ARCHITECTURES = load_components('comfy_creator.architectures', expected_type=ArchDefinition)
+    
+    whatever = load_models.from_file("../../models/meinamix.safetensors", 'cpu', ARCHITECTURES)
     
     print(whatever)
     

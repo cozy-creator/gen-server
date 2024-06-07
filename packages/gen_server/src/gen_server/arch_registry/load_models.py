@@ -8,7 +8,7 @@ from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
 from spandrel.__helpers.unpickler import RestrictedUnpickle
 
-from .architectures import ARCHITECTURES
+# from .architectures import ARCHITECTURES
 from .arch_definition import ArchDefinition, StateDict
 from .model_wrapper import ModelWrapper
 
@@ -18,19 +18,19 @@ from .model_wrapper import ModelWrapper
 # keys; i.e., if there are 5 architecture definitions for stable-diffusion-1 installed,
 # then only the first one should get to claim those keys, otherwise it gets confusing
 # on which model it should use
-def from_file(path: str | Path, device: torch.device = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_file(path: str | Path, device: torch.device, registry: dict[str, ArchDefinition]) -> dict[str, ModelWrapper]:
     """
     Load a model from the given file path.
 
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
     """
-    state_dict = state_dict_from_file(path, device)
+    state_dict = state_dict_from_file(path, device=None)
     
     return from_state_dict(state_dict, registry)
 
 
-def from_state_dict(state_dict: StateDict, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_state_dict(state_dict: StateDict, registry: dict[str, ArchDefinition]) -> dict[str, ModelWrapper]:
     """
     Load a model from the given state dict.
 
