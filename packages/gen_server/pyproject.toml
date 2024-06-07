@@ -20,5 +20,10 @@ dependencies = [
     "transformers"
 ]
 
+optional-dependencies = [
+    "accelerate",
+    "xformers"
+]
+
 [project.scripts]
 comfy-creator = "gen_server.main:main"

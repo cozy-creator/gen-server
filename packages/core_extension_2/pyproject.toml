@@ -9,7 +9,9 @@ version = "0.0.1"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
-dependencies = []
+dependencies = [
+    "comfy_creator"
+]
 
 [project.entry-points."comfy_creator.custom_nodes"]
 node_a = "core_extension_2:main.node_a"

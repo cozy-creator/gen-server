@@ -6,23 +6,23 @@ from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 import time
 from paths import folders
 
-class SD15UNetArch(Architecture[UNet2DConditionModel]):
+class SDXLUNetArch(Architecture[UNet2DConditionModel]):
     def __init__(
             self,
     ) -> None:
         super().__init__(
-            id="SD15UNet",
+            id="SDXLUNet",
             name="UNet",
             detect=KeyCondition.has_all(
                 "model.diffusion_model.input_blocks.0.0.bias",
-                "model.diffusion_model.input_blocks.1.1.transformer_blocks.0.attn1.to_k.weight"
+                "model.diffusion_model.input_blocks.7.1.transformer_blocks.1.attn1.to_k.weight"
             ),
         )
 
     def load(self, state_dict: StateDict) -> UNet2DConditionModel:
-        print("Loading SD1.5 UNet")
+        print("Loading SDXL UNet")
         start = time.time()
-        config = json.load(open(f"{folders['unet']}/sd15_unet_config.json"))
+        config = json.load(open(f"{folders['unet']}/sdxl_unet_config.json"))
         unet = UNet2DConditionModel(**config)
 
         unet_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("model.diffusion_model.")}
@@ -34,7 +34,7 @@ class SD15UNetArch(Architecture[UNet2DConditionModel]):
 
         return {
             "unet": unet,
-            "lineage": "SD1.5"
+            "lineage": "SDXL"
         }
     
 

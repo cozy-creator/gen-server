@@ -19,7 +19,7 @@ else:
 T = TypeVar('T')  # Generic type variable
 
 
-def load_components(entry_point_group: str, expected_type: Type[T] = object) -> Dict[str, T]:
+def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> Dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
     
@@ -45,9 +45,9 @@ def load_components(entry_point_group: str, expected_type: Type[T] = object) -> 
 # Architectures will be classes that can be used to detect models and instantiate them
 # custom nodes will define new nodes to be instantiated by the graph-editor
 # widgets will somehow define react files to be somehow be imported by the client
-API_ENDPOINTS = load_components('comfy_creator.api')
-CUSTOM_NODES = load_components('comfy_creator.custom_nodes')
-WIDGETS = load_components('comfy_creator.widgets')
+API_ENDPOINTS = load_extensions('comfy_creator.api')
+CUSTOM_NODES = load_extensions('comfy_creator.custom_nodes')
+WIDGETS = load_extensions('comfy_creator.widgets')
 
 
 def generate_node_definitions():

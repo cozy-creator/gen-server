@@ -1,37 +1,34 @@
-from spandrel_core import Architecture, StateDict
-from spandrel_core.util import KeyCondition
+from spandrel import Architecture, StateDict
+from spandrel.util import KeyCondition
 import json
 import time
 from transformers import CLIPTextModel, CLIPTextConfig
 from paths import folders
 
-
 LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer."]
 
 
-
-class SD15TextEncoderArch(Architecture[CLIPTextModel]):
+class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
     def __init__(
             self,
     ) -> None:
         super().__init__(
-            id="SD15TextEncoder",
+            id="SDXLTextEncoder",
             name="TextEncoder",
             detect=KeyCondition.has_all(
-                "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",
-                # "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
+                "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
             ),
         )
 
     def load(self, state_dict: StateDict) -> CLIPTextModel:
-        print("Loading SD1.5 TextEncoder")
+        print("Loading SDXL TextEncoder")
         start = time.time()
         config = json.load(open(f"{folders['text_encoder']}/sd15_text_config.json"))
 
         text_encoder_config = CLIPTextConfig.from_dict(config)
         text_encoder = CLIPTextModel(text_encoder_config)
 
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("cond_stage_model.transformer.")}
+        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.0.transformer.")}
         remove_prefixes = LDM_CLIP_PREFIX_TO_REMOVE
         keys = list(text_encoder_state_dict.keys())
         text_model_dict = {}
@@ -51,7 +48,7 @@ class SD15TextEncoderArch(Architecture[CLIPTextModel]):
 
         return {
             "text_encoder": text_encoder,
-            "lineage": "SD1.5"
+            "lineage": "SDXL"
         }
 
 
