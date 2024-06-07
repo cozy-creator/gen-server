@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "core-extension-2"
+description = "Generative-AI server for content production"
+version = "0.0.1"
+authors = [
+    { name = "Paul Fidika", email = "paul@fidika.com" }
+]
+dependencies = []
+
+[project.entry-points."comfy_creator.custom_nodes"]
+node_a = "core_extension_2:main.node_a"
+node_b = "core_extension_2:main.node_b"

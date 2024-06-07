@@ -8,7 +8,10 @@ import pkg_resources
 import torch
 
 from .canonicalize import canonicalize_state_dict
-from spandrel_core import ArchId, Architecture, ModelDescriptor, StateDict
+from spandrel import ArchId, Architecture, ModelDescriptor, StateDict
+
+import logging
+
 
 class UnsupportedModelError(Exception):
     """
@@ -16,6 +19,9 @@ class UnsupportedModelError(Exception):
     """
 
 
+# TO DO: get rid of 'before' functionality. 
+# Figure out ids to make model architecture-definitions unique
+# Resolve conflicting architecture definitions
 @dataclass(frozen=True)
 class ArchSupport:
     """
@@ -26,27 +32,20 @@ class ArchSupport:
     """
     The architecture.
     """
+    
     detect: Callable[[StateDict], bool]
     """
     Inspects the given state dict and returns True if this architecture is detected.
 
     For most architectures, this will be the architecture's `detect` method.
     """
-    before: tuple[ArchId, ...] = ()
-    """
-    This architecture is detected before the architectures with the given IDs.
-
-    See the documentation of `ArchRegistry` for more information on ordering.
-    """
 
     @staticmethod
-    def from_architecture(
-        arch: Architecture[torch.nn.Module], before: tuple[ArchId, ...] = ()
-    ) -> ArchSupport:
+    def from_architecture(arch: Architecture[torch.nn.Module]) -> ArchSupport:
         """
         Creates an `ArchSupport` from an `Architecture` by using the architecture's ``detect`` method.
         """
-        return ArchSupport(arch, arch.detect, before)
+        return ArchSupport(arch, arch.detect)
 
 
 class ArchRegistry:
@@ -60,7 +59,6 @@ class ArchRegistry:
         self._namespace = namespace
         # the registry is copy on write internally
         self._architectures: Sequence[ArchSupport] = []
-        self._ordered: Sequence[ArchSupport] = []
         self._by_id: Mapping[ArchId, ArchSupport] = {}
         self._load_architectures()
 
@@ -79,14 +77,12 @@ class ArchRegistry:
             except Exception as e:
                 print(f"Error loading architecture {entry_point.name}: {e}")
 
-
     def copy(self) -> ArchRegistry:
         """
         Returns a copy of the registry.
         """
         new = ArchRegistry(self._namespace)
         new._architectures = self._architectures
-        new._ordered = self._ordered
         new._by_id = self._by_id
         return new
 
@@ -109,21 +105,14 @@ class ArchRegistry:
         return self._by_id.get(ArchId(id), None)
 
     def architectures(
-        self,
-        order: Literal["insertion", "detection"] = "insertion",
+        self
     ) -> list[ArchSupport]:
         """
         Returns a new list with all architectures in the registry.
 
         The order of architectures in the list is either insertion order or the order in which architectures are detected.
         """
-
-        if order == "insertion":
-            return list(self._architectures)
-        elif order == "detection":
-            return list(self._ordered)
-        else:
-            raise ValueError(f"Invalid order: {order}")
+        return list(self._architectures)
 
     def add(self, *architectures: ArchSupport):
         """
@@ -139,53 +128,15 @@ class ArchRegistry:
         new_by_id = dict(self._by_id)
         for arch in architectures:
             if arch.architecture.id in new_by_id:
-                raise ValueError(f"Duplicate architecture: {arch.architecture.id}")
-
-            new_architectures.append(arch)
-            new_by_id[arch.architecture.id] = arch
-
-        new_ordered = ArchRegistry._get_ordered(new_architectures)
+                logging.warning(f"Duplicate architecture: {arch.architecture.id}")
+            else:
+                new_architectures.append(arch)
+                new_by_id[arch.architecture.id] = arch
 
         self._architectures = new_architectures
-        self._ordered = new_ordered
         self._by_id = new_by_id
-
-    @staticmethod
-    def _get_ordered(architectures: list[ArchSupport]) -> list[ArchSupport]:
-        inv_before: dict[ArchId, list[ArchId]] = {}
-        by_id: dict[ArchId, ArchSupport] = {}
-        for arch in architectures:
-            by_id[arch.architecture.id] = arch
-            for before in arch.before:
-                if before not in inv_before:
-                    inv_before[before] = []
-                inv_before[before].append(arch.architecture.id)
-
-        ordered: list[ArchSupport] = []
-        seen: set[ArchSupport] = set()
-        stack: list[ArchId] = []
-
-        def visit(arch: ArchSupport):
-            if arch.architecture.id in stack:
-                raise ValueError(
-                    f"Circular dependency in architecture detection: {' -> '.join([*stack, arch.architecture.id])}"
-                )
-            if arch in seen:
-                return
-            seen.add(arch)
-            stack.append(arch.architecture.id)
-
-            for before in inv_before.get(arch.architecture.id, []):
-                visit(by_id[before])
-
-            ordered.append(arch)
-            stack.pop()
-
-        for arch in architectures:
-            visit(arch)
-
-        return ordered
-
+    
+    # TO DO: support multiple models
     def load(self, state_dict: StateDict) -> ModelDescriptor:
         """
         Detects the architecture of the given state dict and loads it.
@@ -197,8 +148,7 @@ class ArchRegistry:
 
         state_dict = canonicalize_state_dict(state_dict)
 
-        for arch in self._ordered:
-            print("here")
+        for arch in self._architectures:
             if arch.detect(state_dict):
                 return arch.architecture.load(state_dict)
 

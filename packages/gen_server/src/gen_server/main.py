@@ -1,17 +1,21 @@
 import json
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from .cli_args import args
+# from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .extension_loader import API_ENDPOINTS, ARCHITECTURES, CUSTOM_NODES, WIDGETS
+from .extension_loader import API_ENDPOINTS, CUSTOM_NODES, WIDGETS
+from gen_server.arch_registry import load_models
 
 
 def main():
     print(API_ENDPOINTS)
-    print(ARCHITECTURES)
     print(CUSTOM_NODES)
     print(WIDGETS)
+    
+    whatever = load_models.from_file("../../models/meinamix.safetensors")
+    
+    print(whatever)
     
     # if args.run_web_server:
     #     from request_handlers.web_server import start_server

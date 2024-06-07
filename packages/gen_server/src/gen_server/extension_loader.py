@@ -4,22 +4,41 @@ import inspect
 import json
 import pkg_resources
 import configparser
-from .paths import get_folder_path
+# from .paths import get_folder_path
 import logging
-import sys
+
 import traceback
+from typing import Dict, Union, Callable, Any, Type, TypeVar
+
+import sys
+if sys.version_info < (3, 10):
+    from importlib_metadata import entry_points, EntryPoint
+else:
+    from importlib.metadata import entry_points, EntryPoint
+
+T = TypeVar('T')  # Generic type variable
 
 
-# this might work?
-def load_components(entry_point_group):
-    components = {}
-    for entry_point in pkg_resources.iter_entry_points(group=entry_point_group):
-        # entry-point-names are not guaranteed to be globally unique; we avoid collisions by namespacing
-        # entry-point names with their package's name.
-        package_name = entry_point.dist.project_name  # Get the package name from the distribution
+def load_components(entry_point_group: str, expected_type: Type[T] = object) -> Dict[str, T]:
+    components: dict[str, T] = {}
+    discovered_plugins = entry_points(group=entry_point_group)
+    
+    for entry_point in discovered_plugins:
+        # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
+        package_name = entry_point.dist.metadata['Name']
         scoped_name = f"{package_name}.{entry_point.name}"
-        # TO DO: we may want to do some validation here, to ensure the entry point is what we expect
-        components[scoped_name] = entry_point.load()
+        
+        try:
+            component = entry_point.load()
+            
+            # Optionally verify the loaded component matches our expected type
+            if isinstance(component, expected_type):
+                components[scoped_name] = component
+            else:
+                logging.warning(f"Component {scoped_name} does not match the expected type {expected_type.__name__}.")
+        except Exception as error:
+            logging.error(f"Failed to load component {scoped_name}: {str(error)}")
+    
     return components
 
 # Api-endpoints will extend the aiohttp rest server somehow
@@ -27,7 +46,6 @@ def load_components(entry_point_group):
 # custom nodes will define new nodes to be instantiated by the graph-editor
 # widgets will somehow define react files to be somehow be imported by the client
 API_ENDPOINTS = load_components('comfy_creator.api')
-ARCHITECTURES = load_components('comfy_creator.architectures')
 CUSTOM_NODES = load_components('comfy_creator.custom_nodes')
 WIDGETS = load_components('comfy_creator.widgets')
 
