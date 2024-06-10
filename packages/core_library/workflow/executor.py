@@ -37,7 +37,7 @@ class WorkflowExecutor:
 
             await node.execute(input)
         except Exception as error:
-            # raise WorkflowNodeRunFailedError(node.id, node.type, node.title, str(error))
+            # raise WorkflowNodeRunFailedError(node)
             raise error
         finally:
             self.state.last_executed_node = node.id
