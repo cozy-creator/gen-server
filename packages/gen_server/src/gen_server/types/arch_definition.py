@@ -16,7 +16,7 @@ class ArchDefinition(Protocol, Generic[T]):
     """
 
     @classmethod
-    def detect(self, state_dict: StateDict) -> bool:
+    def detect(cls, state_dict: StateDict) -> bool:
         """
         Detects whether the given state dictionary matches the architecture.
 
@@ -29,7 +29,7 @@ class ArchDefinition(Protocol, Generic[T]):
         pass
 
     @classmethod
-    def load(self, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[T]:
+    def load(cls, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[T]:
         """
         Loads a model from the given state dictionary according to the architecture.
 

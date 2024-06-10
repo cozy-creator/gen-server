@@ -20,19 +20,20 @@ class LoadCheckpoint():
     def determine_output(self, file_path: str) -> dict[str, ArchDefinition]:
         return load_models.detect_all(file_path)
     
-    def __call__(self, file_path: str, device: TorchDevice = None) -> dict[str, ModelWrapper]:
+    def __call__(self, file_path: str, output_keys: dict = {}, device: TorchDevice = None) -> dict[str, ModelWrapper]:
+        # do something without output-keys? maybe some more declarative
         return load_models.from_file(file_path, device)
 
 
 class CreatePipe():
-    def determine_output():
+    def determine_output(self):
         pass
     
     # TO DO: we also need to specify the input / output space for each model
     # in addition to the class
     # custom nodes shouldn't have to spend much time validating / sanitizing their inputs
     # that should be the executor's job. The custom nodes should be delcarative
-    def __call__(vae: AutoencoderKL, text_encoder: CLIPTextModel, unet: UNet2DConditionModel, device: TorchDevice = None) -> StableDiffusionPipeline:
+    def __call__(self, vae: AutoencoderKL, text_encoder: CLIPTextModel, unet: UNet2DConditionModel, device: TorchDevice = None) -> StableDiffusionPipeline:
         tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
         scheduler = DDIMScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler")
@@ -58,10 +59,10 @@ class CreatePipe():
 
 
 class RunPipe():
-    def determine_output():
+    def determine_output(self):
         pass
     
-    def __call__(pipe: StableDiffusionPipeline, prompt: str, negative_prompt: str = None) -> ImageOutputType:
+    def __call__(self, pipe: StableDiffusionPipeline, prompt: str, negative_prompt: str = None) -> ImageOutputType:
         images: ImageOutputType = pipe(
             prompt,
             negative_prompt=negative_prompt,

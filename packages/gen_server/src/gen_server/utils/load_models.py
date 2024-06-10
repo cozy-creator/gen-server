@@ -8,7 +8,7 @@ from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
 from spandrel.__helpers.unpickler import RestrictedUnpickle # probably shouldn't import from private modules...
 
-from ..types import ArchDefinition, StateDict, ModelWrapper
+from ..types import ArchDefinition, StateDict, ModelWrapper, TorchDevice
 from ..globals import ARCHITECTURES
 
 
@@ -17,7 +17,7 @@ from ..globals import ARCHITECTURES
 # keys; i.e., if there are 5 architecture definitions for stable-diffusion-1 installed,
 # then only the first one should get to claim those keys, otherwise it gets confusing
 # on which model it should use
-def from_file(path: str | Path, device: torch.device = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_file(path: str | Path, device: TorchDevice = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
     """
     Load a model from the given file path.
 
@@ -26,21 +26,16 @@ def from_file(path: str | Path, device: torch.device = None, registry: dict[str,
     """
     state_dict = state_dict_from_file(path, device=device)
     
-    return from_state_dict(state_dict, registry)
+    return from_state_dict(state_dict, device, registry)
 
 
-def from_state_dict(state_dict: StateDict, device = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
     """
     Load a model from the given state dict.
 
     Returns an empty dictionary if no supported model architecture is found.
     """
     components = detect_all(state_dict, registry)
-    
-    print('components===========================')
-    print(components)
-    print('Architectures=============================')
-    print(ARCHITECTURES)
     
     loaded_components: dict[str, ModelWrapper] = {}
     

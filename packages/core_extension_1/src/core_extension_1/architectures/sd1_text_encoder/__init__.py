@@ -1,5 +1,6 @@
+from cgitb import text
 import os
-from gen_server import ArchDefinition, StateDict, ModelWrapper
+from gen_server import ArchDefinition, StateDict, ModelWrapper, TorchDevice
 import json
 import time
 from transformers import CLIPTextModel, CLIPTextConfig
@@ -15,7 +16,7 @@ class SD1TextEncoderArch(ArchDefinition[CLIPTextModel]):
     """
     
     @classmethod
-    def detect(self, state_dict: StateDict) -> bool:
+    def detect(cls, state_dict: StateDict) -> bool:
         required_keys = {
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",
             # "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
@@ -24,7 +25,7 @@ class SD1TextEncoderArch(ArchDefinition[CLIPTextModel]):
         return all(key in state_dict for key in required_keys)
     
     @classmethod
-    def load(self, state_dict: StateDict) -> ModelWrapper[CLIPTextModel]:
+    def load(cls, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[CLIPTextModel]:
         print("Loading SD1.5 TextEncoder")
         start = time.time()
         with open(config_path, 'r') as file:
@@ -48,6 +49,9 @@ class SD1TextEncoderArch(ArchDefinition[CLIPTextModel]):
                 text_model_dict.pop("text_model.embeddings.position_ids", None)
 
             text_encoder.load_state_dict(text_model_dict)
+            
+            if device is not None:
+                text_encoder.to(device=device)
 
             print(f"TextEncoder loaded in {time.time() - start} seconds")
 

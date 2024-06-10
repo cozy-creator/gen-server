@@ -28,25 +28,25 @@ def main():
     # widgets will somehow define react files to be somehow be imported by the client
     
     global API_ENDPOINTS
-    API_ENDPOINTS = load_extensions('comfy_creator.api')
+    API_ENDPOINTS.update(load_extensions('comfy_creator.api'))
     
     global ARCHITECTURES
-    ARCHITECTURES = load_extensions('comfy_creator.architectures', expected_type=ArchDefinition)
+    ARCHITECTURES.update(load_extensions('comfy_creator.architectures', expected_type=ArchDefinition))
     
     global CUSTOM_NODES
-    CUSTOM_NODES = load_extensions('comfy_creator.custom_nodes')
+    CUSTOM_NODES.update(load_extensions('comfy_creator.custom_nodes'))
     
     global WIDGETS
-    WIDGETS = load_extensions('comfy_creator.widgets')
+    WIDGETS.update(load_extensions('comfy_creator.widgets'))
 
     # print(API_ENDPOINTS)
-    print (ARCHITECTURES)
+    # print (ARCHITECTURES)
     # print(CUSTOM_NODES)
     # print(WIDGETS)
 
     # models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
     
-    # === Siimulating the executor code ==
+    # === Simulating the executor code ===
     LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
     load_checkpoint = LoadCheckpoint()
     
@@ -54,13 +54,11 @@ def main():
     architectures = load_checkpoint.determine_output(file_path)
     # print(architectures)
     
-    # execute the first node
-    models = load_checkpoint(file_path)
-    print("Number of items loaded:", len(models))
-    for model_key in models.keys():
-        print(f"Model key: {model_key}")
+    # figure out what outputs we need from this node
+    output_keys = { }
     
-    models = load_models.from_file(file_path)
+    # execute the first node
+    models = load_checkpoint(file_path, output_keys)
     print("Number of items loaded:", len(models))
     for model_key in models.keys():
         print(f"Model key: {model_key}")
@@ -84,9 +82,9 @@ def main():
         print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
     
     # how do we know this? Edges?
-    vae = models["core_extension_1.sd1_vae"]
-    text_encoder = models["core_extension_1.sd1_text_encoder"]
-    unet = models["core_extension_1.sd1_unet"]
+    vae = models["core_extension_1.sd1_vae"].model
+    text_encoder = models["core_extension_1.sd1_text_encoder"].model
+    unet = models["core_extension_1.sd1_unet"].model
     
     # run node 2
     pipe = create_pipe(vae=vae, text_encoder=text_encoder, unet=unet)
