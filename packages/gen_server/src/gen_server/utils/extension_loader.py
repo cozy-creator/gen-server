@@ -25,7 +25,7 @@ def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> 
     
     for entry_point in discovered_plugins:
         # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
-        package_name = entry_point.dist.metadata['Name']
+        package_name = entry_point.dist.metadata['Name'].replace('-', '_')
         scoped_name = f"{package_name}.{entry_point.name}"
         
         try:

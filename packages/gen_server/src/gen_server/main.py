@@ -4,6 +4,7 @@ import json
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from transformers import CLIPTokenizer
 import time
+import inspect
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
@@ -14,7 +15,7 @@ from .utils import load_models
 from .utils.extension_loader import load_extensions
 from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS
 
-file_path = os.path.join(os.path.dirname(__file__), "../../../../models/meinamix.safetensors")
+file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../models/meinamix.safetensors"))
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
 
 
@@ -37,59 +38,78 @@ def main():
     
     global WIDGETS
     WIDGETS = load_extensions('comfy_creator.widgets')
-    
 
-    print(API_ENDPOINTS)
+    # print(API_ENDPOINTS)
     print (ARCHITECTURES)
-    print(CUSTOM_NODES)
-    print(WIDGETS)
+    # print(CUSTOM_NODES)
+    # print(WIDGETS)
 
     # models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
     
     # === Siimulating the executor code ==
-    LoadCheckpoint = CUSTOM_NODES["core-extension-1.load_checkpoint"]
+    LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
     load_checkpoint = LoadCheckpoint()
     
     # Return this to the UI
     architectures = load_checkpoint.determine_output(file_path)
-    print(architectures)
+    # print(architectures)
     
-    # this is the runtime
+    # execute the first node
     models = load_checkpoint(file_path)
     print("Number of items loaded:", len(models))
     for model_key in models.keys():
         print(f"Model key: {model_key}")
     
+    models = load_models.from_file(file_path)
+    print("Number of items loaded:", len(models))
+    for model_key in models.keys():
+        print(f"Model key: {model_key}")
+    
+    # load node 2
+    CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
+    create_pipe = CreatePipe()
+    
+    # ???
+    # pipe_type = create_pipe.determine_output()
+    # print(pipe_type)
+    
+    signature = inspect.signature(create_pipe.__call__)
+    # print(signature)
+    
+    # Detailed parameter analysis
+    for name, param in signature.parameters.items():
+        print(f"Parameter Name: {name}")
+        print(f"  Kind: {param.kind}")
+        print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
+        print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
+    
+    # how do we know this? Edges?
+    vae = models["core_extension_1.sd1_vae"]
+    text_encoder = models["core_extension_1.sd1_text_encoder"]
+    unet = models["core_extension_1.sd1_unet"]
+    
+    # run node 2
+    pipe = create_pipe(vae=vae, text_encoder=text_encoder, unet=unet)
+    
+    # node 3
+    run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
+    
+    # ???
+    # output_type = run_pipe.determine_output()
+    # print(output_type)
+    
     start = time.time()
-
-    # print(state_dict)
+    
+    # execute the 3rd node
+    prompt = "beautiful anime woman, detailed, masterpiece, dark skin"
+    negative_prompt = "poor quality, worst quality, text, watermark, blurry"
+    images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt)
+    
 
     # diffusion_pytorch_model.fp16.safetensors
     # playground-v2.5-1024px-aesthetic.fp16.safetensors
     # diffusion_pytorch_model.safetensors
     # darkSushi25D25D_v40.safetensors
-
-
-    pipe = StableDiffusionPipeline(
-        vae=models["core-extension-1.sd1_vae"].model,
-        unet=models["core-extension-1.sd1_unet"].model,
-        text_encoder=models["core-extension-1.sd1_text_encoder"].model,
-        safety_checker=None,
-        feature_extractor=None,
-        tokenizer=tokenizer,
-        scheduler=scheduler,
-    )
-    pipe.to("cuda")
-    if "xformers" in sys.modules:
-        pipe.enable_xformers_memory_efficient_attention()
-    if "accelerate" in sys.modules:
-        pipe.enable_model_cpu_offload()
-    pipe.enable_vae_tiling()
-
-    # Generate images!
-    prompt = "beautiful anime woman, detailed, masterpiece, dark skin"
-    negative_prompt = "poor quality, worst quality, text, watermark, blurry"
-    images = pipe(prompt, negative_prompt=negative_prompt, num_inference_steps=25, num_images_per_prompt=4).images
     
     for idx, img in enumerate(images):
         img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))

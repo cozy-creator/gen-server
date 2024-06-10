@@ -37,6 +37,11 @@ def from_state_dict(state_dict: StateDict, device = None, registry: dict[str, Ar
     """
     components = detect_all(state_dict, registry)
     
+    print('components===========================')
+    print(components)
+    print('Architectures=============================')
+    print(ARCHITECTURES)
+    
     loaded_components: dict[str, ModelWrapper] = {}
     
     for arch_id, architecture in components.items():
