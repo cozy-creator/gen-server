@@ -1,7 +1,6 @@
 {
   "_class_name": "UNet2DConditionModel",
   "_diffusers_version": "0.6.0",
-  "_name_or_path": "/home/patrick/stable-diffusion-v1-5/unet",
   "act_fn": "silu",
   "attention_head_dim": 8,
   "block_out_channels": [

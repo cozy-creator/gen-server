@@ -6,11 +6,11 @@ import pkg_resources
 import configparser
 # from .paths import get_folder_path
 import logging
-
 import traceback
 from typing import Dict, Union, Callable, Any, Type, TypeVar
 
 import sys
+from ..globals import CUSTOM_NODES
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points, EntryPoint
 else:
@@ -40,14 +40,6 @@ def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> 
             logging.error(f"Failed to load component {scoped_name}: {str(error)}")
     
     return components
-
-# Api-endpoints will extend the aiohttp rest server somehow
-# Architectures will be classes that can be used to detect models and instantiate them
-# custom nodes will define new nodes to be instantiated by the graph-editor
-# widgets will somehow define react files to be somehow be imported by the client
-API_ENDPOINTS = load_extensions('comfy_creator.api')
-CUSTOM_NODES = load_extensions('comfy_creator.custom_nodes')
-WIDGETS = load_extensions('comfy_creator.widgets')
 
 
 def generate_node_definitions():

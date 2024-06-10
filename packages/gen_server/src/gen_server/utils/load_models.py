@@ -6,11 +6,10 @@ from pathlib import Path
 import torch
 from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
-from spandrel.__helpers.unpickler import RestrictedUnpickle
+from spandrel.__helpers.unpickler import RestrictedUnpickle # probably shouldn't import from private modules...
 
-# from .architectures import ARCHITECTURES
-from .arch_definition import ArchDefinition, StateDict
-from .model_wrapper import ModelWrapper
+from ..types import ArchDefinition, StateDict, ModelWrapper
+from ..globals import ARCHITECTURES
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -18,35 +17,53 @@ from .model_wrapper import ModelWrapper
 # keys; i.e., if there are 5 architecture definitions for stable-diffusion-1 installed,
 # then only the first one should get to claim those keys, otherwise it gets confusing
 # on which model it should use
-def from_file(path: str | Path, device: torch.device, registry: dict[str, ArchDefinition]) -> dict[str, ModelWrapper]:
+def from_file(path: str | Path, device: torch.device = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
     """
     Load a model from the given file path.
 
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
     """
-    state_dict = state_dict_from_file(path, device=None)
+    state_dict = state_dict_from_file(path, device=device)
     
     return from_state_dict(state_dict, registry)
 
 
-def from_state_dict(state_dict: StateDict, registry: dict[str, ArchDefinition]) -> dict[str, ModelWrapper]:
+def from_state_dict(state_dict: StateDict, device = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
     """
     Load a model from the given state dict.
 
     Returns an empty dictionary if no supported model architecture is found.
     """
+    components = detect_all(state_dict, registry)
+    
     loaded_components: dict[str, ModelWrapper] = {}
+    
+    for arch_id, architecture in components.items():
+        try:
+            loaded_components.update({ arch_id: architecture.load(state_dict, device) })
+        except Exception as e:
+            print(e)
+    
+    return loaded_components
+
+
+def detect_all(state_dict: StateDict, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ArchDefinition]:
+    """
+    Detect all models present inside of a state dict; does not load them into memory however;
+    it merely returns the Architecture-Definitions for these models.
+    """
+    components: dict[str, ArchDefinition] = {}
     
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
             if architecture.detect(state_dict):
                 # this will overwrite previous architectures with the same id
-                loaded_components.update({ arch_id: architecture.load(state_dict) })
+                components.update({ arch_id: architecture })
         except Exception as e:
             print(e)
-
-    return loaded_components
+    
+    return components
 
 
 def state_dict_from_file(path: str | Path, device: torch.device = None) -> StateDict:

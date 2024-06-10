@@ -20,7 +20,8 @@ dependencies = [
     "transformers"
 ]
 
-optional-dependencies = [
+[project.optional-dependencies]
+performance = [
     "accelerate",
     "xformers"
 ]

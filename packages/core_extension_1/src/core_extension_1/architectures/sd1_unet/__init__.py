@@ -4,9 +4,7 @@ import os
 
 from diffusers import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
-
-from spandrel.util import KeyCondition
-from gen_server import ArchDefinition, StateDict, ModelWrapper
+from gen_server import ArchDefinition, StateDict, ModelWrapper, TorchDevice
 # from paths import folders
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -26,18 +24,24 @@ class SD1UNetArch(ArchDefinition[UNet2DConditionModel]):
     
     # TO DO: make this return the correct model wrapper
     @classmethod
-    def load(cls, state_dict: StateDict) -> ModelWrapper[UNet2DConditionModel]:
+    def load(cls, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[UNet2DConditionModel]:
         print("Loading SD1.5 UNet")
         start = time.time()
         
         with open(config_path, 'r') as file:
+            # Create diffusers class
             config = json.load(file)
             unet = UNet2DConditionModel(**config)
-
+            
+            # Slice state-dict and convert key keys to cannonical
             unet_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("model.diffusion_model.")}
-
             new_unet_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, config=config)
+            
             unet.load_state_dict(new_unet_state_dict)
+            
+            if device is not None:
+                unet.to(device=device)
+            
             print(f"UNet state dict loaded in {time.time() - start} seconds")
             
         return ModelWrapper(model=unet)

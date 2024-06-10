@@ -2,9 +2,9 @@ from abc import abstractmethod
 from typing import Any, Dict, Protocol, runtime_checkable, Generic, TypeVar
 import torch
 from .model_wrapper import ModelWrapper
+from .types import TorchDevice, StateDict
 
 T = TypeVar('T', bound=torch.nn.Module, covariant=True)
-StateDict = dict[str, torch.Tensor]
 
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
@@ -29,7 +29,7 @@ class ArchDefinition(Protocol, Generic[T]):
         pass
 
     @classmethod
-    def load(self, state_dict: StateDict) -> ModelWrapper[T]:
+    def load(self, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[T]:
         """
         Loads a model from the given state dictionary according to the architecture.
 

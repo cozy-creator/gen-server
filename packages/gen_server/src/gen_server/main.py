@@ -9,37 +9,58 @@ import time
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .extension_loader import API_ENDPOINTS, CUSTOM_NODES, WIDGETS, load_extensions
-from gen_server.arch_registry import load_models, ArchDefinition
+from .types import ArchDefinition
+from .utils import load_models
+from .utils.extension_loader import load_extensions
+from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS
 
 file_path = os.path.join(os.path.dirname(__file__), "../../../../models/meinamix.safetensors")
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
 
-# This can be imported globally
-ARCHITECTURES: dict[str, ArchDefinition] = {}
-
 
 def main():
+    # we load the extensions inside a function to avoid circular dependencies
+    
+    # Api-endpoints will extend the aiohttp rest server somehow
+    # Architectures will be classes that can be used to detect models and instantiate them
+    # custom nodes will define new nodes to be instantiated by the graph-editor
+    # widgets will somehow define react files to be somehow be imported by the client
+    
+    global API_ENDPOINTS
+    API_ENDPOINTS = load_extensions('comfy_creator.api')
+    
+    global ARCHITECTURES
+    ARCHITECTURES = load_extensions('comfy_creator.architectures', expected_type=ArchDefinition)
+    
+    global CUSTOM_NODES
+    CUSTOM_NODES = load_extensions('comfy_creator.custom_nodes')
+    
+    global WIDGETS
+    WIDGETS = load_extensions('comfy_creator.widgets')
+    
+
     print(API_ENDPOINTS)
+    print (ARCHITECTURES)
     print(CUSTOM_NODES)
     print(WIDGETS)
-    
-    # we load the extensions inside a function to avoid circular dependencies
-    ARCHITECTURES = load_extensions('comfy_creator.architectures', expected_type=ArchDefinition)
 
-    models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
+    # models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
     
+    # === Siimulating the executor code ==
+    LoadCheckpoint = CUSTOM_NODES["core-extension-1.load_checkpoint"]
+    load_checkpoint = LoadCheckpoint()
+    
+    # Return this to the UI
+    architectures = load_checkpoint.determine_output(file_path)
+    print(architectures)
+    
+    # this is the runtime
+    models = load_checkpoint(file_path)
     print("Number of items loaded:", len(models))
-    
     for model_key in models.keys():
         print(f"Model key: {model_key}")
     
     start = time.time()
-    
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-    # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
-
-    scheduler = DDIMScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler")
 
     # print(state_dict)
 
