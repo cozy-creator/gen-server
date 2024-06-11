@@ -1,5 +1,7 @@
-from packages.core_library.workflow.nodes.base import BaseNode, NodeType
+from packages.gen_server.src.gen_server.workflow.nodes.base import BaseNode, NodeType
 from diffusers import DiffusionPipeline
+
+from .registry import node_registry
 
 
 class CheckpointLoader(BaseNode):
@@ -14,3 +16,6 @@ class CheckpointLoader(BaseNode):
             pipe.to("cuda")
 
         return {'pipe': pipe}
+
+
+node_registry.register(CheckpointLoader)
