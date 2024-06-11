@@ -18,9 +18,10 @@ class Architecture(ABC, Generic[T]):
     for inspection and management of the model.
     """
     
-    def __init__(self, 
+    def __init__(
+        self,
         model: T,
-        config: Any,
+        config: Any = None,
         input_space: str = None,
         output_space: str = None
     ) -> None:
@@ -37,6 +38,13 @@ class Architecture(ABC, Generic[T]):
         Access the underlying model.
         """
         return self._model
+    
+    @property
+    def config(self) -> Any:
+        """
+        Access the underlying config
+        """
+        return self._config
     
     @property
     def input_space(self) -> str:

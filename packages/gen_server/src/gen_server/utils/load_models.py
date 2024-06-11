@@ -37,8 +37,6 @@ def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry:
     """
     components = detect_all(state_dict, registry)
     
-    loaded_components: dict[str, Architecture] = {}
-    
     for arch_id, architecture in components.items():
         try:
             # load state dict into the architecture and moves it to the specified device
@@ -46,7 +44,7 @@ def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry:
         except Exception as e:
             print(e)
     
-    return loaded_components
+    return components
 
 
 def detect_all(state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES) -> dict[str, Architecture]:

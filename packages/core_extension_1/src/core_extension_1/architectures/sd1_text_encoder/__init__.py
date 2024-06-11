@@ -14,7 +14,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the Stable Diffusion 1 pipeline
     """
-    def __init__():
+    def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
             text_encoder_config = CLIPTextConfig.from_dict(config)

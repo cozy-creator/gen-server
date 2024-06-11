@@ -14,7 +14,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     """
     The Unet for the Stable Diffusion 1 pipeline
     """
-    def __init__():
+    def __init__(self):
         with open(config_path, 'r') as file:
             # Create diffusers class
             config = json.load(file)

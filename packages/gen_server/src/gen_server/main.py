@@ -60,6 +60,9 @@ def main():
     
     # execute the first node
     models = load_checkpoint(file_path, output_keys=output_keys)
+    
+    print(models)
+    
     print("Number of items loaded:", len(models))
     for model_key in models.keys():
         print(f"Model key: {model_key}")
@@ -76,11 +79,11 @@ def main():
     # print(signature)
     
     # Detailed parameter analysis
-    for name, param in signature.parameters.items():
-        print(f"Parameter Name: {name}")
-        print(f"  Kind: {param.kind}")
-        print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
-        print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
+    # for name, param in signature.parameters.items():
+    #     print(f"Parameter Name: {name}")
+    #     print(f"  Kind: {param.kind}")
+    #     print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
+    #     print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
     
     # how do we know this? Edges?
     vae = models["core_extension_1.sd1_vae"].model

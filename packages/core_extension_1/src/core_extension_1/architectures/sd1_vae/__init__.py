@@ -13,7 +13,7 @@ class SD1VAE(Architecture[AutoencoderKL]):
     """
     The Variational Auto-Encoder used by Stable Diffusion 1.5
     """
-    def __init__():
+    def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
             vae = AutoencoderKL(**config)
