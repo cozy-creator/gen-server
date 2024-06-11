@@ -1,19 +1,14 @@
-from packages.core_library.workflow.nodes.base import BaseNode
+from packages.core_library.workflow.nodes.base import BaseNode, NodeType
 from diffusers import DiffusionPipeline
 
 
 class CheckpointLoader(BaseNode):
-    inputs = [{
-        'name': 'checkpoint',
-        'type': 'STRING',
-        'required': True
-    }]
+    inputs = {"checkpoint": {"type": "STRING", "required": True}}
+    outputs = {"pipe": {'type': 'PIPE'}}
 
-    outputs = [{'name': 'pipe', 'type': 'PIPE'}]
+    type = NodeType.CheckpointLoader
 
-    type = "CheckpointLoader"
-
-    def __call__(self, data: dict):
+    def run(self, data: dict):
         pipe = DiffusionPipeline.from_pretrained("")
         if pipe:
             pipe.to("cuda")
