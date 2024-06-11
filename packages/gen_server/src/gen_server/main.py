@@ -15,7 +15,7 @@ from .utils import load_models
 from .utils.extension_loader import load_extensions
 from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS
 
-file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../models/meinamix.safetensors"))
+file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../models/darkSushi25D25D_v40.safetensors"))
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
 
 
@@ -88,6 +88,7 @@ def main():
     
     # run node 2
     pipe = create_pipe(vae=vae, text_encoder=text_encoder, unet=unet)
+    # pipe.to('cuda')
     
     # node 3
     run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
