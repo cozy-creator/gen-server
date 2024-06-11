@@ -51,7 +51,7 @@ class WorkflowExecutor:
             # raise WorkflowNodeRunFailedError(node)
             raise error
         finally:
-            self.state.last_executed_node = node.id
+            self.state.previous_node = node.id
 
     async def run(self):
         if not self.workflow.data:
