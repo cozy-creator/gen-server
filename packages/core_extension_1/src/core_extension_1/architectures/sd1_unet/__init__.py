@@ -5,6 +5,7 @@ from typing_extensions import override
 from diffusers import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice
+import torch
 # from paths import folders
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -49,6 +50,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         
         if device is not None:
             unet.to(device=device)
+        unet.to(torch.bfloat16)
         
         print(f"UNet state dict loaded in {time.time() - start} seconds")
     

@@ -31,7 +31,7 @@ def main():
     API_ENDPOINTS.update(load_extensions('comfy_creator.api'))
     
     global ARCHITECTURES
-    ARCHITECTURES.update(load_extensions('comfy_creator.architectures', expected_type=Type[Architecture]))
+    ARCHITECTURES.update(load_extensions('comfy_creator.architectures', expected_type=Architecture))
     
     global CUSTOM_NODES
     CUSTOM_NODES.update(load_extensions('comfy_creator.custom_nodes'))
@@ -55,7 +55,6 @@ def main():
     
     # figure out what outputs we need from this node
     output_keys = { }
-    
     load_checkpoint = LoadCheckpoint()
     
     # execute the first node
@@ -113,9 +112,14 @@ def main():
     # playground-v2.5-1024px-aesthetic.fp16.safetensors
     # diffusion_pytorch_model.safetensors
     # darkSushi25D25D_v40.safetensors
+
+    # Save the images
+    SaveNode = CUSTOM_NODES["image_utils.save_file"]
+    save_node = SaveNode()
+    save_node(images=images, temp=False)
     
-    for idx, img in enumerate(images):
-        img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))
+    # for idx, img in enumerate(images):
+    #     img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))
     
     print(f"Image generated in {time.time() - start} seconds")
     

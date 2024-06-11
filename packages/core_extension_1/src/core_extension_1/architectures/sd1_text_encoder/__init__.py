@@ -4,6 +4,7 @@ import time
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice
 from transformers import CLIPTextModel, CLIPTextConfig
+import torch
 
 LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer."]
 
@@ -62,6 +63,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
         
         if device is not None:
             text_encoder.to(device=device)
+        text_encoder.to(torch.bfloat16)
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")
 

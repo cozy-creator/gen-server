@@ -22,6 +22,7 @@ T = TypeVar('T', bound=Type)  # Generic type variable bound to Type
 def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
+    print(f"Discovered plugins: {discovered_plugins}")
     
     for entry_point in discovered_plugins:
         # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'

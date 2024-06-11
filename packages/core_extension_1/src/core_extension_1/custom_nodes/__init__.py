@@ -45,6 +45,7 @@ class LoadCheckpoint(CustomNode):
     
     # TODO: do something without output-keys? maybe some more declarative
     def __call__(self, file_path: str, *, output_keys: dict = {}, device: TorchDevice = None) -> dict[str, Architecture]:
+        
         return load_models.from_file(file_path, device)
 
 
@@ -127,4 +128,5 @@ class RunPipe(CustomNode):
         ).images
         
         return images
+
 

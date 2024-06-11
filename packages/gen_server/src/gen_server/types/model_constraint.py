@@ -1,5 +1,6 @@
-from .architecture import Architecture
+
 from typing import Type, Any
+from types import DynamicClassAttribute
 
 
 class ModelConstraint:
@@ -29,7 +30,7 @@ class ModelConstraint:
     def output_space(self):
         return self._output_space
     
-    def __call__(self, model_wrapper: Architecture) -> bool:
+    def __call__(self, model_wrapper) -> bool:
         """
         Checks if the specified architecture passes all constraints or not.
         """

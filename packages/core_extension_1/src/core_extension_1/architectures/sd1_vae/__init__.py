@@ -5,6 +5,7 @@ import json
 from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice
 import time
+import torch
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -48,6 +49,8 @@ class SD1VAE(Architecture[AutoencoderKL]):
         
         if device is not None:
             vae.to(device=device)
+
+        vae.to(torch.bfloat16)
         
         print(f"VAE state dict loaded in {time.time() - start} seconds")
 

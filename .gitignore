@@ -16,6 +16,8 @@ venv/
 /temp/
 /output/
 /models/**
+/packages/image_utils/src/image_utils/custom_nodes/output/
+/packages/image_utils/src/image_utils/custom_nodes/temp/
 
 # Build dir
 **/dist/
