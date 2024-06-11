@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
 import torch
+from typing import Type
 from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
 from spandrel.__helpers.unpickler import RestrictedUnpickle # probably shouldn't import from private modules...
 
-from ..types import ArchDefinition, StateDict, ModelWrapper, TorchDevice
+from ..types import Architecture, StateDict, TorchDevice
 from ..globals import ARCHITECTURES
 
 
@@ -17,7 +17,7 @@ from ..globals import ARCHITECTURES
 # keys; i.e., if there are 5 architecture definitions for stable-diffusion-1 installed,
 # then only the first one should get to claim those keys, otherwise it gets confusing
 # on which model it should use
-def from_file(path: str | Path, device: TorchDevice = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_file(path: str | Path, device: TorchDevice = None, registry: dict[str, Type[Architecture]] = ARCHITECTURES) -> dict[str, Architecture]:
     """
     Load a model from the given file path.
 
@@ -29,7 +29,7 @@ def from_file(path: str | Path, device: TorchDevice = None, registry: dict[str, 
     return from_state_dict(state_dict, device, registry)
 
 
-def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ModelWrapper]:
+def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry: dict[str, Type[Architecture]] = ARCHITECTURES) -> dict[str, Architecture]:
     """
     Load a model from the given state dict.
 
@@ -37,29 +37,28 @@ def from_state_dict(state_dict: StateDict, device: TorchDevice = None, registry:
     """
     components = detect_all(state_dict, registry)
     
-    loaded_components: dict[str, ModelWrapper] = {}
-    
     for arch_id, architecture in components.items():
         try:
-            loaded_components.update({ arch_id: architecture.load(state_dict, device) })
+            # load state dict into the architecture and moves it to the specified device
+            architecture.load(state_dict, device)
         except Exception as e:
             print(e)
     
-    return loaded_components
+    return components
 
 
-def detect_all(state_dict: StateDict, registry: dict[str, ArchDefinition] = ARCHITECTURES) -> dict[str, ArchDefinition]:
+def detect_all(state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load them into memory however;
     it merely returns the Architecture-Definitions for these models.
     """
-    components: dict[str, ArchDefinition] = {}
+    components: dict[str, Architecture] = {}
     
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
             if architecture.detect(state_dict):
                 # this will overwrite previous architectures with the same id
-                components.update({ arch_id: architecture })
+                components.update({ arch_id: architecture() })
         except Exception as e:
             print(e)
     

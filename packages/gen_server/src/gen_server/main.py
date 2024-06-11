@@ -5,13 +5,13 @@ from diffusers import StableDiffusionPipeline, DDIMScheduler
 from transformers import CLIPTokenizer
 import time
 import inspect
+from typing import Type
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .types import ArchDefinition
-from .utils import load_models
+from .types import Architecture
 from .utils.extension_loader import load_extensions
 from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS
 
@@ -31,7 +31,7 @@ def main():
     API_ENDPOINTS.update(load_extensions('comfy_creator.api'))
     
     global ARCHITECTURES
-    ARCHITECTURES.update(load_extensions('comfy_creator.architectures', expected_type=ArchDefinition))
+    ARCHITECTURES.update(load_extensions('comfy_creator.architectures', expected_type=Type[Architecture]))
     
     global CUSTOM_NODES
     CUSTOM_NODES.update(load_extensions('comfy_creator.custom_nodes'))
@@ -48,17 +48,21 @@ def main():
     
     # === Simulating the executor code ===
     LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
-    load_checkpoint = LoadCheckpoint()
-    
+
     # Return this to the UI
-    architectures = load_checkpoint.determine_output(file_path)
+    architectures = LoadCheckpoint.update_interface({ 'inputs': { 'file_path': file_path} })
     # print(architectures)
     
     # figure out what outputs we need from this node
     output_keys = { }
     
+    load_checkpoint = LoadCheckpoint()
+    
     # execute the first node
-    models = load_checkpoint(file_path, output_keys)
+    models = load_checkpoint(file_path, output_keys=output_keys)
+    
+    print(models)
+    
     print("Number of items loaded:", len(models))
     for model_key in models.keys():
         print(f"Model key: {model_key}")
@@ -75,11 +79,11 @@ def main():
     # print(signature)
     
     # Detailed parameter analysis
-    for name, param in signature.parameters.items():
-        print(f"Parameter Name: {name}")
-        print(f"  Kind: {param.kind}")
-        print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
-        print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
+    # for name, param in signature.parameters.items():
+    #     print(f"Parameter Name: {name}")
+    #     print(f"  Kind: {param.kind}")
+    #     print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
+    #     print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
     
     # how do we know this? Edges?
     vae = models["core_extension_1.sd1_vae"].model

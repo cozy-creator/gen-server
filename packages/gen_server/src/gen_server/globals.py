@@ -1,4 +1,5 @@
-from .types import ArchDefinition
+from .types import Architecture
+from typing import Type
 
 
 API_ENDPOINTS: dict = {}
@@ -6,7 +7,7 @@ API_ENDPOINTS: dict = {}
 Something
 """
 
-ARCHITECTURES: dict[str, ArchDefinition] = {}
+ARCHITECTURES: dict[str, Type[Architecture]] = {}
 """
 Global class containing all architecture definitions
 """

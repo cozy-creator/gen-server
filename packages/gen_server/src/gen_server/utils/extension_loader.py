@@ -16,10 +16,10 @@ if sys.version_info < (3, 10):
 else:
     from importlib.metadata import entry_points, EntryPoint
 
-T = TypeVar('T')  # Generic type variable
+T = TypeVar('T', bound=Type)  # Generic type variable bound to Type
 
 
-def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> Dict[str, T]:
+def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
     
@@ -32,7 +32,7 @@ def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> 
             component = entry_point.load()
             
             # Optionally verify the loaded component matches our expected type
-            if isinstance(component, expected_type):
+            if implements_interface(component, expected_type):
                 components[scoped_name] = component
             else:
                 logging.warning(f"Component {scoped_name} does not match the expected type {expected_type.__name__}.")
@@ -42,6 +42,43 @@ def load_extensions(entry_point_group: str, expected_type: Type[T] = object) -> 
     return components
 
 
+# TO DO: make certain properties / methods optional in our interface, so that we can be add new things and still
+# be backwards compatible with old implementations
+def implements_interface(implementation: Type, interface: Type) -> bool:
+    missing_methods = []
+    missing_properties = []
+
+    # Iterate over all attributes of the interface
+    for attr_name in dir(interface):
+        # I don't know where these properties / methods came from or why they're in my classes????
+        if attr_name in ['_determine_new_args', '_make_substitution', 'copy_with', '_inst', '_name', '_paramspec_tvars']:
+            continue
+        
+        # Ignore special methods/properties
+        if attr_name.startswith('__') and attr_name.endswith('__') and attr_name != '__call__':
+            continue
+        
+        attr = getattr(interface, attr_name)
+
+        # Check if it's a method or property
+        if callable(attr):
+            if not hasattr(implementation, attr_name) or not callable(getattr(implementation, attr_name)):
+                missing_methods.append(attr_name)
+        else:
+            if not hasattr(implementation, attr_name):
+                missing_properties.append(attr_name)
+
+    if not missing_methods and not missing_properties:
+        return True
+    else:
+        if missing_methods:
+            logging.warning(f"Missing methods in {implementation.__name__}: {', '.join(missing_methods)}")
+        if missing_properties:
+            logging.warning(f"Missing properties in {implementation.__name__}: {', '.join(missing_properties)}")
+        return False
+
+
+# TO DO: replace this with something useful
 def generate_node_definitions():
     node_definitions = []
 
