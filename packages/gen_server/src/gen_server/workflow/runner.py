@@ -14,7 +14,7 @@ class WorkflowData(TypedDict):
     outputs: dict[str, OutputData]
 
 
-class WorkflowExecutor:
+class WorkflowRunner:
     def __init__(self, workflow: dict[str, WorkflowData], inputs):
         self.workflow = workflow
         self.state = RunnerState(inputs)
@@ -44,7 +44,7 @@ class WorkflowExecutor:
         node_class = node_registry.get(data.get("type"))
         return node_class(node_id)
 
-    async def execute_node(self, node: BaseNode):
+    async def _run_node(self, node: BaseNode):
         try:
             await node(self.state)
         except Exception as error:
@@ -64,7 +64,7 @@ class WorkflowExecutor:
                 node = self._get_node(node_id, self.workflow[node_id])
                 if not node:
                     break
-                await self.execute_node(node)
+                await self._run_node(node)
             except Exception as error:
                 print(error)
                 break
