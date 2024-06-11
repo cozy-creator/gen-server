@@ -1,20 +1,32 @@
 import json
 import time
 import os
-
+from typing_extensions import override
 from diffusers import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
-from gen_server import ArchDefinition, StateDict, ModelWrapper, TorchDevice
+from gen_server import Architecture, StateDict, TorchDevice
 # from paths import folders
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class SD1UNetArch(ArchDefinition[UNet2DConditionModel]):
+class SD1UNet(Architecture[UNet2DConditionModel]):
     """
     The Unet for the Stable Diffusion 1 pipeline
     """
+    def __init__():
+        with open(config_path, 'r') as file:
+            # Create diffusers class
+            config = json.load(file)
+
+            super().__init__(
+                model=UNet2DConditionModel(**config),
+                config=config,
+                input_space="SD1",
+                output_space="SD1"
+            )
     
+    @override
     @classmethod
     def detect(cls, state_dict: StateDict) -> bool:
         return (
@@ -22,32 +34,21 @@ class SD1UNetArch(ArchDefinition[UNet2DConditionModel]):
             "model.diffusion_model.input_blocks.1.1.transformer_blocks.0.attn1.to_k.weight" in state_dict
         )
     
-    # TO DO: make this return the correct model wrapper
-    @classmethod
-    def load(cls, state_dict: StateDict, device: TorchDevice = None) -> ModelWrapper[UNet2DConditionModel]:
+    @override
+    def load(self, state_dict: StateDict, device: TorchDevice = None):
         print("Loading SD1.5 UNet")
         start = time.time()
         
-        with open(config_path, 'r') as file:
-            # Create diffusers class
-            config = json.load(file)
-            unet = UNet2DConditionModel(**config)
-            
-            # Slice state-dict and convert key keys to cannonical
-            unet_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("model.diffusion_model.")}
-            new_unet_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, config=config)
-            
-            unet.load_state_dict(new_unet_state_dict)
-            
-            if device is not None:
-                unet.to(device=device)
-            
-            print(f"UNet state dict loaded in {time.time() - start} seconds")
-            
-        return ModelWrapper(model=unet)
+        unet = self.model
+        
+        # Slice state-dict and convert key keys to cannonical
+        unet_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("model.diffusion_model.")}
+        new_unet_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, config=self.config)
+
+        unet.load_state_dict(new_unet_state_dict)
+        
+        if device is not None:
+            unet.to(device=device)
+        
+        print(f"UNet state dict loaded in {time.time() - start} seconds")
     
-
-# MAIN_REGISTRY.add(ArchSupport.from_architecture(UNet()))
-
-# model_loader = ModelLoader()
-# state_dict = model_loader.load_from_file("v1-5-pruned-emaonly.safetensors")
