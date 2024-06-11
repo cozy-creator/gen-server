@@ -2,6 +2,7 @@ from packages.gen_server.src.gen_server.workflow.nodes.base import BaseNode, Nod
 from diffusers import DiffusionPipeline
 
 from .registry import node_registry
+from ..state import RunnerState
 
 
 class CheckpointLoader(BaseNode):
@@ -10,7 +11,7 @@ class CheckpointLoader(BaseNode):
 
     type = NodeType.CheckpointLoader
 
-    def run(self, data: dict):
+    def __call__(self, state: RunnerState):
         pipe = DiffusionPipeline.from_pretrained("")
         if pipe:
             pipe.to("cuda")
