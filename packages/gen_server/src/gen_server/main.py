@@ -5,7 +5,7 @@ from diffusers import StableDiffusionPipeline, DDIMScheduler
 from transformers import CLIPTokenizer
 import time
 import inspect
-from typing import Type
+from typing import Type, Dict
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
@@ -13,13 +13,34 @@ from typing import Type
 # from .settings import settings
 from .types import Architecture
 from .utils.extension_loader import load_extensions
-from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS
+from .globals import API_ENDPOINTS, ARCHITECTURES,  CUSTOM_NODES, WIDGETS, configure_environment
+import argparse
+import ast
+
 
 file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../models/darkSushi25D25D_v40.safetensors"))
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
 
 
+
 def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--env", help="Environment file path", default=None)
+    parser.add_argument("--config", help="Configuration dictionary (JSON format)", default=None)
+    args = parser.parse_args()
+
+    # Parse the configuration dictionary if provided
+    config_dict = None
+    if args.config:
+        try:
+            config_dict = ast.literal_eval(args.config)
+            # config_dict = json.loads(config)
+        except json.JSONDecodeError:
+            print("Invalid JSON format for --config argument.")
+
+    configure_environment(env_file=args.env, config_dict=config_dict)
+    
     # we load the extensions inside a function to avoid circular dependencies
     
     # Api-endpoints will extend the aiohttp rest server somehow

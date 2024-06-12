@@ -12,34 +12,36 @@ import json
 from typing import Optional
 from PIL.PngImagePlugin import PngInfo
 import boto3
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from .helper_decorators import convert_image_format
 import io
+from torchvision import transforms
+from gen_server.globals import s3, s3_bucket_name, env
 
 
-load_dotenv()  # Load environment variables from .env file
+# load_dotenv()  # Load environment variables from .env file
 
-env = os.getenv('ENVIRONMENT')
-print(f"Environment: {env}")
+# env = os.getenv('ENVIRONMENT')
+# print(f"Environment: {env}")
 
 # S3 configuration
-s3_folder = os.getenv('S3__FOLDER', '')
-s3_bucket_name = os.getenv('S3__BUCKET_NAME', '')
-s3_endpoint_fqdn = os.getenv('S3__ENDPOINT_URL', '')
-s3_access_key = os.getenv('S3__ACCESS_KEY', '')
-s3_secret_key = os.getenv('S3__SECRET_ACCESS_KEY', '')
+# s3_folder = os.getenv('S3__FOLDER', '')
+# s3_bucket_name = os.getenv('S3__BUCKET_NAME', '')
+# s3_endpoint_fqdn = os.getenv('S3__ENDPOINT_URL', '')
+# s3_access_key = os.getenv('S3__ACCESS_KEY', '')
+# s3_secret_key = os.getenv('S3__SECRET_ACCESS_KEY', '')
 
-print(f"S3 Bucket: {s3_bucket_name}")
+# print(f"S3 Bucket: {s3_bucket_name}")
 
 # Set up S3 client
-if not all([s3_bucket_name, s3_endpoint_fqdn, s3_access_key, s3_secret_key]):
-    raise ValueError('Missing S3 configuration in production mode')
+# if not all([s3_bucket_name, s3_endpoint_fqdn, s3_access_key, s3_secret_key]):
+#     raise ValueError('Missing S3 configuration in production mode')
 
-s3 = boto3.client('s3',
-                    endpoint_url=f'https://{s3_endpoint_fqdn}',
-                    aws_access_key_id=s3_access_key,
-                    aws_secret_access_key=s3_secret_key,
-                    region_name=os.getenv("S3__REGION_NAME"))
+# s3 = boto3.client('s3',
+#                     endpoint_url=f'https://{s3_endpoint_fqdn}',
+#                     aws_access_key_id=s3_access_key,
+#                     aws_secret_access_key=s3_secret_key,
+#                     region_name=os.getenv("S3__REGION_NAME"))
 
 
 class SaveFile(CustomNode):
@@ -157,17 +159,36 @@ class SaveFile(CustomNode):
 
         return image_urls if len(image_urls) > 1 else image_urls[0]
 
-@convert_image_format
+def pil_to_tensor(image: Image) -> torch.Tensor:
+    """
+    Convert a PIL Image to a PyTorch tensor.
+
+    Parameters:
+    - image: PIL.Image.Image - The image to convert.
+
+    Returns:
+    - torch.Tensor: The image as a tensor.
+    """
+    transform = transforms.ToTensor()
+    tensor = transform(image)
+    return tensor
+
+
 def save_image_to_respective_path(prefix_append, output_dir, 
                                       images: torch.Tensor, filename_prefix, prompt, 
                                       extra_pnginfo, compress_level,
                                       type, results):
         
+
+        images_tensor = []
+        for image in images:
+            images_tensor.extend(pil_to_tensor(image))
+
         filename_prefix += prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path(
-            filename_prefix, output_dir, images[0].shape[1], images[0].shape[0]
+            filename_prefix, output_dir, images_tensor[0].shape[1], images_tensor[0].shape[0]
         )
-        for batch_number, image in enumerate(images):
+        for batch_number, image in enumerate(images_tensor):
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             metadata: Optional[PngInfo] = None
