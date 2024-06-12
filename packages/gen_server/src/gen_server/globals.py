@@ -1,9 +1,9 @@
+from . import CustomNode
 from .types import Architecture
 from typing import Type, Dict
 from dotenv import load_dotenv
 import os
 import boto3
-
 
 API_ENDPOINTS: dict = {}
 """
@@ -15,7 +15,7 @@ ARCHITECTURES: dict[str, Type[Architecture]] = {}
 Global class containing all architecture definitions
 """
 
-CUSTOM_NODES: dict = {}
+CUSTOM_NODES: dict[str, Type[CustomNode]] = {}
 """
 Something
 """
