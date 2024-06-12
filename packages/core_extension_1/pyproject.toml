@@ -10,7 +10,7 @@ authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
 dependencies = [
-    "comfy_creator"
+    "gen_server",
 ]
 
 [project.entry-points."comfy_creator.architectures"]

@@ -3,6 +3,7 @@ from typing import Optional
 
 import grpc
 
+from core_extension_1.widgets import WidgetDefinition
 from .globals import CUSTOM_NODES
 from proto_defs import (
     ComfyGRPCServiceServicer,
@@ -11,13 +12,16 @@ from proto_defs import (
     NodeDefs,
     NodeDefinition,
 )
+from .types.types import Serializable
 
 user_uid: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 from concurrent import futures
 
 
 class ComfyServicer(ComfyGRPCServiceServicer):
-    def GetNodeDefinitions(self, request: NodeDefRequest, context: grpc.ServicerContext) -> NodeDefs:
+    def GetNodeDefinitions(
+        self, request: NodeDefRequest, context: grpc.ServicerContext
+    ) -> NodeDefs:
         defs = _get_node_definitions()
         node_defs = NodeDefs(defs=defs)
 
@@ -30,28 +34,48 @@ def _get_node_definitions():
         node = CUSTOM_NODES[node_type]
         interface = node.update_interface()
 
+        ux_widgets = []
         input_list = []
         output_list = []
 
         inputs = interface.get("inputs")
         if inputs is not None:
             for name in inputs:
-                input_type = type(inputs[name]).__name__
-                input_list.append(NodeDefinition.InputDef(edge_type=input_type, display_name=name))
+                if isinstance(inputs[name], Serializable):
+                    spec = inputs[name].serialize()
+                    input_type = spec.get("type")
+                else:
+                    if isinstance(inputs[name], type):
+                        input_type = inputs[name].__name__
+                    else:
+                        input_type = type(inputs[name]).__name__
+                if isinstance(inputs[name], WidgetDefinition):
+                    ux_widgets.append(
+                        NodeDefinition.UXWidget(widget_type=input_type, spec=spec)
+                    )
+                else:
+                    input_list.append(
+                        NodeDefinition.InputDef(edge_type=input_type, display_name=name)
+                    )
 
         outputs = interface.get("outputs")
         if outputs is not None:
             for name in outputs:
-                output_type = type(outputs[name]).__name__
-                output_list.append(NodeDefinition.OutputDef(edge_type=output_type, display_name=name))
+                if isinstance(outputs[name], type):
+                    output_type = outputs[name].__name__
+                else:
+                    output_type = type(outputs[name]).__name__
+                output_list.append(
+                    NodeDefinition.OutputDef(edge_type=output_type, display_name=name)
+                )
 
         definitions[node_type] = NodeDefinition(
             display_name=node_type,
             description=node_type,
             category="none",
-            ux_widgets=[],
+            ux_widgets=ux_widgets,
             inputs=input_list,
-            outputs=output_list
+            outputs=output_list,
         )
 
     return definitions
@@ -66,8 +90,10 @@ def _unary_unary_rpc_terminator(code, details):
 
 class AuthenticationInterceptor(grpc.ServerInterceptor):
     def __init__(self):
-        self._header = 'authorization'
-        self._terminator = _unary_unary_rpc_terminator(grpc.StatusCode.UNAUTHENTICATED, "Invalid auth details")
+        self._header = "authorization"
+        self._terminator = _unary_unary_rpc_terminator(
+            grpc.StatusCode.UNAUTHENTICATED, "Invalid auth details"
+        )
 
     def intercept_service(self, continuation, handler_call_details):
         metadata = dict(handler_call_details.invocation_metadata)
@@ -77,7 +103,7 @@ class AuthenticationInterceptor(grpc.ServerInterceptor):
                 return self._terminator
 
             bearer_parts = value.split(maxsplit=1)
-            if bearer_parts[0] != 'Bearer':
+            if bearer_parts[0] != "Bearer":
                 return self._terminator
 
             if user_uid.get() is not None:
@@ -89,9 +115,12 @@ class AuthenticationInterceptor(grpc.ServerInterceptor):
 
 
 def start_server(_host: str, port: int):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(AuthenticationInterceptor(),))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        interceptors=(AuthenticationInterceptor(),),
+    )
     add_ComfyGRPCServiceServicer_to_server(ComfyServicer(), server)
-    server.add_insecure_port(f'[::]:{port}')
+    server.add_insecure_port(f"[::]:{port}")
     server.start()
     print("Server started. Listening on port 50051.")
     server.wait_for_termination()
