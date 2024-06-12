@@ -1,4 +1,4 @@
-
+from .architecture import Architecture
 from typing import Type, Any
 from types import DynamicClassAttribute
 
@@ -9,10 +9,11 @@ class ModelConstraint:
     called in order to validate inputs.
     
     Constraints are used when building a graph, not when running a graph, hence they should
-    considered the equivalent of static type checking, not runtime type checking.
+    be considered the equivalent of static type checking, not runtime type checking.
     
     If a constraint (type, input_space, or output_space) is None, that constraint is ignored.
     """
+
     def __init__(self, *, model_type: Type[Any] = None, input_space: str = None, output_space: str = None):
         self._model_type = model_type
         self._input_space = input_space
@@ -29,8 +30,8 @@ class ModelConstraint:
     @property
     def output_space(self):
         return self._output_space
-    
-    def __call__(self, model_wrapper) -> bool:
+
+    def __call__(self, model_wrapper: Architecture) -> bool:
         """
         Checks if the specified architecture passes all constraints or not.
         """

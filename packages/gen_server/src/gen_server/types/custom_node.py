@@ -1,6 +1,18 @@
 from typing import Protocol, TypedDict, Any
 
 
+class NodeInterfaceInput(TypedDict):
+    name: str
+    type: str
+    default: str
+    required: bool
+
+
+class NodeInterfaceOutput(TypedDict):
+    name: str
+    type: str
+
+
 class NodeInterface(TypedDict):
     inputs: dict[str, Any]
     outputs: dict[str, Any]
@@ -10,7 +22,8 @@ class NodeInterface(TypedDict):
 class InputWrapper:
     pass
 
-class OuputWrapper:
+
+class OutputWrapper:
     pass
 
 
@@ -24,13 +37,26 @@ class CustomNode(Protocol):
     """
     The interface that all custom-nodes should implement.
     """
+
+    name: str
+    """ The name of the node, fit for display. """
+
+    type: str
+    """ The type of the node. e.g. "CheckpointLoader", "Scheduler" """
+
+    category: str
+    """ The category the node belongs to. e.g. "loader", "latent" """
+
+    description: str
+    """ The nodes description. """
+
     @staticmethod
     def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
         """
         Updates the node's interface based on the inputs.
         """
         pass
-    
+
     def __call__(self, *args, **kwargs) -> Any:
         """
         Runs the node.
