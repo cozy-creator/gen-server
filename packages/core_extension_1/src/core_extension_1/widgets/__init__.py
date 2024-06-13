@@ -7,6 +7,13 @@ from gen_server.types_1.types_1 import Serializable
 class WidgetDefinition(Serializable):
     """Base class for widget definitions"""
 
+    def __init__(self, value=None, default=None):
+        if value is None and default is not None:
+            value = default
+
+        self.default = default
+        self.value = value
+
     def serialize(self):
         """
         Serialize the object into a dictionary
@@ -22,51 +29,60 @@ class WidgetDefinition(Serializable):
 class TextInput(WidgetDefinition):
     """Text input widget"""
 
-    def __init__(self, default=None, value= None, max_length=None):
+    def __init__(self, default=None, value=None, max_length=None):
+        super().__init__(value, default)
         self.max_length = max_length
 
 
 class StringInput(WidgetDefinition):
     """String input widget"""
 
-    def __init__(self, max_length=None):
+    def __init__(self, default=None, value=None, max_length=None):
+        super().__init__(value, default)
         self.max_length = max_length
 
 
 class EnumInput(WidgetDefinition):
     """Enum input widget"""
 
-    def __init__(self, default=None, options=None):
+    def __init__(self, default=None, value=None, options=None):
+        if default is not None and default not in options:
+            raise ValueError(f"Invalid default value: {default}")
+        if value is not None and value not in options:
+            raise ValueError(f"Invalid value: {value}")
+
+        super().__init__(value, default)
         if options is None:
             options = []
         self.options = options
-        if default is not None and default not in options:
-            raise ValueError(f"Invalid default value: {default}")
-        self.default = default
 
 
 class IntInput(WidgetDefinition):
     """Integer input widget"""
 
-    def __init__(self, step=1, default=None, max=None, min=None):
+    def __init__(self, default=None, value=None, step=1, max=None, min=None):
+        super().__init__(value, default)
         self.min = min
         self.max = max
         self.step = step
-        self.default = default
 
 
 class FloatInput(WidgetDefinition):
     """Float input widget"""
 
-    def __init__(self, step=1, default=None, max=None, min=None):
+    def __init__(self, default=None, value=None, step=1, max=None, min=None):
+        super().__init__(value, default)
         self.min = min
         self.max = max
         self.step = step
-        self.default = default
 
 
 class BooleanInput(WidgetDefinition):
     """Boolean input widget"""
 
-    def __init__(self, default=False):
-        self.default = default
+    def __init__(
+        self,
+        default=None,
+        value=None,
+    ):
+        super().__init__(value, default)
