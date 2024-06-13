@@ -1,26 +1,26 @@
 from contextvars import ContextVar
+from concurrent import futures
 from typing import Optional
 
 import grpc
 
 from core_extension_1.widgets import WidgetDefinition
-from .globals import CUSTOM_NODES
-from proto_defs import (
+from gen_server.globals import CUSTOM_NODES
+from gen_server.proto_defs import (
     ComfyGRPCServiceServicer,
     add_ComfyGRPCServiceServicer_to_server,
     NodeDefRequest,
     NodeDefs,
     NodeDefinition,
 )
-from .types.types import Serializable
+from gen_server.types_1.types_1 import Serializable
 
 user_uid: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
-from concurrent import futures
 
 
 class ComfyServicer(ComfyGRPCServiceServicer):
     def GetNodeDefinitions(
-        self, request: NodeDefRequest, context: grpc.ServicerContext
+            self, request: NodeDefRequest, context: grpc.ServicerContext
     ) -> NodeDefs:
         defs = _get_node_definitions()
         node_defs = NodeDefs(defs=defs)
@@ -114,13 +114,19 @@ class AuthenticationInterceptor(grpc.ServerInterceptor):
             return self._terminator
 
 
-def start_server(_host: str, port: int):
+def start_server(host: str, port: int):
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10),
         interceptors=(AuthenticationInterceptor(),),
     )
     add_ComfyGRPCServiceServicer_to_server(ComfyServicer(), server)
-    server.add_insecure_port(f"[::]:{port}")
+
+    address = f"{host}:{port}"
+    server.add_insecure_port(address)
     server.start()
-    print("Server started. Listening on port 50051.")
+
+    print(f"GRPC Server started. Listening at {address}")
     server.wait_for_termination()
+
+
+start_server("0.0.0.0", 50051)

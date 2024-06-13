@@ -1,7 +1,7 @@
 import sys
 from typing import Any
 from gen_server.utils import load_models
-from gen_server.types import (
+from gen_server.types_1 import (
     Architecture,
     TorchDevice,
     NodeInterface,
@@ -33,8 +33,6 @@ class LoadCheckpoint(CustomNode):
 
     name = "Load Checkpoint"
 
-    type = "LoadCheckpoint"
-
     category = "loaders"
 
     description = "Loads a checkpoint file and returns a dictionary of model-classes"
@@ -62,8 +60,6 @@ class CreatePipe(CustomNode):
     """
 
     name = "Create Pipe"
-
-    type = "CreatePipe"
 
     category = "pipe"
 
@@ -141,8 +137,6 @@ class RunPipe(CustomNode):
     """
 
     name = "Run Pipe"
-
-    type = "RunPipe"
 
     category = "pipe"
 

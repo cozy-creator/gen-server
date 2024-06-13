@@ -1,9 +1,9 @@
 from typing import Any, Generic, TypeVar
 from abc import ABC, abstractmethod
 import torch
-from .types import TorchDevice, StateDict
+from .types_1 import TorchDevice, StateDict
 
-T = TypeVar('T', bound=torch.nn.Module, covariant=True)
+T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
@@ -12,17 +12,17 @@ class Architecture(ABC, Generic[T]):
     """
     The interface that all architecture definitions should implement.
     The construct __init__ function should accept no arguments.
-    
+
     A wrapper class for PyTorch models that adds additional properties and methods
     for inspection and management of the model.
     """
 
     def __init__(
-            self,
-            model: T,
-            config: Any = None,
-            input_space: str = None,
-            output_space: str = None
+        self,
+        model: T,
+        config: Any = None,
+        input_space: str = None,
+        output_space: str = None,
     ) -> None:
         super().__init__()
 

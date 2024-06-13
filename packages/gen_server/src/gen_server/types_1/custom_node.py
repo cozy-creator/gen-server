@@ -41,9 +41,6 @@ class CustomNode(Protocol):
     name: str
     """ The name of the node, fit for display. """
 
-    type: str
-    """ The type of the node. e.g. "CheckpointLoader", "Scheduler" """
-
     category: str
     """ The category the node belongs to. e.g. "loader", "latent" """
 

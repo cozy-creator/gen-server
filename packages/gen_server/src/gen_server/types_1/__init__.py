@@ -1,8 +1,7 @@
 from .architecture import Architecture
 from .custom_node import CustomNode, NodeInterface
 from .model_constraint import ModelConstraint
-from .types import StateDict, TorchDevice, ImageOutputType
-
+from .types_1 import StateDict, TorchDevice, ImageOutputType
 
 __all__ = [
     "Architecture",
@@ -11,5 +10,5 @@ __all__ = [
     "NodeInterface",
     "StateDict",
     "TorchDevice",
-    "ImageOutputType"
+    "ImageOutputType",
 ]

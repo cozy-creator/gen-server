@@ -1,7 +1,7 @@
 from .architecture import Architecture
 from typing import Type, Any
 
-from .types import Serializable
+from .types_1 import Serializable
 
 
 class ModelConstraint(Serializable):

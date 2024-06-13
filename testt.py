@@ -1,4 +1,6 @@
 import json
+from pprint import pprint
+from typing import Type, Any
 
 from core_extension_1.custom_nodes import (
     LoadCheckpoint,
@@ -7,11 +9,16 @@ from core_extension_1.custom_nodes import (
 )
 from core_extension_1.widgets import WidgetDefinition
 from gen_server.globals import CUSTOM_NODES
-from gen_server.types.types import Serializable
+from gen_server.types_1.types_1 import Serializable
 
 CUSTOM_NODES["LoadCheckpoint"] = LoadCheckpoint
 CUSTOM_NODES["CreatePipe"] = CreatePipe
 CUSTOM_NODES["RunPipe"] = RunPipe
+
+
+def class_type(cls: Type[Any]):
+    package_name = cls.__module__.split(".")[0]
+    return f"{package_name}.{cls.__name__}"
 
 
 def _get_node_definitions():
@@ -36,7 +43,7 @@ def _get_node_definitions():
                     else:
                         input_type = type(inputs[name]).__name__
                 if isinstance(inputs[name], WidgetDefinition):
-                    ux_widgets.append({"display_name": name, "spec": spec})
+                    ux_widgets.append({"type": class_type(type(inputs[name])), "display_name": name, "spec": spec})
                 else:
                     input_list.append({"edge_type": input_type, "display_name": name})
 
@@ -51,7 +58,7 @@ def _get_node_definitions():
 
         definitions[node_type] = {
             "name": node.name,
-            "type": node.type,
+            "type": class_type(node),
             "category": node.category,
             "description": node.description,
             "definition": {
@@ -65,4 +72,5 @@ def _get_node_definitions():
 
 
 if __name__ == "__main__":
-    print(json.dumps(_get_node_definitions(), indent=2))
+    defs = json.dumps(_get_node_definitions(), indent=2)
+    print(defs)
