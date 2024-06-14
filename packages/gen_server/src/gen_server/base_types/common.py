@@ -1,9 +1,33 @@
 from abc import ABC
-
 import torch
 from typing import Union, List
 import PIL.Image
 import numpy as np
+from enum import Enum
+
+
+class Language(Enum):
+    """
+    ISO 639-1 language codes; used for localizing text.
+    English will be displayed for all text lacking a localization.
+    """
+    ENGLISH = 'en'
+    CHINESE = 'zh'
+
+
+class Category(Enum):
+    """
+    Used to group nodes by category in the client.
+    """
+    LOADER = {
+        Language.ENGLISH: "Loader",
+        Language.CHINESE: "加载器"
+    }
+    PIPE = {
+        Language.ENGLISH: "Pipe",
+        Language.CHINESE: "管道"
+    }
+
 
 StateDict = dict[str, torch.Tensor]
 """

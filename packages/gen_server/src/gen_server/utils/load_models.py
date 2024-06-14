@@ -3,15 +3,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import torch
-from typing import Type
+from typing import Type, Optional
 from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
 from spandrel.__helpers.unpickler import (
     RestrictedUnpickle,
 )  # probably shouldn't import from private modules...
 
-from ..types_1 import Architecture, StateDict, TorchDevice
+from ..base_types import Architecture, StateDict, TorchDevice
 from ..globals import ARCHITECTURES
+
+from typing import Protocol, runtime_checkable
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -21,7 +23,7 @@ from ..globals import ARCHITECTURES
 # on which model it should use
 def from_file(
     path: str | Path,
-    device: TorchDevice = None,
+    device: Optional[TorchDevice] = None,
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, Architecture]:
     """
@@ -37,7 +39,7 @@ def from_file(
 
 def from_state_dict(
     state_dict: StateDict,
-    device: TorchDevice = None,
+    device: Optional[TorchDevice] = None,
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, Architecture]:
     """
@@ -70,14 +72,14 @@ def detect_all(
         try:
             if architecture.detect(state_dict):
                 # this will overwrite previous architectures with the same id
-                components.update({arch_id: architecture()})
+                components.update({arch_id: architecture()}) # type: ignore
         except Exception as e:
             print(e)
 
     return components
 
 
-def state_dict_from_file(path: str | Path, device: torch.device = None) -> StateDict:
+def state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
     """
     Load the state dict of a model from the given file path.
 
@@ -87,6 +89,8 @@ def state_dict_from_file(path: str | Path, device: torch.device = None) -> State
     Throws a `ValueError` if the file extension is not supported.
     """
     extension = os.path.splitext(path)[1].lower()
+    if isinstance(device, str):
+        device = torch.device(device) # make pyright type-checker happy
 
     state_dict: StateDict
     if extension == ".pt":
@@ -118,7 +122,7 @@ def state_dict_from_file(path: str | Path, device: torch.device = None) -> State
     return canonicalize_state_dict(state_dict)
 
 
-def _load_pth(path: str | Path, device: torch.device = None) -> StateDict:
+def _load_pth(path: str | Path, device: Optional[torch.device] = None) -> StateDict:
     return torch.load(
         path,
         map_location=device,
@@ -126,9 +130,14 @@ def _load_pth(path: str | Path, device: torch.device = None) -> StateDict:
     )
 
 
-def _load_torchscript(path: str | Path, device: torch.device = None) -> StateDict:
+def _load_torchscript(path: str | Path, device: Optional[torch.device] = None) -> StateDict:
     return torch.jit.load(path, map_location=device).state_dict()
 
 
-def _load_safetensors(path: str | Path, device: torch.device = None) -> StateDict:
-    return safetensors_load_file(path, device=device)
+def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
+    if device is not None:
+        if isinstance(device, torch.device):
+            device = str(device)
+        return safetensors_load_file(path, device=device)
+    else:
+        return safetensors_load_file(path)

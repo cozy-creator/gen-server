@@ -14,7 +14,7 @@ from gen_server.proto_defs import (
     NodeDefinition,
     ComfyRequest,
 )
-from gen_server.types_1.types_1 import Serializable
+from gen_server.base_types import Serializable
 from gen_server.workflow.runner import WorkflowRunner
 
 

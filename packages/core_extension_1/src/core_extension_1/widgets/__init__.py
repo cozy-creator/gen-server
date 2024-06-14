@@ -1,4 +1,4 @@
-from gen_server.types_1.types_1 import Serializable
+from gen_server.base_types import Serializable
 
 
 class WidgetDefinition(Serializable):

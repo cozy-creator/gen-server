@@ -1,7 +1,6 @@
 from .architecture import Architecture
-from typing import Type, Any
-
-from .types_1 import Serializable
+from typing import Type, Any, Optional
+from .common import Serializable
 
 
 class ModelConstraint(Serializable):
@@ -18,9 +17,9 @@ class ModelConstraint(Serializable):
     def __init__(
         self,
         *,
-        model_type: Type[Any] = None,
-        input_space: str = None,
-        output_space: str = None,
+        model_type: Optional[Type[Any]] = None,
+        input_space: Optional[str] = None,
+        output_space: Optional[str] = None,
     ):
         self._model_type = model_type
         self._input_space = input_space

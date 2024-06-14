@@ -1,4 +1,5 @@
-from typing import Protocol, TypedDict, Any
+from typing import Protocol, TypedDict, Any, Optional
+from .common import Language, Category
 
 
 class NodeInterfaceInput(TypedDict):
@@ -38,21 +39,23 @@ class CustomNode(Protocol):
     The interface that all custom-nodes should implement.
     """
 
-    name: str
-    """ The name of the node, fit for display. """
+    display_name: dict[Language, str]
+    """ The name of the node, displayed in the client. """
 
-    category: str
-    """ The category the node belongs to. e.g. "loader", "latent" """
+    category: Category
+    """
+    Category used to group nodes in the client.
+    """
 
-    description: str
-    """ The nodes description. """
+    description: dict[Language, str]
+    """ Description, displayed in the client. Localized by language. """
 
     @staticmethod
-    def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
+    def update_interface(inputs: Optional[dict[str, Any]] = None) -> NodeInterface:
         """
         Updates the node's interface based on the inputs.
         """
-        pass
+        return { "inputs": {}, "outputs": {} }
 
     def __call__(self, *args, **kwargs) -> Any:
         """

@@ -7,7 +7,7 @@ import inspect
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .types_1 import Architecture
+from .base_types import Architecture
 from .utils.extension_loader import load_extensions
 from .globals import (
     API_ENDPOINTS,

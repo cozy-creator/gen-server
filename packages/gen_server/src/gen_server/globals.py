@@ -1,6 +1,6 @@
 from . import CustomNode
-from .types_1 import Architecture
-from typing import Type, Dict
+from .base_types import Architecture
+from typing import Type, Dict, Optional
 from dotenv import load_dotenv
 import os
 import boto3
@@ -33,7 +33,7 @@ s3_access_key = None
 s3_secret_key = None
 
 
-def configure_environment(env_file: str = None, config_dict: Dict[str, str] = None):
+def configure_environment(env_file: Optional[str] = None, config_dict: Optional[Dict[str, str]] = None):
     """
     Configures the environment based on provided parameters.
     """

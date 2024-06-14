@@ -26,9 +26,14 @@ def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[s
     
     for entry_point in discovered_plugins:
         # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
-        package_name = entry_point.dist.metadata['Name'].replace('-', '_')
-        scoped_name = f"{package_name}.{entry_point.name}"
-        
+        try:
+            assert entry_point.dist is not None, "The distribution object for the entry point is None."
+            package_name = entry_point.dist.metadata['Name'].replace('-', '_')
+            scoped_name = f"{package_name}.{entry_point.name}"
+        except AssertionError as e:
+            logging.error(f"Error in processing entry point {entry_point.name}: {str(e)}")
+            continue  # Skip this entry point
+            
         try:
             component = entry_point.load()
             
@@ -80,20 +85,20 @@ def implements_interface(implementation: Type, interface: Type) -> bool:
 
 
 # TO DO: replace this with something useful
-def generate_node_definitions():
-    node_definitions = []
+# def generate_node_definitions():
+#     node_definitions = []
 
-    for node_name, node_class in CUSTOM_NODES.items():
-        node_definition = {
-            "name": node_name,
-            "display_name": 'TO DO: NAMES',
-            "category": node_class.CATEGORY if hasattr(node_class, 'CATEGORY') else "Custom Nodes",
-            "inputs": node_class.INPUT_TYPES() if hasattr(node_class, 'INPUT_TYPES') else None,
-            "outputs": node_class.RETURN_TYPES if hasattr(node_class, 'RETURN_TYPES') else None,
-        }
-        node_definitions.append(node_definition)
+#     for node_name, node_class in CUSTOM_NODES.items():
+#         node_definition = {
+#             "name": node_name,
+#             "display_name": 'TO DO: NAMES',
+#             "category": node_class.CATEGORY if hasattr(node_class, 'CATEGORY') else "Custom Nodes",
+#             "inputs": node_class.INPUT_TYPES() if hasattr(node_class, 'INPUT_TYPES') else None,
+#             "outputs": node_class.RETURN_TYPES if hasattr(node_class, 'RETURN_TYPES') else None,
+#         }
+#         node_definitions.append(node_definition)
 
-    return node_definitions
+#     return node_definitions
 
 
 # def load_custom_nodes():

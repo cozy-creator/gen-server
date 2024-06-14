@@ -1,21 +1,24 @@
-### Dev Commands
+### Dev Usage
 
-To install the main package, navigate to the `/packages/gen_server` folder:
+To run the main application package, navigate to the `/packages/gen_server` folder:
+
 - Run `pip install -e .`; this adds the `comfy-creator` command to your path.
 - Run `comfy-creator`
 
-This will generate a `.egg-info` folder.
+This will generate a `.egg-info` folder. The code will be installed in editable format, which means any changes to the code will be immediately reflected the next time you run it.
 
 Repeat this for all packages you want to install. The other packages extend functionality of the gen-server by specifying an entry-point group-name; they will be dynamically imported at runtime by the main gen-server application.
 
-If you have `build` installed, you can also run:
-- `python -m build` to build the repo.
-This will produce a /dist folder.
 
+### Building for Distrubtion
 
-### Notes
+If you don't already have `build`, you can use pip to install it. Then navigate into the package directory you want to build, and run:
 
-- 'torch' is required, but is not currently listed as a dependency in our pyproject.toml. Please install the version of torch your environment needs in order to run.
+- `python -m build` to build the repository.
+
+This will produce a `/dist` folder, containing a `.whl` (wheel) file and a `.tar.gz` file. The wheel file packages the library in a format that can be easily installed using pip, while the `.tar.gz` file contains the source code. To install the wheel file, use the command `pip install file_name.whl`.
+
+None of our packages currently use any C-APIs, and hence do not need to be recompiled for different environments.
 
 
 ### Running in production
@@ -25,7 +28,7 @@ The gen-server currently does not currently check any form of authentication on 
 
 ### Old dependencies:
 
-I'm keeping these here for notes
+I'm keeping these here for notes:
 
 dependencies = [
     "aiohttp>=3.9.5",
@@ -45,23 +48,4 @@ dependencies = [
     "uuid~=1.30"
 ]
 
-### more notes for later:
 
-[project.entry-points."comfy_creator.api"]
-endpoint1 = "core_extension_1.api.endpoint1:Endpoint1"
-endpoint2 = "core_extension_1.api.endpoint2:Endpoint2"
-
-[project.entry-points."comfy_creator.architectures"]
-architecture1 = "core_extension_1.architectures.sd1_unet.SD1UNet"
-architecture2 = "core_extension_1.arch2:Architecture2"
-architecture3 = "core_extension_1.text_encoder:SD15TextEncoderArch"
-architecture4 = "core_extension_1.unet:SD15UNetArch"
-architecture5 = "core_extension_1.VAE:SD15VAEArch"
-
-[project.entry-points."comfy_creator.custom_nodes"]
-node1 = "core_extension_1.custom_nodes.node1:get_nodes"
-node2 = "core_extension_1.custom_nodes.node1:Node1"
-
-[project.entry-points."comfy_creator.widgets"]
-widget1 = "core_extension_1.widgets:Widget1"
-widget2 = "core_extension_1.widgets:Widget2"

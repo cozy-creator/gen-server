@@ -1,7 +1,7 @@
 import sys
 from typing import Any
 from gen_server.utils import load_models
-from gen_server.types_1 import (
+from gen_server.base_types import (
     Architecture,
     TorchDevice,
     NodeInterface,
