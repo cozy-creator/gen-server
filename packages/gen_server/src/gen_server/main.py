@@ -2,19 +2,20 @@ import os
 import json
 import time
 import inspect
+from dotenv import load_dotenv
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .base_types import Architecture
+from .base_types import Architecture, CustomNode
 from .utils.extension_loader import load_extensions
 from .globals import (
     API_ENDPOINTS,
     ARCHITECTURES,
     CUSTOM_NODES,
     WIDGETS,
-    configure_environment,
+    initialize_config,
 )
 import argparse
 import ast
@@ -28,6 +29,7 @@ output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
 
 
 def main():
+    # Parse command-line args
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", help="Environment file path", default=None)
     parser.add_argument(
@@ -35,16 +37,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # Parse the configuration dictionary if provided
-    config_dict = None
-    if args.config:
-        try:
-            config_dict = ast.literal_eval(args.config)
-            # config_dict = json.loads(config)
-        except json.JSONDecodeError:
-            print("Invalid JSON format for --config argument.")
-
-    configure_environment(env_file=args.env, config_dict=config_dict)
+    initialize_config(env_path=args.env, config_path=args.config)
 
     # we load the extensions inside a function to avoid circular dependencies
 
@@ -62,7 +55,9 @@ def main():
     )
 
     global CUSTOM_NODES
-    CUSTOM_NODES.update(load_extensions("comfy_creator.custom_nodes"))
+    CUSTOM_NODES.update(
+        load_extensions("comfy_creator.custom_nodes", expected_type=CustomNode)
+    )
 
     global WIDGETS
     WIDGETS.update(load_extensions("comfy_creator.widgets"))

@@ -10,7 +10,7 @@ This will generate a `.egg-info` folder. The code will be installed in editable 
 Repeat this for all packages you want to install. The other packages extend functionality of the gen-server by specifying an entry-point group-name; they will be dynamically imported at runtime by the main gen-server application.
 
 
-### Building for Distrubtion
+### Building for Distribution
 
 If you don't already have `build`, you can use pip to install it. Then navigate into the package directory you want to build, and run:
 
@@ -23,7 +23,43 @@ None of our packages currently use any C-APIs, and hence do not need to be recom
 
 ### Running in production
 
-The gen-server currently does not currently check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server.
+`comfy-creator` flags:
+
+--config path/to/config.json
+--env path/to/.env
+
+If these are not specified, comfy-creator will use default values.
+
+Example config.json:
+```
+    {
+        "filesystem_type": "S3",
+        "workspace_dir": "~/.comfy-creator",
+        "models_dirs": [
+            "~/.comfy-creator/models",
+            "~/.comfy-creator/models/stable-diffusion"
+        ],
+        "s3_credentials": {
+            "bucket_name": "voidtech-storage-dev",
+            "endpoint_fqdn": "nyc3.digitaloceanspaces.com",
+            "folder": "public",
+            "access_key": "DO00W9N964WMQC2MV6JK"
+        }
+    }
+```
+
+### Configuration Details
+
+- **filesystem_type**: Specifies the type of file system to use. Options are `LOCAL` or `S3`.
+- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.comfy-creator`.
+- **models_dirs**: Directories where `comfy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.comfy-creator/models`.
+- **s3_credentials**: Contains the credentials for reading files from and writing files to an S3 bucket; only used if filesystem_type is set to S3.
+  - **bucket_name**: The name of the S3 bucket.
+  - **endpoint_fqdn**: The fully qualified domain name of the S3 endpoint.
+  - **folder**: The specific folder within the S3 bucket where files are stored.
+  - **access_key**: The access key for S3 bucket authentication. Note: The secret key should be stored inside of the .env file as `S3_SECRET_KEY`.
+
+> **Note:** The gen-server currently does not check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server, or we need to implement authentication still.
 
 
 ### Old dependencies:
