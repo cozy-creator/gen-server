@@ -1,6 +1,6 @@
 from contextvars import ContextVar
 from concurrent import futures
-from typing import Optional
+from typing import Optional, Type, Any
 
 import grpc
 
@@ -12,31 +12,55 @@ from gen_server.proto_defs import (
     NodeDefRequest,
     NodeDefs,
     NodeDefinition,
+    ComfyRequest,
 )
 from gen_server.types_1.types_1 import Serializable
+from gen_server.workflow.runner import WorkflowRunner
+
 
 user_uid: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
+# load_extensions(
+#     "entry_point",
+#     {"LoadCheckpoint": LoadCheckpoint, "CreatePipe": CreatePipe, "RunPipe": RunPipe},
+# )
+
 
 class ComfyServicer(ComfyGRPCServiceServicer):
+    def Run(self, request: ComfyRequest, context: grpc.ServicerContext):
+        _handle_run_workflow(request, context)
+
     def GetNodeDefinitions(
-            self, request: NodeDefRequest, context: grpc.ServicerContext
+        self, _request: NodeDefRequest, _context: grpc.ServicerContext
     ) -> NodeDefs:
         defs = _get_node_definitions()
         node_defs = NodeDefs(defs=defs)
+        print(node_defs)
 
         return node_defs
 
 
+def class_type(cls: Type[Any]):
+    package_name = cls.__module__.split(".")[0]
+    return f"{package_name}.{cls.__name__}"
+
+
+async def _handle_run_workflow(request: ComfyRequest, _context: grpc.ServicerContext):
+    runner = WorkflowRunner(request.workflow, {})
+    result = await runner.run()
+
+    return result
+
+
 def _get_node_definitions():
     definitions = {}
-    for node_type in CUSTOM_NODES:
+    for key, node_type in CUSTOM_NODES.items():
         node = CUSTOM_NODES[node_type]
         interface = node.update_interface()
 
-        ux_widgets = []
         input_list = []
         output_list = []
+        ux_widget_list = []
 
         inputs = interface.get("inputs")
         if inputs is not None:
@@ -46,36 +70,39 @@ def _get_node_definitions():
                     input_type = spec.get("type")
                 else:
                     if isinstance(inputs[name], type):
-                        input_type = inputs[name].__name__
+                        input_type = class_type(inputs[name])
                     else:
-                        input_type = type(inputs[name]).__name__
+                        input_type = class_type(type(inputs[name]))
                 if isinstance(inputs[name], WidgetDefinition):
-                    ux_widgets.append(
-                        NodeDefinition.UXWidget(widget_type=input_type, spec=spec)
+                    ux_widget_list.append(
+                        NodeDefinition.UXWidget(spec=spec, widget_type=input_type)
                     )
                 else:
                     input_list.append(
-                        NodeDefinition.InputDef(edge_type=input_type, display_name=name)
+                        NodeDefinition.InputDef(
+                            display_name=name, edge_type=input_type, required=True
+                        )
                     )
 
         outputs = interface.get("outputs")
         if outputs is not None:
             for name in outputs:
                 if isinstance(outputs[name], type):
-                    output_type = outputs[name].__name__
+                    output_type = class_type(outputs[name])
                 else:
-                    output_type = type(outputs[name]).__name__
+                    output_type = class_type(type(outputs[name]))
+
                 output_list.append(
-                    NodeDefinition.OutputDef(edge_type=output_type, display_name=name)
+                    NodeDefinition.InputDef(display_name=name, edge_type=output_type)
                 )
 
         definitions[node_type] = NodeDefinition(
-            display_name=node_type,
-            description=node_type,
-            category="none",
-            ux_widgets=ux_widgets,
+            display_name=node.name,
+            description=node.description,
+            category=node.category,
             inputs=input_list,
             outputs=output_list,
+            ux_widgets=ux_widget_list,
         )
 
     return definitions
@@ -115,10 +142,7 @@ class AuthenticationInterceptor(grpc.ServerInterceptor):
 
 
 def start_server(host: str, port: int):
-    server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
-        interceptors=(AuthenticationInterceptor(),),
-    )
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     add_ComfyGRPCServiceServicer_to_server(ComfyServicer(), server)
 
     address = f"{host}:{port}"

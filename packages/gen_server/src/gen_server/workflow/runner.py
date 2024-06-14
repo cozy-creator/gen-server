@@ -39,7 +39,7 @@ class WorkflowRunner:
 
     def _get_node(self, node_id: str, data: WorkflowData):
         if not data.get("type"):
-            raise ValueError('node type is required')
+            raise ValueError("node type is required")
 
         node_class = node_registry.get(data.get("type"))
         return node_class(node_id)
@@ -55,7 +55,7 @@ class WorkflowRunner:
 
     async def run(self):
         if not self.workflow.data:
-            raise ValueError('workflow missing in workflow')
+            raise ValueError("workflow missing in workflow")
 
         node_ids = self.sort_workflow_nodes()
 
