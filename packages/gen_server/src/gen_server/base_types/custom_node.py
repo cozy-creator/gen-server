@@ -1,5 +1,6 @@
 from typing import Protocol, TypedDict, Any, Optional
 from .common import Language, Category
+from abc import ABC, abstractmethod
 
 
 class NodeInterfaceInput(TypedDict):
@@ -34,7 +35,7 @@ class OutputWrapper:
 # would become HARD, because instead of passing from input to output we
 # instead could flow _backwards_ and end up in infinite loops of modifying
 # interfaces infinitely.
-class CustomNode(Protocol):
+class CustomNode(ABC):
     """
     The interface that all custom-nodes should implement.
     """
@@ -51,7 +52,7 @@ class CustomNode(Protocol):
     """ Description, displayed in the client. Localized by language. """
 
     @staticmethod
-    def update_interface(inputs: Optional[dict[str, Any]] = None) -> NodeInterface:
+    def update_interface(inputs: dict[str, Any]) -> NodeInterface:
         """
         Updates the node's interface based on the inputs.
         """

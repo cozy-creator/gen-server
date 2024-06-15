@@ -8,7 +8,10 @@ from gen_server.base_types import (
     ModelConstraint,
     ImageOutputType,
     CustomNode,
+    Language,
+    Category,
 )
+from gen_server.globals import MODEL_FILES
 from diffusers import (
     StableDiffusionPipeline,
     DDIMScheduler,
@@ -30,17 +33,25 @@ class LoadCheckpoint(CustomNode):
     """
     Takes a file with a state dict, outputs a dictionary of model-classes from Diffusers
     """
+    display_name = {
+        Language.ENGLISH: "Load Checkpoint",
+        Language.CHINESE: "加载检查点",
+    }
 
-    name = "Load Checkpoint"
+    category = Category.LOADER
 
-    category = "loaders"
-
-    description = "Loads a checkpoint file and returns a dictionary of model-classes"
+    description = {
+        Language.ENGLISH: "Loads a checkpoint file and returns a dictionary of model-classes",
+        Language.CHINESE: "加载检查点文件，并返回模型类的字典",
+    }
 
     @staticmethod
-    def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
-        interface = {"inputs": {"file_path": EnumInput()}, "outputs": {}}
-        if inputs is not None:
+    def update_interface(inputs: dict[str, Any]) -> NodeInterface:
+        interface = { 
+            "inputs": { "file_path": EnumInput(options=list(MODEL_FILES.keys())) }, 
+            "outputs": {} 
+        }
+        if inputs:
             file_path = inputs.get("file_path", None)
             if file_path:
                 interface.update({"outputs": load_models.detect_all(file_path)})
@@ -59,7 +70,7 @@ class CreatePipe(CustomNode):
     Produces a diffusers pipeline, and loads it onto the device.
     """
 
-    name = "Create Pipe"
+    display_name = "Create Pipe"
 
     category = "pipe"
 
@@ -136,7 +147,7 @@ class RunPipe(CustomNode):
     Takes a StableDiffusionPipeline and a prompt, outputs an image
     """
 
-    name = "Run Pipe"
+    display_name = "Run Pipe"
 
     category = "pipe"
 

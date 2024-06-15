@@ -42,15 +42,16 @@ class StringInput(WidgetDefinition):
 class EnumInput(WidgetDefinition):
     """Enum input widget"""
 
-    def __init__(self, default=None, value=None, options=None):
+    def __init__(self, default=None, value=None, options: List[str] = []):
         if default is not None and default not in options:
             raise ValueError(f"Invalid default value: {default}")
         if value is not None and value not in options:
             raise ValueError(f"Invalid value: {value}")
+        if not all(isinstance(option, str) for option in options):
+            raise TypeError("All options must be strings.")
 
         super().__init__(value, default)
-        if options is None:
-            options = []
+
         self.options = options
 
 

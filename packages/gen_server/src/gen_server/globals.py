@@ -31,11 +31,18 @@ WIDGETS: dict = {}
 TO DO
 """
 
+MODEL_FILES: dict = {}
+"""
+Dictionary of all discovered checkpoint files
+"""
+
 @dataclass
 class ComfyConfig:
-    filesystem_type: Optional[str] = None
-    workspace_dir: Optional[str] = None
-    models_dirs: List[str] = field(default_factory=list)
+    filesystem_type: Optional[str] = "S3"
+    workspace_dir: Optional[str] = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
+    models_dirs: List[str] = field(
+        default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS]
+    )
     s3: dict = field(default_factory=dict) 
 
 comfy_config = ComfyConfig()
@@ -98,4 +105,7 @@ def initialize_config(env_path: Optional[str] = None, config_path: Optional[str]
                 print("S3 client configured successfully.")
             except Exception as e:
                 print(f"Error configuring S3 client: {e}")
+
+    if comfy_config.filesystem_type == "S3" and not comfy_config.s3.get("client"):
+        raise ValueError("Failed to load required S3 credentials.")
 
