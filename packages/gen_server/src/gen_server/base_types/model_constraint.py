@@ -1,20 +1,26 @@
 from .architecture import Architecture
-from typing import Type, Any
-from types import DynamicClassAttribute
+from typing import Type, Any, Optional
+from .common import Serializable
 
 
-class ModelConstraint:
+class ModelConstraint(Serializable):
     """
     A constraint on a model input. This can be introspected, for display in the UI, and also
     called in order to validate inputs.
-    
+
     Constraints are used when building a graph, not when running a graph, hence they should
     be considered the equivalent of static type checking, not runtime type checking.
-    
+
     If a constraint (type, input_space, or output_space) is None, that constraint is ignored.
     """
 
-    def __init__(self, *, model_type: Type[Any] = None, input_space: str = None, output_space: str = None):
+    def __init__(
+        self,
+        *,
+        model_type: Optional[Type[Any]] = None,
+        input_space: Optional[str] = None,
+        output_space: Optional[str] = None,
+    ):
         self._model_type = model_type
         self._input_space = input_space
         self._output_space = output_space
@@ -35,13 +41,32 @@ class ModelConstraint:
         """
         Checks if the specified architecture passes all constraints or not.
         """
-        if self._model_type is not None and not isinstance(model_wrapper, self._model_type):
+        if self._model_type is not None and not isinstance(
+            model_wrapper, self._model_type
+        ):
             return False
 
-        if self._input_space is not None and getattr(model_wrapper, 'input_space', None) != self.input_space:
+        if (
+            self._input_space is not None
+            and getattr(model_wrapper, "input_space", None) != self.input_space
+        ):
             return False
 
-        if self._output_space is not None and getattr(model_wrapper, 'output_space', None) != self.output_space:
+        if (
+            self._output_space is not None
+            and getattr(model_wrapper, "output_space", None) != self.output_space
+        ):
             return False
 
         return True
+
+    def serialize(self):
+        model_type = (
+            self._model_type.__name__ if (self._model_type is not None) else None
+        )
+
+        return {
+            "type": model_type,
+            "input_space": self._input_space,
+            "output_space": self._output_space,
+        }

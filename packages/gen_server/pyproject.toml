@@ -15,9 +15,12 @@ dependencies = [
     "diffusers",
     "grpcio",
     "protobuf",
-    "safetensors",
+    "safetensors>=0.4.2",
     "spandrel",
-    "transformers",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "transformers>=4.25.1",
     "typing_extensions"
 ]
 

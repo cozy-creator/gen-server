@@ -1,4 +1,6 @@
-from typing import Protocol, TypedDict, Any
+from typing import Protocol, TypedDict, Any, Optional
+from .common import Language, Category
+from abc import ABC, abstractmethod
 
 
 class NodeInterfaceInput(TypedDict):
@@ -33,29 +35,28 @@ class OutputWrapper:
 # would become HARD, because instead of passing from input to output we
 # instead could flow _backwards_ and end up in infinite loops of modifying
 # interfaces infinitely.
-class CustomNode(Protocol):
+class CustomNode(ABC):
     """
     The interface that all custom-nodes should implement.
     """
 
-    name: str
-    """ The name of the node, fit for display. """
+    display_name: dict[Language, str]
+    """ The name of the node, displayed in the client. """
 
-    type: str
-    """ The type of the node. e.g. "CheckpointLoader", "Scheduler" """
+    category: Category
+    """
+    Category used to group nodes in the client.
+    """
 
-    category: str
-    """ The category the node belongs to. e.g. "loader", "latent" """
-
-    description: str
-    """ The nodes description. """
+    description: dict[Language, str]
+    """ Description, displayed in the client. Localized by language. """
 
     @staticmethod
-    def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
+    def update_interface(inputs: dict[str, Any]) -> NodeInterface:
         """
         Updates the node's interface based on the inputs.
         """
-        pass
+        return { "inputs": {}, "outputs": {} }
 
     def __call__(self, *args, **kwargs) -> Any:
         """

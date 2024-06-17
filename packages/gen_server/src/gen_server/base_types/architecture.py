@@ -1,9 +1,9 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Optional
 from abc import ABC, abstractmethod
 import torch
-from .types import TorchDevice, StateDict
+from .common import TorchDevice, StateDict
 
-T = TypeVar('T', bound=torch.nn.Module, covariant=True)
+T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
@@ -12,17 +12,17 @@ class Architecture(ABC, Generic[T]):
     """
     The interface that all architecture definitions should implement.
     The construct __init__ function should accept no arguments.
-    
+
     A wrapper class for PyTorch models that adds additional properties and methods
     for inspection and management of the model.
     """
 
     def __init__(
-            self,
-            model: T,
-            config: Any = None,
-            input_space: str = None,
-            output_space: str = None
+        self,
+        model: T,
+        config: Any = None,
+        input_space: Optional[str] = None,
+        output_space: Optional[str] = None,
     ) -> None:
         super().__init__()
 
@@ -46,14 +46,14 @@ class Architecture(ABC, Generic[T]):
         return self._config
 
     @property
-    def input_space(self) -> str:
+    def input_space(self) -> str | None:
         """
         Access the input space of the model.
         """
         return self._input_space
 
     @property
-    def output_space(self) -> str:
+    def output_space(self) -> str | None:
         """
         Access the output space of the model.
         """
@@ -74,7 +74,7 @@ class Architecture(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def load(self, state_dict: StateDict, device: TorchDevice = None) -> None:
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
         """
         Loads a model from the given state dictionary according to the architecture.
 

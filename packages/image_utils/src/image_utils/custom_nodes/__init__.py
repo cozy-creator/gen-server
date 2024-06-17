@@ -1,5 +1,5 @@
 from typing import Dict, Tuple, Union, List
-from gen_server.types import CustomNode, NodeInterface, ImageOutputType
+from gen_server.base_types import CustomNode, NodeInterface, ImageOutputType
 import random
 import os
 import blake3
@@ -206,6 +206,4 @@ def save_image_to_respective_path(prefix_append, output_dir,
             img.save(os.path.join(full_output_folder, file), pnginfo=metadata, compress_level=compress_level)
             results.append({"filename": file, "subfolder": subfolder, "type": type})
             counter += 1
-
-
 

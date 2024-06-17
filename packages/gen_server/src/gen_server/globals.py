@@ -1,9 +1,15 @@
-from . import CustomNode
-from .types import Architecture
-from typing import Type, Dict
-from dotenv import load_dotenv
 import os
+import json
 import boto3
+from typing import Type, Dict, Optional, List, Any
+from dotenv import load_dotenv
+from dataclasses import dataclass, field
+from . import CustomNode
+from .base_types import Architecture, Checkpoint
+
+
+DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/models'
+DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
 
 API_ENDPOINTS: dict = {}
 """
@@ -25,55 +31,81 @@ WIDGETS: dict = {}
 TO DO
 """
 
-env = None
-s3 = None
-s3_bucket_name = None
-s3_endpoint_fqdn = None
-s3_access_key = None
-s3_secret_key = None
+PRETRAINED_MODELS: dict[str, Checkpoint] = {}
+"""
+Dictionary of all discovered checkpoint files
+"""
 
+@dataclass
+class ComfyConfig:
+    filesystem_type: Optional[str] = "S3"
+    workspace_dir: Optional[str] = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
+    models_dirs: List[str] = field(
+        default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS]
+    )
+    s3: dict = field(default_factory=dict) 
 
-def configure_environment(env_file: str = None, config_dict: Dict[str, str] = None):
+comfy_config = ComfyConfig()
+"""
+Global configuration dataclass for the comfy-creator application
+"""
+
+def initialize_config(env_path: Optional[str] = None, config_path: Optional[str] = None):
     """
-    Configures the environment based on provided parameters.
+    Load the .env file and config file specified into the global configuration dataclass
     """
-    global env, s3, s3_bucket_name, s3_endpoint_fqdn, s3_access_key, s3_secret_key
+    global comfy_config
+    
+    # These env variables can be access using os.environ or os.getenv
+    if env_path:
+        print(f"Loading from {env_path}")
+        load_dotenv(dotenv_path=env_path, override=True)
+    
+    # Parse the config-file
+    config_dict = {}
+    if config_path:
+        try:
+            with open(config_path, 'r') as file:
+                config_dict = json.load(file)
+        except FileNotFoundError:
+            print(f"Error: The file {config_path} was not found.")
+        except json.JSONDecodeError:
+            print("Invalid JSON format in the configuration file.")
+    
+    # Find our directories
+    comfy_config.filesystem_type = config_dict.get("filesystem_type", 'LOCAL')
+    comfy_config.workspace_dir = os.path.expanduser(config_dict.get("workspace_dir", DEFAULT_WORKSPACE_DIR))
+    comfy_config.models_dirs = [os.path.expanduser(path) for path in config_dict.get("models_dirs", DEFAULT_MODELS_DIRS)]
+    
+    #  Load S3 credentials and instantiate the S3 client
+    s3_credentials = config_dict.get("s3_credentials")
+    if s3_credentials:
+        s3_endpoint_fqdn = s3_credentials.get("endpoint_fqdn")
+        s3_access_key = s3_credentials.get("access_key")
+        bucket_name = s3_credentials.get("bucket_name")
+        folder = s3_credentials.get("folder")
+        s3_secret_key = os.getenv("S3_SECRET_KEY")
+        
+        required_fields = [s3_endpoint_fqdn, s3_access_key, s3_secret_key, bucket_name, folder]
+        if None in required_fields:
+            print("Error: Missing required S3 configuration fields.")
+        else:
+            comfy_config.s3["bucket_name"] = bucket_name
+            comfy_config.s3["folder"] = folder
+            comfy_config.s3["url"] = f"https://{bucket_name}.{s3_endpoint_fqdn}"
+            
+            try:
+                comfy_config.s3["client"] = boto3.client(
+                    "s3",
+                    region_name=s3_endpoint_fqdn.split('.')[0],
+                    endpoint_url=f"https://{s3_endpoint_fqdn}",
+                    aws_access_key_id=s3_access_key,
+                    aws_secret_access_key=s3_secret_key,
+                )
+                print("S3 client configured successfully.")
+            except Exception as e:
+                print(f"Error configuring S3 client: {e}")
 
-    # Priority: 1. config_dict, 2. env_file, 3. default .env
-    if config_dict:
-        print("Loading from configuration dictionary")
-        env = config_dict.get('env', 'local').lower()
-        if 's3' in config_dict:
-            s3_bucket_name = config_dict['s3'].get('bucket_name', '')
-            s3_endpoint_fqdn = config_dict['s3'].get('endpoint_url', '')
-            s3_access_key = config_dict['s3'].get('access_key', '')
-            s3_secret_key = config_dict['s3'].get('secret_access_key', '')
-    elif env_file:
-        print(f"Loading from {env_file}")
-        load_dotenv(dotenv_path=env_file, override=True)
-        env = os.getenv('ENVIRONMENT', 'local').lower()
-        s3_bucket_name = os.getenv('S3_BUCKET_NAME', '')
-        s3_endpoint_fqdn = os.getenv('S3_ENDPOINT_URL', '')
-        s3_access_key = os.getenv('S3_ACCESS_KEY', '')
-        s3_secret_key = os.getenv('S3_SECRET_ACCESS_KEY', '')
-    else:
-        print("Loading default .env file")
-        load_dotenv(override=True)
-        env = os.getenv('ENVIRONMENT', 'local').lower()
-        s3_bucket_name = os.getenv('S3_BUCKET_NAME', '')
-        s3_endpoint_fqdn = os.getenv('S3_ENDPOINT_URL', '')
-        s3_access_key = os.getenv('S3_ACCESS_KEY', '')
-        s3_secret_key = os.getenv('S3_SECRET_ACCESS_KEY', '')
+    if comfy_config.filesystem_type == "S3" and not comfy_config.s3.get("client"):
+        raise ValueError("Failed to load required S3 credentials.")
 
-    print(f"Environment: {env}")
-    print(f"S3 Bucket: {s3_bucket_name}")
-
-    # Set up S3 client if needed
-    if env == 'production':
-        if not all([s3_bucket_name, s3_endpoint_fqdn, s3_access_key, s3_secret_key]):
-            raise ValueError('Missing S3 configuration in production mode')
-        s3 = boto3.client('s3',
-                            endpoint_url=f'https://{s3_endpoint_fqdn}',
-                            aws_access_key_id=s3_access_key,
-                            aws_secret_access_key=s3_secret_key,
-                            region_name=os.getenv("S3__REGION_NAME"))

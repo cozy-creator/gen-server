@@ -1,31 +1,70 @@
-### Dev Commands
+### Dev Usage
 
-To install the main package, navigate to the `/packages/gen_server` folder:
+To run the main application package, navigate to the `/packages/gen_server` folder:
+
 - Run `pip install -e .`; this adds the `comfy-creator` command to your path.
 - Run `comfy-creator`
 
-This will generate a `.egg-info` folder.
+This will generate a `.egg-info` folder. The code will be installed in editable format, which means any changes to the code will be immediately reflected the next time you run it.
 
 Repeat this for all packages you want to install. The other packages extend functionality of the gen-server by specifying an entry-point group-name; they will be dynamically imported at runtime by the main gen-server application.
 
-If you have `build` installed, you can also run:
-- `python -m build` to build the repo.
-This will produce a /dist folder.
 
+### Building for Distribution
 
-### Notes
+If you don't already have `build`, you can use pip to install it. Then navigate into the package directory you want to build, and run:
 
-- 'torch' is required, but is not currently listed as a dependency in our pyproject.toml. Please install the version of torch your environment needs in order to run.
+- `python -m build` to build the repository.
+
+This will produce a `/dist` folder, containing a `.whl` (wheel) file and a `.tar.gz` file. The wheel file packages the library in a format that can be easily installed using pip, while the `.tar.gz` file contains the source code. To install the wheel file, use the command `pip install file_name.whl`.
+
+None of our packages currently use any C-APIs, and hence do not need to be recompiled for different environments.
 
 
 ### Running in production
 
-The gen-server currently does not currently check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server.
+`comfy-creator` flags:
+
+--config path/to/config.json
+--env path/to/.env
+
+If these are not specified, comfy-creator will use default values.
+
+Example config.json:
+```
+    {
+        "filesystem_type": "S3",
+        "workspace_dir": "~/.comfy-creator",
+        "models_dirs": [
+            "~/.comfy-creator/models",
+            "~/.comfy-creator/models/stable-diffusion"
+        ],
+        "s3_credentials": {
+            "bucket_name": "voidtech-storage-dev",
+            "endpoint_fqdn": "nyc3.digitaloceanspaces.com",
+            "folder": "public",
+            "access_key": "DO00W9N964WMQC2MV6JK"
+        }
+    }
+```
+
+### Configuration Details
+
+- **filesystem_type**: Specifies the type of file system to use. Options are `LOCAL` or `S3`.
+- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.comfy-creator`.
+- **models_dirs**: Directories where `comfy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.comfy-creator/models`.
+- **s3_credentials**: Contains the credentials for reading files from and writing files to an S3 bucket; only used if filesystem_type is set to S3.
+  - **bucket_name**: The name of the S3 bucket.
+  - **endpoint_fqdn**: The fully qualified domain name of the S3 endpoint.
+  - **folder**: The specific folder within the S3 bucket where files are stored.
+  - **access_key**: The access key for S3 bucket authentication. Note: The secret key should be stored inside of the .env file as `S3_SECRET_KEY`.
+
+> **Note:** The gen-server currently does not check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server, or we need to implement authentication still.
 
 
 ### Old dependencies:
 
-I'm keeping these here for notes
+I'm keeping these here for notes:
 
 dependencies = [
     "aiohttp>=3.9.5",
@@ -45,23 +84,4 @@ dependencies = [
     "uuid~=1.30"
 ]
 
-### more notes for later:
 
-[project.entry-points."comfy_creator.api"]
-endpoint1 = "core_extension_1.api.endpoint1:Endpoint1"
-endpoint2 = "core_extension_1.api.endpoint2:Endpoint2"
-
-[project.entry-points."comfy_creator.architectures"]
-architecture1 = "core_extension_1.architectures.sd1_unet.SD1UNet"
-architecture2 = "core_extension_1.arch2:Architecture2"
-architecture3 = "core_extension_1.text_encoder:SD15TextEncoderArch"
-architecture4 = "core_extension_1.unet:SD15UNetArch"
-architecture5 = "core_extension_1.VAE:SD15VAEArch"
-
-[project.entry-points."comfy_creator.custom_nodes"]
-node1 = "core_extension_1.custom_nodes.node1:get_nodes"
-node2 = "core_extension_1.custom_nodes.node1:Node1"
-
-[project.entry-points."comfy_creator.widgets"]
-widget1 = "core_extension_1.widgets:Widget1"
-widget2 = "core_extension_1.widgets:Widget2"

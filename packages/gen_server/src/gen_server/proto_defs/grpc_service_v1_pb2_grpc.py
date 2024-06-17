@@ -3,8 +3,8 @@
 import grpc
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-import grpc_service_v1_pb2 as grpc__service__v1__pb2
-import node_defs_v1_pb2 as node__defs__v1__pb2
+import gen_server.proto_defs.grpc_service_v1_pb2 as grpc__service__v1__pb2
+import gen_server.proto_defs.node_defs_v1_pb2 as node__defs__v1__pb2
 
 
 class ComfyGRPCServiceStub(object):

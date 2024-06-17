@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import health_v1_pb2 as health__v1__pb2
+import gen_server.proto_defs.health_v1_pb2 as health__v1__pb2
 
 
 class HealthStub(object):
