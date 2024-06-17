@@ -2,8 +2,8 @@ import torch
 from typing import Dict, Callable, List
 
 
-
 StateDict = Dict[str, torch.Tensor]
+
 
 class ModelArchitecture:
     """
@@ -12,9 +12,9 @@ class ModelArchitecture:
 
     def __init__(
         self,
-        id: str, 
+        id: str,
         required_keys: List[str],
-        key_converter: Callable[[str], str], 
+        key_converter: Callable[[str], str],
         decomposer: Callable[[StateDict], Dict[str, StateDict]],
     ):
         self.id = id
@@ -32,7 +32,6 @@ class ModelArchitecture:
                 return False
         return True
 
-
     def load(self, state_dict: StateDict) -> Dict[str, StateDict]:
         """
         Loads and decomposes the state dictionary into its components.
@@ -45,8 +44,10 @@ class SD15Arch(ModelArchitecture):
     def __init__(self):
         super().__init__(
             id="sd1.5",
-            required_keys=["model.diffusion_model.input_blocks.0.0.weight", 
-                           "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"], 
+            required_keys=[
+                "model.diffusion_model.input_blocks.0.0.weight",
+                "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",
+            ],
             key_converter=lambda key: key,
             decomposer=self._decompose_sd15,
         )
@@ -62,7 +63,7 @@ class SD15Arch(ModelArchitecture):
             elif key.startswith("first_stage_model."):
                 vae_state_dict[key] = value
             elif key.startswith("cond_stage_model.transformer."):
-                text_encoder_state_dict[key] = value 
+                text_encoder_state_dict[key] = value
 
         return {
             "unet": unet_state_dict,
@@ -75,14 +76,17 @@ class SD15Arch(ModelArchitecture):
             "feature_extractor": None,
         }
 
+
 # Stable Diffusion XL Architecture
 class SDXLArch(ModelArchitecture):
     def __init__(self):
         super().__init__(
             id="sdxl",
-            required_keys=["model.diffusion_model.input_blocks.0.0.weight", 
-                           "conditioner.embedders.1.model.token_embedding.weight"], 
-            key_converter=lambda key: key, 
+            required_keys=[
+                "model.diffusion_model.input_blocks.0.0.weight",
+                "conditioner.embedders.1.model.token_embedding.weight",
+            ],
+            key_converter=lambda key: key,
             decomposer=self._decompose_sdxl,
         )
 
@@ -101,7 +105,6 @@ class SDXLArch(ModelArchitecture):
                 text_encoder_state_dict[key] = value
             elif key.startswith("conditioner.embedders.1.model."):
                 text_encoder_2_state_dict[key] = value
-                
 
         return {
             "unet": unet_state_dict,
