@@ -3,8 +3,8 @@ import json
 import os
 from typing import List
 
-from packages.gen_server.src.gen_server import ModelConstraint, Architecture
-from packages.gen_server.src.gen_server.globals import comfy_config
+from gen_server import ModelConstraint, Architecture
+from gen_server.globals import comfy_config
 
 
 class ModelRepository:

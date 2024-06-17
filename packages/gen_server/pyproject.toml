@@ -21,7 +21,9 @@ dependencies = [
     "torchaudio",
     "torchvision",
     "transformers>=4.25.1",
-    "typing_extensions"
+    "typing_extensions",
+    "sentencepiece",
+    "peft"
 ]
 
 [project.optional-dependencies]
