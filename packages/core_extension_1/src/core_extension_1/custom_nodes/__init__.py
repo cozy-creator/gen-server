@@ -1,5 +1,5 @@
 import sys
-from typing import Any
+from typing import Any, Union, List
 from gen_server.utils import load_models
 from gen_server.base_types import (
     Architecture,
@@ -14,14 +14,22 @@ from gen_server.base_types import (
 from gen_server.globals import MODEL_FILES
 from diffusers import (
     StableDiffusionPipeline,
+    StableDiffusion3Pipeline,
     DDIMScheduler,
     AutoencoderKL,
     UNet2DConditionModel,
+    SD3Transformer2DModel,
+    FlowMatchEulerDiscreteScheduler
 )
-from transformers import CLIPTokenizer, CLIPTextModel
+from transformers import CLIPTokenizer, CLIPTextModel, T5TokenizerFast, CLIPTextModelWithProjection, T5EncoderModel
 
 from core_extension_1.widgets import TextInput, StringInput, EnumInput
+import json
+import torch
+import os
 
+
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scheduler_config.json")
 
 # TO DO: 'device' should somehow be marked as an internal-only parameter
 # reserved just for the executor to have tighter control. It should NOT
@@ -111,32 +119,60 @@ class CreatePipe(CustomNode):
 
     def __call__(
         self,
+        unet: Union[UNet2DConditionModel, SD3Transformer2DModel],
         vae: AutoencoderKL,
-        text_encoder: CLIPTextModel,
-        unet: UNet2DConditionModel,
+        text_encoder: Union[CLIPTextModel, CLIPTextModelWithProjection],
+        text_encoder_2: CLIPTextModelWithProjection = None,
+        text_encoder_3: T5EncoderModel = None,
         device: TorchDevice = None,
-    ) -> StableDiffusionPipeline:
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-        # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
-        scheduler = DDIMScheduler.from_pretrained(
-            "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
-        )
+    ) -> StableDiffusion3Pipeline:
+        
+        if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+            tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
+            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
+            # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
+            # scheduler = DDIMScheduler.from_pretrained(
+            #     "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+            # )
 
-        pipe = StableDiffusionPipeline(
-            vae,
-            text_encoder,
-            tokenizer,
-            unet,
-            scheduler,
-            safety_checker=None,
-            feature_extractor=None,
-            requires_safety_checker=False,
-        )
-        if "xformers" in sys.modules:
-            pipe.enable_xformers_memory_efficient_attention()
+            scheduler_config = json.load(open(config_path))
+            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+
+            pipe = StableDiffusion3Pipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                text_encoder_2=text_encoder_2,
+                text_encoder_3=text_encoder_3,
+                tokenizer=tokenizer,
+                tokenizer_2=tokenizer_2,
+                tokenizer_3=tokenizer_3,
+                transformer=unet,
+                scheduler=scheduler,
+            ).to(torch.bfloat16)
+        elif text_encoder_2 is not None and text_encoder_3 is None:
+            pass # SDXL
+        else:
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+            scheduler = DDIMScheduler.from_pretrained(
+                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+            )
+            pipe = StableDiffusionPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                unet=unet,
+                scheduler=scheduler,
+                safety_checker=None,
+                feature_extractor=None,
+                requires_safety_checker=False,
+            )
+
+        # if "xformers" in sys.modules:
+        #     pipe.enable_xformers_memory_efficient_attention()
         if "accelerate" in sys.modules:
             pipe.enable_model_cpu_offload()
-        pipe.enable_vae_tiling()
+        # pipe.enable_vae_tiling()
         pipe.to(device)
 
         return pipe
@@ -173,8 +209,9 @@ class RunPipe(CustomNode):
         images: ImageOutputType = pipe(
             prompt,
             negative_prompt=negative_prompt,
-            num_inference_steps=25,
-            num_images_per_prompt=4,
+            num_inference_steps=28,
+            guidance_scale=7.0,
+            # num_images_per_prompt=4,
         ).images
 
         return images

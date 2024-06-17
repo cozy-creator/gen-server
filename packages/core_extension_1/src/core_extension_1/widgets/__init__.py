@@ -1,4 +1,5 @@
 from gen_server.base_types import Serializable
+from typing import List
 
 
 class WidgetDefinition(Serializable):

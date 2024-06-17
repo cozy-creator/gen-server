@@ -23,7 +23,7 @@ import ast
 
 file_path = os.path.abspath(
     os.path.join(
-        os.path.dirname(__file__), "../../../../models/darkSushi25D25D_v40.safetensors"
+        os.path.dirname(__file__), "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors"
     )
 )
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
@@ -91,7 +91,7 @@ def main():
     # execute the first node
     models = load_checkpoint(file_path, output_keys=output_keys)
 
-    print(models)
+    # print(models)
 
     print("Number of items loaded:", len(models))
     for model_key in models.keys():
@@ -116,12 +116,32 @@ def main():
     #     print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
 
     # how do we know this? Edges?
+    # SD3
     vae = models["core_extension_1.sd1_vae"].model
-    text_encoder = models["core_extension_1.sd1_text_encoder"].model
-    unet = models["core_extension_1.sd1_unet"].model
+    unet = models["core_extension_1.sd3_unet"].model
+    text_encoder_1 = models["core_extension_1.sd3_text_encoder_1"].model
+    text_encoder_2 = models["core_extension_1.sd3_text_encoder_2"].model
+    text_encoder_3 = models["core_extension_1.sd3_text_encoder_3"].model
 
     # run node 2
-    pipe = create_pipe(vae=vae, text_encoder=text_encoder, unet=unet)
+    pipe = create_pipe(
+        vae=vae, 
+        text_encoder=text_encoder_1,
+        text_encoder_2=text_encoder_2,
+        text_encoder_3=text_encoder_3,
+        unet=unet
+    )
+
+    # SD1.5
+    # vae = models["core_extension_1.sd1_vae"].model
+    # unet = models["core_extension_1.sd1_unet"].model
+    # text_encoder_1 = models["core_extension_1.sd1_text_encoder"].model
+
+    # pipe = create_pipe(
+    #     vae=vae, 
+    #     text_encoder=text_encoder_1,
+    #     unet=unet
+    # )
     # pipe.to('cuda')
 
     # node 3
@@ -134,19 +154,23 @@ def main():
     start = time.time()
 
     # execute the 3rd node
-    prompt = "beautiful anime woman, detailed, masterpiece, dark skin"
+    prompt = "beautiful anime woman, detailed, masterpiece, dark skin, sun set background"
     negative_prompt = "poor quality, worst quality, text, watermark, blurry"
     images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt)
+
+    # Save Images
+    images[0].save("output.png")
 
     # diffusion_pytorch_model.fp16.safetensors
     # playground-v2.5-1024px-aesthetic.fp16.safetensors
     # diffusion_pytorch_model.safetensors
     # darkSushi25D25D_v40.safetensors
+    # sd3_medium_incl_clips_t5xxlfp8.safetensors
 
     # Save the images
-    SaveNode = CUSTOM_NODES["image_utils.save_file"]
-    save_node = SaveNode()
-    save_node(images=images, temp=False)
+    # SaveNode = CUSTOM_NODES["image_utils.save_file"]
+    # save_node = SaveNode()
+    # save_node(images=images, temp=False)
 
     # for idx, img in enumerate(images):
     #     img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))

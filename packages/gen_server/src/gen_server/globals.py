@@ -36,6 +36,9 @@ PRETRAINED_MODELS: dict[str, Checkpoint] = {}
 Dictionary of all discovered checkpoint files
 """
 
+MODEL_FILES: dict[str, Dict] = {}
+
+
 @dataclass
 class ComfyConfig:
     filesystem_type: Optional[str] = "S3"
