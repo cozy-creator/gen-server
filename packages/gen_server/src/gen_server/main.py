@@ -15,6 +15,7 @@ from .globals import (
     ARCHITECTURES,
     CUSTOM_NODES,
     WIDGETS,
+    PRETRAINED_MODELS,
     initialize_config,
 )
 import argparse
@@ -39,16 +40,17 @@ def main():
 
     initialize_config(env_path=args.env, config_path=args.config)
 
-    # we load the extensions inside a function to avoid circular dependencies
+    # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
     # Architectures will be classes that can be used to detect models and instantiate them
     # custom nodes will define new nodes to be instantiated by the graph-editor
     # widgets will somehow define react files to be somehow be imported by the client
-
+    
     global API_ENDPOINTS
     API_ENDPOINTS.update(load_extensions("comfy_creator.api"))
-
+    
+    # compile architecture registry
     global ARCHITECTURES
     ARCHITECTURES.update(
         load_extensions("comfy_creator.architectures", expected_type=Architecture)
@@ -61,6 +63,10 @@ def main():
 
     global WIDGETS
     WIDGETS.update(load_extensions("comfy_creator.widgets"))
+    
+    # compile model registry
+    global PRETRAINED_MODELS
+    # to do
 
     # print(API_ENDPOINTS)
     # print (ARCHITECTURES)
