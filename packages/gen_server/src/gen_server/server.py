@@ -4,7 +4,7 @@ from typing import Optional
 import grpc
 
 from .globals import CUSTOM_NODES
-from proto_defs import (
+from .proto_defs import (
     ComfyGRPCServiceServicer,
     add_ComfyGRPCServiceServicer_to_server,
     NodeDefRequest,

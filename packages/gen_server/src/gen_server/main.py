@@ -35,7 +35,6 @@ def main():
     if args.config:
         try:
             config_dict = ast.literal_eval(args.config)
-            # config_dict = json.loads(config)
         except json.JSONDecodeError:
             print("Invalid JSON format for --config argument.")
 

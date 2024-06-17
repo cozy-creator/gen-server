@@ -32,6 +32,7 @@ s3_endpoint_fqdn = None
 s3_access_key = None
 s3_secret_key = None
 
+
 def configure_environment(env_file: str = None, config_dict: Dict[str, str] = None):
     """
     Configures the environment based on provided parameters.
@@ -51,18 +52,18 @@ def configure_environment(env_file: str = None, config_dict: Dict[str, str] = No
         print(f"Loading from {env_file}")
         load_dotenv(dotenv_path=env_file, override=True)
         env = os.getenv('ENVIRONMENT', 'local').lower()
-        s3_bucket_name = os.getenv('S3__BUCKET_NAME', '')
-        s3_endpoint_fqdn = os.getenv('S3__ENDPOINT_URL', '')
-        s3_access_key = os.getenv('S3__ACCESS_KEY', '')
-        s3_secret_key = os.getenv('S3__SECRET_ACCESS_KEY', '')
+        s3_bucket_name = os.getenv('S3_BUCKET_NAME', '')
+        s3_endpoint_fqdn = os.getenv('S3_ENDPOINT_URL', '')
+        s3_access_key = os.getenv('S3_ACCESS_KEY', '')
+        s3_secret_key = os.getenv('S3_SECRET_ACCESS_KEY', '')
     else:
         print("Loading default .env file")
         load_dotenv(override=True)
         env = os.getenv('ENVIRONMENT', 'local').lower()
-        s3_bucket_name = os.getenv('S3__BUCKET_NAME', '')
-        s3_endpoint_fqdn = os.getenv('S3__ENDPOINT_URL', '')
-        s3_access_key = os.getenv('S3__ACCESS_KEY', '')
-        s3_secret_key = os.getenv('S3__SECRET_ACCESS_KEY', '')
+        s3_bucket_name = os.getenv('S3_BUCKET_NAME', '')
+        s3_endpoint_fqdn = os.getenv('S3_ENDPOINT_URL', '')
+        s3_access_key = os.getenv('S3_ACCESS_KEY', '')
+        s3_secret_key = os.getenv('S3_SECRET_ACCESS_KEY', '')
 
     print(f"Environment: {env}")
     print(f"S3 Bucket: {s3_bucket_name}")

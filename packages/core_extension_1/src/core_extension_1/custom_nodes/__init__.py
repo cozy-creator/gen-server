@@ -1,7 +1,7 @@
 import sys
 from typing import Any
-from packages.gen_server.src.gen_server.utils import load_models
-from packages.gen_server.src.gen_server.types import (
+from gen_server.utils import load_models
+from gen_server.types import (
     Architecture,
     TorchDevice,
     NodeInterface,
