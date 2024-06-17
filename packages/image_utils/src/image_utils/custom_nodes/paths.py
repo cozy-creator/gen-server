@@ -1,13 +1,14 @@
 import os
+from gen_server.globals import comfy_config
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 folders = {
     "core_nodes": os.path.join(base_path, 'extensions', 'core'),
     "extensions": os.path.join(base_path, 'extensions'),
-    "output": os.path.join(base_path, 'output'),
-    "temp": os.path.join(base_path, 'temp'),
-    "input": os.path.join(base_path, 'input'),
+    "output": os.path.join(comfy_config.workspace_dir, 'output'),
+    "temp": os.path.join(comfy_config.workspace_dir, 'temp'),
+    "input": os.path.join(comfy_config.workspace_dir, 'input'),
     "models": os.path.join(base_path, 'models'),
     "custom_architecture": os.path.join(base_path, 'custom_architecture'),
     "vae": os.path.join(base_path, 'extensions/core2/VAE'),
@@ -48,18 +49,25 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
 
     filename_prefix = compute_vars(filename_prefix, image_width, image_height)
 
-    subfolder = os.path.dirname(os.path.normpath(filename_prefix))
+    # **Important Change:** Check if filename_prefix contains a path
+    if os.path.dirname(filename_prefix):
+        # Get the relative path if there is a path in filename_prefix
+        subfolder = os.path.relpath(os.path.dirname(os.path.normpath(filename_prefix)), output_dir)
+    else:
+        # If no path, use an empty subfolder
+        subfolder = '' 
+
     filename = os.path.basename(os.path.normpath(filename_prefix))
 
     full_output_folder = os.path.join(output_dir, subfolder)
 
-    if os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) != output_dir:
-        err = "**** ERROR: Saving image outside the output folder is not allowed." + \
-              "\n full_output_folder: " + os.path.abspath(full_output_folder) + \
-              "\n         output_dir: " + output_dir + \
-              "\n         commonpath: " + os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) 
-        print(err)
-        raise Exception(err)
+    # if not os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) == output_dir:
+    #     err = "**** ERROR: Saving image outside the output folder is not allowed." + \
+    #           "\n full_output_folder: " + os.path.abspath(full_output_folder) + \
+    #           "\n         output_dir: " + output_dir + \
+    #           "\n         commonpath: " + os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) 
+    #     print(err)
+    #     raise Exception(err)
 
     try:
         counter = max(filter(lambda a: a[1][:-1] == filename and a[1][-1] == "_", map(map_filename, os.listdir(full_output_folder))))[0] + 1

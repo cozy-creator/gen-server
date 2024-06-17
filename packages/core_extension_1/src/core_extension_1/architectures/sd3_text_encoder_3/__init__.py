@@ -6,7 +6,7 @@ from transformers import T5EncoderModel, T5Config
 import safetensors
 from diffusers.utils import is_accelerate_available
 from diffusers.models.modeling_utils import load_model_dict_into_meta
-from diffusers.loaders.single_file_utils import convert_sd3_t5_checkpoint_to_diffusers
+# from diffusers.loaders.single_file_utils import convert_sd3_t5_checkpoint_to_diffusers
 import os
 import re
 import torch
@@ -21,6 +21,20 @@ if is_accelerate_available():
 
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
+    keys = list(checkpoint.keys())
+    text_model_dict = {}
+
+    remove_prefixes = ["text_encoders.t5xxl.transformer."]
+
+    for key in keys:
+        for prefix in remove_prefixes:
+            if key.startswith(prefix):
+                diffusers_key = key.replace(prefix, "")
+                text_model_dict[diffusers_key] = checkpoint.get(key)
+
+    return text_model_dict
 
 class SD3TextEncoder3(Architecture[T5EncoderModel]):
     """

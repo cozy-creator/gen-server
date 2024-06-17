@@ -83,7 +83,6 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
                 logger.warning(
                     f"Some weights of the model checkpoint were not used when initializing {text_encoder.__class__.__name__}: \n {[', '.join(unexpected_keys)]}"
                 )
-
         else:
             if not (hasattr(text_encoder, "embeddings") and hasattr(text_encoder.embeddings.position_ids)):
                 text_model_dict.pop("text_model.embeddings.position_ids", None)

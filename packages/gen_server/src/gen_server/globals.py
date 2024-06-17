@@ -8,7 +8,7 @@ from . import CustomNode
 from .base_types import Architecture, Checkpoint
 
 
-DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/models'
+DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
 DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
 
 API_ENDPOINTS: dict = {}
@@ -58,6 +58,8 @@ def initialize_config(env_path: Optional[str] = None, config_path: Optional[str]
     Load the .env file and config file specified into the global configuration dataclass
     """
     global comfy_config
+
+    load_dotenv()
     
     # These env variables can be access using os.environ or os.getenv
     if env_path:

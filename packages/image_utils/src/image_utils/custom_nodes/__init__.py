@@ -16,7 +16,7 @@ import boto3
 from .helper_decorators import convert_image_format
 import io
 from torchvision import transforms
-from gen_server.globals import s3, s3_bucket_name, env
+from gen_server.globals import comfy_config
 
 
 # load_dotenv()  # Load environment variables from .env file
@@ -92,7 +92,7 @@ class SaveFile(CustomNode):
         """
         results: List[Dict[str, Union[str, None]]] = []
 
-        if env == "local":  # Assuming environment variables for local/production
+        if comfy_config.filesystem_type == "LOCAL":  # Assuming environment variables for local/production
             if temp:
                 save_image_to_respective_path(self.temp_prefix_append,
                                               self.temp_dir, images, filename_prefix, prompt,
@@ -101,7 +101,7 @@ class SaveFile(CustomNode):
                 save_image_to_respective_path(self.prefix_append, self.output_dir, images,
                                               filename_prefix, prompt, extra_pnginfo,
                                               self.compress_level, self.type, results=[])
-        elif env == "production":  # Assuming you have environment variables for local/prod
+        elif comfy_config.filesystem_type == "S3":  # Assuming you have environment variables for local/prod
             if temp:
                 # Upload the image to the "temp" folder
                 temp_image_url = self.upload_to_s3(images, bucket_name, folder_name="temp")
@@ -138,15 +138,18 @@ class SaveFile(CustomNode):
                 img_bytes = output.getvalue()
 
             filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
-            key = f'{folder_name}/{filename}' if folder_name else f'{os.getenv("S3__FOLDER")}/{filename}'
+            
+            key = f'{folder_name}/{filename}' if folder_name else f'{os.getenv("S3_FOLDER")}/{filename}'
+            
 
             # Upload the image data
-            s3.put_object(Bucket=s3_bucket_name, Key=key, Body=img_bytes, ACL="public-read")
+            comfy_config.s3["client"].put_object(Bucket=comfy_config.s3["bucket_name"], Key=key, Body=img_bytes, ACL="public-read")
 
             # Generate and append the image URL
-            endpoint_url = s3.meta.endpoint_url
-            hostname = urlparse(endpoint_url).hostname
-            image_url = f"https://{s3_bucket_name}.{hostname}/{key}"
+            # endpoint_url = s3.meta.endpoint_url
+            # hostname = urlparse(endpoint_url).hostname
+            # image_url = f"https://{s3_bucket_name}.{hostname}/{key}"
+            image_url = f"{comfy_config.s3['url']}/{key}"
 
             image_urls.append({
                 "url": image_url,
@@ -180,17 +183,19 @@ def save_image_to_respective_path(prefix_append, output_dir,
                                       type, results):
         
 
-        images_tensor = []
-        for image in images:
-            images_tensor.extend(pil_to_tensor(image))
+        # images_tensor = []
+        # for image in images:
+        #     images_tensor.extend(pil_to_tensor(image))
+
+        # print(images_tensor)
 
         filename_prefix += prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path(
-            filename_prefix, output_dir, images_tensor[0].shape[1], images_tensor[0].shape[0]
+            filename_prefix, output_dir, images[0].width, images[0].height
         )
-        for batch_number, image in enumerate(images_tensor):
-            i = 255. * image.cpu().numpy()
-            img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+        for batch_number, image in enumerate(images):
+            # i = 255. * image.cpu().numpy()
+            # img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             metadata: Optional[PngInfo] = None
             # if not args.disable_metadata:
             #     metadata = PngInfo()
@@ -203,7 +208,7 @@ def save_image_to_respective_path(prefix_append, output_dir,
             
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
             file = f"{filename_with_batch_num}_{counter:05}_.png"
-            img.save(os.path.join(full_output_folder, file), pnginfo=metadata, compress_level=compress_level)
+            image.save(os.path.join(full_output_folder, file), pnginfo=metadata, compress_level=compress_level)
             results.append({"filename": file, "subfolder": subfolder, "type": type})
             counter += 1
 
