@@ -3,11 +3,11 @@ from typing import List
 
 import torch
 
-from packages.gen_server.src.gen_server import (
+from gen_server import (
     StateDict,
     Checkpoint,
 )
-from packages.gen_server.src.gen_server.globals import comfy_config, PRETRAINED_MODELS
+from gen_server.globals import comfy_config, PRETRAINED_MODELS
 
 ARCH_KEYS = {
     "sd1.5": [
