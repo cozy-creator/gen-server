@@ -7,7 +7,7 @@ from gen_server import Architecture, StateDict, TorchDevice
 import time
 import torch
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_vae_config.json")
 
 
 class SD1VAE(Architecture[AutoencoderKL]):

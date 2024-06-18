@@ -27,6 +27,7 @@ from core_extension_1.widgets import TextInput, StringInput, EnumInput
 import json
 import torch
 import os
+# from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scheduler_config.json")
@@ -169,7 +170,7 @@ class CreatePipe(CustomNode):
             )
 
         # if "xformers" in sys.modules:
-        #     pipe.enable_xformers_memory_efficient_attention()
+        #     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
         if "accelerate" in sys.modules:
             pipe.enable_model_cpu_offload()
         # pipe.enable_vae_tiling()
@@ -209,7 +210,7 @@ class RunPipe(CustomNode):
         images: ImageOutputType = pipe(
             prompt,
             negative_prompt=negative_prompt,
-            num_inference_steps=28,
+            num_inference_steps=30,
             guidance_scale=7.0,
             # num_images_per_prompt=4,
         ).images

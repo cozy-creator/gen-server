@@ -23,7 +23,7 @@ import ast
 
 file_path = os.path.abspath(
     os.path.join(
-        os.path.dirname(__file__), "../../../../models/darkSushi25D25D_v40.safetensors"
+        os.path.dirname(__file__), "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors"
     )
 )
 output_folder = os.path.join(os.path.dirname(__file__), "../../../../output")
@@ -75,6 +75,9 @@ def main():
 
     # models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
 
+
+    start = time.time()
+    
     # === Simulating the executor code ===
     LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
 
@@ -117,31 +120,31 @@ def main():
 
     # how do we know this? Edges?
     # SD3
-    # vae = models["core_extension_1.sd1_vae"].model
-    # unet = models["core_extension_1.sd3_unet"].model
-    # text_encoder_1 = models["core_extension_1.sd3_text_encoder_1"].model
-    # text_encoder_2 = models["core_extension_1.sd3_text_encoder_2"].model
-    # text_encoder_3 = models["core_extension_1.sd3_text_encoder_3"].model
-
-    # # run node 2
-    # pipe = create_pipe(
-    #     vae=vae, 
-    #     text_encoder=text_encoder_1,
-    #     text_encoder_2=text_encoder_2,
-    #     text_encoder_3=text_encoder_3,
-    #     unet=unet
-    # )
-
-    # SD1.5
     vae = models["core_extension_1.sd1_vae"].model
-    unet = models["core_extension_1.sd1_unet"].model
-    text_encoder_1 = models["core_extension_1.sd1_text_encoder"].model
+    unet = models["core_extension_1.sd3_unet"].model
+    text_encoder_1 = models["core_extension_1.sd3_text_encoder_1"].model
+    text_encoder_2 = models["core_extension_1.sd3_text_encoder_2"].model
+    text_encoder_3 = models["core_extension_1.sd3_text_encoder_3"].model
 
+    # run node 2
     pipe = create_pipe(
         vae=vae, 
         text_encoder=text_encoder_1,
+        text_encoder_2=text_encoder_2,
+        text_encoder_3=text_encoder_3,
         unet=unet
     )
+
+    # SD1.5
+    # vae = models["core_extension_1.sd1_vae"].model
+    # unet = models["core_extension_1.sd1_unet"].model
+    # text_encoder_1 = models["core_extension_1.sd1_text_encoder"].model
+
+    # pipe = create_pipe(
+    #     vae=vae, 
+    #     text_encoder=text_encoder_1,
+    #     unet=unet
+    # )
     # pipe.to('cuda')
 
     # node 3
@@ -151,11 +154,10 @@ def main():
     # output_type = run_pipe.determine_output()
     # print(output_type)
 
-    start = time.time()
 
     # execute the 3rd node
-    prompt = "beautiful anime woman, detailed, masterpiece, dark skin, sun set background"
-    negative_prompt = "poor quality, worst quality, text, watermark, blurry"
+    prompt = "graffiti on a wall that says 'Stable Diffusion 3 Medium', colorful, artistic, dimly lit"
+    negative_prompt = "disfigured, deformed, ugly, beginner"
     images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt)
 
     # Save Images
