@@ -18,6 +18,7 @@ sd1_text_encoder = "core_extension_1.architectures.sd1_text_encoder:SD1TextEncod
 sd1_unet = "core_extension_1.architectures.sd1_unet:SD1UNet"
 sd1_vae = "core_extension_1.architectures.sd1_vae:SD1VAE"
 sd3_unet = "core_extension_1.architectures.sd3_unet:SD3UNet"
+sdxl_text_encoder_1 = "core_extension_1.architectures.sdxl_text_encoder_1:SDXLTextEncoderArch"
 # sd3_vae = "core_extension_1.architectures.sd3_vae:SD3VAE"
 sd3_text_encoder_1 = "core_extension_1.architectures.sd3_text_encoder_1:SD3TextEncoder1"
 sd3_text_encoder_2 = "core_extension_1.architectures.sd3_text_encoder_2:SD3TextEncoder2"

@@ -6,7 +6,7 @@ from gen_server import Architecture, StateDict, TorchDevice
 from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 
-LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer."]
+LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer.", "text_encoders.clip_l.transformer.",]
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -32,7 +32,7 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
     @classmethod
     def detect(cls, state_dict: StateDict) -> bool:
         required_keys = {
-            "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
+            "conditioner.embedders.1.model.transformer.text_model.embeddings.position_embedding.weight",
         }
         
         return all(key in state_dict for key in required_keys)
@@ -44,7 +44,7 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
         
         text_encoder = self.model
 
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.0.transformer.")}
+        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.1.model.")}
         remove_prefixes = LDM_CLIP_PREFIX_TO_REMOVE
         keys = list(text_encoder_state_dict.keys())
         text_model_dict = {}

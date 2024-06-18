@@ -17,3 +17,6 @@ dependencies = [
 
 [project.entry-points."comfy_creator.custom_nodes"]
 save_file = "image_utils.custom_nodes:SaveFile"
+
+[project.entry-points."comfy_creator.api"]
+image_upload = "image_utils.api:file_handler"

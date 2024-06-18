@@ -1,6 +1,6 @@
 from typing import Dict
 from .architecture import Architecture
-from .. import Serializable
+from .common import Serializable
 
 
 class Checkpoint(Serializable):

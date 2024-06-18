@@ -8,7 +8,7 @@
   "s3_credentials": {
     "bucket_name": "voidtech-storage-dev",
     "endpoint_fqdn": "nyc3.digitaloceanspaces.com",
-    "folder": "public",
+    "folder": "comfy-test-2",
     "access_key": "DO00W9N964WMQC2MV6JK"
   }
 }
