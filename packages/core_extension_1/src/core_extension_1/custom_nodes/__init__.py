@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Union, List
+from typing import Any, Union, List, Optional
 from gen_server.utils import load_models
 from gen_server.base_types import (
     Architecture,
@@ -123,9 +123,9 @@ class CreatePipe(CustomNode):
         unet: Union[UNet2DConditionModel, SD3Transformer2DModel],
         vae: AutoencoderKL,
         text_encoder: Union[CLIPTextModel, CLIPTextModelWithProjection],
-        text_encoder_2: CLIPTextModelWithProjection = None,
-        text_encoder_3: T5EncoderModel = None,
-        device: TorchDevice = None,
+        text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
+        text_encoder_3: Optional[T5EncoderModel] = None,
+        device: Optional[TorchDevice] = None,
     ) -> StableDiffusion3Pipeline:
         
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
@@ -204,13 +204,19 @@ class RunPipe(CustomNode):
 
         return interface
 
-    def __call__(
-        self, pipe: StableDiffusionPipeline, prompt: str, negative_prompt: str = None
+    def __call__(self,
+        pipe: StableDiffusionPipeline,
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        width: int = 512,
+        height: int = 512
     ) -> ImageOutputType:
         images: ImageOutputType = pipe(
             prompt,
             negative_prompt=negative_prompt,
-            num_inference_steps=30,
+            num_inference_steps=28,
+            width=width,
+            height=height,
             guidance_scale=7.0,
             # num_images_per_prompt=4,
         ).images
