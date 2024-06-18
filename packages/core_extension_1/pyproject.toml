@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "core-extension-1"
+description = "Generative-AI server for content production"
+version = "0.0.2"
+authors = [
+    { name = "Paul Fidika", email = "paul@fidika.com" }
+]
+dependencies = [
+    "gen_server",
+]
+
+[project.entry-points."comfy_creator.architectures"]
+sd1_text_encoder = "core_extension_1.architectures.sd1_text_encoder:SD1TextEncoder"
+sd1_unet = "core_extension_1.architectures.sd1_unet:SD1UNet"
+sd1_vae = "core_extension_1.architectures.sd1_vae:SD1VAE"
+sd3_unet = "core_extension_1.architectures.sd3_unet:SD3UNet"
+# sd3_vae = "core_extension_1.architectures.sd3_vae:SD3VAE"
+sd3_text_encoder_1 = "core_extension_1.architectures.sd3_text_encoder_1:SD3TextEncoder1"
+sd3_text_encoder_2 = "core_extension_1.architectures.sd3_text_encoder_2:SD3TextEncoder2"
+sd3_text_encoder_3 = "core_extension_1.architectures.sd3_text_encoder_3:SD3TextEncoder3"
+
+[project.entry-points."comfy_creator.custom_nodes"]
+load_checkpoint = "core_extension_1.custom_nodes:LoadCheckpoint"
+create_pipe = "core_extension_1.custom_nodes:CreatePipe"
+run_pipe = "core_extension_1.custom_nodes:RunPipe"

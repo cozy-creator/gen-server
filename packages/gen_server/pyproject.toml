@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gen_server"
+description = "Generative-AI server for content production"
+version = "0.0.3"
+authors = [
+    { name = "Paul Fidika", email = "paul@fidika.com" }
+]
+dependencies = [
+    "aiohttp",
+    "blake3",
+    "boto3",
+    "diffusers>=0.29",
+    "grpcio",
+    "protobuf",
+    "safetensors>=0.4.2",
+    "spandrel",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "transformers>=4.25",
+    "typing_extensions",
+    "sentencepiece",
+    "peft"
+]
+
+[project.optional-dependencies]
+performance = [
+    "accelerate",
+    "xformers"
+]
+
+[project.scripts]
+comfy-creator = "gen_server.main:main"

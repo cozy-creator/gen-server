@@ -1,0 +1,14 @@
+{
+  "filesystem_type": "S3",
+  "local_file_path": "~/.comfy-creator",
+  "model_folders": [
+    "~/.comfy-creator/models",
+    "~/.comfy-creator/models/stable-diffusion"
+  ],
+  "s3_credentials": {
+    "bucket_name": "voidtech-storage-dev",
+    "endpoint_fqdn": "nyc3.digitaloceanspaces.com",
+    "folder": "public",
+    "access_key": "DO00W9N964WMQC2MV6JK"
+  }
+}
