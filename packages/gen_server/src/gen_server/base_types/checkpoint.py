@@ -1,8 +1,9 @@
 from typing import Dict
 from .architecture import Architecture
+from .. import Serializable
 
 
-class Checkpoint:
+class Checkpoint(Serializable):
     """
     This comfy-creator-specific metadata for a pretrained model / checkpoint file
     Does PyTorch already have something along these lines?
@@ -21,10 +22,12 @@ class Checkpoint:
         """
         The display name of the checkpoint. This is the name that will be shown in the UI.
         """
-        self.metadata = metadata
-        """
-        Additional metadata for the checkpoint.
-        """
+
+        if metadata is None:
+            metadata = {}
+        self._date = metadata.get("date")
+        self._format = metadata.get("format")
+        self._author = metadata.get("author")
 
     def add_component(self, name: str, component: Architecture):
         """
@@ -41,3 +44,23 @@ class Checkpoint:
     @property
     def display_name(self) -> str:
         return self._display_name
+
+    @property
+    def date(self) -> str:
+        return self._date
+
+    @property
+    def author(self) -> str:
+        return self._author
+
+    @property
+    def format(self) -> str:
+        return self._format
+
+    def serialize(self) -> Dict:
+        return {
+            "date": self.date,
+            "author": self.author,
+            "format": self.format,
+            "display_name": self.display_name,
+        }

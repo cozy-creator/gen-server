@@ -49,6 +49,9 @@ def load_checkpoints():
                         str(model_file), device=torch.device("cuda")
                     )
                     metadata = extract_safetensors_metadata(model_file)
+                    if metadata is None:
+                        metadata = {}
+
                     display_name = (
                         metadata.get("name")
                         if metadata.get("name")
