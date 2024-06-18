@@ -20,6 +20,8 @@ from .globals import (
 )
 import argparse
 import ast
+from aiohttp import web
+from api import app
 
 file_path = os.path.abspath(
     os.path.join(
@@ -155,7 +157,7 @@ def main():
     start = time.time()
 
     # execute the 3rd node
-    prompt = "Evil Ryomen Sukuna from jujutsu kaisen standing on top of a pyramid, dramatic skyline of an egyptian desert night with a crescent moon, widge angle, dramatic"
+    prompt = "Beautiful anime woman with dark-skin"
     negative_prompt = "poor quality, worst quality, watermark, blurry"
     images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024)
 
@@ -195,3 +197,6 @@ def main():
 if __name__ == "__main__":
     # initialize(json.loads(settings.firebase.service_account))
     main()
+    
+    # Run our REST server
+    web.run_app(app, port=8080)

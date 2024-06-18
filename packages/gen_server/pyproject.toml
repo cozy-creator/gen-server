@@ -10,9 +10,10 @@ authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
 dependencies = [
-    "blake3>=0.4",
-    "boto3>=1.34.99",
-    "diffusers",
+    "aiohttp",
+    "blake3",
+    "boto3",
+    "diffusers>=0.29",
     "grpcio",
     "protobuf",
     "safetensors>=0.4.2",
@@ -20,7 +21,7 @@ dependencies = [
     "torch",
     "torchaudio",
     "torchvision",
-    "transformers>=4.25.1",
+    "transformers>=4.25",
     "typing_extensions",
     "sentencepiece",
     "peft"
