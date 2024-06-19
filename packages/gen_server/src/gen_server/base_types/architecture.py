@@ -16,20 +16,19 @@ class Architecture(ABC, Generic[T]):
     A wrapper class for PyTorch models that adds additional properties and methods
     for inspection and management of the model.
     """
+    display_name: str
+    input_space: str
+    output_space: str
 
     def __init__(
         self,
         model: T,
         config: Any = None,
-        input_space: Optional[str] = None,
-        output_space: Optional[str] = None,
     ) -> None:
         super().__init__()
 
         self._model = model
         self._config = config
-        self._input_space = input_space
-        self._output_space = output_space
 
     @property
     def model(self) -> T:
@@ -44,20 +43,6 @@ class Architecture(ABC, Generic[T]):
         Access the underlying config
         """
         return self._config
-
-    @property
-    def input_space(self) -> str | None:
-        """
-        Access the input space of the model.
-        """
-        return self._input_space
-
-    @property
-    def output_space(self) -> str | None:
-        """
-        Access the output space of the model.
-        """
-        return self._output_space
 
     @classmethod
     @abstractmethod
@@ -85,6 +70,17 @@ class Architecture(ABC, Generic[T]):
             torch.nn.Module: The loaded PyTorch model.
         """
         pass
+    
+    def serialize(self) -> dict[str, Any]:
+        """
+        Serialize the Architecture instance to a dictionary.
+        """
+        return {
+            'display_name': self.display_name,
+            # 'config': self._config,
+            'input_space': self.input_space,
+            'output_space': self.output_space
+        }
 
     # def __repr__(self) -> str:
     #     """

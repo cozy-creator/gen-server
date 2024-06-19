@@ -29,6 +29,9 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
     """
     Architecture definition for the SD3 Text Encoder 1 (CLIP-based).
     """
+    display_name = "CLIP Text Encoder"
+    input_space = "SD3"
+    output_space = "SD3"
 
     def __init__(self):
         with open(config_path, 'r') as file:
@@ -40,9 +43,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
             text_encoder = CLIPTextModelWithProjection(text_encoder_config)
         super().__init__(
             model=text_encoder,
-            config=text_encoder_config,
-            input_space="SD3",
-            output_space="SD3"
+            config=text_encoder_config
         )
 
     @classmethod

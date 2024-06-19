@@ -5,7 +5,7 @@ from typing import Type, Dict, Optional, List, Any
 from dotenv import load_dotenv
 from dataclasses import dataclass, field
 from . import CustomNode
-from .base_types import Architecture, Checkpoint
+from .base_types import Architecture, CheckpointMetadata
 
 
 DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
@@ -31,7 +31,7 @@ WIDGETS: dict = {}
 TO DO
 """
 
-PRETRAINED_MODELS: dict[str, Checkpoint] = {}
+CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 """
 Dictionary of all discovered checkpoint files
 """

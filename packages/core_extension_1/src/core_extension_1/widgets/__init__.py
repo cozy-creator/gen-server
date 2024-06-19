@@ -1,8 +1,7 @@
-from gen_server.base_types import Serializable
 from typing import List
 
 
-class WidgetDefinition(Serializable):
+class WidgetDefinition:
     """Base class for widget definitions"""
 
     def __init__(self, value=None, default=None):

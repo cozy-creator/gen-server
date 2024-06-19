@@ -27,7 +27,8 @@ def from_file(
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, Architecture]:
     """
-    Load a model from the given file path.
+    Loads a model from a file path. It detects the architecture, instantiates the
+    architecture, and loads the state dict into the PyTorch class.
 
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
@@ -124,7 +125,7 @@ def state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None)
 
 def _load_pth(path: str | Path, device: Optional[torch.device] = None) -> StateDict:
     return torch.load(
-        path,
+        f=path,
         map_location=device,
         pickle_module=RestrictedUnpickle,
     )

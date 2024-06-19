@@ -15,6 +15,10 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the Stable Diffusion 1 pipeline
     """
+    display_name = "CLIP Text Encoder"
+    input_space = "SD1"
+    output_space = "SD1"
+    
     def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -24,8 +28,6 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
             super().__init__(
                 model=text_encoder,
                 config=text_encoder_config,
-                input_space="SD1",
-                output_space="SD1"
             )
     
     @override
