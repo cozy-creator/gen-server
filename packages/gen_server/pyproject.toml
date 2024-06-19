@@ -23,6 +23,7 @@ dependencies = [
     "torchvision",
     "transformers>=4.25",
     "typing_extensions",
+    "uuid",
     "sentencepiece",
     "peft"
 ]

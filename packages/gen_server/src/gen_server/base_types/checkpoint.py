@@ -1,66 +1,42 @@
-from typing import Dict
 from .architecture import Architecture
-from .common import Serializable
+from typing import Any
+from typing_extensions import override
+from dataclasses import dataclass, asdict, field, fields
+import datetime
 
 
-class Checkpoint(Serializable):
+@dataclass
+class CheckpointMetadata:
     """
-    This comfy-creator-specific metadata for a pretrained model / checkpoint file
-    Does PyTorch already have something along these lines?
+    This dataclass contains metadata describing a checkpoint file. It's used by Comfy-Creator's front
+    end to sort and display checkpoint files.
     """
+    display_name: str
+    author: str
+    file_type: str
+    file_path: str
+    components: dict[str, Architecture] = field(default_factory=dict)
+    date_modified: datetime.datetime = field(default_factory=datetime.datetime.now)
+    
+    def serialize(self) -> dict[str, Any]:
+        # Serialize all fields except 'components'
+        serialized_data = asdict(
+            self,
+            dict_factory=lambda fields: { key: value for key, value in fields if key != 'components' }
+        )
+        
+        # Manually serialize the Architecture components
+        serialized_components = {}
+        for name, component in self.components.items():
+            try:
+                serialized_components[name] = component.serialize()
+            except Exception:
+                continue # If serialization fails, skip this component
+        serialized_data['components'] = serialized_components
+        
+        return serialized_data
+    
+    @override
+    def __str__(self) -> str:
+        return str(self.serialize())
 
-    def __init__(
-        self,
-        display_name: str,
-        components: Dict[str, Architecture] = None,
-        metadata: Dict = None,
-    ):
-        if components is None:
-            components = {}
-        self._components: Dict[str, Architecture] = components
-        self._display_name = display_name
-        """
-        The display name of the checkpoint. This is the name that will be shown in the UI.
-        """
-
-        if metadata is None:
-            metadata = {}
-        self._date = metadata.get("date")
-        self._format = metadata.get("format")
-        self._author = metadata.get("author")
-
-    def add_component(self, name: str, component: Architecture):
-        """
-        Adds a component to the checkpoint.
-        """
-        if name in self._components:
-            raise ValueError(f"Component with name '{name}' already exists.")
-        self._components[name] = component
-
-    @property
-    def components(self) -> Dict[str, Architecture]:
-        return self._components
-
-    @property
-    def display_name(self) -> str:
-        return self._display_name
-
-    @property
-    def date(self) -> str:
-        return self._date
-
-    @property
-    def author(self) -> str:
-        return self._author
-
-    @property
-    def format(self) -> str:
-        return self._format
-
-    def serialize(self) -> Dict:
-        return {
-            "date": self.date,
-            "author": self.author,
-            "format": self.format,
-            "display_name": self.display_name,
-        }

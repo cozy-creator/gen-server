@@ -3,9 +3,8 @@ import time
 from typing import Dict, Optional
 from gen_server import Architecture, StateDict, TorchDevice
 from transformers import T5EncoderModel, T5Config
-import safetensors
-from diffusers.utils import is_accelerate_available
-from diffusers.models.modeling_utils import load_model_dict_into_meta
+from diffusers.utils.import_utils import is_accelerate_available
+from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # from diffusers.loaders.single_file_utils import convert_sd3_t5_checkpoint_to_diffusers
 import os
 import re
@@ -40,6 +39,9 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
     """
     Architecture definition for the SD3 Text Encoder 3 (T5-based).
     """
+    display_name = "T5 XXL Text Encoder"
+    input_space = "SD3"
+    output_space = "SD3"
 
     def __init__(self):
         with open(config_path, 'r') as file:
@@ -51,9 +53,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder = T5EncoderModel(text_encoder_config)
         super().__init__(
             model=text_encoder,  # Initialize with config
-            config=text_encoder_config,
-            input_space="SD3",
-            output_space="SD3"
+            config=text_encoder_config
         )
 
     @classmethod

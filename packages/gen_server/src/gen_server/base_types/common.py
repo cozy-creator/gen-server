@@ -40,19 +40,3 @@ ImageOutputType = Union[List[PIL.Image.Image], np.ndarray]
 Static typing for image outputs
 """
 
-
-class Serializable(ABC):
-    """
-    Base class for serializable objects
-    """
-
-    def serialize(self):
-        """
-        Serialize the object into a dictionary
-        :return: serialized object
-        """
-        result = {}
-        for attr in self.__dir__():
-            if not attr.startswith("_") and not callable(self.__getattribute__(attr)):
-                result[attr] = self.__getattribute__(attr)
-        return result

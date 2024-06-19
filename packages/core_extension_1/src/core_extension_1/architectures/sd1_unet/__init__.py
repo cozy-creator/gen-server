@@ -1,8 +1,9 @@
 import json
 import time
 import os
+from typing import Optional
 from typing_extensions import override
-from diffusers import UNet2DConditionModel
+from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice
 import torch
@@ -15,6 +16,10 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     """
     The Unet for the Stable Diffusion 1 pipeline
     """
+    display_name = "SD1 UNet"
+    input_space = "SD1"
+    output_space = "SD1"
+    
     def __init__(self):
         with open(config_path, 'r') as file:
             # Create diffusers class
@@ -23,8 +28,6 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
             super().__init__(
                 model=UNet2DConditionModel(**config),
                 config=config,
-                input_space="SD1",
-                output_space="SD1"
             )
     
     @override
@@ -36,7 +39,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         )
     
     @override
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SD1.5 UNet")
         start = time.time()
         

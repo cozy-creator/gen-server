@@ -9,20 +9,22 @@ from dotenv import load_dotenv
 # from .common.firebase import initialize
 # from .settings import settings
 from .base_types import Architecture, CustomNode
-from .utils.extension_loader import load_extensions
+from .utils import load_extensions, find_checkpoint_files
 from .globals import (
     API_ENDPOINTS,
     ARCHITECTURES,
     CUSTOM_NODES,
     WIDGETS,
-    PRETRAINED_MODELS,
+    CHECKPOINT_FILES,
     initialize_config,
+    comfy_config
 )
 import argparse
 import ast
 from aiohttp import web
 from .api import app
 import asyncio
+from typing import List
 
 file_path = os.path.abspath(
     os.path.join(
@@ -92,9 +94,12 @@ def main():
     WIDGETS.update(load_extensions("comfy_creator.widgets"))
     
     # compile model registry
-    global PRETRAINED_MODELS
-    # to do
-
+    global CHECKPOINT_FILES
+    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=comfy_config.models_dirs))
+    
+    print("Number of checkpoint files:", len(CHECKPOINT_FILES))
+    print(next(iter(CHECKPOINT_FILES.values())))
+    
     # print(API_ENDPOINTS)
     # print (ARCHITECTURES)
     # print(CUSTOM_NODES)

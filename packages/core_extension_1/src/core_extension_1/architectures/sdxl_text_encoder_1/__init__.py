@@ -15,6 +15,10 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the SDXL pipeline
     """
+    display_name = "CLIP Text Encoder"
+    input_space = "SDXL"
+    output_space = "SDXL"
+    
     def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -24,8 +28,6 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
             super().__init__(
                 model=text_encoder,
                 config=text_encoder_config,
-                input_space="SDXL",
-                output_space="SDXL"
             )
 
     @override

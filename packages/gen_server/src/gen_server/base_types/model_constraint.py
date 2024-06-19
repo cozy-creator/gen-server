@@ -1,9 +1,8 @@
 from .architecture import Architecture
 from typing import Type, Any, Optional
-from .common import Serializable
 
 
-class ModelConstraint(Serializable):
+class ModelConstraint:
     """
     A constraint on a model input. This can be introspected, for display in the UI, and also
     called in order to validate inputs.

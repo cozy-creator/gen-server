@@ -2,11 +2,10 @@ import json
 import time
 from typing import Dict, Optional
 from gen_server import Architecture, StateDict, TorchDevice
-from diffusers import SD3Transformer2DModel
+from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
 from diffusers.loaders.single_file_utils import convert_sd3_transformer_checkpoint_to_diffusers
-import safetensors
-from diffusers.utils import is_accelerate_available
-from diffusers.models.modeling_utils import load_model_dict_into_meta
+from diffusers.utils.import_utils import is_accelerate_available
+from diffusers.models.model_loading_utils import load_model_dict_into_meta
 import torch
 import logging
 import re
@@ -27,6 +26,9 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
     """
     Architecture definition for the SD3 U-Net model.
     """
+    display_name = "SD3 U-Net"
+    input_space = "SD3"
+    output_space = "SD3"
 
     def __init__(self):
         with open(config_path, 'r') as file:
@@ -37,9 +39,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
             model = SD3Transformer2DModel(**config)
         super().__init__(
             model=model,
-            config=config,
-            input_space="SD3",
-            output_space="SD3"
+            config=config
         )
 
     @classmethod

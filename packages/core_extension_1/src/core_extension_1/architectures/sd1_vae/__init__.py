@@ -14,6 +14,10 @@ class SD1VAE(Architecture[AutoencoderKL]):
     """
     The Variational Auto-Encoder used by Stable Diffusion 1.5
     """
+    display_name = "SD1 VAE"
+    input_space = "SD1"
+    output_space = "SD1"
+
     def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -21,9 +25,7 @@ class SD1VAE(Architecture[AutoencoderKL]):
 
             super().__init__(
                 model=vae,
-                config=config,
-                input_space="SD1",
-                output_space="SD1"
+                config=config
             )
     
     @override

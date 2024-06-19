@@ -3,7 +3,7 @@ import json
 import time
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice
-from diffusers import UNet2DConditionModel
+from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 import torch
 
@@ -14,6 +14,10 @@ class SDXLUNetArch(Architecture[UNet2DConditionModel]):
     """
     The UNet used for the SDXL pipeline
     """
+    display_name = "SDXL UNet"
+    input_space = "SDXL"
+    output_space = "SDXL"
+
     def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -21,9 +25,7 @@ class SDXLUNetArch(Architecture[UNet2DConditionModel]):
 
             super().__init__(
                 model=unet,
-                config=config,
-                input_space="SDXL",
-                output_space="SDXL"
+                config=config
             )
 
     @override
