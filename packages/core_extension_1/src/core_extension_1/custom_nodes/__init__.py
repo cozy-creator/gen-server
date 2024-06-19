@@ -19,7 +19,8 @@ from diffusers import (
     AutoencoderKL,
     UNet2DConditionModel,
     SD3Transformer2DModel,
-    FlowMatchEulerDiscreteScheduler
+    FlowMatchEulerDiscreteScheduler,
+    StableDiffusionXLPipeline
 )
 from transformers import CLIPTokenizer, CLIPTextModel, T5TokenizerFast, CLIPTextModelWithProjection, T5EncoderModel
 
@@ -126,10 +127,11 @@ class CreatePipe(CustomNode):
         text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
-    ) -> StableDiffusion3Pipeline:
+    ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
         
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
             tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
             # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
@@ -152,9 +154,20 @@ class CreatePipe(CustomNode):
                 scheduler=scheduler,
             ).to(torch.bfloat16)
         elif text_encoder_2 is not None and text_encoder_3 is None:
-            pass # SDXL
+            scheduler = DDIMScheduler.from_pretrained(
+                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+            )
+            tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
+            pipe = StableDiffusionXLPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                text_encoder_2=text_encoder_2,
+                unet=unet,
+                scheduler=scheduler,
+                tokenizer=tokenizer,
+                tokenizer_2=tokenizer_2,
+            ).to(torch.bfloat16)
         else:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             scheduler = DDIMScheduler.from_pretrained(
                 "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
             )
@@ -218,7 +231,7 @@ class RunPipe(CustomNode):
             width=width,
             height=height,
             guidance_scale=7.0,
-            num_images_per_prompt=4,
+            # num_images_per_prompt=4,
         ).images
 
         return images

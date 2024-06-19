@@ -11,7 +11,7 @@ LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embed
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
+class SDXLTextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the SDXL pipeline
     """
@@ -34,7 +34,7 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
     @classmethod
     def detect(cls, state_dict: StateDict) -> bool:
         required_keys = {
-            "conditioner.embedders.1.model.transformer.text_model.embeddings.position_embedding.weight",
+            "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
         }
         
         return all(key in state_dict for key in required_keys)
@@ -46,7 +46,7 @@ class SDXLTextEncoderArch(Architecture[CLIPTextModel]):
         
         text_encoder = self.model
 
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.1.model.")}
+        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.0.transformer.")}
         remove_prefixes = LDM_CLIP_PREFIX_TO_REMOVE
         keys = list(text_encoder_state_dict.keys())
         text_model_dict = {}

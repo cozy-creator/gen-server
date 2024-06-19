@@ -138,7 +138,6 @@ class FileHandler:
         file_path = request.match_info.get("file_path")  # Get the file path from the URL
 
         
-        # Assuming your files are in a folder named "files"
         file_path = os.path.join(comfy_config.workspace_dir, "input", file_path)
 
         if os.path.exists(file_path):

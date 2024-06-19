@@ -10,7 +10,7 @@ import torch
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class SDXLUNetArch(Architecture[UNet2DConditionModel]):
+class SDXLUNet(Architecture[UNet2DConditionModel]):
     """
     The UNet used for the SDXL pipeline
     """

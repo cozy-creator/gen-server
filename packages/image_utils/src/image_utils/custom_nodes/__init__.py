@@ -139,7 +139,7 @@ class SaveFile(CustomNode):
 
             filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
             
-            key = f'{folder_name}/{filename}' if folder_name else f'{os.getenv("S3_FOLDER")}/{filename}'
+            key = f'{comfy_config.s3["folder"]}/{filename}' if comfy_config.s3["folder"] else f'{filename}'
             
 
             # Upload the image data
