@@ -1,10 +1,8 @@
 import os
 import struct
 from typing import List, Any, Dict, Optional
-import torch
 from ..base_types import CheckpointMetadata, Architecture
-from ..globals import comfy_config, CHECKPOINT_FILES
-from ..utils import load_models
+from .load_models import load_state_dict_from_file, components_from_state_dict
 import json
 import uuid
 import datetime
@@ -34,8 +32,8 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     continue
 
                 try:
-                    state_dict = load_models.state_dict_from_file(absolute_path)
-                    components = load_models.detect_all(state_dict)
+                    state_dict = load_state_dict_from_file(absolute_path)
+                    components = components_from_state_dict(state_dict)
                     metadata = extract_safetensors_metadata(absolute_path)
                     
                     output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}

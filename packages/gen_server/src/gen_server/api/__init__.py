@@ -3,13 +3,21 @@
 import json
 from typing import List, Tuple, Dict, Optional
 from aiohttp import web
+from ..globals import CHECKPOINT_FILES
+from ..executor import generate_images
 routes = web.RouteTableDef()
 
 
-# TO DO: add endpoint for getting the model-registry
-@routes.get("/model-registry")
-async def get_model_registry(request):
-    return web.Response(text=json.dumps({"models": {}}))
+@routes.get("/checkpoints")
+async def get_checkpoints(request):
+    serialized_checkpoints = { 
+        key: value.serialize() for key, value in CHECKPOINT_FILES.items()
+    }
+    
+    return web.Response(
+        text=json.dumps(serialized_checkpoints), 
+        content_type='application/json'
+    )
 
 @routes.post("/generate")
 async def handle_post(request: web.Request) -> web.Response:
@@ -27,15 +35,6 @@ async def handle_post(request: web.Request) -> web.Response:
         return web.Response(text=json.dumps({"urls": urls}), content_type='application/json')
     except Exception as e:
         return web.Response(text=str(e), status=400)
-
-# This is a fixed prebuilt workflow; it's a placeholder for now
-async def generate_images(models: Dict[str, int], positive_prompt: str, negative_prompt: str, random_seed: Optional[int], aspect_ratio: Tuple[int, int]) -> List[str]:
-    # Simulate image generation and return URLs
-    urls = []
-    for model_name, num_images in models.items():
-        for _ in range(num_images):
-            urls.append(f"http://{model_name}.example.com/image.png")
-    return urls
 
 
 app = web.Application()

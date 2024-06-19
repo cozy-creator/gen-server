@@ -1,6 +1,6 @@
 import sys
 from typing import Any, Union, List, Optional
-from gen_server.utils import load_models
+from gen_server.utils import load_models, components_from_state_dict
 from gen_server.base_types import (
     Architecture,
     TorchDevice,
@@ -11,7 +11,7 @@ from gen_server.base_types import (
     Language,
     Category,
 )
-from gen_server.globals import MODEL_FILES
+from gen_server.globals import CHECKPOINT_FILES
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusion3Pipeline,
@@ -58,13 +58,13 @@ class LoadCheckpoint(CustomNode):
     @staticmethod
     def update_interface(inputs: dict[str, Any]) -> NodeInterface:
         interface = { 
-            "inputs": { "file_path": EnumInput(options=list(MODEL_FILES.keys())) }, 
+            "inputs": { "file_path": EnumInput(options=list(CHECKPOINT_FILES.keys())) }, 
             "outputs": {} 
         }
         if inputs:
             file_path = inputs.get("file_path", None)
             if file_path:
-                interface.update({"outputs": load_models.detect_all(file_path)})
+                interface.update({"outputs": components_from_state_dict(file_path)})
 
         return interface
 
