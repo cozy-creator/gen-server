@@ -33,7 +33,7 @@ def from_file(
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
     """
-    state_dict = state_dict_from_file(path, device=device)
+    state_dict = load_state_dict_from_file(path, device=device)
 
     return from_state_dict(state_dict, device, registry)
 
@@ -48,7 +48,7 @@ def from_state_dict(
 
     Returns an empty dictionary if no supported model architecture is found.
     """
-    components = detect_all(state_dict, registry)
+    components = components_from_state_dict(state_dict, registry)
 
     for arch_id, architecture in components.items():
         try:
@@ -60,12 +60,12 @@ def from_state_dict(
     return components
 
 
-def detect_all(
+def components_from_state_dict(
     state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load them into memory however;
-    it merely returns the Architecture-Definitions for these models.
+    it merely returns the instantiated Architectures for these models.
     """
     components: dict[str, Architecture] = {}
 
@@ -80,7 +80,7 @@ def detect_all(
     return components
 
 
-def state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
+def load_state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
     """
     Load the state dict of a model from the given file path.
 

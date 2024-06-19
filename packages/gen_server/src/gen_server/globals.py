@@ -36,8 +36,6 @@ CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 Dictionary of all discovered checkpoint files
 """
 
-MODEL_FILES: dict[str, Dict] = {}
-
 
 @dataclass
 class ComfyConfig:
