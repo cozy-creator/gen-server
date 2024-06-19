@@ -12,6 +12,7 @@ class CheckpointMetadata:
     end to sort and display checkpoint files.
     """
     display_name: str
+    category: str
     author: str
     file_type: str
     file_path: str
@@ -24,15 +25,16 @@ class CheckpointMetadata:
             self,
             dict_factory=lambda fields: { key: value for key, value in fields if key != 'components' }
         )
+        serialized_data.update({'date_modified': self.date_modified.strftime("%Y-%m-%d %H:%M:%S")})
         
         # Manually serialize the Architecture components
         serialized_components = {}
         for name, component in self.components.items():
             try:
-                serialized_components[name] = component.serialize()
+                serialized_components[name] = 'component.serialize()'
             except Exception:
                 continue # If serialization fails, skip this component
-        serialized_data['components'] = serialized_components
+        serialized_data.update({'components': serialized_components})
         
         return serialized_data
     

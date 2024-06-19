@@ -77,7 +77,7 @@ class Architecture(ABC, Generic[T]):
         """
         return {
             'display_name': self.display_name,
-            'config': self._config,
+            # 'config': self._config,
             'input_space': self.input_space,
             'output_space': self.output_space
         }

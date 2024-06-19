@@ -97,8 +97,13 @@ def main():
     global CHECKPOINT_FILES
     CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=comfy_config.models_dirs))
     
+    # debug
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
-    print(next(iter(CHECKPOINT_FILES.values())))
+    # print(CHECKPOINT_FILES)
+    def print_dict(d):
+        for key, value in d.items():
+            print(f"{key}: {str(value)}")
+    print_dict(CHECKPOINT_FILES)
     
     # print(API_ENDPOINTS)
     # print (ARCHITECTURES)

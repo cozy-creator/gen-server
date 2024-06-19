@@ -2,7 +2,7 @@ import os
 import struct
 from typing import List, Any, Dict, Optional
 import torch
-from ..base_types import CheckpointMetadata
+from ..base_types import CheckpointMetadata, Architecture
 from ..globals import comfy_config, CHECKPOINT_FILES
 from ..utils import load_models
 import json
@@ -38,13 +38,23 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     components = load_models.detect_all(state_dict)
                     metadata = extract_safetensors_metadata(absolute_path)
                     
-                    base, ext = os.path.splitext(filename)
-                    display_name = base  # Use the filename as the display name
+                    output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
+                    for component in components.values():
+                        if component.output_space == 'SD1':
+                            output_space_counts['SD1'] += 1
+                        elif component.output_space == 'SDXL':
+                            output_space_counts['SDXL'] += 1
+                        elif component.output_space == 'SD3':
+                            output_space_counts['SD3'] += 1
+                    
+                    base_filename, ext = os.path.splitext(filename)
+                    display_name = base_filename  # Use the filename as the display name
                     date_modified = datetime.datetime.fromtimestamp(os.path.getmtime(absolute_path))
 
                     checkpoint = CheckpointMetadata(
                         display_name=display_name,
                         author=metadata.get("author", "Unknown"),
+                        category=determine_category(components),
                         components=components,
                         date_modified=date_modified,
                         file_type=ext,
@@ -53,9 +63,11 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     
                     # We generate a random UUID for each checkpoint file
                     # TO DO: should we try something stable, like blake3 hashes instead?
-                    checkpoint_uuid = str(uuid.uuid4())
+                    # For now we're going to just use filenames; not a great strategy over allthough
+                    # checkpoint_id = str(uuid.uuid4())
+                    checkpoint_id = base_filename
                     
-                    checkpoint_metadata[checkpoint_uuid] = checkpoint
+                    checkpoint_metadata[checkpoint_id] = checkpoint
                 except Exception as e:
                     print(
                         f"Error: Unexpected error while loading model from file '{absolute_path}': {e}"
@@ -82,3 +94,20 @@ def extract_safetensors_metadata(file_path) -> Dict[str, Any]:
         header = json.loads(header_bytes)
         
     return header.get("__metadata__", {})
+
+
+# TO DO: this is kind of a dumb way to go about this; see if we can come up
+# with something more general
+def determine_category(components: Dict[str, Architecture]) -> str:
+    output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
+    
+    for component in components.values():
+        if component.output_space == 'SD1':
+            output_space_counts['SD1'] += 1
+        elif component.output_space == 'SDXL':
+            output_space_counts['SDXL'] += 1
+        elif component.output_space == 'SD3':
+            output_space_counts['SD3'] += 1
+    
+    max_category = max(output_space_counts.items(), key=lambda x: x[1])
+    return max_category[0] if max_category[1] > 0 else 'Unknown'
