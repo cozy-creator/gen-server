@@ -188,14 +188,14 @@ def main():
     # negative_prompt = "poor quality, worst quality, watermark, blurry"
     # images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024)
 
-    # Save Images
-    # images[0].save("output.png")
+    # # Save Images
+    # # images[0].save("output.png")
 
-    # diffusion_pytorch_model.fp16.safetensors
-    # playground-v2.5-1024px-aesthetic.fp16.safetensors
-    # diffusion_pytorch_model.safetensors
-    # darkSushi25D25D_v40.safetensors
-    # sd3_medium_incl_clips_t5xxlfp8.safetensors
+    # # diffusion_pytorch_model.fp16.safetensors
+    # # playground-v2.5-1024px-aesthetic.fp16.safetensors
+    # # diffusion_pytorch_model.safetensors
+    # # darkSushi25D25D_v40.safetensors
+    # # sd3_medium_incl_clips_t5xxlfp8.safetensors
 
     # # Save the images
     # SaveNode = CUSTOM_NODES["image_utils.save_file"]
@@ -207,18 +207,18 @@ def main():
 
     # print(f"Image generated in {time.time() - start} seconds")
 
-    # if args.run_web_server:
-    #     from request_handlers.web_server import start_server
+    # # if args.run_web_server:
+    # #     from request_handlers.web_server import start_server
 
-    # if args.run_web_server:
-    #     from request_handlers.web_server import start_server
-    #
-    #     start_server(args.host, args.web_server_port)
+    # # if args.run_web_server:
+    # #     from request_handlers.web_server import start_server
+    
+    # #     start_server(args.host, args.web_server_port)
 
-    # if args.run_grpc:
-    #     from request_handlers.grpc_server import start_server
+    # # if args.run_grpc:
+    # #     from request_handlers.grpc_server import start_server
 
-    #     start_server(args.host, args.grpc_port)
+    # #     start_server(args.host, args.grpc_port)
 
     asyncio.run(start_server())
 

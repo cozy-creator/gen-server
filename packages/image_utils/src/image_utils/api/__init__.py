@@ -2,7 +2,6 @@ import os
 import io
 from typing import Optional, Dict, Union, Any
 
-import aiohttp
 from aiohttp import web
 import blake3
 
@@ -27,6 +26,7 @@ class FileHandler:
         """
         Handles image upload requests.
         """
+
         reader = await request.multipart()
 
         # Initialize variables to store content and filename
@@ -43,7 +43,7 @@ class FileHandler:
                 content = await part.read()
 
                 # Generate a unique filename based on hash
-                filename = f"{blake3.blake3(content).hexdigest()}.png"  # Assuming PNG files
+                filename = f"{blake3.blake3(content).hexdigest()}{os.path.splitext(part.filename)[1]}"  # Assuming PNG files
 
                 # Upload to S3 (if S3 client is provided)
                 if self.s3_client:
@@ -51,26 +51,43 @@ class FileHandler:
                         # Upload the file to the specified folder
                         key = f'{comfy_config.s3["folder"]}/{filename}' if comfy_config.s3["folder"] else f'{filename}'
 
-                        presigned_url = self.s3_client.generate_presigned_url(
-                        ClientMethod='put_object',
-                        Params={'Bucket': comfy_config.s3['bucket_name'], 'Key': key, 'ACL': 'public-read', 'ContentType': 'image/png'},
-                        ExpiresIn=3600  # URL expiration time in seconds
-                        )
+                        # presigned_url = self.s3_client.generate_presigned_url(
+                        # ClientMethod='put_object',
+                        # Params={'Bucket': comfy_config.s3['bucket_name'], 'Key': key},
+                        # ExpiresIn=3600,  # URL expiration time in seconds
+                        # HttpMethod="PUT"
+                        # )
 
-                        # self.s3_client.put_object(Bucket=comfy_config.s3["bucket_name"], Key=key, Body=content, ACL="public-read")
+                        self.s3_client.put_object(Bucket=comfy_config.s3["bucket_name"], Key=key, Body=content, ACL="public-read")
                         
                         # # Generate and append the image URL
-                        # image_url = f"{comfy_config.s3['url']}/{key}"
+                        image_url = f"{comfy_config.s3['url']}/{key}"
                         
                         # Return a success response with the URL
-                        print("Successfully uploaded file")
-                        return web.json_response({'success': True, 'url': presigned_url})
+                        print("Successfully Uploaded Image")
+                        return web.json_response({'success': True, 'url': image_url})
                     except Exception as e:
                         # Handle errors appropriately
                         print(f"Error uploading to S3: {e}")
                         return web.json_response({'success': False, 'error': str(e)})
                         
 
+    async def set_public_acl(self, request: web.Request) -> web.Response:
+        """
+        Sets the ACL of the uploaded object to public-read.
+        """
+        data = await request.json()
+        key = data.get('key')
+
+        if not key:
+            return web.json_response({'success': False, 'error': 'Key is missing'})
+
+        try:
+            self.s3_client.put_object_acl(Bucket=comfy_config.s3["bucket_name"], Key=key, ACL='public-read')
+            return web.json_response({'success': True})
+        except Exception as e:
+            return web.json_response({'success': False, 'error': str(e)})
+        
                     
     async def list_files(self, request: web.Request) -> web.Response:
         if comfy_config.s3["folder"]:
@@ -112,6 +129,50 @@ class FileHandler:
         
         except Exception as e:
             return web.json_response({'success': False, 'error': str(e)})
+        
+    
+    async def serve_local_file(self, request: web.Request) -> web.Response:
+        """
+        Serves a static file from the local filesystem.
+        """
+        file_path = request.match_info.get("file_path")  # Get the file path from the URL
+
+        
+        # Assuming your files are in a folder named "files"
+        file_path = os.path.join(comfy_config.workspace_dir, "input", file_path)
+
+        if os.path.exists(file_path):
+            # Read the file content in bytes
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+
+            # Get the content type dynamically
+            content_type = get_content_type(file_path)
+
+            # Create the response
+            return web.Response(
+                body=file_content, content_type=content_type, status=200
+            )
+        else:
+            return web.Response(text="File not found", status=404)
+        
+        
+def get_content_type(file_path):
+    """
+    Determines the content type based on the file extension.
+    """
+    file_extension = os.path.splitext(file_path)[1].lower()
+    content_types = {
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.ico': 'image/x-icon',
+    }
+    return content_types.get(file_extension, 'application/octet-stream')
 
 
 # Load Files Locally instead
@@ -127,8 +188,10 @@ def file_handler() -> web.Application:
 
     routes = [
         ('POST', '/upload', handler.handle_upload),
+        ('POST', '/set-public-acl', handler.set_public_acl),
         ('GET', '/list', handler.list_files),
-        ('GET', '/download/{file_key}', handler.download_file)
+        ('GET', '/download/{file_key}', handler.download_file),
+        ('GET', '/files/{file_path}', handler.serve_local_file)
     ]
 
     return routes

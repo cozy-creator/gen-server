@@ -218,7 +218,7 @@ class RunPipe(CustomNode):
             width=width,
             height=height,
             guidance_scale=7.0,
-            # num_images_per_prompt=4,
+            num_images_per_prompt=4,
         ).images
 
         return images
