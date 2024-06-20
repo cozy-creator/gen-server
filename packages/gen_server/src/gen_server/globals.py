@@ -39,7 +39,9 @@ Dictionary of all discovered checkpoint files
 
 @dataclass
 class ComfyConfig:
-    filesystem_type: Optional[str] = "S3"
+    host: Optional[str] = "localhost"
+    port: Optional[int] = 8080
+    filesystem_type: Optional[str] = "LOCAL"
     workspace_dir: Optional[str] = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
     models_dirs: List[str] = field(
         default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS]
@@ -76,6 +78,8 @@ def initialize_config(env_path: Optional[str] = None, config_path: Optional[str]
             print("Invalid JSON format in the configuration file.")
     
     # Find our directories
+    comfy_config.host = config_dict.get("host", "localhost")
+    comfy_config.port = config_dict.get("port", 8080)
     comfy_config.filesystem_type = config_dict.get("filesystem_type", 'LOCAL')
     comfy_config.workspace_dir = os.path.expanduser(config_dict.get("workspace_dir", DEFAULT_WORKSPACE_DIR))
     comfy_config.models_dirs = [os.path.expanduser(path) for path in config_dict.get("models_dirs", DEFAULT_MODELS_DIRS)]

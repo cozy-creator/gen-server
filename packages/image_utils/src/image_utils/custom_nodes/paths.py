@@ -78,6 +78,7 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
         counter = 1
     return full_output_folder, filename, counter, subfolder, filename_prefix
 
+
 def get_model_path(folder_name):
     """
     Returns the path for the given folder name.

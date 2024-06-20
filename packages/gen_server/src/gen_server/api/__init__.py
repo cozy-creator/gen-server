@@ -3,13 +3,15 @@
 import json
 from typing import List, Tuple, Dict, Optional
 from aiohttp import web
-from ..globals import CHECKPOINT_FILES
+import asyncio
+import logging
+from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
 from ..executor import generate_images
 routes = web.RouteTableDef()
 
 
 @routes.get("/checkpoints")
-async def get_checkpoints(request):
+async def get_checkpoints(request: web.Request) -> web.Response:
     serialized_checkpoints = { 
         key: value.serialize() for key, value in CHECKPOINT_FILES.items()
     }
@@ -20,25 +22,57 @@ async def get_checkpoints(request):
     )
 
 @routes.post("/generate")
-async def handle_post(request: web.Request) -> web.Response:
-    try:
-        data = await request.json()
-        models: Dict[str, int] = data['models']  # Tuple of model-names and number of images per model
-        positive_prompt: str = data['positive_prompt']
-        negative_prompt: str = data['negative_prompt']
-        random_seed: Optional[int] = data.get('random_seed', None)
-        aspect_ratio: Tuple[int, int] = data['aspect_ratio'] # tuple (width, height)
+async def handle_post(request: web.Request) -> web.StreamResponse:
+    response = web.StreamResponse(status=200, reason='OK', headers={'Content-Type': 'application/json'})
+    await response.prepare(request)
+    
+    # TO DO: validate these types using something like pydantic
+    # try:
+    data = await request.json()
+    models: Dict[str, int] = data['models']
+    positive_prompt: str = data['positive_prompt']
+    negative_prompt: str = data['negative_prompt']
+    random_seed: Optional[int] = data.get('random_seed', None)
+    aspect_ratio: Tuple[int, int] = data['aspect_ratio']
 
-        # Placeholder for image generation logic
-        urls: List[str] = await generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio)
+    # Start streaming image URLs
+    async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):
+        await response.write(json.dumps({"output": urls}).encode('utf-8') + b'\n')
 
-        return web.Response(text=json.dumps({"urls": urls}), content_type='application/json')
-    except Exception as e:
-        return web.Response(text=str(e), status=400)
+    # except Exception as e:
+    #     logging.error(f"Error during image generation: {str(e)}")
+    #     await response.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+    await response.write_eof()
+    
+    return response
 
 
-app = web.Application()
-app.add_routes(routes)
+async def start_server():
+    """
+    Starts the web server with API endpoints from extensions
+    """
+    app = web.Application()
+    global routes
+    app.add_routes(routes)
+
+    # Register all API endpoints from extensions
+    # Iterate over API_ENDPOINTS and add routes
+    for name, endpoint_func in API_ENDPOINTS.items():
+        # Get the list of routes from the extension
+        routes = endpoint_func()
+
+        # Add the routes from the extension
+        for method, path, handler in routes:
+            app.router.add_route(method, path, handler)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "localhost", 8080)  # Host and port
+    await site.start()
+    print(f"Server running on http://localhost:8080/")
+    await asyncio.Future()  # Keep the server running
 
 if __name__ == '__main__':
-    web.run_app(app, port=8080)
+    asyncio.run(start_server())
+    # web.run_app(app, port=8080)

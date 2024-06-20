@@ -20,7 +20,7 @@ class FileHandler:
     """
 
     def __init__(self):
-        self.s3_client = comfy_config.s3["client"]
+        self.s3_client = comfy_config.s3.get("client", None)
 
     async def handle_upload(self, request: web.Request) -> web.Response:
         """

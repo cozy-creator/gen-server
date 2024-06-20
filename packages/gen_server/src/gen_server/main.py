@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
+from .api import start_server
 from .base_types import Architecture, CustomNode
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
@@ -21,8 +22,6 @@ from .globals import (
 )
 import argparse
 import ast
-from aiohttp import web
-from .api import app
 import asyncio
 from typing import List
 
@@ -31,31 +30,6 @@ file_path = os.path.abspath(
         os.path.dirname(__file__), "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors"
     )
 )
-
-
-async def start_server():
-    """
-    Starts the web server with API endpoints from extensions
-    """
-    app = web.Application()
-
-    # Register all API endpoints from extensions
-    # Iterate over API_ENDPOINTS and add routes
-    for name, endpoint_func in API_ENDPOINTS.items():
-        # Get the list of routes from the extension
-        routes = endpoint_func()
-
-        # Add the routes from the extension
-        for method, path, handler in routes:
-            app.router.add_route(method, path, handler)
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "localhost", 8080)  # Host and port
-    await site.start()
-    print(f"Server running on http://localhost:8080/")
-    await asyncio.Future()  # Keep the server running
-
 
 
 def main():
@@ -76,26 +50,38 @@ def main():
     # custom nodes will define new nodes to be instantiated by the graph-editor
     # widgets will somehow define react files to be somehow be imported by the client
     
+    start_time = time.time()
+
     global API_ENDPOINTS
+    start_time_api_endpoints = time.time()
     API_ENDPOINTS.update(load_extensions("comfy_creator.api"))
+    print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
     
     # compile architecture registry
     global ARCHITECTURES
+    start_time_architectures = time.time()
     ARCHITECTURES.update(
         load_extensions("comfy_creator.architectures", expected_type=Architecture)
     )
+    print(f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds")
 
     global CUSTOM_NODES
+    start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
         load_extensions("comfy_creator.custom_nodes", expected_type=CustomNode)
     )
+    print(f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds")
 
     global WIDGETS
+    start_time_widgets = time.time()
     WIDGETS.update(load_extensions("comfy_creator.widgets"))
+    print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
     
     # compile model registry
     global CHECKPOINT_FILES
+    start_time_checkpoint_files = time.time()
     CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=comfy_config.models_dirs))
+    print(f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds")
     
     # debug
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
@@ -105,151 +91,12 @@ def main():
             print(f"{key}: {str(value)}")
     print_dict(CHECKPOINT_FILES)
     
-    # print(API_ENDPOINTS)
-    # print (ARCHITECTURES)
-    # print(CUSTOM_NODES)
-    # print(WIDGETS)
-
-    # models = load_models.from_file(file_path, 'cpu', ARCHITECTURES)
-
-    # print(API_ENDPOINTS)
-
-
-    start = time.time()
+    end_time = time.time()
+    print(f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds")
     
-    # === Simulating the executor code ===
-    LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
-
-    # Return this to the UI
-    architectures = LoadCheckpoint.update_interface(
-        {"inputs": {"file_path": file_path}}
-    )
-    # print(architectures)
-
-    # figure out what outputs we need from this node
-    output_keys = {}
-    load_checkpoint = LoadCheckpoint()
-
-    # execute the first node
-    models = load_checkpoint(file_path, output_keys=output_keys)
-
-    # print(models)
-
-    print("Number of items loaded:", len(models))
-    for model_key in models.keys():
-        print(f"Model key: {model_key}")
-
-    # load node 2
-    CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
-    create_pipe = CreatePipe()
-
-    # ???
-    # pipe_type = create_pipe.determine_output()
-    # print(pipe_type)
-
-    signature = inspect.signature(create_pipe.__call__)
-    # print(signature)
-
-    # Detailed parameter analysis
-    # for name, param in signature.parameters.items():
-    #     print(f"Parameter Name: {name}")
-    #     print(f"  Kind: {param.kind}")
-    #     print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
-    #     print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
-
-    # how do we know this? Edges?
-    # SD3
-    vae = models["core_extension_1.sd1_vae"].model
-    unet = models["core_extension_1.sd3_unet"].model
-    text_encoder_1 = models["core_extension_1.sd3_text_encoder_1"].model
-    text_encoder_2 = models["core_extension_1.sd3_text_encoder_2"].model
-    text_encoder_3 = models["core_extension_1.sd3_text_encoder_3"].model
-
-    pipe = create_pipe(
-        vae=vae, 
-        text_encoder=text_encoder_1,
-        text_encoder_2=text_encoder_2,
-        text_encoder_3=text_encoder_3,
-        unet=unet
-    )
-    # pipe.to('cuda')
-
-
-    # SDXL
-    # vae = models["core_extension_1.sd1_vae"].model
-    # unet = models["core_extension_1.sdxl_unet"].model
-    # text_encoder_1 = models["core_extension_1.sdxl_text_encoder_1"].model
-    # text_encoder_2 = models["core_extension_1.sdxl_text_encoder_2"].model
-
-    # pipe = create_pipe(
-    #     vae=vae, 
-    #     text_encoder=text_encoder_1,
-    #     text_encoder_2=text_encoder_2,
-    #     unet=unet
-    # )
-
+    asyncio.run(start_server())
     
-
-    # SD1.5
-    # vae = models["core_extension_1.sd1_vae"].model
-    # unet = models["core_extension_1.sd1_unet"].model
-    # text_encoder_1 = models["core_extension_1.sd1_text_encoder"].model
-
-    # pipe = create_pipe(
-    #     vae=vae, 
-    #     text_encoder=text_encoder_1,
-    #     unet=unet
-    # )
-
-    
-
-    # node 3
-    run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
-
-    # ???
-    # output_type = run_pipe.determine_output()
-    # print(output_type)
-
-
-    # execute the 3rd node
-    prompt = "Beautiful anime woman with dark-skin"
-    negative_prompt = "poor quality, worst quality, watermark, blurry"
-    images = run_pipe(pipe, prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024)
-
-    # Save Images
-    # images[0].save("output.png")
-
-    # diffusion_pytorch_model.fp16.safetensors
-    # playground-v2.5-1024px-aesthetic.fp16.safetensors
-    # diffusion_pytorch_model.safetensors
-    # darkSushi25D25D_v40.safetensors
-    # sd3_medium_incl_clips_t5xxlfp8.safetensors
-    # sd_xl_base_1.0.safetensors
-
-    # Save the images
-    SaveNode = CUSTOM_NODES["image_utils.save_file"]
-    save_node = SaveNode()
-    save_node(images=images, temp=False)
-
-    # for idx, img in enumerate(images):
-    #     img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))
-
-    print(f"Image generated in {time.time() - start} seconds")
-
-    # if args.run_web_server:
-    #     from request_handlers.web_server import start_server
-
-    # if args.run_web_server:
-    #     from request_handlers.web_server import start_server
-    
-    #     start_server(args.host, args.web_server_port)
-
-    # if args.run_grpc:
-    #     from request_handlers.grpc_server import start_server
-
-    #     start_server(args.host, args.grpc_port)
-
-    # asyncio.run(start_server())
+    return
 
 
 if __name__ == "__main__":

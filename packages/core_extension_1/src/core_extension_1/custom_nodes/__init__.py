@@ -28,6 +28,10 @@ from core_extension_1.widgets import TextInput, StringInput, EnumInput
 import json
 import torch
 import os
+from PIL.Image import Image
+from numpy import ndarray
+from typing import Any
+
 # from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
 
@@ -222,16 +226,19 @@ class RunPipe(CustomNode):
         prompt: str,
         negative_prompt: Optional[str] = None,
         width: int = 512,
-        height: int = 512
-    ) -> ImageOutputType:
-        images: ImageOutputType = pipe(
+        height: int = 512,
+        num_images_per_prompt: int = 1,
+        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+    ) -> Union[List[Image], ndarray]:
+        images: Union[List[Image], ndarray] = pipe(
             prompt,
             negative_prompt=negative_prompt,
             num_inference_steps=28,
             width=width,
             height=height,
             guidance_scale=7.0,
-            # num_images_per_prompt=4,
+            num_images_per_prompt=num_images_per_prompt,
+            generator=generator
         ).images
 
         return images

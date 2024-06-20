@@ -1,4 +1,6 @@
 {
+  "host": "localhost",
+  "port": 8080,
   "filesystem_type": "S3",
   "workspace_dir": "~/.comfy-creator",
   "models_dirs": [

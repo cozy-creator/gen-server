@@ -1,13 +1,14 @@
 import os
 from typing_extensions import override
-from diffusers import AutoencoderKL
+from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 import json
+from typing import Optional
 from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice
 import time
 import torch
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_vae_config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
 class SD1VAE(Architecture[AutoencoderKL]):
@@ -38,7 +39,7 @@ class SD1VAE(Architecture[AutoencoderKL]):
         return all(key in state_dict for key in required_keys)
     
     @override
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SD1.5 VAE")
         start = time.time()
         
