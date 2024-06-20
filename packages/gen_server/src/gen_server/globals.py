@@ -1,7 +1,8 @@
 import os
 import json
 import boto3
-from typing import Type, Dict, Optional, List, Any
+from typing import Type, Dict, Optional, List, Any, Iterable, Callable
+from aiohttp import web
 from dotenv import load_dotenv
 from dataclasses import dataclass, field
 from . import CustomNode
@@ -11,7 +12,7 @@ from .base_types import Architecture, CheckpointMetadata
 DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
 DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
 
-API_ENDPOINTS: dict = {}
+API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 """
 Something
 """

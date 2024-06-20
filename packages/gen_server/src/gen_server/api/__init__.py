@@ -7,6 +7,7 @@ import asyncio
 import logging
 from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
 from ..executor import generate_images
+from typing import Iterable
 routes = web.RouteTableDef()
 
 
@@ -27,21 +28,21 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
     await response.prepare(request)
     
     # TO DO: validate these types using something like pydantic
-    # try:
-    data = await request.json()
-    models: Dict[str, int] = data['models']
-    positive_prompt: str = data['positive_prompt']
-    negative_prompt: str = data['negative_prompt']
-    random_seed: Optional[int] = data.get('random_seed', None)
-    aspect_ratio: Tuple[int, int] = data['aspect_ratio']
+    try:
+        data = await request.json()
+        models: Dict[str, int] = data['models']
+        positive_prompt: str = data['positive_prompt']
+        negative_prompt: str = data['negative_prompt']
+        random_seed: Optional[int] = data.get('random_seed', None)
+        aspect_ratio: Tuple[int, int] = data['aspect_ratio']
 
-    # Start streaming image URLs
-    async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):
-        await response.write(json.dumps({"output": urls}).encode('utf-8') + b'\n')
+        # Start streaming image URLs
+        async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):
+            await response.write(json.dumps({"output": urls}).encode('utf-8') + b'\n')
 
-    # except Exception as e:
-    #     logging.error(f"Error during image generation: {str(e)}")
-    #     await response.write(json.dumps({"error": str(e)}).encode('utf-8'))
+    except Exception as e:
+        logging.error(f"Error during image generation: {str(e)}")
+        await response.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
     await response.write_eof()
     
@@ -59,12 +60,12 @@ async def start_server():
     # Register all API endpoints from extensions
     # Iterate over API_ENDPOINTS and add routes
     for name, endpoint_func in API_ENDPOINTS.items():
+        # TO DO: consider adding prefixes to the routes based on extension-name?
         # Get the list of routes from the extension
         routes = endpoint_func()
-
-        # Add the routes from the extension
-        for method, path, handler in routes:
-            app.router.add_route(method, path, handler)
+        
+         # Add the routes from the extension
+        app.router.add_routes(routes)
 
     runner = web.AppRunner(app)
     await runner.setup()
