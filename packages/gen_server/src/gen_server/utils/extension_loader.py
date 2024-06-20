@@ -7,14 +7,17 @@ import configparser
 # from .paths import get_folder_path
 import logging
 import traceback
-from typing import Dict, Union, Callable, Any, Type, TypeVar
+from typing import Dict, Union, Callable, Type, TypeVar, Iterable, get_type_hints, get_args
 
 import sys
+
+from sympy import true
 from ..globals import CUSTOM_NODES
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points, EntryPoint
 else:
     from importlib.metadata import entry_points, EntryPoint
+from aiohttp import web
 
 T = TypeVar('T', bound=Type)  # Generic type variable bound to Type
 
@@ -50,7 +53,10 @@ def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[s
 
 # TO DO: make certain properties / methods optional in our interface, so that we can be add new things and still
 # be backwards compatible with old implementations
-def implements_interface(implementation: Type, interface: Type) -> bool:
+def implements_interface(implementation: Union[Type, Callable], interface: Type) -> bool:
+    if (callable(interface)):
+        return implements_function_interface(implementation, interface)
+    
     missing_methods = []
     missing_properties = []
 
@@ -83,6 +89,26 @@ def implements_interface(implementation: Type, interface: Type) -> bool:
             logging.warning(f"Missing properties in {implementation.__name__}: {', '.join(missing_properties)}")
         return False
 
+
+def implements_function_interface(implementation: Callable, interface: Type[Callable]) -> bool:
+    # TO DO: use zope instead
+    return True
+
+    # Check if the implementation is a function
+    if not callable(implementation):
+        logging.error(f"Implementation {implementation.__name__} is not callable.")
+        return False
+
+    # Retrieve the return type of the function
+    return_hints = get_type_hints(implementation).get('return', None)
+
+    # Check if the return type is an Iterable of web.AbstractRouteDef
+    if inspect.isclass(return_hints) and issubclass(return_hints, Iterable) and all(
+        issubclass(arg, web.AbstractRouteDef) for arg in get_args(return_hints)):
+        return True
+    else:
+        return False
+    
 
 # TO DO: replace this with something useful
 # def generate_node_definitions():

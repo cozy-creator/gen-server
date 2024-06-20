@@ -23,7 +23,8 @@ from .globals import (
 import argparse
 import ast
 import asyncio
-from typing import List
+from typing import List, Iterable, Callable
+from aiohttp import web
 
 file_path = os.path.abspath(
     os.path.join(
@@ -51,10 +52,14 @@ def main():
     # widgets will somehow define react files to be somehow be imported by the client
     
     start_time = time.time()
-
+    
+    # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
-    API_ENDPOINTS.update(load_extensions("comfy_creator.api"))
+    API_ENDPOINTS.update(
+        load_extensions("comfy_creator.api"),
+        expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
+    )
     print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
     
     # compile architecture registry

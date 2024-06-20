@@ -1,6 +1,6 @@
 import os
 import io
-from typing import Optional, Dict, Union, Any
+from typing import Optional, Dict, Union, Any, Iterable, List
 
 from aiohttp import web
 import blake3
@@ -137,7 +137,6 @@ class FileHandler:
         """
         file_path = request.match_info.get("file_path")  # Get the file path from the URL
 
-        
         file_path = os.path.join(comfy_config.workspace_dir, "input", file_path)
 
         if os.path.exists(file_path):
@@ -177,20 +176,19 @@ def get_content_type(file_path):
 # Load Files Locally instead
 
 
-def file_handler() -> web.Application:
+def file_handler() -> List[web.RouteDef]:
     """
-    Creates a list of tuples containing route information for image uploads.
+    Creates a list of RouteDef instances containing route information for image uploads.
     """
-
     # Create a handler instance
     handler = FileHandler()
 
-    routes = [
-        ('POST', '/upload', handler.handle_upload),
-        ('POST', '/set-public-acl', handler.set_public_acl),
-        ('GET', '/list', handler.list_files),
-        ('GET', '/download/{file_key}', handler.download_file),
-        ('GET', '/files/{file_path}', handler.serve_local_file)
+    routes: List[web.RouteDef] = [
+        web.post('/upload', handler.handle_upload),
+        web.post('/set-public-acl', handler.set_public_acl),
+        web.get('/list', handler.list_files),
+        web.get('/download/{file_key}', handler.download_file),
+        web.get('/files/{file_path}', handler.serve_local_file)
     ]
 
     return routes

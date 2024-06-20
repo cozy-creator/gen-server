@@ -14,7 +14,6 @@ dependencies = [
   "comfy_creator", "boto3", "pillow", "numpy", "python-dotenv"
 ]
 
-
 [project.entry-points."comfy_creator.custom_nodes"]
 save_file = "image_utils.custom_nodes:SaveFile"
 
