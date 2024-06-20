@@ -25,7 +25,8 @@ dependencies = [
     "typing_extensions",
     "uuid",
     "sentencepiece",
-    "peft"
+    "peft",
+    "RealESRGAN@git+https://github.com/ai-forever/Real-ESRGAN.git"
 ]
 
 [project.optional-dependencies]
