@@ -32,6 +32,27 @@ def get_folder_path(folder_name):
     return folder_path
 
 
+def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
+    def map_filename(filename):
+        prefix_len = len(os.path.basename(filename_prefix))
+        prefix = filename[:prefix_len + 1]
+        try:
+            digits = int(filename[prefix_len + 1:].split('_')[0])
+        except:
+            digits = 0
+        return (digits, prefix)
+
+    try:
+        counter = max(filter(lambda a: a[1][:-1] == filename_prefix and a[1][-1] == "_", 
+                             map(map_filename, os.listdir(assets_dir))))[0] + 1
+    except ValueError:
+        counter = 1
+    except FileNotFoundError:
+        os.makedirs(assets_dir, exist_ok=True)
+        counter = 1
+    return counter
+
+
 def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height=0):
     def map_filename(filename):
         prefix_len = len(os.path.basename(filename_prefix))
