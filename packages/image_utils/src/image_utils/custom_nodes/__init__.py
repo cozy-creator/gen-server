@@ -6,7 +6,7 @@ import blake3
 from urllib.parse import urlparse
 from PIL.Image import Image
 import numpy as np
-from .paths import get_folder_path, get_save_image_path
+from .paths import get_folder_path, get_next_counter
 import torch
 import json
 from typing import Optional
@@ -121,6 +121,7 @@ class SaveFile(CustomNode):
             
             # prepend our server's GET-file endpoint to these relative paths
             for url in image_urls:
+                print(url["url"])
                 url["url"] = f"http://{comfy_config.host}:{comfy_config.port}/files/{url['url']}"
             
         elif comfy_config.filesystem_type == "S3":
@@ -229,15 +230,20 @@ def save_image_to_filesystem(
     workspace_dir = comfy_config.workspace_dir
     if not workspace_dir:
         raise FileNotFoundError(f"The workspace directory '{workspace_dir}' does not exist.")
+
+    print(is_temp)
     
     assets_dir = os.path.join(
         workspace_dir, 'assets', 'temp' if is_temp else '')
     if not os.path.exists(assets_dir):
         os.makedirs(assets_dir)
 
+    # Get the next counter
+    counter = get_next_counter(assets_dir, filename_prefix)
+
     # Prepare data for multiprocessing
     image_data_list = [
-        (batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp)
+        (batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp, counter + batch_number)
         for batch_number, image in enumerate(images)
     ]
 
@@ -249,9 +255,9 @@ def save_image_to_filesystem(
 
 
 def save_image(image_data) -> FileUrl:
-    batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp = image_data
+    batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp, counter = image_data
     filename_with_batch_num = filename_prefix.replace("%batch_num%", str(batch_number))
-    file_name = f"{filename_with_batch_num}_{batch_number:05}_.{file_type}"
+    file_name = f"{filename_with_batch_num}_{counter:05}_.{file_type}"
     image_path = os.path.join(assets_dir, file_name)
     
     image.save(image_path, pnginfo=image_metadata, compress_level=compress_level)

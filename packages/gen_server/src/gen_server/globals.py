@@ -42,7 +42,7 @@ class ComfyConfig:
     host: Optional[str] = "localhost"
     port: Optional[int] = 8080
     filesystem_type: Optional[str] = "LOCAL"
-    workspace_dir: Optional[str] = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
+    workspace_dir: str = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
     models_dirs: List[str] = field(
         default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS]
     )

@@ -1,4 +1,3 @@
-from abc import ABC
 import torch
 from typing import Union, List
 import PIL.Image
@@ -23,6 +22,7 @@ class Category(Enum):
 
     LOADER = {Language.ENGLISH: "Loader", Language.CHINESE: "加载器"}
     PIPE = {Language.ENGLISH: "Pipe", Language.CHINESE: "管道"}
+    UPSCALER = {Language.ENGLISH: "Upscaler", Language.CHINESE: "升频器"}
 
 
 StateDict = dict[str, torch.Tensor]
@@ -39,4 +39,3 @@ ImageOutputType = Union[List[PIL.Image.Image], np.ndarray]
 """
 Static typing for image outputs
 """
-

@@ -137,7 +137,7 @@ class FileHandler:
         """
         file_path = request.match_info.get("file_path")  # Get the file path from the URL
 
-        file_path = os.path.join(comfy_config.workspace_dir, "input", file_path)
+        file_path = os.path.join(comfy_config.workspace_dir, "assets", file_path)
 
         if os.path.exists(file_path):
             # Read the file content in bytes
