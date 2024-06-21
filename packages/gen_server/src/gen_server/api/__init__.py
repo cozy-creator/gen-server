@@ -12,7 +12,7 @@ routes = web.RouteTableDef()
 
 
 @routes.get("/checkpoints")
-async def get_checkpoints(request: web.Request) -> web.Response:
+async def get_checkpoints(_req: web.Request) -> web.Response:
     serialized_checkpoints = { 
         key: value.serialize() for key, value in CHECKPOINT_FILES.items()
     }

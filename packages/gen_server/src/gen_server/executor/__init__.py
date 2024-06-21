@@ -49,6 +49,48 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         #     print(f"  Kind: {param.kind}")
         #     print(f"  Default: {param.default if param.default is not inspect.Parameter.empty else 'No default'}")
         #     print(f"  Annotation: {param.annotation if param.annotation is not inspect.Parameter.empty else 'No annotation'}")
+        
+        match checkpoint_metadata.category:
+            case "SD1":
+                vae = components["core_extension_1.sd1_vae"].model
+                unet = components["core_extension_1.sd1_unet"].model
+                text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
+
+                pipe = create_pipe(
+                    vae=vae, 
+                    text_encoder=text_encoder_1,
+                    unet=unet
+                )
+                
+            case "SDXL":
+                vae = components["core_extension_1.sdxl_vae"].model
+                unet = components["core_extension_1.sdxl_unet"].model
+                text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
+                text_encoder_2 = components["core_extension_1.sdxl_text_encoder_2"].model
+
+                pipe = create_pipe(
+                    vae=vae, 
+                    text_encoder=text_encoder_1,
+                    text_encoder_2=text_encoder_2,
+                    unet=unet
+                )
+                
+            case "SD3":
+                vae = components["core_extension_1.sd3_vae"].model
+                unet = components["core_extension_1.sd3_unet"].model
+                text_encoder_1 = components["core_extension_1.sd3_text_encoder_1"].model
+                text_encoder_2 = components["core_extension_1.sd3_text_encoder_2"].model
+                text_encoder_3 = components["core_extension_1.sd3_text_encoder_3"].model
+
+                pipe = create_pipe(
+                    vae=vae, 
+                    text_encoder=text_encoder_1,
+                    text_encoder_2=text_encoder_2,
+                    text_encoder_3=text_encoder_3,
+                    unet=unet
+                )
+            case _:
+                raise ValueError(f"Unknown category: {checkpoint_metadata.category}")
 
         # Presumably we'd figure this out from the edges?
         # SD3
@@ -81,15 +123,15 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         # )
 
         # SD1.5
-        vae = components["core_extension_1.sd1_vae"].model
-        unet = components["core_extension_1.sd1_unet"].model
-        text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
+        # vae = components["core_extension_1.sd1_vae"].model
+        # unet = components["core_extension_1.sd1_unet"].model
+        # text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
 
-        pipe = create_pipe(
-            vae=vae, 
-            text_encoder=text_encoder_1,
-            unet=unet
-        )
+        # pipe = create_pipe(
+        #     vae=vae, 
+        #     text_encoder=text_encoder_1,
+        #     unet=unet
+        # )
 
         
         # === Node 3: Run Pipe ===
