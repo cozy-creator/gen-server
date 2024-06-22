@@ -1,15 +1,16 @@
-from typing import Any, Generic, TypeVar, Callable
+from abc import abstractmethod, ABC
+from typing import Any, Generic, TypeVar, Optional
 import torch
-from .common import StateDict
+from .common import StateDict, TorchDevice
 
-from spandrel import Architecture as SpandrelArchitecture, ArchId
+from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method?
-class Architecture(SpandrelArchitecture, Generic[T]):
+class Architecture(ABC, Generic[T]):
     """
     The interface that all architecture definitions should implement.
     The construct __init__ function should accept no arguments.
@@ -24,27 +25,16 @@ class Architecture(SpandrelArchitecture, Generic[T]):
 
     def __init__(
         self,
-        model: T,
-        detect: Callable[[StateDict], bool] = None,
+        model: Optional[T],
         config: Any = None,
     ) -> None:
-        arch_id = ArchId(
-            model.__name__ if isinstance(model, type) else type(model).__name__
-        )
-        detect = detect if detect is not None else self.detect
-        name = self.display_name if hasattr(self, "display_name") else None
-
-        super().__init__(
-            name=name,
-            id=arch_id,
-            detect=detect,
-        )
+        super().__init__()
 
         self._model = model
         self._config = config
 
     @property
-    def model(self) -> T:
+    def model(self) -> Optional[T]:
         """
         Access the underlying model.
         """
@@ -57,33 +47,33 @@ class Architecture(SpandrelArchitecture, Generic[T]):
         """
         return self._config
 
-    # @classmethod
-    # @abstractmethod
-    # def detect(cls, state_dict: StateDict) -> bool:
-    #     """
-    #     Detects whether the given state dictionary matches the architecture.
-    #
-    #     Args:
-    #         state_dict (StateDict): The state dictionary from a PyTorch model.
-    #
-    #     Returns:
-    #         bool: True if the state dictionary matches the architecture, False otherwise.
-    #     """
-    #     pass
+    @classmethod
+    @abstractmethod
+    def detect(cls, state_dict: StateDict) -> bool:
+        """
+        Detects whether the given state dictionary matches the architecture.
 
-    #
-    # @abstractmethod
-    # def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
-    #     """
-    #     Loads a model from the given state dictionary according to the architecture.
-    #
-    #     Args:
-    #         state_dict (StateDict): The state dictionary from a PyTorch model.
-    #
-    #     Returns:
-    #         torch.nn.Module: The loaded PyTorch model.
-    #     """
-    #     pass
+        Args:
+            state_dict (StateDict): The state dictionary from a PyTorch model.
+
+        Returns:
+            bool: True if the state dictionary matches the architecture, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
+        """
+        Loads a model from the given state dictionary according to the architecture.
+
+        Args:
+            state_dict (StateDict): The state dictionary from a PyTorch model.
+            device: The device the loaded model is sent to.
+
+        Returns:
+            torch.nn.Module: The loaded PyTorch model.
+        """
+        pass
 
     def serialize(self) -> dict[str, Any]:
         """
@@ -101,3 +91,31 @@ class Architecture(SpandrelArchitecture, Generic[T]):
     #     String representation of the ModelWrapper including the type of the wrapped model
     #     """
     #     return f"<ModelWrapper for {self._model.__class__.__name__} with {self.stuff}>"
+
+
+class ArchitectureAdapter(Architecture):
+    def __init__(self, arch: SpandrelArchitecture):
+        super().__init__(model=None, config=None)
+        if not isinstance(arch, SpandrelArchitecture):
+            raise TypeError("'arch' must be an instance of spandrel Architecture")
+
+        self.inner = arch
+        self.display_name = self.inner.name
+
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
+        descriptor = self.inner.load(state_dict)
+        if not isinstance(descriptor, ModelDescriptor):
+            raise TypeError("descriptor must be an instance of ModelDescriptor")
+
+        self._model = descriptor.model
+        if device is not None:
+            self._model.to(device)
+        elif descriptor.supports_half:
+            self._model.to(torch.float16)
+        elif descriptor.supports_bfloat16:
+            self._model.to(torch.bfloat16)
+        else:
+            raise Exception("Device not provided and could not be inferred")
+
+    def detect(self, state_dict: StateDict) -> bool:
+        return self.inner.detect(state_dict)
