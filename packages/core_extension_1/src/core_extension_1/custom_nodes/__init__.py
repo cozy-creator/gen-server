@@ -263,40 +263,6 @@ class RunPipe(CustomNode):
         return images
 
 
-class LoadUpscaler(CustomNode):
-    """
-    Loads an image upscaler model
-    """
-
-    display_name = {
-        Language.ENGLISH: "Load Upscaler",
-    }
-
-    category = Category.UPSCALER
-
-    description = {
-        Language.ENGLISH: "Loads an image upscaler model",
-    }
-
-    @staticmethod
-    def update_interface(_inputs: dict[str, Any] = None) -> NodeInterface:
-        interface = {
-            "inputs": {"model_path": StringInput()},
-            "outputs": {"model": ModelConstraint(model_type=RRDBNet)},
-        }
-
-        return interface
-
-    def __call__(self, model_path: str, device: str) -> Dict[str, Any]:
-        state_dict = load_models.load_state_dict_from_file(model_path, device)
-
-        # Do we load using spandrel? or
-        model = ModelLoader().load_from_state_dict(state_dict)
-        model.to(torch.bfloat16)
-
-        return {"model": model}
-
-
 class UpscaleImage(CustomNode):
     """
     Takes an image and an image upscaler model, outputs an upscaled image
@@ -327,26 +293,18 @@ class UpscaleImage(CustomNode):
     def __call__(
         self,
         model,
-        image_path: str,
+        image: torch.Tensor,
         *,
         output_keys: dict = {},
         device: TorchDevice = None,
     ):
-        # file_path = get_input_file(image_path)
-        with open(image_path, "rb") as f:
-            try:
-                img = Image()
-                img.frombytes(f.read())
-                tensor = pil_to_tensor(img)
+        try:
+            with torch.no_grad():
+                upscaled_image = model(image)
+        except Exception as e:
+            print(f"Upscale error: {e}")
 
-                with torch.no_grad():
-                    upscaled_image = model(tensor)
-            except Exception as e:
-                print(f"Upscale error: {e}")
-
-        return {
-            "image": tensor_to_pil(upscaled_image),
-        }
+        return {"image": upscaled_image}
 
 
 class LoadLoRA(CustomNode):
@@ -369,7 +327,7 @@ class LoadLoRA(CustomNode):
         interface = {
             "inputs": {
                 "pipe": StableDiffusionPipeline,
-                "model_path": StringInput(),
+                "model_path": EnumInput(),
             },
             "outputs": {"pipe": StableDiffusionPipeline},
         }
