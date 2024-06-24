@@ -1,7 +1,9 @@
+from abc import abstractmethod, ABC
 from typing import Any, Generic, TypeVar, Optional
-from abc import ABC, abstractmethod
 import torch
-from .common import TorchDevice, StateDict
+from .common import StateDict, TorchDevice
+
+from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
@@ -16,13 +18,14 @@ class Architecture(ABC, Generic[T]):
     A wrapper class for PyTorch models that adds additional properties and methods
     for inspection and management of the model.
     """
+
     display_name: str
     input_space: str
     output_space: str
 
     def __init__(
         self,
-        model: T,
+        model: Optional[T],
         config: Any = None,
     ) -> None:
         super().__init__()
@@ -31,7 +34,7 @@ class Architecture(ABC, Generic[T]):
         self._config = config
 
     @property
-    def model(self) -> T:
+    def model(self) -> Optional[T]:
         """
         Access the underlying model.
         """
@@ -65,6 +68,7 @@ class Architecture(ABC, Generic[T]):
 
         Args:
             state_dict (StateDict): The state dictionary from a PyTorch model.
+            device: The device the loaded model is sent to.
 
         Returns:
             torch.nn.Module: The loaded PyTorch model.
@@ -87,3 +91,31 @@ class Architecture(ABC, Generic[T]):
     #     String representation of the ModelWrapper including the type of the wrapped model
     #     """
     #     return f"<ModelWrapper for {self._model.__class__.__name__} with {self.stuff}>"
+
+
+class ArchitectureAdapter(Architecture):
+    def __init__(self, arch: SpandrelArchitecture):
+        super().__init__(model=None, config=None)
+        if not isinstance(arch, SpandrelArchitecture):
+            raise TypeError("'arch' must be an instance of spandrel Architecture")
+
+        self.inner = arch
+        self.display_name = self.inner.name
+
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
+        descriptor = self.inner.load(state_dict)
+        if not isinstance(descriptor, ModelDescriptor):
+            raise TypeError("descriptor must be an instance of ModelDescriptor")
+
+        self._model = descriptor.model
+        if device is not None:
+            self._model.to(device)
+        elif descriptor.supports_half:
+            self._model.to(torch.float16)
+        elif descriptor.supports_bfloat16:
+            self._model.to(torch.bfloat16)
+        else:
+            raise Exception("Device not provided and could not be inferred")
+
+    def detect(self, state_dict: StateDict) -> bool:
+        return self.inner.detect(state_dict)
