@@ -1,114 +1,120 @@
-import os
-import importlib
-import inspect
-import json
-import pkg_resources
-import configparser
 # from .paths import get_folder_path
-import logging
-import traceback
-from typing import Dict, Union, Callable, Type, TypeVar, Iterable, get_type_hints, get_args
-
 import sys
+import logging
+from typing import Dict, TypeVar
 
-from sympy import true
-from ..globals import CUSTOM_NODES
+from zope import interface
+from zope.interface import verify, Interface
+from zope.interface.interface import InterfaceClass
+
 if sys.version_info < (3, 10):
-    from importlib_metadata import entry_points, EntryPoint
+    from importlib_metadata import entry_points
 else:
-    from importlib.metadata import entry_points, EntryPoint
-from aiohttp import web
+    from importlib.metadata import entry_points
 
-T = TypeVar('T', bound=Type)  # Generic type variable bound to Type
+T = TypeVar("T", bound=InterfaceClass)  # Generic type variable bound to Type
 
 
-def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[str, T]:
+def load_extensions(
+    entry_point_group: str, expected_type: T = Interface
+) -> Dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
     # print(f"Discovered plugins: {discovered_plugins}")
-    
+
     for entry_point in discovered_plugins:
         # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
         try:
-            assert entry_point.dist is not None, "The distribution object for the entry point is None."
-            package_name = entry_point.dist.metadata['Name'].replace('-', '_')
+            assert (
+                entry_point.dist is not None
+            ), "The distribution object for the entry point is None."
+            package_name = entry_point.dist.metadata["Name"].replace("-", "_")
             scoped_name = f"{package_name}.{entry_point.name}"
         except AssertionError as e:
-            logging.error(f"Error in processing entry point {entry_point.name}: {str(e)}")
+            logging.error(
+                f"Error in processing entry point {entry_point.name}: {str(e)}"
+            )
             continue  # Skip this entry point
-            
         try:
             component = entry_point.load()
-            
+
             # Optionally verify the loaded component matches our expected type
-            if implements_interface(component, expected_type):
-                components[scoped_name] = component
+            if expected_type.providedBy(component):
+                try:
+                    verify.verifyObject(expected_type, component)
+                    components[scoped_name] = component
+                except interface.Invalid:
+                    logging.error(
+                        f"Component {scoped_name} does not implement the expected type {expected_type}."
+                    )
             else:
-                logging.warning(f"Component {scoped_name} does not match the expected type {expected_type.__name__}.")
+                logging.warning(
+                    f"Component {scoped_name} does not match the expected type {expected_type.__name__}."
+                )
         except Exception as error:
             logging.error(f"Failed to load component {scoped_name}: {str(error)}")
-    
+
     return components
 
 
 # TO DO: make certain properties / methods optional in our interface, so that we can be add new things and still
 # be backwards compatible with old implementations
-def implements_interface(implementation: Union[Type, Callable], interface: Type) -> bool:
-    if (callable(interface)):
-        return implements_function_interface(implementation, interface)
-    
-    missing_methods = []
-    missing_properties = []
-
-    # Iterate over all attributes of the interface
-    for attr_name in dir(interface):
-        # I don't know where these properties / methods came from or why they're in my classes????
-        if attr_name in ['_determine_new_args', '_make_substitution', 'copy_with', '_inst', '_name', '_paramspec_tvars']:
-            continue
-        
-        # Ignore special methods/properties
-        if attr_name.startswith('__') and attr_name.endswith('__') and attr_name != '__call__':
-            continue
-        
-        attr = getattr(interface, attr_name)
-
-        # Check if it's a method or property
-        if callable(attr):
-            if not hasattr(implementation, attr_name) or not callable(getattr(implementation, attr_name)):
-                missing_methods.append(attr_name)
-        else:
-            if not hasattr(implementation, attr_name):
-                missing_properties.append(attr_name)
-
-    if not missing_methods and not missing_properties:
-        return True
-    else:
-        if missing_methods:
-            logging.warning(f"Missing methods in {implementation.__name__}: {', '.join(missing_methods)}")
-        if missing_properties:
-            logging.warning(f"Missing properties in {implementation.__name__}: {', '.join(missing_properties)}")
-        return False
-
-
-def implements_function_interface(implementation: Callable, interface: Type[Callable]) -> bool:
-    # TO DO: use zope instead
-    return True
-
-    # Check if the implementation is a function
-    if not callable(implementation):
-        logging.error(f"Implementation {implementation.__name__} is not callable.")
-        return False
-
-    # Retrieve the return type of the function
-    return_hints = get_type_hints(implementation).get('return', None)
-
-    # Check if the return type is an Iterable of web.AbstractRouteDef
-    if inspect.isclass(return_hints) and issubclass(return_hints, Iterable) and all(
-        issubclass(arg, web.AbstractRouteDef) for arg in get_args(return_hints)):
-        return True
-    else:
-        return False
-    
+# def implements_interface(implementation: Union[Type, Callable], interface: Type) -> bool:
+#     if (callable(interface)):
+#         return implements_function_interface(implementation, interface)
+#
+#     missing_methods = []
+#     missing_properties = []
+#
+#     # Iterate over all attributes of the interface
+#     for attr_name in dir(interface):
+#         # I don't know where these properties / methods came from or why they're in my classes????
+#         if attr_name in ['_determine_new_args', '_make_substitution', 'copy_with', '_inst', '_name', '_paramspec_tvars']:
+#             continue
+#
+#         # Ignore special methods/properties
+#         if attr_name.startswith('__') and attr_name.endswith('__') and attr_name != '__call__':
+#             continue
+#
+#         attr = getattr(interface, attr_name)
+#
+#         # Check if it's a method or property
+#         if callable(attr):
+#             if not hasattr(implementation, attr_name) or not callable(getattr(implementation, attr_name)):
+#                 missing_methods.append(attr_name)
+#         else:
+#             if not hasattr(implementation, attr_name):
+#                 missing_properties.append(attr_name)
+#
+#     if not missing_methods and not missing_properties:
+#         return True
+#     else:
+#         if missing_methods:
+#             logging.warning(f"Missing methods in {implementation.__name__}: {', '.join(missing_methods)}")
+#         if missing_properties:
+#             logging.warning(f"Missing properties in {implementation.__name__}: {', '.join(missing_properties)}")
+#         return False
+#
+#
+# def implements_function_interface(implementation: Callable, interface: Type[Callable]) -> bool:
+#     # TO DO: use zope instead
+#     return True
+#
+#     # Check if the implementation is a function
+#     if not callable(implementation):
+#         logging.error(f"Implementation {implementation.__name__} is not callable.")
+#         return False
+#
+#     # Retrieve the return type of the function
+#     return_hints = get_type_hints(implementation).get('return', None)
+#
+#     # Check if the return type is an Iterable of web.AbstractRouteDef
+#     if inspect.isclass(return_hints) and issubclass(return_hints, Iterable) and all(
+#         issubclass(arg, web.AbstractRouteDef) for arg in get_args(return_hints)):
+#         return True
+#     else:
+#         return False
+#
 
 # TO DO: replace this with something useful
 # def generate_node_definitions():
@@ -168,7 +174,6 @@ def implements_function_interface(implementation: Callable, interface: Type[Call
 #         return None
 
 
-
 # NODE_CLASSES = {}
 # DISPLAY_NAMES = {}
 
@@ -223,6 +228,3 @@ def implements_function_interface(implementation: Callable, interface: Type[Call
 #                             class_name = f"{folder_name}.{obj.__name__}"
 #                             NODE_CLASSES[class_name] = obj
 #                             DISPLAY_NAMES[class_name] = getattr(obj, "DISPLAY_NAME", obj.__name__)
-
-
-

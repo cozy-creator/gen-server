@@ -1,15 +1,52 @@
 from abc import abstractmethod, ABC
-from typing import Any, Generic, TypeVar, Optional
+from typing import Any, Generic, TypeVar, Optional, Literal
+
 import torch
+from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
+from zope.interface import Interface, implementer, Attribute
+
 from .common import StateDict, TorchDevice
 
-from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
+
+ArchIntent = Literal["Generation", "Restoration", "SR"]
+
+
+class IArchitecture(Interface):
+    display_name = Attribute(
+        "The name of the architecture.",
+    )
+
+    input_space = Attribute(
+        "The architecture's input space.",
+    )
+
+    output_space = Attribute(
+        "The architecture's output space.",
+    )
+
+    model = Attribute(
+        "The underlying PyTorch model.",
+    )
+
+    config = Attribute(
+        "The configuration of the architecture.",
+    )
+
+    def __init__(model=None, config: Any = None) -> None:
+        pass
+
+    def load(state_dict: StateDict, device=None) -> None:
+        pass
+
+    def detect(state_dict) -> bool:
+        pass
 
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method?
+@implementer(IArchitecture)
 class Architecture(ABC, Generic[T]):
     """
     The interface that all architecture definitions should implement.
@@ -93,7 +130,7 @@ class Architecture(ABC, Generic[T]):
     #     return f"<ModelWrapper for {self._model.__class__.__name__} with {self.stuff}>"
 
 
-class ArchitectureAdapter(Architecture):
+class SpandrelArchitectureAdapter(Architecture):
     def __init__(self, arch: SpandrelArchitecture):
         super().__init__(model=None, config=None)
         if not isinstance(arch, SpandrelArchitecture):
