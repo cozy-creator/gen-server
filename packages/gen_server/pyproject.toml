@@ -26,6 +26,7 @@ dependencies = [
     "uuid",
     "sentencepiece",
     "peft",
+    "zope.interface",
     "RealESRGAN@git+https://github.com/ai-forever/Real-ESRGAN.git"
 ]
 

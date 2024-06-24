@@ -1,15 +1,14 @@
 import os
-import json
 import time
-import inspect
-from dotenv import load_dotenv
+
+from gen_server.base_types.architecture import IArchitecture
+from gen_server.base_types.custom_node import ICustomNode
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
 from .api import start_server
-from .base_types import Architecture, CustomNode
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
     API_ENDPOINTS,
@@ -18,17 +17,17 @@ from .globals import (
     WIDGETS,
     CHECKPOINT_FILES,
     initialize_config,
-    comfy_config
+    comfy_config,
 )
-import argparse
-import ast
-import asyncio
-from typing import List, Iterable, Callable
+from typing import Union, Callable, Iterable
 from aiohttp import web
+import argparse
+import asyncio
 
 file_path = os.path.abspath(
     os.path.join(
-        os.path.dirname(__file__), "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors"
+        os.path.dirname(__file__),
+        "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors",
     )
 )
 
@@ -50,13 +49,13 @@ def main():
     # Architectures will be classes that can be used to detect models and instantiate them
     # custom nodes will define new nodes to be instantiated by the graph-editor
     # widgets will somehow define react files to be somehow be imported by the client
-    
+
     start_time = time.time()
-    
+
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
-    API_ENDPOINTS.update(load_extensions("comfy_creator.api", expected_type=Callable[[], List[web.RouteDef]]))
+    API_ENDPOINTS.update(load_extensions("comfy_creator.api", expected_type=Union[Iterable[web.RouteDef], Callable[[], Iterable[web.RouteDef]]]))
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
     
@@ -64,44 +63,51 @@ def main():
     global ARCHITECTURES
     start_time_architectures = time.time()
     ARCHITECTURES.update(
-        load_extensions("comfy_creator.architectures", expected_type=Architecture)
+        load_extensions("comfy_creator.architectures", expected_type=IArchitecture)
     )
-    print(f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds")
+    print(
+        f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
+    )
 
     global CUSTOM_NODES
     start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
-        load_extensions("comfy_creator.custom_nodes", expected_type=CustomNode)
+        load_extensions("comfy_creator.custom_nodes", expected_type=ICustomNode)
     )
-    print(f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds")
+    print(
+        f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
+    )
 
     global WIDGETS
     start_time_widgets = time.time()
     WIDGETS.update(load_extensions("comfy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
-    
+
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
     CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=comfy_config.models_dirs))
-    print(f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds")
-    
+    print(
+        f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
+    )
+
     # debug
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
+
     # print(CHECKPOINT_FILES)
     def print_dict(d):
-
         for key, value in d.items():
-
             print(f"{key}: {str(value)}")
-            
+
     print_dict(CHECKPOINT_FILES)
-    
+
     end_time = time.time()
-    print(f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds")
-    
+    print(
+        f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
+    )
+
     asyncio.run(start_server())
-    
+
     return
 
 
@@ -110,7 +116,6 @@ if __name__ == "__main__":
 
     # asyncio.run(main())
     main()
-    
-    
+
     # Run our REST server
     # web.run_app(app, port=8080)
