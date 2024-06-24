@@ -18,6 +18,7 @@ from .globals import (
     CHECKPOINT_FILES,
     initialize_config,
     comfy_config,
+    RouteDefinition
 )
 from typing import Union, Callable, Iterable
 from aiohttp import web
@@ -55,7 +56,9 @@ def main():
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
-    API_ENDPOINTS.update(load_extensions("comfy_creator.api", expected_type=Union[Iterable[web.RouteDef], Callable[[], Iterable[web.RouteDef]]]))
+    API_ENDPOINTS.update(
+        load_extensions("comfy_creator.api", expected_type=RouteDefinition)
+    )
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
     

@@ -13,7 +13,8 @@ DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
 DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
-API_ENDPOINTS: dict[str, Union[Iterable[web.RouteDef], Callable[[], Iterable[web.RouteDef]]]] = {}
+RouteDefinition = Union[Iterable[web.RouteDef], Callable[[], Iterable[web.RouteDef]]]
+API_ENDPOINTS: dict[str, RouteDefinition] = {}
 """
 Something
 """

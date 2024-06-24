@@ -1,14 +1,7 @@
 # from .paths import get_folder_path
-<<<<<<< HEAD
-import logging
-import traceback
-from typing import Union, Callable, Type, TypeVar, Iterable, get_type_hints, get_args
-
-=======
->>>>>>> e27cff0904e5b36801f40fa26bd1f943e324bcaa
 import sys
 import logging
-from typing import Dict, TypeVar
+from typing import TypeVar
 
 from zope import interface
 from zope.interface import verify, Interface
@@ -22,13 +15,9 @@ else:
 T = TypeVar("T", bound=InterfaceClass)  # Generic type variable bound to Type
 
 
-<<<<<<< HEAD
-def load_extensions(entry_point_group: str, expected_type: T = object) -> dict[str, T]:
-=======
 def load_extensions(
     entry_point_group: str, expected_type: T = Interface
-) -> Dict[str, T]:
->>>>>>> e27cff0904e5b36801f40fa26bd1f943e324bcaa
+) -> dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
     # print(f"Discovered plugins: {discovered_plugins}")
