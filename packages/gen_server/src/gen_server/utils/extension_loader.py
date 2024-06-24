@@ -7,7 +7,7 @@ import configparser
 # from .paths import get_folder_path
 import logging
 import traceback
-from typing import Dict, Union, Callable, Type, TypeVar, Iterable, get_type_hints, get_args
+from typing import Union, Callable, Type, TypeVar, Iterable, get_type_hints, get_args
 
 import sys
 
@@ -22,7 +22,7 @@ from aiohttp import web
 T = TypeVar('T', bound=Type)  # Generic type variable bound to Type
 
 
-def load_extensions(entry_point_group: str, expected_type: T = object) -> Dict[str, T]:
+def load_extensions(entry_point_group: str, expected_type: T = object) -> dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
     # print(f"Discovered plugins: {discovered_plugins}")
