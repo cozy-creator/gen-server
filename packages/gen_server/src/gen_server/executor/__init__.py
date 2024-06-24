@@ -79,7 +79,7 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         #     text_encoder_2=text_encoder_2,
         #     unet=unet
         # )
-
+        
         # SD1.5
         vae = components["core_extension_1.sd1_vae"].model
         unet = components["core_extension_1.sd1_unet"].model

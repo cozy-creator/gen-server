@@ -1,7 +1,7 @@
 import sys
 from typing import Any, Union, List, Optional, Dict
 
-from RealESRGAN.rrdbnet_arch import RRDBNet
+# from RealESRGAN.rrdbnet_arch import RRDBNet
 
 from gen_server.utils import load_models, components_from_state_dict
 from gen_server.base_types import (
@@ -282,7 +282,7 @@ class LoadUpscaler(CustomNode):
     def update_interface(_inputs: dict[str, Any] = None) -> NodeInterface:
         interface = {
             "inputs": {"model_path": StringInput()},
-            "outputs": {"model": ModelConstraint(model_type=RRDBNet)},
+            "outputs": {"model": ModelConstraint()},
         }
 
         return interface

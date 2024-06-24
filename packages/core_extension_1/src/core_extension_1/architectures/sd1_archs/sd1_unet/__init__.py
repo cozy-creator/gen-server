@@ -25,10 +25,10 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
             # Create diffusers class
             config = json.load(file)
 
-            super().__init__(
-                model=UNet2DConditionModel(**config),
-                config=config,
-            )
+        super().__init__(
+            model=UNet2DConditionModel(**config),
+            config=config,
+        )
     
     @override
     @classmethod

@@ -58,7 +58,7 @@ def main():
     start_time_api_endpoints = time.time()
     API_ENDPOINTS.update(
         load_extensions("comfy_creator.api"),
-        expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
+        # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     )
     print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
     
@@ -92,8 +92,11 @@ def main():
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
     # print(CHECKPOINT_FILES)
     def print_dict(d):
+
         for key, value in d.items():
+
             print(f"{key}: {str(value)}")
+            
     print_dict(CHECKPOINT_FILES)
     
     end_time = time.time()

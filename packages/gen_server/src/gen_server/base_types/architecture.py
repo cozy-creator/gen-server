@@ -71,15 +71,15 @@ class Architecture(ABC, Generic[T]):
         """
         pass
     
-    def serialize(self) -> dict[str, Any]:
+    @classmethod
+    def serialize(cls) -> dict[str, Any]:
         """
         Serialize the Architecture instance to a dictionary.
         """
         return {
-            'display_name': self.display_name,
-            # 'config': self._config,
-            'input_space': self.input_space,
-            'output_space': self.output_space
+            'display_name': cls.display_name,
+            'input_space': cls.input_space,
+            'output_space': cls.output_space,
         }
 
     # def __repr__(self) -> str:

@@ -8,32 +8,20 @@ from gen_server import Architecture, StateDict, TorchDevice
 import time
 import torch
 
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class SDVAE(Architecture[AutoencoderKL]):
+class SD3VAE(Architecture[AutoencoderKL]):
     """
-    The Variational Auto-Encoder used by Stable Diffusion models
+    The Variational Auto-Encoder used by Stable Diffusion 3
     """
-    display_name = "SD VAE"
-    input_space = "SD"
-    output_space = "SD"
+    display_name = "SD3 VAE"
+    input_space = "SD3"
+    output_space = "SD3"
 
-    def __init__(self, metadata: dict):
-
-        try:
-
-            if metadata["modelspec.architecture"] == "stable-diffusion-v3-medium":
-                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_vae_config.json")
-            elif metadata["modelspec.architecture"] == "stable-diffusion-xl-v1-base":
-                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sdxl_vae_config.json")
-        except Exception:
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-
+    def __init__(self):
         with open(config_path, 'r') as file:
             config = json.load(file)
-
-            # print(f"Metadata: {metadata}")
-            
             vae = AutoencoderKL(**config)
 
             super().__init__(
@@ -46,14 +34,14 @@ class SDVAE(Architecture[AutoencoderKL]):
     def detect(cls, state_dict: StateDict) -> bool:
         required_keys = {
             "first_stage_model.encoder.conv_in.bias",
-            # "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
+            "text_encoders.clip_l.transformer.text_model.embeddings.position_embedding.weight"
         }
         
         return all(key in state_dict for key in required_keys)
     
     @override
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
-        print("Loading SD VAE")
+        print("Loading SD3 VAE")
         start = time.time()
         
         vae = self.model

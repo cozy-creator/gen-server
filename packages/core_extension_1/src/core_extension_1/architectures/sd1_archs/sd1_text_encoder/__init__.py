@@ -25,10 +25,10 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
             text_encoder_config = CLIPTextConfig.from_dict(config)
             text_encoder = CLIPTextModel(text_encoder_config)
 
-            super().__init__(
-                model=text_encoder,
-                config=text_encoder_config,
-            )
+        super().__init__(
+            model=text_encoder,
+            config=text_encoder_config,
+        )
     
     @override
     @classmethod

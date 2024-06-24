@@ -14,6 +14,9 @@ from ..base_types import Architecture, StateDict, TorchDevice
 from ..globals import ARCHITECTURES
 
 from typing import Protocol, runtime_checkable
+import struct
+import json
+import time
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -33,22 +36,33 @@ def from_file(
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
     """
+    try:
+        with open(path, "rb") as f:
+            length_of_header = struct.unpack('<Q', f.read(8))[0]
+            header_data = f.read(length_of_header)
+            header = json.loads(header_data)
+
+        metadata = header["__metadata__"]
+    except Exception:
+        metadata = {}
+
     state_dict = load_state_dict_from_file(path, device=device)
 
-    return from_state_dict(state_dict, device, registry)
+    return from_state_dict(state_dict, device, registry, metadata=metadata)
 
 
 def from_state_dict(
     state_dict: StateDict,
     device: Optional[TorchDevice] = None,
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
+    metadata: dict = {}
 ) -> dict[str, Architecture]:
     """
     Load a model from the given state dict.
 
     Returns an empty dictionary if no supported model architecture is found.
     """
-    components = components_from_state_dict(state_dict, registry)
+    components = components_from_state_dict(state_dict, metadata, registry)
 
     for arch_id, architecture in components.items():
         try:
@@ -61,24 +75,28 @@ def from_state_dict(
 
 
 def components_from_state_dict(
-    state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    state_dict: StateDict, metadata: dict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load them into memory however;
     it merely returns the instantiated Architectures for these models.
     """
+
     components: dict[str, Architecture] = {}
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
             if architecture.detect(state_dict):
                 # this will overwrite previous architectures with the same id
-                components.update({arch_id: architecture()}) # type: ignore
+
+                try:
+                    components.update({arch_id: architecture(metadata)}) # type: ignore
+                except Exception as e:
+                    components.update({arch_id: architecture()})
         except Exception as e:
             print(e)
 
     return components
-
 
 def load_state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
     """
@@ -142,3 +160,24 @@ def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) ->
         return safetensors_load_file(path, device=device)
     else:
         return safetensors_load_file(path)
+
+
+def components_class_from_state_dict(
+    state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
+) -> dict[str, Architecture]:
+    """
+    Detect all models present inside of a state dict; does not load them into memory however;
+    it merely returns the Architectures class for these models.
+    """
+
+    components: dict[str, Architecture] = {}
+
+    for arch_id, architecture in registry.items():  # Iterate through all architectures
+        try:
+            if architecture.detect(state_dict):
+                # this will overwrite previous architectures with the same id
+                components.update({arch_id: architecture})
+        except Exception as e:
+            print(e)
+
+    return components

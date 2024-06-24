@@ -2,7 +2,7 @@ import os
 import struct
 from typing import List, Any, Dict, Optional
 from ..base_types import CheckpointMetadata, Architecture
-from .load_models import load_state_dict_from_file, components_from_state_dict
+from .load_models import load_state_dict_from_file, components_class_from_state_dict
 import json
 import uuid
 import datetime
@@ -21,6 +21,7 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
 
     for model_dir in model_dirs:
         for dirpath, _dirnames, filenames in os.walk(model_dir):
+            
             for filename in filenames:
                 if not filename.endswith(valid_extensions):
                     continue  # Skip file
@@ -32,9 +33,12 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     continue
 
                 try:
-                    state_dict = load_state_dict_from_file(absolute_path)
-                    components = components_from_state_dict(state_dict)
                     metadata = extract_safetensors_metadata(absolute_path)
+
+                    state_dict = load_state_dict_from_file(absolute_path)
+
+                    components = components_class_from_state_dict(state_dict)
+                    
                     
                     output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
                     for component in components.values():
@@ -49,15 +53,17 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     display_name = base_filename  # Use the filename as the display name
                     date_modified = datetime.datetime.fromtimestamp(os.path.getmtime(absolute_path))
 
+
                     checkpoint = CheckpointMetadata(
                         display_name=display_name,
-                        author=metadata.get("author", "Unknown"),
+                        author = metadata.get("modelspec.author") or metadata.get("author") or "Unknown",
                         category=determine_category(components),
                         components=components,
                         date_modified=date_modified,
                         file_type=ext,
                         file_path=absolute_path  # Include the absolute path in the metadata
                     )
+
                     
                     # We generate a random UUID for each checkpoint file
                     # TO DO: should we try something stable, like blake3 hashes instead?
