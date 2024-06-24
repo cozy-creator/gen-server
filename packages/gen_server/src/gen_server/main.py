@@ -20,8 +20,6 @@ from .globals import (
     comfy_config,
     RouteDefinition
 )
-from typing import Union, Callable, Iterable
-from aiohttp import web
 import argparse
 import asyncio
 

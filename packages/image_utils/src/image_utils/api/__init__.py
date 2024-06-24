@@ -173,22 +173,15 @@ def get_content_type(file_path):
     return content_types.get(file_extension, 'application/octet-stream')
 
 
-# Load Files Locally instead
+handler = FileHandler()
 
-
-def file_handler() -> List[web.RouteDef]:
-    """
-    Creates a list of RouteDef instances containing route information for image uploads.
-    """
-    # Create a handler instance
-    handler = FileHandler()
-
-    routes: List[web.RouteDef] = [
-        web.post('/upload', handler.handle_upload),
-        web.post('/set-public-acl', handler.set_public_acl),
-        web.get('/list', handler.list_files),
-        web.get('/download/{file_key}', handler.download_file),
-        web.get('/files/{file_path}', handler.serve_local_file)
-    ]
-
-    return routes
+routes: List[web.RouteDef] = [
+    web.post('/upload', handler.handle_upload),
+    web.post('/set-public-acl', handler.set_public_acl),
+    web.get('/list', handler.list_files),
+    web.get('/download/{file_key}', handler.download_file),
+    web.get('/files/{file_path}', handler.serve_local_file)
+]
+"""
+Defines the routes for file operations.
+"""
