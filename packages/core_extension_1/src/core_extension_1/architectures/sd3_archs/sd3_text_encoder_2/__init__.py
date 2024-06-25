@@ -1,7 +1,7 @@
 import json
 import time
-from typing import Dict, Optional
-from gen_server import Architecture, StateDict, TorchDevice
+from typing import Dict, Optional, Any
+from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModelWithProjection, CLIPTextConfig
 from diffusers.utils.import_utils import is_accelerate_available
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
@@ -130,33 +130,48 @@ DIFFUSERS_TO_LDM_MAPPING = {
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
+
 class SD3TextEncoder2(Architecture[CLIPTextModelWithProjection]):
     """
     Architecture definition for the SD3 Text Encoder 2 (CLIP-based).
     """
+
     display_name = "CLIP Text Encoder With Projection"
     input_space = "SD3"
     output_space = "SD3"
 
     def __init__(self):
-        with open(config_path, 'r') as file:
+        with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
         text_encoder_config = CLIPTextConfig.from_dict(config)
         ctx = init_empty_weights if is_accelerate_available() else nullcontext
         with ctx():
             text_encoder = CLIPTextModelWithProjection(text_encoder_config)
-        super().__init__(
-            model=text_encoder,
-            config=text_encoder_config
-        )
+
+        self.model = text_encoder
+        self.config = config
 
     @classmethod
-    def detect(cls, state_dict: StateDict) -> bool:
+    def detect(
+        cls,
+        state_dict: StateDict,
+        metadata: dict[str, Any],
+    ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 2 architecture.
         """
-        return "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight" in state_dict
+        state_key = "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight"
+
+        return (
+            ComponentMetadata(
+                display_name=cls.display_name,
+                input_space=cls.input_space,
+                output_space=cls.output_space,
+            )
+            if state_key in state_dict
+            else None
+        )
 
     def load(self, state_dict: StateDict, device: TorchDevice = None):
         """
@@ -164,14 +179,22 @@ class SD3TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         """
         print("Loading SD3 Text Encoder 2")
         text_model = self.model
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("text_encoders.clip_g.")}
+        text_encoder_state_dict = {
+            key: state_dict[key]
+            for key in state_dict
+            if key.startswith("text_encoders.clip_g.")
+        }
         text_model_dict = {}
         prefix = "text_encoders.clip_g."
         text_proj_key = prefix + "text_projection"
         text_proj_dim = (
-            int(text_encoder_state_dict[text_proj_key].shape[0]) if text_proj_key in text_encoder_state_dict else LDM_OPEN_CLIP_TEXT_PROJECTION_DIM
+            int(text_encoder_state_dict[text_proj_key].shape[0])
+            if text_proj_key in text_encoder_state_dict
+            else LDM_OPEN_CLIP_TEXT_PROJECTION_DIM
         )
-        text_model_dict["text_model.embeddings.position_ids"] = text_model.text_model.embeddings.get_buffer("position_ids")
+        text_model_dict["text_model.embeddings.position_ids"] = (
+            text_model.text_model.embeddings.get_buffer("position_ids")
+        )
 
         keys = list(text_encoder_state_dict.keys())
         keys_to_ignore = SD_2_TEXT_ENCODER_KEYS_TO_IGNORE
@@ -184,12 +207,13 @@ class SD3TextEncoder2(Architecture[CLIPTextModelWithProjection]):
             if ldm_key in keys_to_ignore:
                 continue
             if ldm_key.endswith("text_projection"):
-                text_model_dict[diffusers_key] = text_encoder_state_dict[ldm_key].T.contiguous()
+                text_model_dict[diffusers_key] = text_encoder_state_dict[
+                    ldm_key
+                ].T.contiguous()
             else:
                 text_model_dict[diffusers_key] = text_encoder_state_dict[ldm_key]
 
         for key in keys:
-            
             if key in keys_to_ignore:
                 continue
 
@@ -198,39 +222,64 @@ class SD3TextEncoder2(Architecture[CLIPTextModelWithProjection]):
                 # print(prefix + "transformer.")
                 # print(key.startswith(prefix + "transformer."))
                 continue
-            
+
             diffusers_key = key.replace(prefix + "transformer.", "")
-            transformer_diffusers_to_ldm_map = DIFFUSERS_TO_LDM_MAPPING["openclip"]["transformer"]
+            transformer_diffusers_to_ldm_map = DIFFUSERS_TO_LDM_MAPPING["openclip"][
+                "transformer"
+            ]
             for new_key, old_key in transformer_diffusers_to_ldm_map.items():
                 diffusers_key = (
-                    diffusers_key.replace(old_key, new_key).replace(".in_proj_weight", "").replace(".in_proj_bias", "")
+                    diffusers_key.replace(old_key, new_key)
+                    .replace(".in_proj_weight", "")
+                    .replace(".in_proj_bias", "")
                 )
 
             if key.endswith(".in_proj_weight"):
                 weight_value = text_encoder_state_dict[key]
 
-                text_model_dict[diffusers_key + ".q_proj.weight"] = weight_value[:text_proj_dim, :]
-                text_model_dict[diffusers_key + ".k_proj.weight"] = weight_value[text_proj_dim : text_proj_dim * 2, :]
-                text_model_dict[diffusers_key + ".v_proj.weight"] = weight_value[text_proj_dim * 2 :, :]
+                text_model_dict[diffusers_key + ".q_proj.weight"] = weight_value[
+                    :text_proj_dim, :
+                ]
+                text_model_dict[diffusers_key + ".k_proj.weight"] = weight_value[
+                    text_proj_dim : text_proj_dim * 2, :
+                ]
+                text_model_dict[diffusers_key + ".v_proj.weight"] = weight_value[
+                    text_proj_dim * 2 :, :
+                ]
 
             elif key.endswith(".in_proj_bias"):
                 weight_value = text_encoder_state_dict[key]
-                text_model_dict[diffusers_key + ".q_proj.bias"] = weight_value[:text_proj_dim]
-                text_model_dict[diffusers_key + ".k_proj.bias"] = weight_value[text_proj_dim : text_proj_dim * 2]
-                text_model_dict[diffusers_key + ".v_proj.bias"] = weight_value[text_proj_dim * 2 :]
+                text_model_dict[diffusers_key + ".q_proj.bias"] = weight_value[
+                    :text_proj_dim
+                ]
+                text_model_dict[diffusers_key + ".k_proj.bias"] = weight_value[
+                    text_proj_dim : text_proj_dim * 2
+                ]
+                text_model_dict[diffusers_key + ".v_proj.bias"] = weight_value[
+                    text_proj_dim * 2 :
+                ]
             else:
                 text_model_dict[diffusers_key] = text_encoder_state_dict[key]
 
-            if diffusers_key == "text_model.embeddings.transformer.text_model.embeddings.token_embedding.weight":
-                text_model_dict["text_model.embeddings.token_embedding.weight"] = text_encoder_state_dict[key]
+            if (
+                diffusers_key
+                == "text_model.embeddings.transformer.text_model.embeddings.token_embedding.weight"
+            ):
+                text_model_dict["text_model.embeddings.token_embedding.weight"] = (
+                    text_encoder_state_dict[key]
+                )
                 del text_model_dict[diffusers_key]
 
         if is_accelerate_available():
             # torch_dtype = next(text_model.parameters()).dtype
-            unexpected_keys = load_model_dict_into_meta(text_model, text_model_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                text_model, text_model_dict, dtype=torch.float16
+            )
             if text_model._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_model._keys_to_ignore_on_load_unexpected:
-                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+                    unexpected_keys = [
+                        k for k in unexpected_keys if re.search(pat, k) is None
+                    ]
 
             if len(unexpected_keys) > 0:
                 logger.warning(
@@ -238,7 +287,10 @@ class SD3TextEncoder2(Architecture[CLIPTextModelWithProjection]):
                 )
 
         else:
-            if not (hasattr(text_model, "embeddings") and hasattr(text_model.embeddings.position_ids)):
+            if not (
+                hasattr(text_model, "embeddings")
+                and hasattr(text_model.embeddings.position_ids)
+            ):
                 text_model_dict.pop("text_model.embeddings.position_ids", None)
 
             text_model.load_state_dict(text_model_dict)

@@ -1,12 +1,18 @@
 import os
 import json
 import time
+from typing import Any, Optional
+
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice
+from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 
-LDM_CLIP_PREFIX_TO_REMOVE = ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer.", "text_encoders.clip_l.transformer.",]
+LDM_CLIP_PREFIX_TO_REMOVE = [
+    "cond_stage_model.transformer.",
+    "conditioner.embedders.0.transformer.",
+    "text_encoders.clip_l.transformer.",
+]
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -15,38 +21,52 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the SDXL pipeline
     """
+
     display_name = "CLIP Text Encoder"
     input_space = "SDXL"
     output_space = "SDXL"
-    
+
     def __init__(self):
-        with open(config_path, 'r') as file:
+        with open(config_path, "r") as file:
             config = json.load(file)
             text_encoder_config = CLIPTextConfig.from_dict(config)
             text_encoder = CLIPTextModel(text_encoder_config)
 
-            super().__init__(
-                model=text_encoder,
-                config=text_encoder_config,
-            )
+            self.model = text_encoder
+            self.config = config
 
-    @override
     @classmethod
-    def detect(cls, state_dict: StateDict) -> bool:
+    def detect(
+        cls,
+        state_dict: StateDict,
+        metadata: dict[str, Any],
+    ) -> Optional[ComponentMetadata]:
         required_keys = {
             "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
         }
-        
-        return all(key in state_dict for key in required_keys)
-    
+
+        return (
+            ComponentMetadata(
+                display_name=cls.display_name,
+                input_space=cls.input_space,
+                output_space=cls.output_space,
+            )
+            if all(key in state_dict for key in required_keys) in state_dict
+            else None
+        )
+
     @override
     def load(self, state_dict: StateDict, device: TorchDevice = None):
         print("Loading SDXL TextEncoder")
         start = time.time()
-        
+
         text_encoder = self.model
 
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.0.transformer.")}
+        text_encoder_state_dict = {
+            key: state_dict[key]
+            for key in state_dict
+            if key.startswith("conditioner.embedders.0.transformer.")
+        }
         remove_prefixes = LDM_CLIP_PREFIX_TO_REMOVE
         keys = list(text_encoder_state_dict.keys())
         text_model_dict = {}
@@ -57,11 +77,14 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
                     diffusers_key = key.replace(prefix, "")
                     text_model_dict[diffusers_key] = text_encoder_state_dict[key]
 
-        if not (hasattr(text_encoder, "embeddings") and hasattr(text_encoder.embeddings.position_ids)):
+        if not (
+            hasattr(text_encoder, "embeddings")
+            and hasattr(text_encoder.embeddings.position_ids)
+        ):
             text_model_dict.pop("text_model.embeddings.position_ids", None)
 
         text_encoder.load_state_dict(text_model_dict)
-        
+
         if device is not None:
             text_encoder.to(device=device)
         text_encoder.to(torch.bfloat16)

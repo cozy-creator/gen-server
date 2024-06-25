@@ -1,13 +1,5 @@
 import torch
-from typing import (
-    Any,
-    Generic,
-    TypeVar,
-    Optional,
-    Protocol,
-    runtime_checkable,
-    TypedDict
-)
+from typing import Any, TypeVar, Optional, Protocol, runtime_checkable, TypedDict
 from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 from .common import StateDict, TorchDevice
 
@@ -15,26 +7,26 @@ from .common import StateDict, TorchDevice
 # T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 T = TypeVar("T", bound=torch.nn.Module)
 
-ComponentMetadata = TypedDict('ComponentMetadata', {
-    'display_name': str,
-    'input_space': str,
-    'output_space': str
-})
+ComponentMetadata = TypedDict(
+    "ComponentMetadata", {"display_name": str, "input_space": str, "output_space": str}
+)
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method? That might be more optimized.
+
 
 @runtime_checkable
 class Architecture(Protocol[T]):
     """
     The interface that all comfy-creator Architectures should implement.
     """
+
     display_name: str
     input_space: str
     output_space: str
     model: T
     config: Any
-    
+
     # @property
     # def config(self) -> dict[str, Any]:
     #     """
@@ -48,32 +40,35 @@ class Architecture(Protocol[T]):
     #     Access the underlying PyTorch model.
     #     """
     #     return self._model
-    
-    def __init__(self,
+
+    def __init__(
+        self,
         state_dict: Optional[StateDict] = None,
-        metadata: Optional[dict[str, Any]] = None
-    ) -> None:
-        ...
-    
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None: ...
+
     @classmethod
-    def detect(cls,
-        state_dict: Optional[StateDict] = None,
-        metadata: Optional[dict[str, Any]] = None
+    def detect(
+        cls,
+        state_dict: StateDict,
+        metadata: dict[str, Any],
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the architecture.
 
         Args:
             state_dict (StateDict): The state dictionary from a PyTorch model.
+            metadata (dict[str, Any]): The metadata for the architecture.
 
         Returns:
             bool: True if the state dictionary matches the architecture, False otherwise.
         """
         ...
-    
-    def load(self,
+
+    def load(
+        self,
         state_dict: StateDict,
-        device: Optional[TorchDevice] = None
+        device: Optional[TorchDevice] = None,
     ) -> None:
         """
         Loads a model from the given state dictionary according to the architecture.
@@ -86,7 +81,7 @@ class Architecture(Protocol[T]):
             torch.nn.Module: The loaded PyTorch model.
         """
         ...
-    
+
     # def serialize(self) -> dict[str, Any]:
     #     """
     #     Serialize the Architecture instance to a dictionary.
@@ -105,6 +100,7 @@ class SpandrelArchitectureAdapter(Architecture):
     This class converts architectures from the spandrel library to our own
     Architecture interface.
     """
+
     def __init__(self, arch: SpandrelArchitecture):
         super().__init__(model=None, config=None)
         if not isinstance(arch, SpandrelArchitecture):
