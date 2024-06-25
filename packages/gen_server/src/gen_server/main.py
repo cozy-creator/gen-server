@@ -1,8 +1,8 @@
 import os
 import time
 
-from gen_server.base_types.architecture import IArchitecture
-from gen_server.base_types.custom_node import ICustomNode
+from .base_types.architecture import Architecture
+from .base_types.custom_node import CustomNode
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
@@ -64,7 +64,7 @@ def main():
     global ARCHITECTURES
     start_time_architectures = time.time()
     ARCHITECTURES.update(
-        load_extensions("comfy_creator.architectures", expected_type=IArchitecture)
+        load_extensions("comfy_creator.architectures", expected_type=Architecture)
     )
     print(
         f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
@@ -73,7 +73,7 @@ def main():
     global CUSTOM_NODES
     start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
-        load_extensions("comfy_creator.custom_nodes", expected_type=ICustomNode)
+        load_extensions("comfy_creator.custom_nodes", expected_type=CustomNode)
     )
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"

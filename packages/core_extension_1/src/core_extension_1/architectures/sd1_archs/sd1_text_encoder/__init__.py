@@ -1,8 +1,9 @@
 import os
 import json
 import time
+from typing import Optional
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice
+from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 
@@ -25,23 +26,25 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
             text_encoder_config = CLIPTextConfig.from_dict(config)
             text_encoder = CLIPTextModel(text_encoder_config)
 
-        super().__init__(
-            model=text_encoder,
-            config=text_encoder_config,
-        )
+        self.model = text_encoder
+        self.config = text_encoder_config
     
-    @override
     @classmethod
-    def detect(cls, state_dict: StateDict) -> bool:
+    def detect(cls, state_dict: StateDict) -> Optional[ComponentMetadata]:
         required_keys = {
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",
             # "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
         }
         
-        return all(key in state_dict for key in required_keys)
+        if all(key in state_dict for key in required_keys):
+            return {
+                "display_name": cls.display_name,
+                "input_space": cls.input_space,
+                "output_space": cls.output_space
+            }
+        return None
     
-    @override
-    def load(self, state_dict: StateDict, device: TorchDevice = None) :
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) :
         print("Loading SD1.5 TextEncoder")
         start = time.time()
         

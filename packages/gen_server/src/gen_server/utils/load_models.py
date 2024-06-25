@@ -174,9 +174,12 @@ def components_class_from_state_dict(
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            if architecture.detect(state_dict):
+            # TO DO: also fetch metadata
+            # metadata =
+            metadata = architecture.detect(state_dict=state_dict)
+            if metadata is not None:
                 # this will overwrite previous architectures with the same id
-                components.update({arch_id: architecture})
+                components.update({arch_id: metadata})
         except Exception as e:
             print(e)
 

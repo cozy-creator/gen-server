@@ -1,9 +1,6 @@
-from typing import TypedDict, Any
-
-from zope.interface import Interface, Attribute, implementer
-
+from typing import TypedDict, Any, Protocol, runtime_checkable
+from typing_extensions import runtime
 from .common import Language, Category
-from abc import ABC
 
 
 class NodeInterfaceInput(TypedDict):
@@ -32,24 +29,24 @@ class OutputWrapper:
     pass
 
 
-class ICustomNode(Interface):
-    display_name = Attribute(
-        "The name of the node.",
-    )
+# class ICustomNode(Interface):
+#     display_name = Attribute(
+#         "The name of the node.",
+#     )
 
-    category = Attribute(
-        "The category of the node.",
-    )
+#     category = Attribute(
+#         "The category of the node.",
+#     )
 
-    description = Attribute(
-        "The description of the node.",
-    )
+#     description = Attribute(
+#         "The description of the node.",
+#     )
 
-    def update_interface(inputs: dict[str, Any]) -> NodeInterface:
-        pass
+#     def update_interface(inputs: dict[str, Any]) -> NodeInterface:
+#         pass
 
-    def __call__(*args, **kwargs) -> Any:
-        pass
+#     def __call__(*args, **kwargs) -> Any:
+#         pass
 
 
 # For now, I'm making the node-interface dependent ONLY upon the inputs of
@@ -58,8 +55,8 @@ class ICustomNode(Interface):
 # would become HARD, because instead of passing from input to output we
 # instead could flow _backwards_ and end up in infinite loops of modifying
 # interfaces infinitely.
-@implementer(ICustomNode)
-class CustomNode(ABC):
+@runtime_checkable
+class CustomNode(Protocol):
     """
     The interface that all custom-nodes should implement.
     """
@@ -80,10 +77,10 @@ class CustomNode(ABC):
         """
         Updates the node's interface based on the inputs.
         """
-        return {"inputs": {}, "outputs": {}}
+        ...
 
     def __call__(self, *args, **kwargs) -> Any:
         """
         Runs the node.
         """
-        pass
+        ...

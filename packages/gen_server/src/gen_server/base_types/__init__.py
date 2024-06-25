@@ -1,4 +1,4 @@
-from .architecture import Architecture
+from .architecture import Architecture, ComponentMetadata
 from .checkpoint import CheckpointMetadata
 from .custom_node import CustomNode, NodeInterface
 from .model_constraint import ModelConstraint
@@ -8,6 +8,7 @@ __all__ = [
     "Architecture",
     "Category",
     "CheckpointMetadata",
+    "ComponentMetadata",
     "CustomNode",
     "Language",
     "ModelConstraint",

@@ -16,7 +16,7 @@ DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
 API_ENDPOINTS: dict[str, RouteDefinition] = {}
 """
-Something
+Route-definitions to be added to Aiohttp
 """
 
 ARCHITECTURES: dict[str, Type[Architecture]] = {}
@@ -26,7 +26,7 @@ Global class containing all architecture definitions
 
 CUSTOM_NODES: dict[str, Type[CustomNode]] = {}
 """
-Something
+Nodes to compose together during server-side execution
 """
 
 WIDGETS: dict = {}

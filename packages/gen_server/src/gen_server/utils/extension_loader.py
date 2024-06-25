@@ -1,22 +1,18 @@
 # from .paths import get_folder_path
 import sys
 import logging
-from typing import TypeVar
-
-from zope import interface
-from zope.interface import verify, Interface
-from zope.interface.interface import InterfaceClass
+from typing import TypeVar, Optional
 
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points
 else:
     from importlib.metadata import entry_points
 
-T = TypeVar("T", bound=InterfaceClass)  # Generic type variable bound to Type
+T = TypeVar("T")
 
 
 def load_extensions(
-    entry_point_group: str, expected_type: T = Interface
+    entry_point_group: str, expected_type: Optional[T] = None
 ) -> dict[str, T]:
     components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
@@ -37,20 +33,14 @@ def load_extensions(
             continue  # Skip this entry point
         try:
             component = entry_point.load()
-
+            
             # Optionally verify the loaded component matches our expected type
-            if expected_type.providedBy(component):
-                try:
-                    verify.verifyObject(expected_type, component)
-                    components[scoped_name] = component
-                except interface.Invalid:
-                    logging.error(
-                        f"Component {scoped_name} does not implement the expected type {expected_type}."
-                    )
-            else:
-                logging.warning(
-                    f"Component {scoped_name} does not match the expected type {expected_type.__name__}."
-                )
+            if expected_type is not None:
+                if isinstance(expected_type, type) and not isinstance(component, expected_type):
+                    raise TypeError(f"Component {scoped_name} does not correctly implement {expected_type.__name__}.")
+            
+            components[scoped_name] = component
+
         except Exception as error:
             logging.error(f"Failed to load component {scoped_name}: {str(error)}")
 

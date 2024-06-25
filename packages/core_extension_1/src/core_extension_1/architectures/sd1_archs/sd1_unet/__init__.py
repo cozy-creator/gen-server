@@ -1,14 +1,12 @@
 import json
 import time
 import os
+import torch
 from typing import Optional
 from typing_extensions import override
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
-from gen_server import Architecture, StateDict, TorchDevice
-import torch
-
-# from paths import folders
+from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -17,7 +15,6 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     """
     The Unet for the Stable Diffusion 1 pipeline
     """
-
     display_name = "SD1 UNet"
     input_space = "SD1"
     output_space = "SD1"
@@ -26,22 +23,23 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
+            self.model = UNet2DConditionModel(**config)
+            self.config = config
 
-            super().__init__(
-                model=UNet2DConditionModel(**config),
-                config=config,
-            )
-
-    @override
     @classmethod
-    def detect(cls, state_dict: StateDict) -> bool:
-        return (
+    def detect(cls, state_dict: StateDict) -> Optional[ComponentMetadata]:
+        if (
             "model.diffusion_model.input_blocks.0.0.bias" in state_dict
             and "model.diffusion_model.input_blocks.1.1.transformer_blocks.0.attn1.to_k.weight"
             in state_dict
-        )
+        ):
+            return {
+                "display_name": cls.display_name,
+                "input_space": cls.input_space,
+                "output_space": cls.output_space
+            }
+        return None
 
-    @override
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SD1.5 UNet")
         start = time.time()

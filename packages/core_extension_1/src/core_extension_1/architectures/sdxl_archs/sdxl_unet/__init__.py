@@ -1,11 +1,11 @@
 import os
 import json
 import time
+import torch
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
-import torch
 from contextlib import nullcontext
 from diffusers.utils.import_utils import is_accelerate_available
 
@@ -63,3 +63,11 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         unet.to(torch.bfloat16)
 
         print(f"UNet state dict loaded in {time.time() - start} seconds")
+        
+
+if __name__ == "__main__":
+    start_performance_timer = time.time()
+    instances = [SDXLUNet() for _ in range(5)]
+    total_time = time.time() - start_performance_timer
+    average_time = total_time / 5
+    print(f"Average instantiation time for SDXLUNet: {average_time} seconds")
