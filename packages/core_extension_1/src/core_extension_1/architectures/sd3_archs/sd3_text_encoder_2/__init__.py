@@ -17,6 +17,7 @@ if is_accelerate_available():
     from accelerate import init_empty_weights
 
 LDM_OPEN_CLIP_TEXT_PROJECTION_DIM = 1024
+
 SD_2_TEXT_ENCODER_KEYS_TO_IGNORE = [
     "cond_stage_model.model.transformer.resblocks.23.attn.in_proj_bias",
     "cond_stage_model.model.transformer.resblocks.23.attn.in_proj_weight",

@@ -76,10 +76,10 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                 )
                 
             case "SD3":
-                vae = components["core_extension_1.sd3_vae"].model
+                vae = components["core_extension_1.sd1_vae"].model
                 unet = components["core_extension_1.sd3_unet"].model
                 text_encoder_1 = components["core_extension_1.sd3_text_encoder_1"].model
-                text_encoder_2 = components["core_extension_1.sd3_text_encoder_2"].model
+                text_encoder_2 = components["core_extension_1.sdxl_text_encoder_2"].model
                 text_encoder_3 = components["core_extension_1.sd3_text_encoder_3"].model
 
                 pipe = create_pipe(

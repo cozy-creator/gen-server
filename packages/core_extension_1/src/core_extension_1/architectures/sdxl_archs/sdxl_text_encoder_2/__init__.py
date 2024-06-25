@@ -129,7 +129,7 @@ DIFFUSERS_TO_LDM_MAPPING = {
 }
 
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+# config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
     """
@@ -139,7 +139,17 @@ class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
     input_space = "SDXL"
     output_space = "SDXL"
 
-    def __init__(self):
+    def __init__(self, metadata: dict):
+
+        try:
+
+            if metadata["modelspec.architecture"] == "stable-diffusion-v3-medium":
+                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_vae_config.json")
+            elif metadata["modelspec.architecture"] == "stable-diffusion-xl-v1-base":
+                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        except Exception as e:
+            print(e)
+
         with open(config_path, 'r') as file:
             # Create diffusers class
             config = json.load(file)
@@ -157,7 +167,8 @@ class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 2 architecture.
         """
-        return "conditioner.embedders.1.model.transformer.resblocks.0.attn.in_proj_weight" in state_dict
+        return "conditioner.embedders.1.model.transformer.resblocks.0.attn.in_proj_weight" or \
+                "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight" in state_dict
 
     def load(self, state_dict: StateDict, device: TorchDevice = None):
         """
@@ -165,9 +176,17 @@ class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
         """
         print("Loading SDXL Text Encoder 2")
         text_model = self.model
-        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.1.model.")}
+        text_encoder_state_dict = {key: state_dict[key] for key in state_dict if key.startswith("conditioner.embedders.1.model.") or key.startswith("text_encoders.clip_g.")}
         text_model_dict = {}
-        prefix = "conditioner.embedders.1.model."
+
+        if any(key.startswith("text_encoders.clip_g.") for key in text_encoder_state_dict):
+            prefix = "text_encoders.clip_g."
+        elif any(key.startswith("conditioner.embedders.1.model.") for key in text_encoder_state_dict):
+            prefix = "conditioner.embedders.1.model."
+        else:
+            prefix = None 
+            
+        # prefix = "conditioner.embedders.1.model."
         text_proj_key = prefix + "text_projection"
         text_proj_dim = (
             int(text_encoder_state_dict[text_proj_key].shape[0]) if text_proj_key in text_encoder_state_dict else LDM_OPEN_CLIP_TEXT_PROJECTION_DIM
