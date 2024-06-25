@@ -35,9 +35,10 @@ def load_extensions(
             component = entry_point.load()
             
             # Optionally verify the loaded component matches our expected type
-            if expected_type is not None:
-                if isinstance(expected_type, type) and not isinstance(component, expected_type):
-                    raise TypeError(f"Component {scoped_name} does not correctly implement {expected_type.__name__}.")
+            if (expected_type is not None and 
+                isinstance(expected_type, type) and 
+                not isinstance(component, expected_type)):
+                raise TypeError(f"Component {scoped_name} does not correctly implement {expected_type.__name__}.")
             
             components[scoped_name] = component
 

@@ -19,7 +19,7 @@ API_ENDPOINTS: dict[str, RouteDefinition] = {}
 Route-definitions to be added to Aiohttp
 """
 
-ARCHITECTURES: dict[str, Type[Architecture]] = {}
+ARCHITECTURES: dict[str, type[Architecture[Any]]] = {}
 """
 Global class containing all architecture definitions
 """

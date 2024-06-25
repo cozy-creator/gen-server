@@ -15,14 +15,17 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
+class FUCKME():
+    def __init__(self):
+        super().__init__()
+        self._display_name = "FUCKME"
+        self._input_space = "SD1"
+        self._output_space = "SD1"
+
 class SD1TextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the Stable Diffusion 1 pipeline
     """
-
-    display_name = "CLIP Text Encoder"
-    input_space = "SD1"
-    output_space = "SD1"
 
     def __init__(self):
         with open(config_path, "r") as file:
@@ -30,8 +33,11 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
             text_encoder_config = CLIPTextConfig.from_dict(config)
             text_encoder = CLIPTextModel(text_encoder_config)
 
-        self.model = text_encoder
-        self.config = text_encoder_config
+        self._model = text_encoder
+        self._config = text_encoder_config
+        self._display_name = "CLIP Text Encoder"
+        self._input_space = "SD1"
+        self._output_space = "SD1"
 
     @classmethod
     def detect(
@@ -46,9 +52,9 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="CLIP Text Encoder",
+                input_space="SD1",
+                output_space="SD1",
             )
             if all(key in state_dict for key in required_keys) in state_dict
             else None
@@ -77,14 +83,19 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
 
         if not (
             hasattr(text_encoder, "embeddings")
-            and hasattr(text_encoder.embeddings.position_ids)
+            and hasattr(text_encoder.embeddings, "position_ids")
         ):
             text_model_dict.pop("text_model.embeddings.position_ids", None)
 
         text_encoder.load_state_dict(text_model_dict)
 
         if device is not None:
-            text_encoder.to(device=device)
-        text_encoder.to(torch.bfloat16)
+            text_encoder.to(device=device) # type: ignore
+        text_encoder.to(torch.bfloat16) # type: ignore
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")
+
+if __name__ == "__main__":
+    passes = issubclass(SD1TextEncoder, Architecture)
+    print(f"Passes: {passes}")
+    

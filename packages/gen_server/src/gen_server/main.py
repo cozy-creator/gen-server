@@ -63,6 +63,7 @@ def main():
     # compile architecture registry
     global ARCHITECTURES
     start_time_architectures = time.time()
+    whatever = load_extensions("comfy_creator.architectures", expected_type=Architecture)
     ARCHITECTURES.update(
         load_extensions("comfy_creator.architectures", expected_type=Architecture)
     )
