@@ -88,7 +88,4 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")
 
-if __name__ == "__main__":
-    passes = issubclass(SD1TextEncoder, Architecture)
-    print(f"Passes: {passes}")
     

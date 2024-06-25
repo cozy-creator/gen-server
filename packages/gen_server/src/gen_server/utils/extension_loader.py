@@ -14,8 +14,8 @@ T = TypeVar("T")
 def load_extensions(
     entry_point_group: str, expected_type: Optional[T] = None
 ) -> dict[str, T]:
-    components: dict[str, T] = {}
     discovered_plugins = entry_points(group=entry_point_group)
+    plugins: dict[str, T] = {}
     # print(f"Discovered plugins: {discovered_plugins}")
 
     for entry_point in discovered_plugins:
@@ -32,7 +32,7 @@ def load_extensions(
             )
             continue  # Skip this entry point
         try:
-            component = entry_point.load()
+            plugin = entry_point.load()
             
             # Optionally verify the loaded component matches our expected type
             # if (expected_type is not None and 
@@ -40,12 +40,12 @@ def load_extensions(
             #     not isinstance(component, expected_type)):
             #     raise TypeError(f"Component {scoped_name} does not correctly implement {expected_type.__name__}.")
             
-            components[scoped_name] = component
+            plugins[scoped_name] = plugin
 
         except Exception as error:
             logging.error(f"Failed to load component {scoped_name}: {str(error)}")
 
-    return components
+    return plugins
 
 
 # TO DO: make certain properties / methods optional in our interface, so that we can be add new things and still

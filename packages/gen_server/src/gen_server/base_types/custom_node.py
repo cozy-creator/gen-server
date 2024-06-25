@@ -1,5 +1,5 @@
-from typing import TypedDict, Any, Protocol, runtime_checkable
-from typing_extensions import runtime
+from typing import TypedDict, Any
+from abc import ABC
 from .common import Language, Category
 
 
@@ -55,8 +55,7 @@ class OutputWrapper:
 # would become HARD, because instead of passing from input to output we
 # instead could flow _backwards_ and end up in infinite loops of modifying
 # interfaces infinitely.
-@runtime_checkable
-class CustomNode(Protocol):
+class CustomNode(ABC):
     """
     The interface that all custom-nodes should implement.
     """

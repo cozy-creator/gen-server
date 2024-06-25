@@ -54,6 +54,7 @@ def main():
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
+    whatever = load_extensions("comfy_creator.api", expected_type=RouteDefinition)
     API_ENDPOINTS.update(
         load_extensions("comfy_creator.api", expected_type=RouteDefinition)
     )
@@ -63,7 +64,6 @@ def main():
     # compile architecture registry
     global ARCHITECTURES
     start_time_architectures = time.time()
-    whatever = load_extensions("comfy_creator.architectures", expected_type=Architecture)
     ARCHITECTURES.update(
         load_extensions("comfy_creator.architectures", expected_type=Architecture)
     )
