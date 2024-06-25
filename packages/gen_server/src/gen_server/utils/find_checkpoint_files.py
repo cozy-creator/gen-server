@@ -36,18 +36,18 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
                     metadata = extract_safetensors_metadata(absolute_path)
 
                     state_dict = load_state_dict_from_file(absolute_path)
-
-                    components = components_class_from_state_dict(state_dict)
+                    
+                    components = components_class_from_state_dict(state_dict, metadata)
                     
                     
-                    output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
-                    for component in components.values():
-                        if component.output_space == 'SD1':
-                            output_space_counts['SD1'] += 1
-                        elif component.output_space == 'SDXL':
-                            output_space_counts['SDXL'] += 1
-                        elif component.output_space == 'SD3':
-                            output_space_counts['SD3'] += 1
+                    # output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
+                    # for component in components.values():
+                    #     if component.output_space == 'SD1':
+                    #         output_space_counts['SD1'] += 1
+                    #     elif component.output_space == 'SDXL':
+                    #         output_space_counts['SDXL'] += 1
+                    #     elif component.output_space == 'SD3':
+                    #         output_space_counts['SD3'] += 1
                     
                     base_filename, ext = os.path.splitext(filename)
                     display_name = base_filename  # Use the filename as the display name
@@ -106,11 +106,11 @@ def determine_category(components: Dict[str, Architecture]) -> str:
     output_space_counts = {'SD1': 0, 'SDXL': 0, 'SD3': 0}
     
     for component in components.values():
-        if component.output_space == 'SD1':
+        if component.get("output_space") == 'SD1':
             output_space_counts['SD1'] += 1
-        elif component.output_space == 'SDXL':
+        elif component.get("output_space") == 'SDXL':
             output_space_counts['SDXL'] += 1
-        elif component.output_space == 'SD3':
+        elif component.get("output_space") == 'SD3':
             output_space_counts['SD3'] += 1
     
     max_category = max(output_space_counts.items(), key=lambda x: x[1])

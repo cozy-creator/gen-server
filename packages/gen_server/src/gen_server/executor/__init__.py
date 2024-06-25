@@ -52,7 +52,7 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         
         match checkpoint_metadata.category:
             case "SD1":
-                vae = components["core_extension_1.sd1_vae"].model
+                vae = components["core_extension_1.vae"].model
                 unet = components["core_extension_1.sd1_unet"].model
                 text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
 
@@ -63,10 +63,10 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                 )
                 
             case "SDXL":
-                vae = components["core_extension_1.sdxl_vae"].model
+                vae = components["core_extension_1.vae"].model
                 unet = components["core_extension_1.sdxl_unet"].model
                 text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
-                text_encoder_2 = components["core_extension_1.sdxl_text_encoder_2"].model
+                text_encoder_2 = components["core_extension_1.text_encoder_2"].model
 
                 pipe = create_pipe(
                     vae=vae, 
@@ -76,10 +76,10 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                 )
                 
             case "SD3":
-                vae = components["core_extension_1.sd1_vae"].model
+                vae = components["core_extension_1.vae"].model
                 unet = components["core_extension_1.sd3_unet"].model
                 text_encoder_1 = components["core_extension_1.sd3_text_encoder_1"].model
-                text_encoder_2 = components["core_extension_1.sdxl_text_encoder_2"].model
+                text_encoder_2 = components["core_extension_1.text_encoder_2"].model
                 text_encoder_3 = components["core_extension_1.sd3_text_encoder_3"].model
 
                 pipe = create_pipe(

@@ -10,6 +10,10 @@ from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from contextlib import nullcontext
 from diffusers.utils.import_utils import is_accelerate_available
+import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 if is_accelerate_available():
     from accelerate import init_empty_weights
@@ -55,7 +59,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
                 input_space=cls.input_space,
                 output_space=cls.output_space,
             )
-            if all(key in state_dict for key in required_keys) in state_dict
+            if all(key in state_dict for key in required_keys)
             else None
         )
 
@@ -75,7 +79,21 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         new_unet_state_dict = convert_ldm_unet_checkpoint(
             unet_state_dict, config=config
         )
-        unet.load_state_dict(new_unet_state_dict)
+
+        if is_accelerate_available():
+            from diffusers.models.modeling_utils import load_model_dict_into_meta
+            print("Using accelerate")
+            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict)
+            if unet._keys_to_ignore_on_load_unexpected is not None:
+                for pat in unet._keys_to_ignore_on_load_unexpected:
+                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+
+            if len(unexpected_keys) > 0:
+                logger.warning(
+                    f"Some weights of the model checkpoint were not used when initializing {unet.__name__}: \n {[', '.join(unexpected_keys)]}"
+                )
+        else:
+            unet.load_state_dict(new_unet_state_dict)
 
         if device is not None:
             unet.to(device=device)

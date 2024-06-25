@@ -9,6 +9,10 @@ import time
 import torch
 from diffusers.utils.import_utils import is_accelerate_available
 from contextlib import nullcontext
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 
 if is_accelerate_available():
     from accelerate import init_empty_weights
@@ -103,7 +107,21 @@ class VAEArch(Architecture[AutoencoderKL]):
         new_vae_state_dict = convert_ldm_vae_checkpoint(
             vae_state_dict, config=self.config
         )
-        vae.load_state_dict(new_vae_state_dict)
+
+        if is_accelerate_available():
+            from diffusers.models.modeling_utils import load_model_dict_into_meta
+            print("Using accelerate")
+            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict)
+            if vae._keys_to_ignore_on_load_unexpected is not None:
+                for pat in vae._keys_to_ignore_on_load_unexpected:
+                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+
+            if len(unexpected_keys) > 0:
+                logger.warning(
+                    f"Some weights of the model checkpoint were not used when initializing {vae.__name__}: \n {[', '.join(unexpected_keys)]}"
+                )
+        else:
+            vae.load_state_dict(new_vae_state_dict)
 
         if device is not None:
             vae.to(device=device)

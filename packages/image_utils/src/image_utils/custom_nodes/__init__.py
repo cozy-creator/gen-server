@@ -54,6 +54,11 @@ class SaveFile(CustomNode):
     """
     Custom node to save or upload generated images.
     """
+    display_name = "Saves Images"
+
+    category = "images"
+
+    description = "Useful for saving images"
 
     def __init__(self) -> None:
         self.output_dir = get_folder_path("output")
