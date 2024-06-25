@@ -136,25 +136,42 @@ DIFFUSERS_TO_LDM_MAPPING = {
 
 # config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
-class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
+class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
     """
-    Architecture definition for the SDXL Text Encoder 2 (CLIP-based).
+    Architecture definition for the Text Encoder 2 (CLIP-based).
     """
 
-    display_name = "CLIP Text Encoder With Projection"
-    input_space = "SDXL"
-    output_space = "SDXL"
+    @staticmethod
+    def _determine_type(metadata: dict[str, Any]) -> tuple[ComponentMetadata, str]:
+        architecture = metadata.get("modelspec.architecture", "")
+
+        if architecture == "stable-diffusion-v3-medium":
+            result: ComponentMetadata = {
+                "display_name": "SD3 Text Encoder 2",
+                "input_space": "SD3",
+                "output_space": "SD3",
+            }
+            config_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "sd3_config.json"
+            )
+        elif architecture == "stable-diffusion-xl-v1-base":
+            result: ComponentMetadata = {
+                "display_name": "SDXL Text Encoder 2",
+                "input_space": "SDXL",
+                "output_space": "SDXL",
+            }
+            config_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
+            )
+
+        return result, config_path
 
     def __init__(self, metadata: dict):
 
-        try:
-
-            if metadata["modelspec.architecture"] == "stable-diffusion-v3-medium":
-                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_vae_config.json")
-            elif metadata["modelspec.architecture"] == "stable-diffusion-xl-v1-base":
-                config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-        except Exception as e:
-            print(e)
+        result, config_path = self._determine_type(metadata)
+        self.display_name = result["display_name"]
+        self.input_space = result["input_space"]
+        self.output_space = result["output_space"]
 
         with open(config_path, 'r') as file:
             # Create diffusers class
@@ -173,11 +190,20 @@ class SDXLTextEncoder2(Architecture[CLIPTextModelWithProjection]):
         state_dict: StateDict,
         metadata: dict[str, Any],
     ) -> Optional[ComponentMetadata]:
+        required_keys = {
+            "conditioner.embedders.1.model.transformer.resblocks.0.attn.in_proj_weight",
+            "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight"
+            # "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
+        }
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 2 architecture.
         """
-        return "conditioner.embedders.1.model.transformer.resblocks.0.attn.in_proj_weight" or \
-                "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight" in state_dict
+        if any(key in state_dict for key in required_keys):
+            component_metadata, _ = cls._determine_type(metadata)
+            return component_metadata
+
+        return None
+    
 
     def load(self, state_dict: StateDict, device: TorchDevice = None):
         """

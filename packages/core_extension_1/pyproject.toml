@@ -18,7 +18,6 @@ sd1_text_encoder = "core_extension_1.architectures.sd1_archs:SD1TextEncoder"
 sd1_unet = "core_extension_1.architectures.sd1_archs:SD1UNet"
 
 sdxl_text_encoder_1 = "core_extension_1.architectures.sdxl_archs:SDXLTextEncoder"
-sdxl_text_encoder_2 = "core_extension_1.architectures.sdxl_archs:SDXLTextEncoder2"
 sdxl_unet = "core_extension_1.architectures.sdxl_archs:SDXLUNet"
 
 sd3_unet = "core_extension_1.architectures.sd3_archs:SD3UNet"
@@ -27,6 +26,7 @@ sd3_text_encoder_1 = "core_extension_1.architectures.sd3_archs:SD3TextEncoder1"
 sd3_text_encoder_3 = "core_extension_1.architectures.sd3_archs:SD3TextEncoder3"
 
 vae = "core_extension_1.architectures.vae_arch:VAEArch"
+text_encoder_2 = "core_extension_1.architectures.text_encoder_2_arch:TextEncoder2"
 
 [project.entry-points."comfy_creator.custom_nodes"]
 load_checkpoint = "core_extension_1.custom_nodes:LoadCheckpoint"

@@ -86,11 +86,14 @@ def components_from_state_dict(
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            if architecture.detect(state_dict):
-                # this will overwrite previous architectures with the same id
+            try:
+                checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            except Exception as e:
+                checkpoint_metadata = architecture.detect(state_dict=state_dict)
 
+            if checkpoint_metadata is not None:
                 try:
-                    components.update({arch_id: architecture(metadata)}) # type: ignore
+                    components.update({arch_id: architecture(metadata=metadata)}) # type: ignore
                 except Exception as e:
                     components.update({arch_id: architecture()})
         except Exception as e:
@@ -163,7 +166,7 @@ def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) ->
 
 
 def components_class_from_state_dict(
-    state_dict: StateDict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    state_dict: StateDict, metadata: dict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load them into memory however;
@@ -176,11 +179,17 @@ def components_class_from_state_dict(
         try:
             # TO DO: also fetch metadata
             # metadata =
-            metadata = architecture.detect(state_dict=state_dict)
-            if metadata is not None:
+            try:
+                checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            except Exception as e:
+                checkpoint_metadata = architecture.detect(state_dict=state_dict)
+
+            if checkpoint_metadata is not None:
                 # this will overwrite previous architectures with the same id
-                components.update({arch_id: metadata})
+                components.update({arch_id: checkpoint_metadata})
         except Exception as e:
             print(e)
+
+    print("sent appropriate")
 
     return components

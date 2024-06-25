@@ -21,11 +21,11 @@ class Architecture(Protocol[T]):
     The interface that all comfy-creator Architectures should implement.
     """
 
-    display_name: str
-    input_space: str
-    output_space: str
-    model: T
-    config: Any
+    # display_name: str
+    # input_space: str
+    # output_space: str
+    # model: T
+    # config: Any
 
     # @property
     # def config(self) -> dict[str, Any]:

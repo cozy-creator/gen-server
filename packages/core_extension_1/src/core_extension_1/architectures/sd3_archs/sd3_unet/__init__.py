@@ -64,7 +64,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
                 input_space=cls.input_space,
                 output_space=cls.output_space,
             )
-            if all(key in state_dict for key in required_keys) in state_dict
+            if all(key in state_dict for key in required_keys)
             else None
         )
 

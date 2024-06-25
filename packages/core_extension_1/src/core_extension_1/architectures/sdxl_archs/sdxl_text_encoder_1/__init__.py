@@ -39,7 +39,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        # metadata: dict[str, Any],
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
@@ -51,7 +51,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
                 input_space=cls.input_space,
                 output_space=cls.output_space,
             )
-            if all(key in state_dict for key in required_keys) in state_dict
+            if all(key in state_dict for key in required_keys)
             else None
         )
 
