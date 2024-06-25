@@ -3,7 +3,7 @@
 To run the main application package, navigate to the `/packages/gen_server` folder:
 
 - Run `pip install -e .`; this adds the `comfy-creator` command to your path.
-- Run `comfy-creator`
+- Run `comfy-creator --config=config.json`
 
 This will generate a `.egg-info` folder. The code will be installed in editable format, which means any changes to the code will be immediately reflected the next time you run it.
 
