@@ -89,35 +89,35 @@ class Architecture(ABC, Generic[T]):
         """
         pass
     
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        """ Used by `issubclass` to validate that the implementation of is correct. """
-        required_methods = {
-            'display_name': 'property',
-            'input_space': 'property',
-            'output_space': 'property',
-            'model': 'property',
-            'config': 'property',
-            'detect': 'classmethod',
-            'load': 'method'
-        }
+    # @classmethod
+    # def __subclasshook__(cls, subclass):
+    #     """ Used by `issubclass` to validate that the implementation of is correct. """
+    #     required_methods = {
+    #         'display_name': 'property',
+    #         'input_space': 'property',
+    #         'output_space': 'property',
+    #         'model': 'property',
+    #         'config': 'property',
+    #         'detect': 'classmethod',
+    #         'load': 'method'
+    #     }
         
-        for method, method_type in required_methods.items():
-            if not any(method in B.__dict__ for B in subclass.__mro__):
-                print(f"Missing implementation of {method} in {subclass.__name__}")
-                return False
-            if method_type == 'classmethod' and not isinstance(getattr(subclass, method), classmethod):
-                print(f"{method} in {subclass.__name__} must be a class method")
-                return False
-            if method_type == 'property' and not isinstance(getattr(subclass, method), property):
-                print(f"{method} in {subclass.__name__} must be a property")
-                return False
-            if method_type == 'method' and callable(getattr(subclass, method)):
-                # Check if it's a regular method (not classmethod or staticmethod)
-                if isinstance(getattr(subclass, method), (staticmethod, classmethod)):
-                    print(f"{method} in {subclass.__name__} must be a regular method")
-                    return False
-        return True
+    #     for method, method_type in required_methods.items():
+    #         if not any(method in B.__dict__ for B in subclass.__mro__):
+    #             print(f"Missing implementation of {method} in {subclass.__name__}")
+    #             return False
+    #         if method_type == 'classmethod' and not isinstance(getattr(subclass, method), classmethod):
+    #             print(f"{method} in {subclass.__name__} must be a class method")
+    #             return False
+    #         if method_type == 'property' and not isinstance(getattr(subclass, method), property):
+    #             print(f"{method} in {subclass.__name__} must be a property")
+    #             return False
+    #         if method_type == 'method' and callable(getattr(subclass, method)):
+    #             # Check if it's a regular method (not classmethod or staticmethod)
+    #             if isinstance(getattr(subclass, method), (staticmethod, classmethod)):
+    #                 print(f"{method} in {subclass.__name__} must be a regular method")
+    #                 return False
+    #     return True
 
     # def serialize(self) -> dict[str, Any]:
     #     """

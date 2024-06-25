@@ -15,13 +15,6 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class FUCKME():
-    def __init__(self):
-        super().__init__()
-        self._display_name = "FUCKME"
-        self._input_space = "SD1"
-        self._output_space = "SD1"
-
 class SD1TextEncoder(Architecture[CLIPTextModel]):
     """
     The CLIP text-encoder used for the Stable Diffusion 1 pipeline
