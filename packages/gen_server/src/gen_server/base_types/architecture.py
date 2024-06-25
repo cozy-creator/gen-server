@@ -1,68 +1,75 @@
-from abc import abstractmethod, ABC
-from typing import Any, Generic, TypeVar, Optional
 import torch
+from typing import Any, TypeVar, Optional, Protocol, runtime_checkable, TypedDict
+from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 from .common import StateDict, TorchDevice
 
-from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
 
-T = TypeVar("T", bound=torch.nn.Module, covariant=True)
+# T = TypeVar("T", bound=torch.nn.Module, covariant=True)
+T = TypeVar("T", bound=torch.nn.Module)
 
+ComponentMetadata = TypedDict(
+    "ComponentMetadata", {"display_name": str, "input_space": str, "output_space": str}
+)
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
-# a detect method?
-class Architecture(ABC, Generic[T]):
-    """
-    The interface that all architecture definitions should implement.
-    The construct __init__ function should accept no arguments.
+# a detect method? That might be more optimized.
 
-    A wrapper class for PyTorch models that adds additional properties and methods
-    for inspection and management of the model.
+
+@runtime_checkable
+class Architecture(Protocol[T]):
+    """
+    The interface that all comfy-creator Architectures should implement.
     """
 
     display_name: str
     input_space: str
     output_space: str
+    model: T
+    config: Any
+
+    # @property
+    # def config(self) -> dict[str, Any]:
+    #     """
+    #     Access the configuration dictionary for the architecture.
+    #     """
+    #     return self._config
+
+    # @property
+    # def model(self) -> T:
+    #     """
+    #     Access the underlying PyTorch model.
+    #     """
+    #     return self._model
 
     def __init__(
         self,
-        model: Optional[T],
-        config: Any = None,
-    ) -> None:
-        super().__init__()
-
-        self._model = model
-        self._config = config
-
-    @property
-    def model(self) -> Optional[T]:
-        """
-        Access the underlying model.
-        """
-        return self._model
-
-    @property
-    def config(self) -> Any:
-        """
-        Access the underlying config
-        """
-        return self._config
+        state_dict: Optional[StateDict] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None: ...
 
     @classmethod
-    @abstractmethod
-    def detect(cls, state_dict: StateDict) -> bool:
+    def detect(
+        cls,
+        state_dict: StateDict,
+        metadata: dict[str, Any],
+    ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the architecture.
 
         Args:
             state_dict (StateDict): The state dictionary from a PyTorch model.
+            metadata (dict[str, Any]): The metadata for the architecture.
 
         Returns:
             bool: True if the state dictionary matches the architecture, False otherwise.
         """
-        pass
+        ...
 
-    @abstractmethod
-    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
+    def load(
+        self,
+        state_dict: StateDict,
+        device: Optional[TorchDevice] = None,
+    ) -> None:
         """
         Loads a model from the given state dictionary according to the architecture.
 
@@ -73,18 +80,13 @@ class Architecture(ABC, Generic[T]):
         Returns:
             torch.nn.Module: The loaded PyTorch model.
         """
-        pass
-    
-    @classmethod
-    def serialize(cls) -> dict[str, Any]:
-        """
-        Serialize the Architecture instance to a dictionary.
-        """
-        return {
-            'display_name': cls.display_name,
-            'input_space': cls.input_space,
-            'output_space': cls.output_space,
-        }
+        ...
+
+    # def serialize(self) -> dict[str, Any]:
+    #     """
+    #     Serialize the Architecture instance to a dictionary.
+    #     """
+    #     ...
 
     # def __repr__(self) -> str:
     #     """
@@ -93,7 +95,12 @@ class Architecture(ABC, Generic[T]):
     #     return f"<ModelWrapper for {self._model.__class__.__name__} with {self.stuff}>"
 
 
-class ArchitectureAdapter(Architecture):
+class SpandrelArchitectureAdapter(Architecture):
+    """
+    This class converts architectures from the spandrel library to our own
+    Architecture interface.
+    """
+
     def __init__(self, arch: SpandrelArchitecture):
         super().__init__(model=None, config=None)
         if not isinstance(arch, SpandrelArchitecture):

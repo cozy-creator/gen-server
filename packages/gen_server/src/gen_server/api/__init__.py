@@ -59,12 +59,8 @@ async def start_server():
 
     # Register all API endpoints from extensions
     # Iterate over API_ENDPOINTS and add routes
-    for name, endpoint_func in API_ENDPOINTS.items():
+    for name, routes in API_ENDPOINTS.items():
         # TO DO: consider adding prefixes to the routes based on extension-name?
-        # Get the list of routes from the extension
-        routes = endpoint_func()
-        
-         # Add the routes from the extension
         app.router.add_routes(routes)
 
     runner = web.AppRunner(app)

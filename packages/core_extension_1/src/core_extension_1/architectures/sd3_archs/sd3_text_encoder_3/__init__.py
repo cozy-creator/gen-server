@@ -1,10 +1,11 @@
 import json
 import time
-from typing import Dict, Optional
-from gen_server import Architecture, StateDict, TorchDevice
+from typing import Dict, Optional, Any
+from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import T5EncoderModel, T5Config
 from diffusers.utils.import_utils import is_accelerate_available
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
+
 # from diffusers.loaders.single_file_utils import convert_sd3_t5_checkpoint_to_diffusers
 import os
 import re
@@ -21,6 +22,7 @@ if is_accelerate_available():
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
+
 def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
     keys = list(checkpoint.keys())
     text_model_dict = {}
@@ -35,33 +37,48 @@ def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
 
     return text_model_dict
 
+
 class SD3TextEncoder3(Architecture[T5EncoderModel]):
     """
     Architecture definition for the SD3 Text Encoder 3 (T5-based).
     """
+
     display_name = "T5 XXL Text Encoder"
     input_space = "SD3"
     output_space = "SD3"
 
     def __init__(self):
-        with open(config_path, 'r') as file:
+        with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
         text_encoder_config = T5Config.from_dict(config)
         ctx = init_empty_weights if is_accelerate_available() else nullcontext
         with ctx():
             text_encoder = T5EncoderModel(text_encoder_config)
-        super().__init__(
-            model=text_encoder,  # Initialize with config
-            config=text_encoder_config
-        )
+
+        self.model = text_encoder
+        self.config = config
 
     @classmethod
-    def detect(cls, state_dict: StateDict) -> bool:
+    def detect(
+        cls,
+        state_dict: StateDict,
+        metadata: dict[str, Any],
+    ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 3 architecture.
         """
-        return "text_encoders.t5xxl.transformer.shared.weight" in state_dict  # Check for a key specific to T5
+        state_key = "text_encoders.t5xxl.transformer.shared.weight"  # Check for a key specific to T5
+
+        return (
+            ComponentMetadata(
+                display_name=cls.display_name,
+                input_space=cls.input_space,
+                output_space=cls.output_space,
+            )
+            if state_key in state_dict
+            else None
+        )
 
     def load(self, state_dict: StateDict, device: TorchDevice = None):
         """
@@ -71,15 +88,23 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         start = time.time()
 
         text_encoder_3 = self.model
-        text_dict = {key: state_dict[key] for key in state_dict if key.startswith("text_encoders.t5xxl.")}
+        text_dict = {
+            key: state_dict[key]
+            for key in state_dict
+            if key.startswith("text_encoders.t5xxl.")
+        }
         # print(f"text: {text_dict}")
         text_state_dict = convert_sd3_t5_checkpoint_to_diffusers(text_dict)
 
         if is_accelerate_available():
-            unexpected_keys = load_model_dict_into_meta(text_encoder_3, text_state_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                text_encoder_3, text_state_dict, dtype=torch.float16
+            )
             if text_encoder_3._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_encoder_3._keys_to_ignore_on_load_unexpected:
-                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+                    unexpected_keys = [
+                        k for k in unexpected_keys if re.search(pat, k) is None
+                    ]
 
             if len(unexpected_keys) > 0:
                 logger.warning(
@@ -89,5 +114,5 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         else:
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
-            
+
         text_encoder_3.to("cuda")

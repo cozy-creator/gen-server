@@ -1,4 +1,4 @@
-from .architecture import Architecture
+from .architecture import ComponentMetadata
 from typing import Any
 from typing_extensions import override
 from dataclasses import dataclass, asdict, field, fields
@@ -16,7 +16,7 @@ class CheckpointMetadata:
     author: str
     file_type: str
     file_path: str
-    components: dict[str, Architecture]
+    components: dict[str, ComponentMetadata]
     date_modified: datetime.datetime
     
     def serialize(self) -> dict[str, Any]:
@@ -27,15 +27,15 @@ class CheckpointMetadata:
             'author': self.author,
             'file_type': self.file_type,
             'date_modified': self.date_modified.strftime("%Y-%m-%d %H:%M:%S"),
-            'components': {}
+            'components': { name: component for name, component in self.components.items() }
         }
 
         # Serialize components
-        for name, component in self.components.items():
-            try:
-                serialized_data['components'][name] = component.serialize()
-            except Exception:
-                continue
+        # for name, component in self.components.items():
+        #     try:
+        #         serialized_data['components'][name] = component.serialize()
+        #     except Exception:
+        #         continue
         
         return serialized_data
     
