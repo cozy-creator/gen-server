@@ -261,7 +261,7 @@ async def generate_images_from_repo(repo_id: str, components: List[str], positiv
         negative_prompt=negative_prompt, 
         width=aspect_ratio[0], 
         height=aspect_ratio[1],
-        num_images_per_prompt=1,
+        num_images=1,
         generator=torch.Generator().manual_seed(random_seed) if random_seed is not None else None
     )
 
@@ -270,9 +270,6 @@ async def generate_images_from_repo(repo_id: str, components: List[str], positiv
     urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)
 
     yield urls
-                
-
-
 
     print(f"Image generated in {time.time() - start} seconds")
         
