@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
 from diffusers.loaders.single_file_utils import (
@@ -16,8 +16,7 @@ from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
 
-
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
 
 
 if is_accelerate_available():
@@ -29,11 +28,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
     Architecture definition for the SD3 U-Net model.
     """
 
-    display_name = "SD3 U-Net"
-    input_space = "SD3"
-    output_space = "SD3"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
@@ -41,14 +36,18 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
         with ctx():
             model = SD3Transformer2DModel(**config)
 
-        self.model = model
-        self.config = config
+        self._model = model
+        self._config = config
+        
+        self._display_name = "SD3 U-Net"
+        self._input_space = "SD3"
+        self._output_space = "SD3"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 U-Net architecture.
@@ -60,15 +59,15 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="SD3 U-Net",
+                input_space="SD3",
+                output_space="SD3",
             )
             if all(key in state_dict for key in required_keys)
             else None
         )
 
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         """
         Loads the SD3 U-Net model from the given state dictionary.
         """

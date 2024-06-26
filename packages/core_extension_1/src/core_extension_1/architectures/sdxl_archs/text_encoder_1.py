@@ -14,7 +14,7 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "text_encoders.clip_l.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json")
 
 
 class SDXLTextEncoder(Architecture[CLIPTextModel]):
@@ -22,24 +22,23 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
     The CLIP text-encoder used for the SDXL pipeline
     """
 
-    display_name = "CLIP Text Encoder"
-    input_space = "SDXL"
-    output_space = "SDXL"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             config = json.load(file)
             text_encoder_config = CLIPTextConfig.from_dict(config)
             text_encoder = CLIPTextModel(text_encoder_config)
-
-            self.model = text_encoder
-            self.config = config
+            self._model = text_encoder
+            self._config = config
+        
+        self._display_name = "CLIP Text Encoder"
+        self._input_space = "SDXL"
+        self._output_space = "SDXL"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        # metadata: dict[str, Any],
+        **ignored: Any
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
@@ -47,16 +46,16 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="CLIP Text Encoder",
+                input_space="SDXL",
+                output_space="SDXL",
             )
             if all(key in state_dict for key in required_keys)
             else None
         )
 
     @override
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SDXL TextEncoder")
         start = time.time()
 
@@ -79,7 +78,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
 
         if not (
             hasattr(text_encoder, "embeddings")
-            and hasattr(text_encoder.embeddings.position_ids)
+            and hasattr(text_encoder.embeddings, "position_ids")
         ):
             text_model_dict.pop("text_model.embeddings.position_ids", None)
 

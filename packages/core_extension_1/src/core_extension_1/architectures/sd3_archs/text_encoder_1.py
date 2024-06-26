@@ -3,9 +3,8 @@ import time
 from typing import Dict, Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModelWithProjection, CLIPTextConfig
-import safetensors
-from diffusers.utils import is_accelerate_available
-from diffusers.models.modeling_utils import load_model_dict_into_meta
+from diffusers.utils.import_utils import is_accelerate_available
+from diffusers.models.model_loading_utils import load_model_dict_into_meta
 import re
 import os
 import torch
@@ -23,7 +22,7 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "text_encoders.clip_l.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json")
 
 
 class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
@@ -31,27 +30,26 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
     Architecture definition for the SD3 Text Encoder 1 (CLIP-based).
     """
 
-    display_name = "CLIP Text Encoder"
-    input_space = "SD3"
-    output_space = "SD3"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
-            # Create diffusers class
             config = json.load(file)
-        text_encoder_config = CLIPTextConfig.from_dict(config)
+            text_encoder_config = CLIPTextConfig.from_dict(config)
         ctx = init_empty_weights if is_accelerate_available() else nullcontext
         with ctx():
             text_encoder = CLIPTextModelWithProjection(text_encoder_config)
 
-        self.model = text_encoder
-        self.config = config
+        self._model = text_encoder
+        self._config = config
+        
+        self._display_name = "CLIP Text Encoder"
+        self._input_space = "SD3"
+        self._output_space = "SD3"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 1 architecture.
@@ -60,15 +58,15 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="CLIP Text Encoder",
+                input_space="SD3",
+                output_space="SD3",
             )
             if state_key in state_dict
             else None
         )
 
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         """
         Loads the SD3 Text Encoder 1 model from the given state dictionary.
         """

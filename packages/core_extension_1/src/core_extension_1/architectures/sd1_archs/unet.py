@@ -8,7 +8,7 @@ from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
 
 
 class SD1UNet(Architecture[UNet2DConditionModel]):
@@ -16,22 +16,22 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     The Unet for the Stable Diffusion 1 pipeline
     """
 
-    display_name = "SD1 UNet"
-    input_space = "SD1"
-    output_space = "SD1"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
-            self.model = UNet2DConditionModel(**config)
-            self.config = config
+            self._model = UNet2DConditionModel(**config)
+            self._config = config
+        
+        self._display_name = "SD1 UNet"
+        self._input_space = "SD1"
+        self._output_space = "SD1"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any,
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "model.diffusion_model.input_blocks.0.0.bias",
@@ -40,9 +40,9 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="SD1 UNet",
+                input_space="SD1",
+                output_space="SD1",
             )
             if all(key in state_dict for key in required_keys)
             else None

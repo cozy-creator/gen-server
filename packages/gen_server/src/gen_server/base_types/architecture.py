@@ -42,6 +42,7 @@ class Architecture(ABC, Generic[T]):
     
     def __init__(
         self,
+        *,
         state_dict: Optional[StateDict] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
@@ -59,7 +60,8 @@ class Architecture(ABC, Generic[T]):
     @abstractmethod
     def detect(
         cls,
-        state_dict: StateDict,
+        *,
+        state_dict: Optional[StateDict] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> Optional[ComponentMetadata]:
         """

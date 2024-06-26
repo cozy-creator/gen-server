@@ -34,7 +34,7 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
         positive_prompt: str = data['positive_prompt']
         negative_prompt: str = data['negative_prompt']
         random_seed: Optional[int] = data.get('random_seed', None)
-        aspect_ratio: Tuple[int, int] = data['aspect_ratio']
+        aspect_ratio: str = data['aspect_ratio']
 
         # Start streaming image URLs
         async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):

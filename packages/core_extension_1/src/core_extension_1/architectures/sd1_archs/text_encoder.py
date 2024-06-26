@@ -12,7 +12,7 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "conditioner.embedders.0.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder.json")
 
 
 class SD1TextEncoder(Architecture[CLIPTextModel]):
@@ -20,7 +20,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
     The CLIP text-encoder used for the Stable Diffusion 1 pipeline
     """
 
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             config = json.load(file)
             text_encoder_config = CLIPTextConfig.from_dict(config)
@@ -36,7 +36,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any,
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight",

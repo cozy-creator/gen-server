@@ -15,12 +15,10 @@ from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
 
-
 if is_accelerate_available():
     from accelerate import init_empty_weights
 
-
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_3.json")
 
 
 def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
@@ -43,11 +41,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
     Architecture definition for the SD3 Text Encoder 3 (T5-based).
     """
 
-    display_name = "T5 XXL Text Encoder"
-    input_space = "SD3"
-    output_space = "SD3"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
@@ -56,14 +50,18 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         with ctx():
             text_encoder = T5EncoderModel(text_encoder_config)
 
-        self.model = text_encoder
-        self.config = config
+        self._model = text_encoder
+        self._config = config
+        
+        self._display_name = "T5 XXL Text Encoder"
+        self._input_space = "SD3"
+        self._output_space = "SD3"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 3 architecture.
@@ -72,15 +70,15 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="T5 XXL Text Encoder",
+                input_space="SD3",
+                output_space="SD3",
             )
             if state_key in state_dict
             else None
         )
 
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: TorchDevice = "cpu"):
         """
         Loads the SD3 Text Encoder 3 model from the given state dictionary.
         """
@@ -115,4 +113,4 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
 
-        text_encoder_3.to("cuda")
+        text_encoder_3.to(device)

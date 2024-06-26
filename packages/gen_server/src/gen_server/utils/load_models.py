@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import torch
-from typing import Type, Optional
+from typing import Type, Optional, Any
 from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
 from spandrel.__helpers.unpickler import (
@@ -14,6 +14,9 @@ from ..globals import ARCHITECTURES
 
 import struct
 import json
+import inspect
+
+METADATA_HEADER_SIZE = 8
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -33,37 +36,29 @@ def from_file(
     Throws a `ValueError` if the file extension is not supported.
     Returns an empty dictionary if no supported model architecture is found.
     """
-    try:
-        with open(path, "rb") as f:
-            length_of_header = struct.unpack('<Q', f.read(8))[0]
-            header_data = f.read(length_of_header)
-            header = json.loads(header_data)
-
-        metadata = header["__metadata__"]
-    except Exception:
-        metadata = {}
-
     state_dict = load_state_dict_from_file(path, device=device)
+    metadata = read_safetensors_metadata(path)
 
-    return from_state_dict(state_dict, device, registry, metadata=metadata)
+    return from_state_dict(state_dict, metadata, device, registry)
 
 
 def from_state_dict(
     state_dict: StateDict,
+    metadata: dict[str, Any] = {},
     device: Optional[TorchDevice] = None,
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
-    metadata: dict = {}
 ) -> dict[str, Architecture]:
     """
     Load a model from the given state dict.
 
     Returns an empty dictionary if no supported model architecture is found.
     """
+    # Fetch class instances
     components = components_from_state_dict(state_dict, metadata, registry)
-
+    
+    # Load the state dict into the class instance, and move to device
     for arch_id, architecture in components.items():
         try:
-            # load state dict into the architecture and moves it to the specified device
             architecture.load(state_dict, device)
         except Exception as e:
             print(e)
@@ -72,29 +67,34 @@ def from_state_dict(
 
 
 def components_from_state_dict(
-    state_dict: StateDict, metadata: dict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    state_dict: StateDict,
+    metadata: dict,
+    registry: dict[str, Type[Architecture]] = ARCHITECTURES
 ) -> dict[str, Architecture]:
     """
-    Detect all models present inside of a state dict; does not load them into memory however;
-    it merely returns the instantiated Architectures for these models.
+    Detect all models present inside of a state dict; does not load the state-dict into
+    memory however; it only calls the Architecture's constructor to return a class instance.
     """
-
     components: dict[str, Architecture] = {}
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            try:
-                checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
-            except Exception as e:
-                checkpoint_metadata = architecture.detect(state_dict=state_dict)
-
-            if checkpoint_metadata is not None:
-                try:
-                    components.update({arch_id: architecture(metadata=metadata)}) # type: ignore
-                except Exception as e:
-                    components.update({arch_id: architecture()})
+            checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            # detect_signature = inspect.signature(architecture.detect)
+            # if 'state_dict' in detect_signature.parameters and 'metadata' in detect_signature.parameters:
+            #     checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            # elif 'state_dict' in detect_signature.parameters:
+            #     checkpoint_metadata = architecture.detect(state_dict=state_dict)
+            # elif 'metadata' in detect_signature.parameters:
+            #     checkpoint_metadata = architecture.detect(metadata=metadata)
+            # else:
+            #     continue
         except Exception as e:
-            print(e)
+            checkpoint_metadata = None
+
+        if checkpoint_metadata is not None:
+            model = architecture(state_dict=state_dict, metadata=metadata)
+            components.update({arch_id: model})
 
     return components
 
@@ -161,32 +161,45 @@ def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) ->
     else:
         return safetensors_load_file(path)
 
+def read_safetensors_metadata(file_path: str | Path) -> dict[str, Any]:
+    if not str(file_path).endswith('.safetensors'):
+        print(f"Error: File '{file_path}' is not a '.safetensors' file.")
+        return {}
+    if not os.path.isfile(file_path):
+        print(f"Error: File '{file_path}' not found.")
+        return {}
 
-def components_class_from_state_dict(
-    state_dict: StateDict, metadata: dict, registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    with open(file_path, "rb") as file:
+        header_size_bytes = file.read(METADATA_HEADER_SIZE)
+        header_size = struct.unpack("<Q", header_size_bytes)[0]
+        if header_size is None or header_size == 0:
+            return {}
+        header_bytes = file.read(header_size)
+        header = json.loads(header_bytes)
+        
+    return header.get("__metadata__", {})
+
+def find_component_models(
+    state_dict: StateDict,
+    metadata: Optional[dict] = None,
+    registry: dict[str, Type[Architecture]] = ARCHITECTURES
 ) -> dict[str, ComponentMetadata]:
     """
-    Detect all models present inside of a state dict; does not load them into memory however;
-    it merely returns the Architectures class for these models.
+    Detect all models present inside of a state dict, and return a dict. The keys of
+    the dict are the architecture's unique identifier that can be instantiated using
+    this state-dict, and the value is the metadata of the corresponding architecture
+    if it were instantiated using this same state-dict + metadata.
     """
-
     components: dict[str, ComponentMetadata] = {}
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            # TO DO: also fetch metadata
-            # metadata =
-            try:
-                checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
-            except Exception as e:
-                checkpoint_metadata = architecture.detect(state_dict=state_dict)
-
+            checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            
             if checkpoint_metadata is not None:
                 # this will overwrite previous architectures with the same id
                 components.update({arch_id: checkpoint_metadata})
         except Exception as e:
-            print(e)
-
-    print("sent appropriate")
+            print(f"Encountered error running architecture.detect for {arch_id}: {e}")
 
     return components
