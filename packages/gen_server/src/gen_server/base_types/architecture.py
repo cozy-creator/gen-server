@@ -167,7 +167,24 @@ class SpandrelArchitectureAdapter(Architecture):
 
     def detect(
         self,
-        state_dict: StateDict,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> bool:
-        return self.inner.detect(state_dict)
+        state_dict: StateDict = None,
+        metadata: dict[str, Any] = None,
+    ) -> Optional[ComponentMetadata]:
+        return (
+            ComponentMetadata(
+                display_name=self._display_name,
+                input_space=self.input_space,
+                output_space=self.output_space,
+            )
+            if self.inner.detect(state_dict)
+            else None
+        )
+
+
+def architecture_validator(plugin) -> bool:
+    try:
+        if isinstance(plugin, type):
+            return issubclass(plugin, Architecture)
+        return isinstance(plugin, Architecture)
+    except TypeError:
+        print(f"Invalid plugin type: {plugin}")

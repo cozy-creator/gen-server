@@ -1,14 +1,14 @@
 import os
 import time
 
-from .base_types.architecture import Architecture
-from .base_types.custom_node import CustomNode
+from gen_server.base_types.custom_node import custom_node_validator
+from .base_types.architecture import architecture_validator
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from .cli_args import args
 # from .common.firebase import initialize
 # from .settings import settings
-from .api import start_server
+from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
     API_ENDPOINTS,
@@ -18,7 +18,6 @@ from .globals import (
     CHECKPOINT_FILES,
     initialize_config,
     comfy_config,
-    RouteDefinition
 )
 import argparse
 import asyncio
@@ -54,18 +53,20 @@ def main():
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
-    whatever = load_extensions("comfy_creator.api", expected_type=RouteDefinition)
+    whatever = load_extensions("comfy_creator.api", validator=api_routes_validator)
     API_ENDPOINTS.update(
-        load_extensions("comfy_creator.api", expected_type=RouteDefinition)
+        load_extensions("comfy_creator.api", expected_type=api_routes_validator)
     )
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
-    print(f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds")
-    
+    print(
+        f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds"
+    )
+
     # compile architecture registry
     global ARCHITECTURES
     start_time_architectures = time.time()
     ARCHITECTURES.update(
-        load_extensions("comfy_creator.architectures", expected_type=Architecture)
+        load_extensions("comfy_creator.architectures", validator=architecture_validator)
     )
     print(
         f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
@@ -74,7 +75,7 @@ def main():
     global CUSTOM_NODES
     start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
-        load_extensions("comfy_creator.custom_nodes", expected_type=CustomNode)
+        load_extensions("comfy_creator.custom_nodes", validator=custom_node_validator)
     )
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"

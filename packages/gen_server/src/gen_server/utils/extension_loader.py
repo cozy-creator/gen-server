@@ -3,6 +3,8 @@ import sys
 import logging
 from typing import TypeVar, Optional
 
+from gen_server.base_types.common import Validator
+
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points
 else:
@@ -12,7 +14,7 @@ T = TypeVar("T")
 
 
 def load_extensions(
-    entry_point_group: str, expected_type: Optional[T] = None
+    entry_point_group: str, validator: Optional[Validator] = None
 ) -> dict[str, T]:
     discovered_plugins = entry_points(group=entry_point_group)
     plugins: dict[str, T] = {}
@@ -33,13 +35,12 @@ def load_extensions(
             continue  # Skip this entry point
         try:
             plugin = entry_point.load()
-            
+
             # Optionally verify the loaded component matches our expected type
-            # if (expected_type is not None and 
-            #     isinstance(expected_type, type) and 
-            #     not isinstance(component, expected_type)):
-            #     raise TypeError(f"Component {scoped_name} does not correctly implement {expected_type.__name__}.")
-            
+            if validator is not None and not validator(plugin):
+                logging.error(f'Failed to validate component "{scoped_name}" type.')
+                raise ValueError(f"Invalid component type for {scoped_name}")
+
             plugins[scoped_name] = plugin
 
         except Exception as error:
