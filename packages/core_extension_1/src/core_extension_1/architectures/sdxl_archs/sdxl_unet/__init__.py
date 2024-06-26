@@ -108,3 +108,4 @@ if __name__ == "__main__":
     total_time = time.time() - start_performance_timer
     average_time = total_time / 5
     print(f"Average instantiation time for SDXLUNet: {average_time} seconds")
+

@@ -57,13 +57,15 @@ class VAEArch(Architecture[AutoencoderKL]):
                 os.path.dirname(os.path.abspath(__file__)), "sd1_config.json"
             )
 
+            print(config_path)
+
         return result, config_path
 
     def __init__(self, metadata: dict[str, Any]):
         result, config_path = self._determine_type(metadata)
-        self.display_name = result["display_name"]
-        self.input_space = result["input_space"]
-        self.output_space = result["output_space"]
+        self._display_name = result["display_name"]
+        self._input_space = result["input_space"]
+        self._output_space = result["output_space"]
 
         with open(config_path, "r") as file:
             config = json.load(file)
@@ -72,8 +74,8 @@ class VAEArch(Architecture[AutoencoderKL]):
             with ctx():
                 vae = AutoencoderKL(**config)
 
-            self.model = vae
-            self.config = config
+            self._model = vae
+            self._config = config
 
     @classmethod
     def detect(
@@ -96,7 +98,7 @@ class VAEArch(Architecture[AutoencoderKL]):
         print("Loading SD VAE")
         start = time.time()
 
-        vae = self.model
+        vae = self._model
 
         vae_state_dict = {
             key: state_dict[key]
@@ -105,7 +107,7 @@ class VAEArch(Architecture[AutoencoderKL]):
         }
 
         new_vae_state_dict = convert_ldm_vae_checkpoint(
-            vae_state_dict, config=self.config
+            vae_state_dict, config=self._config
         )
 
         if is_accelerate_available():

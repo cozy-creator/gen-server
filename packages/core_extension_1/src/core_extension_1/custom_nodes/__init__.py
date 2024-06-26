@@ -42,14 +42,22 @@ from numpy import ndarray
 from spandrel import ModelLoader
 
 from image_utils.custom_nodes import pil_to_tensor, tensor_to_pil
+import logging
+from huggingface_hub import hf_hub_download
 
-# from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
+# Configure the logging
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 config_path = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "scheduler_config.json"
 )
 
+
+def components_from_model_index(file_path: str) -> Dict[str, Any]:
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    return {key: value for key, value in data.items() if isinstance(value, list)}
 
 # TO DO: 'device' should somehow be marked as an internal-only parameter
 # reserved just for the executor to have tighter control. It should NOT
@@ -92,6 +100,79 @@ class LoadCheckpoint(CustomNode):
         self, file_path: str, *, output_keys: dict = {}, device: TorchDevice = None
     ) -> dict[str, Architecture]:
         return load_models.from_file(file_path, device)
+    
+
+class LoadComponents(CustomNode):
+    """
+    Node to load model components from a repository based on user selection.
+    """
+
+    display_name = {
+        Language.ENGLISH: "Load Components",
+        Language.CHINESE: "加载组件",
+    }
+
+    category = Category.LOADER
+
+    description = {
+        Language.ENGLISH: "Loads selected components from a repository and returns a dictionary of model-classes",
+        Language.CHINESE: "从存储库中加载所选组件，并返回模型类的字典",
+    }
+
+    @staticmethod
+    def update_interface(inputs: Dict[str, Any]) -> NodeInterface:
+        interface = {
+            "inputs": {
+                "repo_id": EnumInput(options=[]),
+                "components": EnumInput(options=[])
+            },
+            "outputs": {},
+        }
+        if inputs:
+            repo_id = inputs.get("repo_id")
+            if repo_id:
+                try:
+                    path = hf_hub_download(repo_id, "model_index.json")
+                    components = components_from_model_index(path)
+                    interface["inputs"]["components"] = EnumInput(options=list(components.keys()))
+                    interface["outputs"] = {component: str for component in components.keys()}
+                except Exception as e:
+                    logging.error(f"Error loading components: {e}")
+
+        return interface
+
+
+    def __call__(self, repo_id: str, components: List[str]) -> Dict[str, Any]:
+        try:
+            path = hf_hub_download(repo_id, "model_index.json")
+            with open(path, 'r') as file:
+                data = json.load(file)
+
+            loaded_components = {}
+            if "_class_name" in data:
+                loaded_components["_class_name"] = data["_class_name"]
+
+            for component in data.keys():
+                if component.startswith('_') or component == "_class_name":
+                    # print(component)
+                    continue
+
+                if component in components:
+                    module_name, class_name = data[component]
+                    module = __import__(module_name, fromlist=[class_name])
+                    class_ = getattr(module, class_name)
+                    loaded_component = class_.from_pretrained(repo_id, subfolder=component, torch_dtype=torch.float16)
+                    loaded_components[component] = loaded_component
+                else:
+                    loaded_components[component] = None
+
+            # print(loaded_components)
+
+            return loaded_components
+        
+        except Exception as e:
+            logging.error(f"Error loading components: {e}")
+            return {}
 
 
 class CreatePipe(CustomNode):
@@ -140,13 +221,31 @@ class CreatePipe(CustomNode):
 
     def __call__(
         self,
-        unet: Union[UNet2DConditionModel, SD3Transformer2DModel],
-        vae: AutoencoderKL,
-        text_encoder: Union[CLIPTextModel, CLIPTextModelWithProjection],
+        loaded_components: Optional[Dict[str, Any]] = None,
+        unet: Union[UNet2DConditionModel, SD3Transformer2DModel] = None,
+        vae: AutoencoderKL = None,
+        text_encoder: Union[CLIPTextModel, CLIPTextModelWithProjection] = None,
         text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
     ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
+        
+        if loaded_components:
+            class_name = loaded_components.pop("_class_name", None)
+            if class_name:
+                # Dynamically fetch the required components from loaded_components
+                component_kwargs = {k: v for k, v in loaded_components.items()}
+
+                # Dynamically fetch the class
+                module = __import__("diffusers", fromlist=[class_name])
+                class_ = getattr(module, class_name)
+                # print(class_)
+                # Instantiate the class with the provided components
+                pipe = class_(**component_kwargs)
+                pipe.to("cuda")
+                return pipe
+
+        # Default behavior when loaded_components is not provided
         tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
 
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:

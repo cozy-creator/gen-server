@@ -36,9 +36,9 @@ class Architecture(ABC, Generic[T]):
         """Access the underlying PyTorch model."""
         return self._model # type: ignore
 
-    @property
-    def config(self) -> Any:
-        return self._config
+    # @property
+    # def config(self) -> Any:
+    #     return self._config
     
     def __init__(
         self,

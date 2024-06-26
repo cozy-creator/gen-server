@@ -95,6 +95,7 @@ def components_from_state_dict(
                 try:
                     components.update({arch_id: architecture(metadata=metadata)}) # type: ignore
                 except Exception as e:
+                    print(f"{arch_id}: {e}")
                     components.update({arch_id: architecture()})
         except Exception as e:
             print(e)

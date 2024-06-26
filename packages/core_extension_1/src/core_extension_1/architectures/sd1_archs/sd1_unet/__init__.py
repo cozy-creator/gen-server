@@ -16,16 +16,15 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     The Unet for the Stable Diffusion 1 pipeline
     """
 
-    display_name = "SD1 UNet"
-    input_space = "SD1"
-    output_space = "SD1"
-
     def __init__(self):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
-            self.model = UNet2DConditionModel(**config)
-            self.config = config
+            self._display_name = "SD1 UNet"
+            self._input_space = "SD1"
+            self._output_space = "SD1"
+            self._model = UNet2DConditionModel(**config)
+            self._config = config
 
     @classmethod
     def detect(
@@ -52,7 +51,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         print("Loading SD1.5 UNet")
         start = time.time()
 
-        unet = self.model
+        unet = self._model
 
         # Slice state-dict and convert key keys to cannonical
         unet_state_dict = {
@@ -61,7 +60,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
             if key.startswith("model.diffusion_model.")
         }
         new_unet_state_dict = convert_ldm_unet_checkpoint(
-            unet_state_dict, config=self.config
+            unet_state_dict, config=self._config
         )
 
         unet.load_state_dict(new_unet_state_dict)
