@@ -4,7 +4,7 @@ from aiohttp import web
 import asyncio
 import logging
 from ..globals import CHECKPOINT_FILES, API_ENDPOINTS, RouteDefinition
-from ..executor import generate_images
+from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 
 routes = web.RouteTableDef()
@@ -47,6 +47,33 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
         # Handle the exception, you might want to log it or send an error response
         error_message = json.dumps({"error": str(e)})
         await response.write((error_message + "\n").encode('utf-8'))
+
+    await response.write_eof()
+    
+    return response
+
+@routes.post("/generate-from-repo")
+async def generate_from_repo(request: web.Request) -> web.StreamResponse:
+    response = web.StreamResponse(status=200, reason='OK', headers={'Content-Type': 'application/json'})
+    await response.prepare(request)
+    
+    # TO DO: validate these types using something like pydantic
+    try:
+        data = await request.json()
+        repo_id: str = data['repo_id']
+        components: List[str] = data['components']
+        positive_prompt: str = data['positive_prompt']
+        negative_prompt: str = data['negative_prompt']
+        random_seed: Optional[int] = data.get('random_seed', None)
+        aspect_ratio: Tuple[int, int] = data['aspect_ratio']
+
+        # Start streaming image URLs
+        async for urls in generate_images_from_repo(repo_id, components, positive_prompt, negative_prompt, random_seed, aspect_ratio):
+            await response.write(json.dumps({"output": urls}).encode('utf-8') + b'\n')
+
+    except Exception as e:
+        logging.error(f"Error during image generation: {str(e)}")
+        await response.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
     await response.write_eof()
     

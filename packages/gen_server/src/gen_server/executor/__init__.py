@@ -47,6 +47,21 @@ async def generate_images(
         CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
         create_pipe = CreatePipe()
 
+        LoadComponents = CUSTOM_NODES["core_extension_1.load_components"]
+        load_components = LoadComponents()
+
+        components = load_components("runwayml/stable-diffusion-v1-5", ["unet", "vae", "text_encoder"])
+
+        # runwayml/stable-diffusion-v1-5
+
+        CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
+        create_pipe = CreatePipe()
+
+        vae = components["vae"]
+        unet = components["unet"]
+        text_encoder_1 = components["text_encoder"]
+
+
         # ???
         # pipe_type = create_pipe.determine_output()
         # print(pipe_type)
@@ -191,10 +206,12 @@ async def generate_images(
         save_node = SaveNode()
         urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)["images"]
 
+        print(f"Image generated in {time.time() - start} seconds")
+
         # for idx, img in enumerate(images):
         #     img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))
 
-        print(f"Image generated in {time.time() - start} seconds")
+        # print(f"Image generated in {time.time() - start} seconds")
 
         # if args.run_web_server:
         #     from request_handlers.web_server import start_server
@@ -216,6 +233,46 @@ async def generate_images(
         
         yield urls
         await asyncio.sleep(0) # yield control back to the caller
+
+
+
+async def generate_images_from_repo(repo_id: str, components: List[str], positive_prompt: str, negative_prompt: str, random_seed: Optional[int], aspect_ratio: Tuple[int, int]):
+    start = time.time()
+
+    LoadComponents = CUSTOM_NODES["core_extension_1.load_components"]
+    load_components = LoadComponents()
+
+    components = load_components(repo_id, components)
+
+    # runwayml/stable-diffusion-v1-5
+
+    CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
+    create_pipe = CreatePipe()
+
+    pipe = create_pipe(
+        loaded_components=components
+    )
+
+    run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
+
+    pil_images = run_pipe(
+        pipe, 
+        prompt=positive_prompt,
+        negative_prompt=negative_prompt, 
+        width=aspect_ratio[0], 
+        height=aspect_ratio[1],
+        num_images=1,
+        generator=torch.Generator().manual_seed(random_seed) if random_seed is not None else None
+    )
+
+    SaveNode = CUSTOM_NODES["image_utils.save_file"]
+    save_node = SaveNode()
+    urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)
+
+    yield urls
+
+    print(f"Image generated in {time.time() - start} seconds")
+        
 
 
 def aspect_ratio_to_dimensions(aspect_ratio: str, model_category: str) -> Tuple[int, int]:
