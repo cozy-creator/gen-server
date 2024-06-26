@@ -1,5 +1,5 @@
 import json
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, AsyncGenerator, Any
 from aiohttp import web
 import asyncio
 import logging
@@ -24,32 +24,74 @@ async def get_checkpoints(_req: web.Request) -> web.Response:
 @routes.post("/generate")
 async def handle_post(request: web.Request) -> web.StreamResponse:
     response = web.StreamResponse(
-        status=200, reason="OK", headers={"Content-Type": "application/json"}
+        status=200,
+        reason='OK',
+        headers={'Content-Type': 'application/json'}
     )
     await response.prepare(request)
 
-    # TO DO: validate these types using something like pydantic
     try:
+        # TO DO: validate these types using something like pydantic
         data = await request.json()
         models: Dict[str, int] = data["models"]
         positive_prompt: str = data["positive_prompt"]
         negative_prompt: str = data["negative_prompt"]
         random_seed: Optional[int] = data.get("random_seed", None)
         aspect_ratio: str = data["aspect_ratio"]
-
-        # Start streaming image URLs
-        async for urls in generate_images(
-            models, positive_prompt, negative_prompt, random_seed, aspect_ratio
-        ):
-            await response.write(json.dumps({"output": urls}).encode("utf-8") + b"\n")
-
+        
+        async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):
+            print(f"we got a new yield: {urls}")
+            json_response = json.dumps({ "output": urls })
+            await response.write((json_response).encode('utf-8') + b"\n")
+            
     except Exception as e:
-        logging.error(f"Error during image generation: {str(e)}")
-        await response.write(json.dumps({"error": str(e)}).encode("utf-8"))
+        # Handle the exception, you might want to log it or send an error response
+        error_message = json.dumps({"error": str(e)})
+        await response.write((error_message + "\n").encode('utf-8'))
 
     await response.write_eof()
-
+    
     return response
+
+
+# @routes.post("/generate")
+# async def handle_post(request: web.Request) -> web.StreamResponse:
+#     response = web.StreamResponse(
+#         status=200, reason="OK", headers={"Content-Type": "application/json"}
+#     )
+#     await response.prepare(request)
+
+#     # TO DO: validate these types using something like pydantic
+#     try:
+#         data = await request.json()
+#         models: Dict[str, int] = data["models"]
+#         positive_prompt: str = data["positive_prompt"]
+#         negative_prompt: str = data["negative_prompt"]
+#         random_seed: Optional[int] = data.get("random_seed", None)
+#         aspect_ratio: str = data["aspect_ratio"]
+        
+#         print('request received')
+
+#         # Start streaming image URLs
+#         async for urls in generate_images(
+#             models,
+#             positive_prompt,
+#             negative_prompt,
+#             random_seed,
+#             aspect_ratio,
+#         ):
+#             print(f"urls received!: {urls}")
+#             json_response = json.dumps({ "output": urls })
+#             await response.write(json_response.encode('utf-8') + b"\n")
+#             # await response.write(json.dumps({"output": urls}).encode("utf-8") + b"\n")
+
+#     except Exception as e:
+#         logging.error(f"Error during image generation: {str(e)}")
+#         await response.write(json.dumps({"error": str(e)}).encode("utf-8"))
+
+#     await response.write_eof()
+    
+#     return response
 
 
 async def start_server():
@@ -74,13 +116,14 @@ async def start_server():
     await asyncio.Future()  # Keep the server running
 
 
-def api_routes_validator(plugin) -> bool:
-    try:
-        if isinstance(plugin, type):
-            return issubclass(plugin, RouteDefinition)
-        return isinstance(plugin, RouteDefinition)
-    except TypeError:
-        print(f"Invalid plugin type: {plugin}")
+def api_routes_validator(plugin: Any) -> bool:
+    if isinstance(plugin, web.RouteTableDef):
+        return True
+    
+    if isinstance(plugin, Iterable):
+        return all(isinstance(route, web.RouteDef) for route in plugin)
+    
+    return False
 
 
 if __name__ == "__main__":

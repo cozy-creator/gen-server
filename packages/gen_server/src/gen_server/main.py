@@ -53,9 +53,8 @@ def main():
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
-    whatever = load_extensions("comfy_creator.api", validator=api_routes_validator)
     API_ENDPOINTS.update(
-        load_extensions("comfy_creator.api", expected_type=api_routes_validator)
+        load_extensions("comfy_creator.api", validator=api_routes_validator)
     )
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List, Any, AsyncGenerator
 import time
 import torch
 import inspect
@@ -14,12 +14,16 @@ async def generate_images(
     negative_prompt: str, 
     random_seed: Optional[int], 
     aspect_ratio: str
-):
+) -> AsyncGenerator[List[dict[str, Any]], None]:
     start = time.time()
 
     # Simulate image generation and yield URLs
     for checkpoint_id, num_images in models.items():
         
+        # Yield a list of placeholder URLs and then sleep
+        # yield [{"url": f"placeholder_url_{i}.jpg"} for i in range(num_images)]
+        # await asyncio.sleep(1)  # Sleep for 1 second
+
         # === Node 1: Load Checkpoint ===
         checkpoint_metadata = CHECKPOINT_FILES.get(checkpoint_id, None)
         if checkpoint_metadata is None:
@@ -146,7 +150,6 @@ async def generate_images(
         #     text_encoder=text_encoder_1,
         #     unet=unet
         # )
-
         
         # === Node 3: Run Pipe ===
         run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
@@ -186,7 +189,7 @@ async def generate_images(
         # === Node 4: Save Files ===
         SaveNode = CUSTOM_NODES["image_utils.save_file"]
         save_node = SaveNode()
-        urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)
+        urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)["images"]
 
         # for idx, img in enumerate(images):
         #     img.save(os.path.join(output_folder, f"generated_image_{idx}.png"))
@@ -212,6 +215,8 @@ async def generate_images(
             torch.cuda.empty_cache()
         
         yield urls
+        await asyncio.sleep(0) # yield control back to the caller
+
 
 def aspect_ratio_to_dimensions(aspect_ratio: str, model_category: str) -> Tuple[int, int]:
     aspect_ratio_map = {
