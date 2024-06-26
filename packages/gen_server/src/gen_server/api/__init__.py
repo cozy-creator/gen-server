@@ -40,7 +40,6 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
         aspect_ratio: str = data["aspect_ratio"]
         
         async for urls in generate_images(models, positive_prompt, negative_prompt, random_seed, aspect_ratio):
-            print(f"we got a new yield: {urls}")
             json_response = json.dumps({ "output": urls })
             await response.write((json_response).encode('utf-8') + b"\n")
             
