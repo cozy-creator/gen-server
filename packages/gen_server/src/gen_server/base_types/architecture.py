@@ -1,18 +1,19 @@
 import torch
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar, Optional, TypedDict, Generic
-from spandrel import Architecture as SpandrelArchitecture, ModelDescriptor
+from spandrel import Architecture as SpandrelArchitecture, ImageModelDescriptor
 from .common import StateDict, TorchDevice
-
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
 ComponentMetadata = TypedDict(
-    "ComponentMetadata", { "display_name": str, "input_space": str, "output_space": str }
+    "ComponentMetadata", {"display_name": str, "input_space": str, "output_space": str}
 )
+
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method? That might be more optimized.
+
 
 class Architecture(ABC, Generic[T]):
     """
@@ -34,12 +35,12 @@ class Architecture(ABC, Generic[T]):
     @property
     def model(self) -> T:
         """Access the underlying PyTorch model."""
-        return self._model # type: ignore
+        return self._model  # type: ignore
 
     @property
     def config(self) -> Any:
         return self._config
-    
+
     def __init__(
         self,
         *,
@@ -75,7 +76,7 @@ class Architecture(ABC, Generic[T]):
             bool: True if the state dictionary matches the architecture, False otherwise.
         """
         pass
-        
+
     @abstractmethod
     def load(
         self,
@@ -90,7 +91,7 @@ class Architecture(ABC, Generic[T]):
             device: The device the loaded model is sent to.
         """
         pass
-    
+
     # @classmethod
     # def __subclasshook__(cls, subclass):
     #     """ Used by `issubclass` to validate that the implementation of is correct. """
@@ -103,7 +104,7 @@ class Architecture(ABC, Generic[T]):
     #         'detect': 'classmethod',
     #         'load': 'method'
     #     }
-        
+
     #     for method, method_type in required_methods.items():
     #         if not any(method in B.__dict__ for B in subclass.__mro__):
     #             print(f"Missing implementation of {method} in {subclass.__name__}")
@@ -141,17 +142,18 @@ class SpandrelArchitectureAdapter(Architecture):
     """
 
     def __init__(self, arch: SpandrelArchitecture):
-        super().__init__(model=None, config=None)
+        super().__init__()
         if not isinstance(arch, SpandrelArchitecture):
             raise TypeError("'arch' must be an instance of spandrel Architecture")
 
         self.inner = arch
-        self.display_name = self.inner.name
+        self._model = None
+        self._display_name = self.inner.name
 
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None) -> None:
         descriptor = self.inner.load(state_dict)
-        if not isinstance(descriptor, ModelDescriptor):
-            raise TypeError("descriptor must be an instance of ModelDescriptor")
+        if not isinstance(descriptor, ImageModelDescriptor):
+            raise TypeError("descriptor must be an instance of ImageModelDescriptor")
 
         self._model = descriptor.model
         if device is not None:
@@ -163,5 +165,9 @@ class SpandrelArchitectureAdapter(Architecture):
         else:
             raise Exception("Device not provided and could not be inferred")
 
-    def detect(self, state_dict: StateDict) -> bool:
+    def detect(
+        self,
+        state_dict: StateDict,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> bool:
         return self.inner.detect(state_dict)

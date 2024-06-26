@@ -1,32 +1,10 @@
-from zope.interface import implementer, Interface
-
-from gen_server.base_types.architecture import IArchitecture
-
-
-@implementer(IArchitecture)
-class Testt:
-    # def __init__(self, model=None, config=None):
-    #     self.model = model
-    #     self.config = config
-
-    def display_name(self):
-        pass
-
-    def input_space(self):
-        pass
-
-    def output_space(self):
-        pass
-
-    def load(self, state_dict, device=None):
-        pass
-
-    def detect(self, state_dict):
-        pass
-
+from gen_server.base_types.architecture import Architecture
+from packages.core_extension_1.src.core_extension_1.architectures.esrgan_archs.real_esrgan_x2 import (
+    RealESRGAN,
+)
 
 if __name__ == "__main__":
-    testt = Testt()
+    arch = RealESRGAN()
     #
     # try:
     #     print(verify.verifyObject(IArchitecture, testt))
@@ -35,4 +13,8 @@ if __name__ == "__main__":
     # except Exception:
     #     logging.log("Unknownerror...")
     # print(IArchitecture.providedBy(testt))
-    print(type(Interface))
+    print(isinstance(arch, Architecture))
+
+    print(arch.display_name)
+    print(arch.input_space)
+    print(arch.output_space)
