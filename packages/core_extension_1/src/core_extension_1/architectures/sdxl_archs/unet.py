@@ -1,9 +1,8 @@
 import os
 import json
 import time
-from typing import Any, Optional
-
 import torch
+from typing import Any, Optional
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
@@ -18,8 +17,7 @@ logger = logging.getLogger(__name__)
 if is_accelerate_available():
     from accelerate import init_empty_weights
 
-
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
 
 
 class SDXLUNet(Architecture[UNet2DConditionModel]):
@@ -27,11 +25,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
     The UNet used for the SDXL pipeline
     """
 
-    display_name = "SDXL UNet"
-    input_space = "SDXL"
-    output_space = "SDXL"
-
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         with open(config_path, "r") as file:
             config = json.load(file)
 
@@ -39,14 +33,18 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         with ctx():
             model = UNet2DConditionModel(**config)
 
-        self.model = model
-        self.config = config
+        self._model = model
+        self._config = config
+        
+        self._display_name = "SDXL UNet"
+        self._input_space = "SDXL"
+        self._output_space = "SDXL"
 
     @classmethod
     def detect(
         cls,
         state_dict: StateDict,
-        metadata: dict[str, Any],
+        **ignored: Any,
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "model.diffusion_model.input_blocks.0.0.bias",
@@ -55,16 +53,16 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
 
         return (
             ComponentMetadata(
-                display_name=cls.display_name,
-                input_space=cls.input_space,
-                output_space=cls.output_space,
+                display_name="SDXL UNet",
+                input_space="SDXL",
+                output_space="SDXL",
             )
             if all(key in state_dict for key in required_keys)
             else None
         )
 
     @override
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SDXL UNet")
         start = time.time()
 
@@ -81,7 +79,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         )
 
         if is_accelerate_available():
-            from diffusers.models.modeling_utils import load_model_dict_into_meta
+            from diffusers.models.model_loading_utils import load_model_dict_into_meta
             print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict)
             if unet._keys_to_ignore_on_load_unexpected is not None:

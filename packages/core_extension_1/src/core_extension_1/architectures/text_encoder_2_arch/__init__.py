@@ -152,26 +152,26 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
                 "output_space": "SD3",
             }
             config_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "sd3_config.json"
+                os.path.dirname(os.path.abspath(__file__)), "config_sd3.json"
             )
-        elif architecture == "stable-diffusion-xl-v1-base":
+        # elif architecture == "stable-diffusion-xl-v1-base":
+        else:
             result: ComponentMetadata = {
                 "display_name": "SDXL Text Encoder 2",
                 "input_space": "SDXL",
                 "output_space": "SDXL",
             }
             config_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
+                os.path.dirname(os.path.abspath(__file__)), "config_sdxl.json"
             )
 
         return result, config_path
 
-    def __init__(self, metadata: dict):
-
+    def __init__(self, metadata: dict[str, Any], **ignored: Any):
         result, config_path = self._determine_type(metadata)
-        self.display_name = result["display_name"]
-        self.input_space = result["input_space"]
-        self.output_space = result["output_space"]
+        self._display_name = result["display_name"]
+        self._input_space = result["input_space"]
+        self._output_space = result["output_space"]
 
         with open(config_path, 'r') as file:
             # Create diffusers class
@@ -181,8 +181,8 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         with ctx():
             text_encoder = CLIPTextModelWithProjection(text_encoder_config)
 
-        self.model = text_encoder
-        self.config = text_encoder_config
+        self._model = text_encoder
+        self._config = text_encoder_config
 
     @classmethod
     def detect(
@@ -205,7 +205,7 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         return None
     
 
-    def load(self, state_dict: StateDict, device: TorchDevice = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         """
         Loads the SDXL Text Encoder 2 model from the given state dictionary.
         """

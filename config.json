@@ -5,7 +5,8 @@
   "workspace_dir": "~/.comfy-creator",
   "models_dirs": [
     "~/.comfy-creator/models",
-    "~/.comfy-creator/models/stable-diffusion"
+    "~/.comfy-creator/models/stable-diffusion",
+    "C:/git/comfyui/models"
   ],
   "s3_credentials": {
     "bucket_name": "voidtech-storage-dev",

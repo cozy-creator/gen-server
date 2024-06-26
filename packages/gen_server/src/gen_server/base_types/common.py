@@ -1,5 +1,5 @@
 import torch
-from typing import Union, List
+from typing import Union, List, Callable, Any
 import PIL.Image
 import numpy as np
 from enum import Enum
@@ -39,3 +39,5 @@ ImageOutputType = Union[List[PIL.Image.Image], np.ndarray]
 """
 Static typing for image outputs
 """
+
+Validator = Callable[[Any], bool]

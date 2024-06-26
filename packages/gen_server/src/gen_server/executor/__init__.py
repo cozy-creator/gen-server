@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List, Any, AsyncGenerator
 import time
 import torch
 import inspect
@@ -6,13 +6,24 @@ import asyncio
 from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
 
 # === Simulating the executor code ===
-        
+
 # This is a fixed prebuilt workflow; it's a placeholder for now
-async def generate_images(models: dict[str, int], positive_prompt: str, negative_prompt: str, random_seed: Optional[int], aspect_ratio: Tuple[int, int]):
+async def generate_images(
+    models: dict[str, int],
+    positive_prompt: str, 
+    negative_prompt: str, 
+    random_seed: Optional[int], 
+    aspect_ratio: str
+) -> AsyncGenerator[List[dict[str, Any]], None]:
     start = time.time()
 
     # Simulate image generation and yield URLs
     for checkpoint_id, num_images in models.items():
+        
+        # Yield a list of placeholder URLs and then sleep
+        # yield [{"url": f"placeholder_url_{i}.jpg"} for i in range(num_images)]
+        # await asyncio.sleep(1)  # Sleep for 1 second
+
         # === Node 1: Load Checkpoint ===
         checkpoint_metadata = CHECKPOINT_FILES.get(checkpoint_id, None)
         if checkpoint_metadata is None:
@@ -28,9 +39,9 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
 
         components = load_checkpoint(file_path, output_keys=output_keys)
 
-        print("Number of items loaded:", len(models))
-        for model_key in models.keys():
-            print(f"Model key: {model_key}")
+        print("Number of items loaded:", len(components))
+        for key in components.keys():
+            print(f"Model key: {key}")
 
         # === Node 2: Create Pipe ===
         CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
@@ -76,6 +87,8 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                     text_encoder=text_encoder_1,
                     unet=unet
                 )
+                cfg = 7.0
+                num_inference_steps = 25
                 
             case "SDXL":
                 vae = components["core_extension_1.vae"].model
@@ -89,6 +102,8 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                     text_encoder_2=text_encoder_2,
                     unet=unet
                 )
+                cfg = 7.0
+                num_inference_steps = 18
                 
             case "SD3":
                 vae = components["core_extension_1.vae"].model
@@ -104,6 +119,9 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
                     text_encoder_3=text_encoder_3,
                     unet=unet
                 )
+                cfg = 4.5
+                num_inference_steps = 28
+                
             case _:
                 raise ValueError(f"Unknown category: {checkpoint_metadata.category}")
 
@@ -147,10 +165,12 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         #     text_encoder=text_encoder_1,
         #     unet=unet
         # )
-
         
         # === Node 3: Run Pipe ===
         run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
+
+        # Determine the width and height based on the aspect ratio and base model
+        width, height = aspect_ratio_to_dimensions(aspect_ratio, checkpoint_metadata.category)
 
         # output_type = run_pipe.determine_output()
         # print(output_type)
@@ -159,12 +179,14 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         # prompt = "Beautiful anime woman with dark-skin"
         # negative_prompt = "poor quality, worst quality, watermark, blurry"
         pil_images = run_pipe(
-            pipe, 
+            pipe,
             prompt=positive_prompt,
             negative_prompt=negative_prompt, 
-            width=aspect_ratio[0], 
-            height=aspect_ratio[1],
-            num_images_per_prompt=num_images,
+            width=width, 
+            height=height,
+            num_images=num_images,
+            guidance_scale=cfg,
+            num_inference_steps=num_inference_steps,
             generator=torch.Generator().manual_seed(random_seed) if random_seed is not None else None
         )
 
@@ -182,7 +204,7 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
         # === Node 4: Save Files ===
         SaveNode = CUSTOM_NODES["image_utils.save_file"]
         save_node = SaveNode()
-        urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)
+        urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)["images"]
 
         print(f"Image generated in {time.time() - start} seconds")
 
@@ -204,7 +226,13 @@ async def generate_images(models: dict[str, int], positive_prompt: str, negative
 
         #     start_server(args.host, args.grpc_port)
         
+        # free up memory
+        del pipe
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
         yield urls
+        await asyncio.sleep(0) # yield control back to the caller
 
 
 
@@ -247,3 +275,27 @@ async def generate_images_from_repo(repo_id: str, components: List[str], positiv
 
 
     print(f"Image generated in {time.time() - start} seconds")
+        
+
+
+def aspect_ratio_to_dimensions(aspect_ratio: str, model_category: str) -> Tuple[int, int]:
+    aspect_ratio_map = {
+        '21/9': {'large': (1536, 640), 'default': (896, 384)},
+        '16/9': {'large': (1344, 768), 'default': (768, 448)},
+        '4/3': {'large': (1152, 896), 'default': (704, 512)},
+        '1/1': {'large': (1024, 1024), 'default': (512, 512)},
+        '3/4': {'large': (896, 1152), 'default': (512, 704)},
+        '9/16': {'large': (768, 1344), 'default': (448, 768)},
+        '9/21': {'large': (640, 1536), 'default': (384, 896)},
+    }
+    
+    if aspect_ratio not in aspect_ratio_map:
+        raise ValueError(f"Unsupported aspect ratio: {aspect_ratio}")
+    
+    size = 'large' if (
+        model_category == 'SDXL' or 
+        model_category == 'SD3'
+    ) else 'default'
+    
+    return aspect_ratio_map[aspect_ratio][size]
+

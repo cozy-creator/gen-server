@@ -61,7 +61,7 @@ class VAEArch(Architecture[AutoencoderKL]):
 
         return result, config_path
 
-    def __init__(self, metadata: dict[str, Any]):
+    def __init__(self, metadata: dict[str, Any], **ignored: Any):
         result, config_path = self._determine_type(metadata)
         self._display_name = result["display_name"]
         self._input_space = result["input_space"]
@@ -111,7 +111,7 @@ class VAEArch(Architecture[AutoencoderKL]):
         )
 
         if is_accelerate_available():
-            from diffusers.models.modeling_utils import load_model_dict_into_meta
+            from diffusers.models.model_loading_utils import load_model_dict_into_meta
             print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict)
             if vae._keys_to_ignore_on_load_unexpected is not None:

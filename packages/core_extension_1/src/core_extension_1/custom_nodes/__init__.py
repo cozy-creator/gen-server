@@ -97,7 +97,7 @@ class LoadCheckpoint(CustomNode):
 
     # TODO: do something without output-keys? maybe some more declarative
     def __call__(
-        self, file_path: str, *, output_keys: dict = {}, device: TorchDevice = None
+        self, file_path: str, *, output_keys: dict = {}, device: Optional[TorchDevice] = None
     ) -> dict[str, Architecture]:
         return load_models.from_file(file_path, device)
     
@@ -181,9 +181,7 @@ class CreatePipe(CustomNode):
     """
 
     display_name = "Create Pipe"
-
     category = "pipe"
-
     description = "Creates a StableDiffusionPipeline"
 
     # Note the declarative nature of this; the custom-node declares what types
@@ -345,17 +343,19 @@ class RunPipe(CustomNode):
         negative_prompt: Optional[str] = None,
         width: int = 512,
         height: int = 512,
-        num_images_per_prompt: int = 1,
+        num_images: int = 1,
+        num_inference_steps: int = 25,
+        guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     ) -> Union[List[Image], ndarray]:
         images: Union[List[Image], ndarray] = pipe(
             prompt,
             negative_prompt=negative_prompt,
-            num_inference_steps=28,
+            num_inference_steps=num_inference_steps,
             width=width,
             height=height,
-            guidance_scale=7.0,
-            num_images_per_prompt=num_images_per_prompt,
+            guidance_scale=guidance_scale,
+            num_images_per_prompt=num_images,
             generator=generator,
         ).images
 

@@ -83,3 +83,12 @@ class CustomNode(ABC):
         Runs the node.
         """
         ...
+
+
+def custom_node_validator(plugin) -> bool:
+    try:
+        if isinstance(plugin, type):
+            return issubclass(plugin, CustomNode)
+        return isinstance(plugin, CustomNode)
+    except TypeError:
+        print(f"Invalid plugin type: {plugin}")
