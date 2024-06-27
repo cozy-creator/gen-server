@@ -15,8 +15,9 @@ RUN apt-get update && \
     libffi-dev \
     wget \
     ca-certificates \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    && apt-get clean
+
+RUN rm -rf /var/lib/apt/lists/*
 
 # Install Rust and Cargo
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -30,7 +31,11 @@ RUN pip install -e .
 WORKDIR /app/packages/core_extension_1
 RUN pip install -e .
 
+# Install image_utils dependencies
 WORKDIR /app/packages/image_utils
 RUN pip install -e .
+
+# Back to the app directory
+WORKDIR /app
 
 CMD ["comfy-creator"]
