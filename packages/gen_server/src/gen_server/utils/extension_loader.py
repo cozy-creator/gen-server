@@ -36,12 +36,20 @@ def load_extensions(
         try:
             plugin = entry_point.load()
 
-            # Optionally verify the loaded component matches our expected type
-            if validator is not None and not validator(plugin):
-                logging.error(f'Failed to validate component "{scoped_name}" type.')
-                raise ValueError(f"Invalid component type for {scoped_name}")
+            def _load_plugin_inner(name, plugin_):
+                # Optionally verify the loaded component matches our expected type
+                if validator is not None and not validator(plugin_):
+                    logging.error(f'Failed to validate component "{name}" type.')
+                    raise ValueError(f"Invalid component type for {name}")
 
-            plugins[scoped_name] = plugin
+                plugins[name] = plugin_
+
+            if isinstance(plugin, list):
+                for item in plugin:
+                    name = f"{scoped_name}:{item.__name__}"
+                    _load_plugin_inner(name, item)
+            else:
+                _load_plugin_inner(scoped_name, plugin)
 
         except Exception as error:
             logging.error(f"Failed to load component {scoped_name}: {str(error)}")
