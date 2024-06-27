@@ -11,7 +11,7 @@ authors = [
 ]
 
 dependencies = [
-  "comfy_creator", "boto3", "pillow", "numpy", "python-dotenv"
+  "gen_server", "boto3", "pillow", "numpy", "python-dotenv"
 ]
 
 [project.entry-points."comfy_creator.custom_nodes"]
