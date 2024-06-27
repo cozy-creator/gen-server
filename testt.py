@@ -1,5 +1,5 @@
 from gen_server.base_types.architecture import Architecture
-from packages.core_extension_1.src.core_extension_1.architectures.esrgan_archs.real_esrgan_x2 import (
+from packages.core_extension_1.src.core_extension_1.architectures.spandrel.real_esrgan_x2 import (
     RealESRGAN,
 )
 
