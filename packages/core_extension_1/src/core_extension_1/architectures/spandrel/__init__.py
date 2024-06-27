@@ -86,18 +86,11 @@ def build_architecture(architecture):
             f"Architecture must be a subclass of SpandrelArchitecture, got {architecture}"
         )
 
-    cls_properties = {
-        "input_space": architecture.id,
-        "output_space": architecture.id,
-        "display_name": architecture.name,
-    }
-
     def __init__(self):
-        super().__init__(architecture())
+        super(self.__class__, self).__init__(architecture())
 
-    cls_properties["__init__"] = __init__
-
-    return type(architecture.__name__, (SpandrelArchitectureAdapter,), cls_properties)
+    cls_attributes = {"__init__": __init__}
+    return type(architecture.__name__, (SpandrelArchitectureAdapter,), cls_attributes)
 
 
 for _architecture in _spandrel_architectures:
