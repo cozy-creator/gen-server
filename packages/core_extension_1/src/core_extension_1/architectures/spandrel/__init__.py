@@ -83,37 +83,6 @@ _spandrel_architectures = [
 ]
 
 
-# def build_architecture(architecture):
-#     arch_instance = architecture()
-#     if not isinstance(arch_instance, SpandrelArchitecture):
-#         raise ValueError(
-#             f"Architecture must be an instance of SpandrelArchitecture, got {architecture}"
-#         )
-#
-#     def __init__(self):
-#         super(self.__class__, self).__init__(arch_instance)
-#
-#     @classmethod
-#     def detect(
-#         cls,
-#         state_dict: StateDict = None,
-#         metadata: dict[str, Any] = None,
-#     ) -> Optional[ComponentMetadata]:
-#         return (
-#             ComponentMetadata(
-#                 display_name=arch_instance.name,
-#                 input_space=arch_instance.id,
-#                 output_space=arch_instance.id,
-#             )
-#             if arch_instance.detect(state_dict)
-#             else None
-#         )
-#
-#     cls_attributes = {"__init__": __init__, "detect": detect}
-#     return type(architecture.__name__, (SpandrelArchitectureAdapter,), cls_attributes)
-#
-
-
 def build_architecture(
     architecture: Type[SpandrelArchitecture],
 ) -> Type[SpandrelArchitectureAdapter]:
