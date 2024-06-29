@@ -9,6 +9,7 @@ version = "0.0.4"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
+
 dependencies = [
     "aiohttp",
     "blake3",

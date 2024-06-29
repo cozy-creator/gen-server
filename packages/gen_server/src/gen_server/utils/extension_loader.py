@@ -42,6 +42,7 @@ def load_extensions(
                     logging.error(f'Failed to validate plugin "{plugin_name}" type.')
                     raise ValueError(f"Invalid plugin type for {plugin_name}")
 
+                # print(f"Loading plugin {plugin_name}")
                 plugins[plugin_name] = plugin_item
 
             if isinstance(plugin, list):
