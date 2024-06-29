@@ -1,15 +1,25 @@
-from gen_server import Architecture
-from packages.core_extension_1.src.core_extension_1.architectures.spandrel import (
-    architectures,
+import os.path
+
+
+from gen_server.base_types.architecture import architecture_validator
+from gen_server.globals import ARCHITECTURES
+from gen_server.utils import load_extensions
+from gen_server.utils.image_upscaler import upscale_image
+
+model_path = os.path.join(os.path.dirname(__file__), "models", "RealESRGAN_x8.pth")
+
+ARCHITECTURES.update(
+    load_extensions("comfy_creator.architectures", validator=architecture_validator)
 )
 
+
 if __name__ == "__main__":
-    for arch in architectures:
-        print(issubclass(arch, Architecture))
+    component_namespace = "core_extension_1.spandrel_architectures:ESRGANArch"
+    image_name = "robot_arm.jpg"
 
-        a = arch()
-        print(isinstance(a, Architecture))
+    input_path = os.path.join(os.path.dirname(__file__), "inputs", image_name)
+    output_path = os.path.join(
+        os.path.dirname(__file__), "outputs", f"{image_name.split('.')[0]}_output.png"
+    )
 
-        # print(a.input_space)
-        # print(arch.input_space)
-        # print(arch.output_space)
+    upscale_image(component_namespace, input_path, model_path, output_path)

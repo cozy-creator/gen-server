@@ -95,7 +95,6 @@ def components_from_state_dict(
             checkpoint_metadata = None
 
         if checkpoint_metadata is not None:
-            print(checkpoint_metadata)
             model = architecture()
             components.update({arch_id: model})
 
