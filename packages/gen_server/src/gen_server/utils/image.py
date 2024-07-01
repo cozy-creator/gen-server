@@ -82,5 +82,18 @@ def upscale_image(
         save_image(output_img, output_path)
 
 
-def upscale_image_2(model, image: str):
-    pass
+def upscale(model, image: torch.Tensor, device):
+    if image.device != torch.device(device):
+        image = image.to(device)
+
+    # TODO: Check if the model is already on the correct device
+    with torch.no_grad():
+        return model(image)
+
+
+def remove_background(model, image: torch.Tensor, device):
+    if image.device != torch.device(device):
+        image = image.to(device)
+
+    with torch.no_grad():
+        return model(image)

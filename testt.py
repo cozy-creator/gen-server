@@ -1,6 +1,5 @@
 import os.path
 
-
 from gen_server.base_types.architecture import architecture_validator
 from gen_server.globals import ARCHITECTURES
 from gen_server.utils import load_extensions

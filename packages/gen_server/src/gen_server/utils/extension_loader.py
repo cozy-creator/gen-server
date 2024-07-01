@@ -47,8 +47,9 @@ def load_extensions(
 
             if isinstance(plugin, list):
                 for item in plugin:
-                    name = f"{scoped_name}:{item.__name__}"
-                    _load_plugin_inner(name, item)
+                    if not isinstance(item, object):
+                        name = f"{scoped_name}:{item.__name__}"
+                        _load_plugin_inner(name, item)
             else:
                 _load_plugin_inner(scoped_name, plugin)
 
