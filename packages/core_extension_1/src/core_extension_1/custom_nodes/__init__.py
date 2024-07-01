@@ -47,7 +47,9 @@ from huggingface_hub import hf_hub_download
 
 
 # Configure the logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 config_path = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "scheduler_config.json"
@@ -55,9 +57,10 @@ config_path = os.path.join(
 
 
 def components_from_model_index(file_path: str) -> Dict[str, Any]:
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         data = json.load(file)
     return {key: value for key, value in data.items() if isinstance(value, list)}
+
 
 # TO DO: 'device' should somehow be marked as an internal-only parameter
 # reserved just for the executor to have tighter control. It should NOT
@@ -97,10 +100,14 @@ class LoadCheckpoint(CustomNode):
 
     # TODO: do something without output-keys? maybe some more declarative
     def __call__(
-        self, file_path: str, *, output_keys: dict = {}, device: Optional[TorchDevice] = None
+        self,
+        file_path: str,
+        *,
+        output_keys: dict = {},
+        device: Optional[TorchDevice] = None,
     ) -> dict[str, Architecture]:
         return load_models.from_file(file_path, device)
-    
+
 
 class LoadComponents(CustomNode):
     """
@@ -124,7 +131,7 @@ class LoadComponents(CustomNode):
         interface = {
             "inputs": {
                 "repo_id": EnumInput(options=[]),
-                "components": EnumInput(options=[])
+                "components": EnumInput(options=[]),
             },
             "outputs": {},
         }
@@ -134,18 +141,21 @@ class LoadComponents(CustomNode):
                 try:
                     path = hf_hub_download(repo_id, "model_index.json")
                     components = components_from_model_index(path)
-                    interface["inputs"]["components"] = EnumInput(options=list(components.keys()))
-                    interface["outputs"] = {component: str for component in components.keys()}
+                    interface["inputs"]["components"] = EnumInput(
+                        options=list(components.keys())
+                    )
+                    interface["outputs"] = {
+                        component: str for component in components.keys()
+                    }
                 except Exception as e:
                     logging.error(f"Error loading components: {e}")
 
         return interface
 
-
     def __call__(self, repo_id: str, components: List[str]) -> Dict[str, Any]:
         try:
             path = hf_hub_download(repo_id, "model_index.json")
-            with open(path, 'r') as file:
+            with open(path, "r") as file:
                 data = json.load(file)
 
             loaded_components = {}
@@ -153,7 +163,7 @@ class LoadComponents(CustomNode):
                 loaded_components["_class_name"] = data["_class_name"]
 
             for component in data.keys():
-                if component.startswith('_') or component == "_class_name":
+                if component.startswith("_") or component == "_class_name":
                     # print(component)
                     continue
 
@@ -161,7 +171,9 @@ class LoadComponents(CustomNode):
                     module_name, class_name = data[component]
                     module = __import__(module_name, fromlist=[class_name])
                     class_ = getattr(module, class_name)
-                    loaded_component = class_.from_pretrained(repo_id, subfolder=component, torch_dtype=torch.float16)
+                    loaded_component = class_.from_pretrained(
+                        repo_id, subfolder=component, torch_dtype=torch.float16
+                    )
                     loaded_components[component] = loaded_component
                 else:
                     loaded_components[component] = None
@@ -169,7 +181,7 @@ class LoadComponents(CustomNode):
             # print(loaded_components)
 
             return loaded_components
-        
+
         except Exception as e:
             logging.error(f"Error loading components: {e}")
             return {}
@@ -227,7 +239,6 @@ class CreatePipe(CustomNode):
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
     ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
-        
         if loaded_components:
             class_name = loaded_components.pop("_class_name", None)
             if class_name:

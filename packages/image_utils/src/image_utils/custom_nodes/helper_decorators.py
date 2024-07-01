@@ -1,12 +1,9 @@
 import inspect
-from typing import BinaryIO, Dict, List, Optional, Tuple, Union
+from typing import BinaryIO, List, Union
 import torch
 import io
 from PIL import Image, ImageOps, ImageSequence
 import numpy as np
-from aiohttp import payload
-
-
 
 
 # ---------------------------------------- Convert image to tensor decorator -------------------------------------- #
@@ -35,19 +32,19 @@ def convert_image_format(func):
             if expected_type == torch.Tensor:
                 if isinstance(value, bytes):
                     bound_args.arguments[name] = bytes_to_tensor(value)
-                    print(f"Byte - Tensor:")
+                    print("Byte - Tensor:")
             elif expected_type == Union[bytes, List[bytes]]:
                 print("I'm HERE\n\n\nI'm Here\n\n")
                 if isinstance(value, torch.Tensor):
                     bound_args.arguments[name] = tensor_to_bytes(value)
-                    print(f"Tensor - Byte:")
+                    print("Tensor - Byte:")
                 elif isinstance(value, Image):
                     bound_args.arguments[name] = pil_to_bytes(value)
-                    print(f"PIL - Byte:")
+                    print("PIL - Byte:")
             elif expected_type == BinaryIO:
                 if isinstance(value, torch.Tensor):
                     bound_args.arguments[name] = tensor_to_binaryio(value)
-                    print(f"Tensor - BinaryIO:")
+                    print("Tensor - BinaryIO:")
             elif expected_type == str:
                 if isinstance(value, torch.Tensor):
                     bound_args
@@ -56,7 +53,6 @@ def convert_image_format(func):
         return func(*bound_args.args, **bound_args.kwargs)
 
     return wrapper
-
 
 
 def bytes_to_tensor(byte_string):
@@ -70,7 +66,7 @@ def bytes_to_tensor(byte_string):
 
     for i in ImageSequence.Iterator(img):
         i = ImageOps.exif_transpose(i)
-        if i.mode == 'I':
+        if i.mode == "I":
             i = i.point(lambda i: i * (1 / 255))
         image = i.convert("RGB")
         image = np.array(image).astype(np.float32) / 255.0
@@ -85,7 +81,8 @@ def bytes_to_tensor(byte_string):
 
     return output_image
 
-def pil_to_bytes(image: Image, format: str = 'PNG') -> bytes:
+
+def pil_to_bytes(image: Image, format: str = "PNG") -> bytes:
     """
     Convert a PIL Image to a byte array.
 
@@ -100,36 +97,53 @@ def pil_to_bytes(image: Image, format: str = 'PNG') -> bytes:
         image.save(output, format=format)
         return output.getvalue()
 
+
 def tensor_to_bytes(tensor):
     """
-    Converts a PyTorch tensor representing an RGB image or batch of images to a list of byte strings.
+    Converts a PyTorch tensor representing an image to a byte string.
 
     Args:
-        tensor (torch.Tensor): A PyTorch tensor with shape (batch_size, channels, height, width) or (channels, height, width).
+        tensor (torch.Tensor): A PyTorch tensor with shape (channels, height, width) or (batch_size, channels, height, width).
 
     Returns:
-        List[bytes]: A list of byte strings representing the input tensor(s) as image(s).
+        bytes: A byte string representing the input tensor as an image.
     """
     # Check if the tensor has a batch dimension
-    if tensor.ndim == 3:
-        tensor = tensor.unsqueeze(0)  # Add batch dimension if absent
+    if tensor.ndim == 4:
+        # Squeeze the batch dimension if it's 1
+        if tensor.shape[0] == 1:
+            tensor = tensor.squeeze(0)
+        else:
+            raise ValueError(
+                "The input tensor should have a batch size of 1 or no batch dimension."
+            )
 
-    if tensor.ndim != 4:
-        raise ValueError("Input tensor must have 3 or 4 dimensions.")
+    # Check if tensor has the right number of channels (3 for RGB, 1 for grayscale)
+    if tensor.shape[0] not in {1, 3}:
+        raise ValueError(
+            f"Expected tensor with 1 or 3 channels, but got {tensor.shape[0]} channels."
+        )
 
-    byte_strings = []
-    for image_tensor in tensor:
-        # Convert tensor to NumPy array and clip pixel values to [0, 255]
-        i = 255.0 * image_tensor.cpu().numpy()
-        i = np.clip(i, 0, 255).astype(np.uint8)
+    # Convert tensor to NumPy array and clip pixel values to [0, 255]
+    i = tensor.cpu().numpy()
 
-        # Convert NumPy array to PIL Image and then to byte string
-        img = Image.fromarray(i)
-        byte_io = io.BytesIO()
-        img.save(byte_io, format='PNG')
-        byte_strings.append(byte_io.getvalue())
+    # If tensor has 1 channel, remove the channel dimension for grayscale image
+    if tensor.shape[0] == 1:
+        i = i.squeeze(0)
+    else:
+        # Rearrange dimensions from (channels, height, width) to (height, width, channels)
+        i = np.transpose(i, (1, 2, 0))
 
-    return byte_strings
+    i = 255.0 * i
+    i = np.clip(i, 0, 255).astype(np.uint8)
+
+    # Convert NumPy array to PIL Image and then to byte string
+    img = Image.fromarray(i)
+    byte_io = io.BytesIO()
+    img.save(byte_io, format="PNG")
+    byte_string = byte_io.getvalue()
+
+    return byte_string
 
 
 def tensor_to_binaryio(tensor):
@@ -148,7 +162,9 @@ def tensor_to_binaryio(tensor):
         if tensor.shape[0] == 1:
             tensor = tensor.squeeze(0)
         else:
-            raise ValueError("The input tensor should have a batch size of 1 or no batch dimension.")
+            raise ValueError(
+                "The input tensor should have a batch size of 1 or no batch dimension."
+            )
 
     # Convert tensor to NumPy array and clip pixel values to [0, 255]
     i = 255.0 * tensor.cpu().numpy()
@@ -157,12 +173,11 @@ def tensor_to_binaryio(tensor):
     # Convert NumPy array to PIL Image and then to byte string
     img = Image.fromarray(i)
     byte_io = io.BytesIO()
-    img.save(byte_io, format='PNG')
+    img.save(byte_io, format="PNG")
 
     byte_io.seek(0)
 
     return byte_io
-
 
 
 class Convert:
@@ -171,8 +186,6 @@ class Convert:
 
     def pt_to_bytes(self, tensor):
         return tensor_to_bytes(tensor)
-    
-
 
 
 def working_with_bytes(tensor: torch.Tensor):

@@ -165,20 +165,13 @@ class SpandrelArchitectureAdapter(Architecture):
         else:
             raise Exception("Device not provided and could not be inferred")
 
+    @classmethod
     def detect(
-        self,
+        cls,
         state_dict: StateDict = None,
         metadata: dict[str, Any] = None,
     ) -> Optional[ComponentMetadata]:
-        return (
-            ComponentMetadata(
-                display_name=self._display_name,
-                input_space=self.input_space,
-                output_space=self.output_space,
-            )
-            if self.inner.detect(state_dict)
-            else None
-        )
+        pass
 
 
 def architecture_validator(plugin) -> bool:

@@ -14,7 +14,6 @@ from ..globals import ARCHITECTURES
 
 import struct
 import json
-import inspect
 
 METADATA_HEADER_SIZE = 8
 
@@ -37,9 +36,9 @@ def from_file(
     Returns an empty dictionary if no supported model architecture is found.
     """
     state_dict = load_state_dict_from_file(path, device=device)
-    metadata = read_safetensors_metadata(path)
+    # metadata = read_safetensors_metadata(path)
 
-    return from_state_dict(state_dict, metadata, device, registry)
+    return from_state_dict(state_dict, {}, device, registry)
 
 
 def from_state_dict(
@@ -55,7 +54,7 @@ def from_state_dict(
     """
     # Fetch class instances
     components = components_from_state_dict(state_dict, metadata, registry)
-    
+
     # Load the state dict into the class instance, and move to device
     for arch_id, architecture in components.items():
         try:
@@ -69,7 +68,7 @@ def from_state_dict(
 def components_from_state_dict(
     state_dict: StateDict,
     metadata: dict,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load the state-dict into
@@ -79,7 +78,10 @@ def components_from_state_dict(
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
+            checkpoint_metadata = architecture.detect(
+                state_dict=state_dict, metadata=metadata
+            )
+
             # detect_signature = inspect.signature(architecture.detect)
             # if 'state_dict' in detect_signature.parameters and 'metadata' in detect_signature.parameters:
             #     checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
@@ -89,16 +91,19 @@ def components_from_state_dict(
             #     checkpoint_metadata = architecture.detect(metadata=metadata)
             # else:
             #     continue
-        except Exception as e:
+        except Exception:
             checkpoint_metadata = None
 
         if checkpoint_metadata is not None:
-            model = architecture(state_dict=state_dict, metadata=metadata)
+            model = architecture()
             components.update({arch_id: model})
 
     return components
 
-def load_state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
+
+def load_state_dict_from_file(
+    path: str | Path, device: Optional[TorchDevice] = None
+) -> StateDict:
     """
     Load the state dict of a model from the given file path.
 
@@ -109,7 +114,7 @@ def load_state_dict_from_file(path: str | Path, device: Optional[TorchDevice] = 
     """
     extension = os.path.splitext(path)[1].lower()
     if isinstance(device, str):
-        device = torch.device(device) # make pyright type-checker happy
+        device = torch.device(device)  # make pyright type-checker happy
 
     state_dict: StateDict
     if extension == ".pt":
@@ -149,11 +154,15 @@ def _load_pth(path: str | Path, device: Optional[torch.device] = None) -> StateD
     )
 
 
-def _load_torchscript(path: str | Path, device: Optional[torch.device] = None) -> StateDict:
+def _load_torchscript(
+    path: str | Path, device: Optional[torch.device] = None
+) -> StateDict:
     return torch.jit.load(path, map_location=device).state_dict()
 
 
-def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) -> StateDict:
+def _load_safetensors(
+    path: str | Path, device: Optional[TorchDevice] = None
+) -> StateDict:
     if device is not None:
         if isinstance(device, torch.device):
             device = str(device)
@@ -161,8 +170,9 @@ def _load_safetensors(path: str | Path, device: Optional[TorchDevice] = None) ->
     else:
         return safetensors_load_file(path)
 
+
 def read_safetensors_metadata(file_path: str | Path) -> dict[str, Any]:
-    if not str(file_path).endswith('.safetensors'):
+    if not str(file_path).endswith(".safetensors"):
         print(f"Error: File '{file_path}' is not a '.safetensors' file.")
         return {}
     if not os.path.isfile(file_path):
@@ -176,13 +186,14 @@ def read_safetensors_metadata(file_path: str | Path) -> dict[str, Any]:
             return {}
         header_bytes = file.read(header_size)
         header = json.loads(header_bytes)
-        
+
     return header.get("__metadata__", {})
+
 
 def find_component_models(
     state_dict: StateDict,
     metadata: Optional[dict] = None,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES
+    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, ComponentMetadata]:
     """
     Detect all models present inside of a state dict, and return a dict. The keys of
@@ -194,8 +205,10 @@ def find_component_models(
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
-            checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
-            
+            checkpoint_metadata = architecture.detect(
+                state_dict=state_dict, metadata=metadata
+            )
+
             if checkpoint_metadata is not None:
                 # this will overwrite previous architectures with the same id
                 components.update({arch_id: checkpoint_metadata})

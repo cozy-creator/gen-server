@@ -1,4 +1,4 @@
-import os
+from typing import Any, Optional, Type
 
 from spandrel import Architecture as SpandrelArchitecture
 from spandrel.architectures.ESRGAN import ESRGANArch
@@ -36,8 +36,11 @@ from spandrel.architectures.PLKSR import PLKSRArch
 from spandrel.architectures.NAFNet import NAFNetArch
 from spandrel.architectures.SAFMN import SAFMNArch
 
-from gen_server.base_types.architecture import SpandrelArchitectureAdapter
-
+from gen_server import StateDict
+from gen_server.base_types.architecture import (
+    SpandrelArchitectureAdapter,
+    ComponentMetadata,
+)
 
 architectures = []
 _spandrel_architectures = [
@@ -80,17 +83,36 @@ _spandrel_architectures = [
 ]
 
 
-def build_architecture(architecture):
-    if not issubclass(architecture, SpandrelArchitecture):
+def build_architecture(
+    architecture: Type[SpandrelArchitecture],
+) -> Type[SpandrelArchitectureAdapter]:
+    arch_instance = architecture()
+    if not isinstance(arch_instance, SpandrelArchitecture):
         raise ValueError(
-            f"Architecture must be a subclass of SpandrelArchitecture, got {architecture}"
+            f"Architecture must be an instance of SpandrelArchitecture, got {type(architecture).__name__}"
         )
 
-    def __init__(self):
-        super(self.__class__, self).__init__(architecture())
+    class DynamicArchitecture(SpandrelArchitectureAdapter):
+        def __init__(self):
+            super().__init__(arch_instance)
 
-    cls_attributes = {"__init__": __init__}
-    return type(architecture.__name__, (SpandrelArchitectureAdapter,), cls_attributes)
+        @classmethod
+        def detect(
+            cls,
+            state_dict: Optional[StateDict] = None,
+            metadata: Optional[dict[str, Any]] = None,
+        ) -> Optional[ComponentMetadata]:
+            if arch_instance.detect(state_dict):
+                return ComponentMetadata(
+                    display_name=arch_instance.name,
+                    input_space=arch_instance.id,
+                    output_space=arch_instance.id,
+                )
+            return None
+
+    DynamicArchitecture.__name__ = architecture.__name__
+    DynamicArchitecture.__qualname__ = architecture.__qualname__
+    return DynamicArchitecture
 
 
 for _architecture in _spandrel_architectures:

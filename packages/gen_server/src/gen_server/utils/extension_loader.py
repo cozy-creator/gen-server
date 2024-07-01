@@ -21,7 +21,7 @@ def load_extensions(
     # print(f"Discovered plugins: {discovered_plugins}")
 
     for entry_point in discovered_plugins:
-        # Scope the component's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
+        # Scope the plugin's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
         try:
             assert (
                 entry_point.dist is not None
@@ -36,15 +36,24 @@ def load_extensions(
         try:
             plugin = entry_point.load()
 
-            # Optionally verify the loaded component matches our expected type
-            if validator is not None and not validator(plugin):
-                logging.error(f'Failed to validate component "{scoped_name}" type.')
-                raise ValueError(f"Invalid component type for {scoped_name}")
+            def _load_plugin_inner(plugin_name, plugin_item):
+                # Optionally validate the plugin, if a validator is provided
+                if validator is not None and not validator(plugin_item):
+                    logging.error(f'Failed to validate plugin "{plugin_name}" type.')
+                    raise ValueError(f"Invalid plugin type for {plugin_name}")
 
-            plugins[scoped_name] = plugin
+                # print(f"Loading plugin {plugin_name}")
+                plugins[plugin_name] = plugin_item
+
+            if isinstance(plugin, list):
+                for item in plugin:
+                    name = f"{scoped_name}:{item.__name__}"
+                    _load_plugin_inner(name, item)
+            else:
+                _load_plugin_inner(scoped_name, plugin)
 
         except Exception as error:
-            logging.error(f"Failed to load component {scoped_name}: {str(error)}")
+            logging.error(f"Failed to load plugin {scoped_name}: {str(error)}")
 
     return plugins
 
