@@ -26,40 +26,37 @@ async def generate_images(
 
         # === Node 1: Load Checkpoint ===
         checkpoint_metadata = CHECKPOINT_FILES.get(checkpoint_id, None)
+        print(checkpoint_metadata)
         if checkpoint_metadata is None:
             print(f"No checkpoint file found for model: {checkpoint_id}")
             continue # skip to next model
         file_path = checkpoint_metadata.file_path
         
-        LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
+        # LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
+        # load_checkpoint = LoadCheckpoint()
+
+        LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_civitai"]
         load_checkpoint = LoadCheckpoint()
 
         # figure out what outputs we need from this node
         output_keys = {}
 
-        components = load_checkpoint(file_path, output_keys=output_keys)
+        components = load_checkpoint("SDXL VAE", "fp16")
 
         print("Number of items loaded:", len(components))
         for key in components.keys():
             print(f"Model key: {key}")
 
+
         # === Node 2: Create Pipe ===
         CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
         create_pipe = CreatePipe()
 
-        LoadComponents = CUSTOM_NODES["core_extension_1.load_components"]
-        load_components = LoadComponents()
-
-        components = load_components("runwayml/stable-diffusion-v1-5", ["unet", "vae", "text_encoder"])
 
         # runwayml/stable-diffusion-v1-5
 
         CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
         create_pipe = CreatePipe()
-
-        vae = components["vae"]
-        unet = components["unet"]
-        text_encoder_1 = components["text_encoder"]
 
 
         # ???
@@ -78,9 +75,12 @@ async def generate_images(
         
         match checkpoint_metadata.category:
             case "SD1":
+                print("Got Here")
                 vae = components["core_extension_1.vae"].model
                 unet = components["core_extension_1.sd1_unet"].model
                 text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
+
+                print("Got Here again")
 
                 pipe = create_pipe(
                     vae=vae, 
@@ -96,14 +96,17 @@ async def generate_images(
                 text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
                 text_encoder_2 = components["core_extension_1.text_encoder_2"].model
 
+                sdxl_type = checkpoint_metadata.components["core_extension_1.vae"]["input_space"].lower()
+
                 pipe = create_pipe(
                     vae=vae, 
                     text_encoder=text_encoder_1,
                     text_encoder_2=text_encoder_2,
-                    unet=unet
+                    unet=unet,
+                    model_type=sdxl_type
                 )
                 cfg = 7.0
-                num_inference_steps = 18
+                num_inference_steps = 25
                 
             case "SD3":
                 vae = components["core_extension_1.vae"].model
@@ -119,7 +122,7 @@ async def generate_images(
                     text_encoder_3=text_encoder_3,
                     unet=unet
                 )
-                cfg = 4.5
+                cfg = 7.0
                 num_inference_steps = 28
                 
             case _:

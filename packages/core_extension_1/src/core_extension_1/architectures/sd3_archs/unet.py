@@ -103,7 +103,8 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
             unet.load_state_dict(new_unet_state_dict)
             unet.to(torch.float16)
 
-        if device is not None:
-            unet.to(device)
+        # if device is not None:
+        #     unet.to(device)
+        unet.to("cuda")
 
         print(f"UNet loaded in {time.time() - start:.2f} seconds")

@@ -61,7 +61,6 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
             else None
         )
 
-    @override
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         print("Loading SDXL UNet")
         start = time.time()
@@ -95,7 +94,8 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
 
         if device is not None:
             unet.to(device=device)
-        unet.to(torch.bfloat16)
+        # unet.to(torch.float16)
+        # unet.to(torch.bfloat16)
 
         print(f"UNet state dict loaded in {time.time() - start} seconds")
 

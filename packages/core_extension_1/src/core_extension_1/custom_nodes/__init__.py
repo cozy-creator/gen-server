@@ -24,6 +24,10 @@ from diffusers import (
     SD3Transformer2DModel,
     FlowMatchEulerDiscreteScheduler,
     StableDiffusionXLPipeline,
+    EulerDiscreteScheduler,
+    EulerAncestralDiscreteScheduler,
+    EDMDPMSolverMultistepScheduler,
+    EDMEulerScheduler,
 )
 from transformers import (
     CLIPTokenizer,
@@ -44,6 +48,9 @@ from spandrel import ModelLoader
 from image_utils.custom_nodes import pil_to_tensor, tensor_to_pil
 import logging
 from huggingface_hub import hf_hub_download
+import requests
+from tqdm import tqdm
+from gen_server.globals import comfy_config
 
 
 # Configure the logging
@@ -53,6 +60,9 @@ config_path = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "scheduler_config.json"
 )
 
+config_path_play = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config.json"
+)
 
 def components_from_model_index(file_path: str) -> Dict[str, Any]:
     with open(file_path, 'r') as file:
@@ -161,7 +171,7 @@ class LoadComponents(CustomNode):
                     module_name, class_name = data[component]
                     module = __import__(module_name, fromlist=[class_name])
                     class_ = getattr(module, class_name)
-                    loaded_component = class_.from_pretrained(repo_id, subfolder=component, torch_dtype=torch.float16)
+                    loaded_component = class_.from_pretrained(repo_id, subfolder=component, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
                     loaded_components[component] = loaded_component
                 else:
                     loaded_components[component] = None
@@ -173,6 +183,129 @@ class LoadComponents(CustomNode):
         except Exception as e:
             logging.error(f"Error loading components: {e}")
             return {}
+
+
+class LoadCivitai(CustomNode):
+    """
+    Node to load model components from Civitai based on user selection.
+    """
+
+    display_name = {
+        "ENGLISH": "Load Components",
+        "CHINESE": "加载组件",
+    }
+
+    category = "LOADER"
+
+    description = {
+        "ENGLISH": "Loads selected components from a repository and returns a dictionary of model-classes",
+        "CHINESE": "从存储库中加载所选组件，并返回模型类的字典",
+    }
+
+    @staticmethod
+    def update_interface(inputs: Dict[str, Any]) -> Dict[str, Any]:
+        interface = {
+            "inputs": {
+                "model_name": "text",
+                "version_name": "text"
+            },
+            "outputs": {
+                "model_file": "file"
+            },
+        }
+        if inputs:
+            model_name = inputs.get("model_name")
+            if model_name:
+                model_id = LoadCivitai.search_model_by_name(model_name)
+                if model_id:
+                    interface["outputs"]["model_file"] = "file"
+                else:
+                    interface["outputs"]["error"] = "text"
+
+        return interface
+
+    @staticmethod
+    def search_model_by_name(model_name: str):
+        try:
+            # Search for models by name
+            search_response = requests.get(f"https://api.civitai.com/v1/models?query={model_name.lower()}")
+            search_response.raise_for_status()
+            search_results = search_response.json()
+
+            if not search_results or search_results['items'] == []:
+                logging.error(f"No models found with the name: {model_name}")
+                return None
+
+            # Assuming the first result is the desired model
+            # Should we use id instead of name to get the exact model? Will that be too complex for users?
+            model_id = search_results['items'][0]['id']
+            return model_id
+
+        except requests.RequestException as e:
+            logging.error(f"Error searching for models: {e}")
+            return None
+
+    @staticmethod
+    def download_model(repo_id: int, version_name: str = None):
+        try:
+            response = requests.get(f"https://civitai.com/api/v1/models/{repo_id}")
+            response.raise_for_status()
+            model_details = response.json()
+
+            # Find the correct file version
+            file_version = next((v for v in model_details['modelVersions'] if version_name in v['name']), model_details['modelVersions'][0])
+            file_info = file_version['files'][0]
+            file_size_kb = file_info['sizeKB']
+            file_name = file_info['name']
+            download_url = f"{file_info['downloadUrl']}?token={os.getenv('civitaiToken')}"
+
+            model_path = os.path.join(comfy_config.workspace_dir, "models", file_name)
+
+            # Check if the file already exists and its size
+            file_exists = os.path.exists(model_path)
+            existing_file_size = os.path.getsize(model_path) if file_exists else 0
+
+            if file_exists and existing_file_size >= file_size_kb * 1024:
+                logging.info(f"Model '{file_name}' is already fully downloaded.")
+                # loaded component
+                return model_path
+
+            # Convert file size from KB to bytes
+            total_size = int(file_size_kb * 1024)
+
+            # Download model with progress bar and resume capability
+            headers = {"Range": f"bytes={existing_file_size}-"}
+            response = requests.get(download_url, headers=headers, stream=True)
+            response.raise_for_status()
+
+            mode = 'ab' if file_exists else 'wb'
+            with open(model_path, mode) as f:
+                with tqdm(total=total_size, initial=existing_file_size, unit='B', unit_scale=True, unit_divisor=1024) as pbar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            pbar.update(len(chunk))
+
+            return model_path
+
+        except requests.RequestException as e:
+            logging.error(f"Request error: {e}")
+        except Exception as e:
+            logging.error(f"Error downloading model: {e}")
+
+    def __call__(self, model_name: str, version_name: str = None, device: Optional[TorchDevice] = None) -> dict[str, Architecture]:
+        model_id = self.search_model_by_name(model_name)
+        if not model_id:
+            return {"error": f"No models found with the name: {model_name}"}
+        
+        model_path = self.download_model(model_id, version_name)
+        if not model_path:
+            return {"error": "Failed to download model."}
+        
+
+        return load_models.from_file(model_path, device)
+
+
 
 
 class CreatePipe(CustomNode):
@@ -226,6 +359,7 @@ class CreatePipe(CustomNode):
         text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
+        model_type: str = None
     ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
         
         if loaded_components:
@@ -244,12 +378,11 @@ class CreatePipe(CustomNode):
                 return pipe
 
         # Default behavior when loaded_components is not provided
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+        
 
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
-            tokenizer_2 = CLIPTokenizer.from_pretrained(
-                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
-            )
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+            tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
             tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
             # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
             # scheduler = DDIMScheduler.from_pretrained(
@@ -271,12 +404,17 @@ class CreatePipe(CustomNode):
                 scheduler=scheduler,
             ).to(torch.bfloat16)
         elif text_encoder_2 is not None and text_encoder_3 is None:
-            scheduler = DDIMScheduler.from_pretrained(
-                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
-            )
-            tokenizer_2 = CLIPTokenizer.from_pretrained(
-                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
-            )
+            if model_type == "playground":
+                tokenizer = CLIPTokenizer.from_pretrained("playgroundai/playground-v2.5-1024px-aesthetic", subfolder="tokenizer")
+                scheduler = EDMDPMSolverMultistepScheduler.from_pretrained("playgroundai/playground-v2.5-1024px-aesthetic", subfolder="scheduler")
+                tokenizer_2 = CLIPTokenizer.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic", subfolder="tokenizer_2"
+                )
+            else:
+                tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer")
+                scheduler = EulerDiscreteScheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler")
+                tokenizer_2 = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2")
+
             pipe = StableDiffusionXLPipeline(
                 vae=vae,
                 text_encoder=text_encoder,
@@ -285,8 +423,11 @@ class CreatePipe(CustomNode):
                 scheduler=scheduler,
                 tokenizer=tokenizer,
                 tokenizer_2=tokenizer_2,
-            ).to(torch.bfloat16)
+            ).to(torch.float16)
         else:
+            # EulerDiscreteScheduler
+            # runwayml/stable-diffusion-v1-5
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             scheduler = DDIMScheduler.from_pretrained(
                 "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
             )
@@ -301,12 +442,14 @@ class CreatePipe(CustomNode):
                 requires_safety_checker=False,
             )
 
+        print("Got Here")
+
         # if "xformers" in sys.modules:
         #     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
         if "accelerate" in sys.modules:
             pipe.enable_model_cpu_offload()
         # pipe.enable_vae_tiling()
-        pipe.to(device)
+        # pipe.to(device)
 
         return pipe
 
@@ -350,13 +493,13 @@ class RunPipe(CustomNode):
     ) -> Union[List[Image], ndarray]:
         images: Union[List[Image], ndarray] = pipe(
             prompt,
-            negative_prompt=negative_prompt,
+            # negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
-            width=width,
-            height=height,
+            # width=width,
+            # height=height,
             guidance_scale=guidance_scale,
-            num_images_per_prompt=num_images,
-            generator=generator,
+            # num_images_per_prompt=num_images,
+            # generator=generator,
         ).images
 
         return images

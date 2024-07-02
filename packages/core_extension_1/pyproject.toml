@@ -31,6 +31,7 @@ text_encoder_2 = "core_extension_1.architectures.text_encoder_2_arch:TextEncoder
 [project.entry-points."comfy_creator.custom_nodes"]
 load_checkpoint = "core_extension_1.custom_nodes:LoadCheckpoint"
 load_components = "core_extension_1.custom_nodes:LoadComponents"
+load_civitai = "core_extension_1.custom_nodes:LoadCivitai"
 create_pipe = "core_extension_1.custom_nodes:CreatePipe"
 run_pipe = "core_extension_1.custom_nodes:RunPipe"
 
