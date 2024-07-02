@@ -9,6 +9,7 @@ version = "0.0.4"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
+
 dependencies = [
     "aiohttp",
     "blake3",
@@ -26,7 +27,8 @@ dependencies = [
     "uuid",
     "sentencepiece",
     "peft",
-    "RealESRGAN@git+https://github.com/ai-forever/Real-ESRGAN.git"
+    "python-dotenv",
+    "scikit-image"
 ]
 
 [project.optional-dependencies]

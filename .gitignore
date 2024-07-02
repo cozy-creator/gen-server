@@ -13,7 +13,7 @@ venv/
 
 # file folders for users
 /input/
-/temp/
+/outputs/
 /output/
 /models/**
 /packages/image_utils/src/image_utils/custom_nodes/output/
@@ -36,3 +36,7 @@ venv/
 *.pt
 *.pth
 *.safetensors
+
+inputs/
+outputs/
+models/
