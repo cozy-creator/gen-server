@@ -1,3 +1,5 @@
+# From: https://huggingface.co/briaai/RMBG-1.4/blob/main/MyConfig.py
+
 from transformers import PretrainedConfig
 
 

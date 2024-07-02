@@ -1,3 +1,5 @@
+# From: https://huggingface.co/briaai/RMBG-1.4/blob/main/briarmbg.py
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

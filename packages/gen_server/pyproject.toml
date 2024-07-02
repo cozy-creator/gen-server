@@ -28,6 +28,7 @@ dependencies = [
     "sentencepiece",
     "peft",
     "python-dotenv",
+    "scikit-image"
 ]
 
 [project.optional-dependencies]

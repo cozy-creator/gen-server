@@ -22,6 +22,7 @@ def composite_images(
     Returns:
     torch.Tensor: The composited image tensor.
     """
+
     try:
         # Ensure tensors are in float range [0, 1]
         background = (
