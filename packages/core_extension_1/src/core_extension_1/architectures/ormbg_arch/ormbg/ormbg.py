@@ -1,21 +1,15 @@
 # From: https://huggingface.co/briaai/RMBG-1.4/blob/main/briarmbg.py
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import PreTrainedModel
-from .config import RMBGConfig
 
 from core_extension_1.common.isnet import RSU7, RSU6, RSU5, RSU4, RSU4F, _upsample_like
 
 
-class BriaRMBG(PreTrainedModel):
-    config_class = RMBGConfig
+class ORMBG(nn.Module):
+    def __init__(self, in_ch=3, out_ch=1):
+        super(ORMBG, self).__init__()
 
-    def __init__(self, config: RMBGConfig = RMBGConfig()):
-        super().__init__(config)
-        in_ch = config.in_ch  # 3
-        out_ch = config.out_ch  # 1
         self.conv_in = nn.Conv2d(in_ch, 64, 3, stride=2, padding=1)
         self.pool_in = nn.MaxPool2d(2, stride=2, ceil_mode=True)
 
