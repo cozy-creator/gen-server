@@ -1,2 +1,2 @@
-from .models.birefnet import BiRefNet
+from .model.birefnet import BiRefNet
 from .config import Config

@@ -31,6 +31,7 @@ text_encoder_2 = "core_extension_1.architectures.text_encoder_2_arch:TextEncoder
 spandrel_architectures = "core_extension_1.architectures.spandrel:architectures"
 briarmbg = "core_extension_1.architectures.briarmbg_arch:BriaRMBG"
 ormbg = "core_extension_1.architectures.ormbg_arch:ORMBG"
+isnet = "core_extension_1.architectures.isnet_arch:ISNetDIS"
 birefnet = "core_extension_1.architectures.birefnet_arch:BiRefNet"
 
 [project.entry-points."comfy_creator.custom_nodes"]
