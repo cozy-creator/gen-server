@@ -3,7 +3,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from core_extension_1.common.isnet import RSU7, RSU6, RSU5, RSU4, RSU4F, _upsample_like
+from core_extension_1.architectures.isnet_arch.isnet import (
+    RSU7,
+    upsample_like,
+    RSU6,
+    RSU4,
+    RSU4F,
+    RSU5,
+)
+
+
+# from core_extension_1.common.isnet import RSU7, RSU6, RSU5, RSU4, RSU4F, upsample_like
 
 
 class ORMBG(nn.Module):
@@ -74,41 +84,41 @@ class ORMBG(nn.Module):
 
         # stage 6
         hx6 = self.stage6(hx)
-        hx6up = _upsample_like(hx6, hx5)
+        hx6up = upsample_like(hx6, hx5)
 
         # -------------------- decoder --------------------
         hx5d = self.stage5d(torch.cat((hx6up, hx5), 1))
-        hx5dup = _upsample_like(hx5d, hx4)
+        hx5dup = upsample_like(hx5d, hx4)
 
         hx4d = self.stage4d(torch.cat((hx5dup, hx4), 1))
-        hx4dup = _upsample_like(hx4d, hx3)
+        hx4dup = upsample_like(hx4d, hx3)
 
         hx3d = self.stage3d(torch.cat((hx4dup, hx3), 1))
-        hx3dup = _upsample_like(hx3d, hx2)
+        hx3dup = upsample_like(hx3d, hx2)
 
         hx2d = self.stage2d(torch.cat((hx3dup, hx2), 1))
-        hx2dup = _upsample_like(hx2d, hx1)
+        hx2dup = upsample_like(hx2d, hx1)
 
         hx1d = self.stage1d(torch.cat((hx2dup, hx1), 1))
 
         # side output
         d1 = self.side1(hx1d)
-        d1 = _upsample_like(d1, x)
+        d1 = upsample_like(d1, x)
 
         d2 = self.side2(hx2d)
-        d2 = _upsample_like(d2, x)
+        d2 = upsample_like(d2, x)
 
         d3 = self.side3(hx3d)
-        d3 = _upsample_like(d3, x)
+        d3 = upsample_like(d3, x)
 
         d4 = self.side4(hx4d)
-        d4 = _upsample_like(d4, x)
+        d4 = upsample_like(d4, x)
 
         d5 = self.side5(hx5d)
-        d5 = _upsample_like(d5, x)
+        d5 = upsample_like(d5, x)
 
         d6 = self.side6(hx6)
-        d6 = _upsample_like(d6, x)
+        d6 = upsample_like(d6, x)
 
         return [
             F.sigmoid(d1),

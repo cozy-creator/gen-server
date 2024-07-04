@@ -5,7 +5,6 @@ from typing import Any, Optional
 
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
-from transformers import CLIPTextModel
 import torch
 
 from .ormbg import ORMBG as ORMBGModel
@@ -13,7 +12,7 @@ from .ormbg import ORMBG as ORMBGModel
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class ORMBG(Architecture[CLIPTextModel]):
+class ORMBG(Architecture[ORMBGModel]):
     def __init__(self):
         super().__init__()
         with open(config_path, "r") as file:

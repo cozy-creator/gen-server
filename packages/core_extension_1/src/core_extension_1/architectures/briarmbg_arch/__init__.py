@@ -5,7 +5,6 @@ from typing import Any, Optional
 
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
-from transformers import CLIPTextModel
 import torch
 
 from .briarmbg import BriaRMBG as BriaRMBGModel
@@ -13,7 +12,7 @@ from .briarmbg import BriaRMBG as BriaRMBGModel
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class BriaRMBG(Architecture[CLIPTextModel]):
+class BriaRMBG(Architecture[BriaRMBGModel]):
     def __init__(self):
         super().__init__()
         with open(config_path, "r") as file:
