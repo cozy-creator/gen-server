@@ -28,7 +28,9 @@ dependencies = [
     "sentencepiece",
     "peft",
     "python-dotenv",
-    "scikit-image"
+    "scikit-image",
+    "timm",
+    "kornia",
 ]
 
 [project.optional-dependencies]
