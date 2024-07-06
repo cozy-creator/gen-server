@@ -5,24 +5,23 @@ from typing import Any, Optional
 
 from typing_extensions import override
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
-from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 
-from .briarmbg.briarmbg import BriaRMBG
+from .ormbg import ORMBG as ORMBGModel
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-class RMBGArch(Architecture[CLIPTextModel]):
+class ORMBG(Architecture[ORMBGModel]):
     def __init__(self):
         super().__init__()
         with open(config_path, "r") as file:
             config = json.load(file)
-            model = BriaRMBG(**config)
+            model = ORMBGModel(**config)
             self._model = model
             self._config = config
 
-        self._display_name = "RMBG 1.4"
+        self._display_name = "ORMBG"
         self._input_space = "RMBG"
         self._output_space = "RMBG"
 
@@ -33,12 +32,13 @@ class RMBGArch(Architecture[CLIPTextModel]):
         metadata: Optional[dict[str, Any]] = None,
     ) -> Optional[ComponentMetadata]:
         required_keys = {
-            "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
+            "stage1.rebnconvin.conv_s1.weight",
+            "stage1.rebnconvin.conv_s1.bias",
         }
 
         return (
             ComponentMetadata(
-                display_name="RMBG 1.4",
+                display_name="ORMBG",
                 input_space="RMBG",
                 output_space="RMBG",
             )
@@ -48,7 +48,7 @@ class RMBGArch(Architecture[CLIPTextModel]):
 
     @override
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
-        print("Loading RMBG")
+        print("Loading ORMBG")
         start = time.time()
 
         self.model.load_state_dict(state_dict)
@@ -57,4 +57,4 @@ class RMBGArch(Architecture[CLIPTextModel]):
             self.model.to(device=device)
         self.model.to(torch.bfloat16)
 
-        print(f"RMBG loaded in {time.time() - start} seconds")
+        print(f"ORMBG loaded in {time.time() - start} seconds")

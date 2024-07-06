@@ -30,6 +30,12 @@ dependencies = [
     "pydantic",
     "pydantic_settings",
     "python-dotenv",
+    "scikit-image",
+    "timm",
+    "kornia",
+    "tqdm",
+    "opencv-python",
+    "einops",
 ]
 
 [project.optional-dependencies]

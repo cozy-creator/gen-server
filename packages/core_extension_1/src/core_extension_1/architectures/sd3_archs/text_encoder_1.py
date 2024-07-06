@@ -112,7 +112,8 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
             ):
                 text_model_dict.pop("text_model.embeddings.position_ids", None)
 
-            text_encoder.load_state_dict(text_model_dict, strict=False)
+            text_encoder.load_state_dict(text_model_dict)
             text_encoder.to(torch.float16)
 
         text_encoder.to_empty(device=torch.device("cuda"))
+        # text_encoder.to("cuda")

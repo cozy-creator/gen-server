@@ -3,7 +3,7 @@ import os
 from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 import json
 from typing import Optional, Any
-from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
+from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint, create_vae_diffusers_config_from_ldm
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 import time
 import torch
@@ -47,6 +47,15 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
             )
+        elif metadata == {}:
+            result: ComponentMetadata = {
+                "display_name": "Playgound VAE",
+                "input_space": "Playground",
+                "output_space": "Playground",
+            }
+            config_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "play_config.json"
+            )
         else:
             result: ComponentMetadata = {
                 "display_name": "SD1 VAE",
@@ -56,8 +65,6 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "sd1_config.json"
             )
-
-            print(config_path)
 
         return result, config_path
 
@@ -69,6 +76,7 @@ class VAEArch(Architecture[AutoencoderKL]):
 
         with open(config_path, "r") as file:
             config = json.load(file)
+            
             # print(f"Metadata: {metadata}")
             ctx = init_empty_weights if is_accelerate_available() else nullcontext
             with ctx():
@@ -94,7 +102,7 @@ class VAEArch(Architecture[AutoencoderKL]):
 
         return None
 
-    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
+    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None, **kwargs):
         print("Loading SD VAE")
         start = time.time()
 
@@ -106,9 +114,12 @@ class VAEArch(Architecture[AutoencoderKL]):
             if key.startswith("first_stage_model.")
         }
 
+
         new_vae_state_dict = convert_ldm_vae_checkpoint(
             vae_state_dict, config=self._config
         )
+
+        # print(new_vae_state_dict.keys())
 
         if is_accelerate_available():
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
@@ -125,9 +136,9 @@ class VAEArch(Architecture[AutoencoderKL]):
         else:
             vae.load_state_dict(new_vae_state_dict)
 
-        if device is not None:
-            vae.to(device=device)
+        # if device is not None:
+        #     vae.to(device=device)
 
-        vae.to(torch.bfloat16)
+        # vae.to("cuda")
 
         print(f"VAE state dict loaded in {time.time() - start} seconds")

@@ -113,4 +113,4 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
 
-        text_encoder_3.to(device)
+        text_encoder_3.to("cuda")

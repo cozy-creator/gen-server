@@ -1,3 +1,5 @@
+# From: https://huggingface.co/briaai/RMBG-1.4/blob/main/MyPipe.py
+
 import torch
 import torch.nn.functional as F
 from torchvision.transforms.functional import normalize
