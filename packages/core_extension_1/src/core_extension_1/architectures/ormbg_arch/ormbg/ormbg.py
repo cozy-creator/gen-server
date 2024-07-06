@@ -13,9 +13,6 @@ from core_extension_1.architectures.isnet_arch.isnet import (
 )
 
 
-# from core_extension_1.common.isnet import RSU7, RSU6, RSU5, RSU4, RSU4F, upsample_like
-
-
 class ORMBG(nn.Module):
     def __init__(self, in_ch=3, out_ch=1):
         super(ORMBG, self).__init__()

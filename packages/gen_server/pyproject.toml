@@ -31,6 +31,9 @@ dependencies = [
     "scikit-image",
     "timm",
     "kornia",
+    "tqdm",
+    "opencv-python",
+    "einops",
 ]
 
 [project.optional-dependencies]
