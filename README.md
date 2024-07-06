@@ -62,6 +62,18 @@ Example config.json:
 > **Note:** The gen-server currently does not check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server, or we need to implement authentication still.
 
 
+### Docker Build
+
+In the root of this repo, run:
+
+`docker build -t comfy-creator/gen-server:0.0.4 .`
+
+### Docker Run
+
+`docker run -p 8080:8080 comfy-creator/gen-server:0.0.4`
+`docker run --env-file ./.env --volume ./config.json:/app/config.json`
+
+
 ### Old dependencies:
 
 I'm keeping these here for notes:

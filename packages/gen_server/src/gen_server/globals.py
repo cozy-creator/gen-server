@@ -4,9 +4,10 @@ import boto3
 from typing import Type, Dict, Optional, List, Any, Iterable, Callable, TypeVar, Union
 from aiohttp import web
 from dotenv import load_dotenv
-from dataclasses import dataclass, field
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
 
 DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
@@ -39,17 +40,17 @@ CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 Dictionary of all discovered checkpoint files
 """
 
-
-@dataclass
-class ComfyConfig:
+class ComfyConfig(BaseSettings):
     host: Optional[str] = "localhost"
     port: Optional[int] = 8080
     filesystem_type: Optional[str] = "LOCAL"
-    workspace_dir: str = os.path.expanduser(DEFAULT_WORKSPACE_DIR)
-    models_dirs: List[str] = field(
-        default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS]
-    )
-    s3: dict = field(default_factory=dict) 
+    workspace_dir: str = Field(default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_DIR))
+    models_dirs: List[str] = Field(default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS])
+    s3: dict = Field(default_factory=dict)
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 comfy_config = ComfyConfig()
 """

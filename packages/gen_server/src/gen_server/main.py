@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 from gen_server.base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
@@ -30,12 +31,12 @@ file_path = os.path.abspath(
 )
 
 
-def main():
+def main():    
     # Parse command-line args
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", help="Environment file path", default=None)
+    parser.add_argument("--env", help="Environment file path", default=Path(__file__).parent / '.env')
     parser.add_argument(
-        "--config", help="Configuration dictionary (JSON format)", default=None
+        "--config", help="Configuration dictionary (JSON format)", default=Path(__file__).parent / 'config.json'
     )
     args = parser.parse_args()
 

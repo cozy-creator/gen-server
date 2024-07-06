@@ -27,6 +27,8 @@ dependencies = [
     "uuid",
     "sentencepiece",
     "peft",
+    "pydantic",
+    "pydantic_settings",
     "python-dotenv",
 ]
 
