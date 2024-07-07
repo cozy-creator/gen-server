@@ -12,6 +12,8 @@
 #
 # transparent_vae = TransparentVAEDecoder.from_pretrained(
 #     "madebyollin/sdxl-vae-fp16-fix",
+
+# torch_dtype = torch.float16
 # ).to(torch.float16)
 #
 # transparent_vae.set_transparent_decoder(
@@ -61,19 +63,24 @@
 import os
 import torch
 from diffusers import StableDiffusionXLPipeline
-from core_extension_1.common.layerdiffuse.models import TransparentVAEDecoder
-
 from gen_server.utils import load_state_dict_from_file
+
+from core_extension_1.common.layerdiffuse.models import (
+    TransparentVAEDecoder,
+)
+
 
 models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
 
 # Load the VAE and set it to the correct dtype
 transparent_vae = TransparentVAEDecoder.from_pretrained(
-    "madebyollin/sdxl-vae-fp16-fix"
-).to(torch.float16)
+    "stabilityai/sdxl-vae", torch_dtype=torch.float16
+)
+
+transparent_vae.to(torch.float16)
 
 print("here.... 0")
-# # Load and set the transparent decoder weights
+# # # Load and set the transparent decoder weights
 transparent_vae.set_transparent_decoder(
     load_state_dict_from_file(
         os.path.join(models_dir, "vae_transparent_decoder.safetensors")
@@ -88,6 +95,8 @@ pipeline = StableDiffusionXLPipeline.from_single_file(
     os.path.join(models_dir, "sd_xl_base_1.0.safetensors"),
     vae=transparent_vae,
     torch_dtype=torch.float16,
+    variant="fp16",
+    use_safetensors=True,
 )
 
 print("here.... 2")
@@ -96,6 +105,12 @@ pipeline.load_lora_weights(
     "LayerDiffusion/layerdiffusion-v1",
     weight_name="layer_xl_transparent_attn.safetensors",
 )
+
+# pipeline.load_lora_weights(
+#     "rootonchair/diffuser_layerdiffuse",
+#     weight_name="diffuser_layer_xl_transparent_attn.safetensors",
+# )
+
 
 print("here.... 3")
 pipeline.to(device="mps", dtype=torch.float16)
@@ -110,7 +125,7 @@ print("here.... 5")
 # Generate images
 images = pipeline(
     prompt=prompt,
-    num_inference_steps=1,
+    num_inference_steps=5,
     negative_prompt=negative_prompt,
     num_images_per_prompt=1,
     return_dict=False,
