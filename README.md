@@ -13,9 +13,9 @@ Repeat this for all packages you want to install. The other packages extend func
 
 On startup, the Cozy Gen Server will load its configuration from several possible sources, using the following order of precedence:
 
-1. Command-line arguments (ex; `cozy-creator --s3_bucket_name=cozy-storage`)
+1. Command-line arguments (ex; `cozy --s3_bucket_name=cozy-storage`)
 2. Environment variables (ex; `export COZY_S3_BUCKET_NAME=cozy-storage`)
-3. JSON config file (ex; `cozy-creator --config=config.json`)
+3. JSON config file (ex; `cozy --config=config.json`)
 4. Secrets directory (ex; `/run/secrets`)
 5. Default settings
 
@@ -33,41 +33,50 @@ None of our packages currently use any C-APIs, and hence do not need to be recom
 
 ### Running in production
 
-`cozy-creator` flags:
+To start the server, you would run:
 
---config path/to/config.json
---env path/to/.env
-
-If these are not specified, cozy-creator will use default values.
-
-Example config.json:
-```
-    {
-        "filesystem_type": "S3",
-        "workspace_dir": "~/.cozy-creator",
-        "models_dirs": [
-            "~/.cozy-creator/models",
-            "~/.cozy-creator/models/stable-diffusion"
-        ],
-        "s3_credentials": {
-            "bucket_name": "voidtech-storage-dev",
-            "endpoint_fqdn": "nyc3.digitaloceanspaces.com",
-            "folder": "public",
-            "access_key": "DO00W9N964WMQC2MV6JK"
-        }
-    }
+```sh 
+cozy run
 ```
 
-### Configuration Details
+The above command will start the server with the default configs. 
+If you want to specify a different config, you can pass them as arguments to the command
 
-- **filesystem_type**: Specifies the type of file system to use. Options are `LOCAL` or `S3`.
-- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.cozy-creator`.
-- **models_dirs**: Directories where `cozy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.cozy-creator/models`.
-- **s3_credentials**: Contains the credentials for reading files from and writing files to an S3 bucket; only used if filesystem_type is set to S3.
-  - **bucket_name**: The name of the S3 bucket.
-  - **endpoint_fqdn**: The fully qualified domain name of the S3 endpoint.
-  - **folder**: The specific folder within the S3 bucket where files are stored.
-  - **access_key**: The access key for S3 bucket authentication. Note: The secret key should be stored inside of the .env file as `S3_SECRET_KEY`.
+For example to start the server on port 3003, you would user the `--port` option:
+```sh
+cozy run --port 3003
+```
+
+And also, if you want to specify a different environment file, you can pass the `--env_file` option:
+
+```sh
+cozy run --env_file <PATH_TO_ENV>
+```
+
+To view other available options, you can run:
+```sh
+cozy run --help
+```
+
+
+[//]: # (### Configuration Details)
+
+[//]: # ()
+[//]: # (- **filesystem_type**: Specifies the type of file system to use. Options are `LOCAL` or `S3`.)
+
+[//]: # (- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.cozy-creator`.)
+
+[//]: # (- **models_dirs**: Directories where `cozy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.cozy-creator/models`.)
+
+[//]: # (- **s3_credentials**: Contains the credentials for reading files from and writing files to an S3 bucket; only used if filesystem_type is set to S3.)
+
+[//]: # (  - **bucket_name**: The name of the S3 bucket.)
+
+[//]: # (  - **endpoint_fqdn**: The fully qualified domain name of the S3 endpoint.)
+
+[//]: # (  - **folder**: The specific folder within the S3 bucket where files are stored.)
+
+[//]: # (  - **access_key**: The access key for S3 bucket authentication. Note: The secret key should be stored inside of the .env file as `S3_SECRET_KEY`.)
 
 > **Note:** The gen-server currently does not check any form of authentication on requests. Use another server to authenticate requests prior to forwarding them to the gen-server, or we need to implement authentication still.
 
