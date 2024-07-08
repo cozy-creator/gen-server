@@ -162,36 +162,9 @@ class CozyRunConfig(BaseSettings, ExtendedRunConfig):
         extra="ignore",
     )
 
-    # @classmethod/
-    # def from_dict(cls, env_file, **kwargs):
-    #     config = CozyRunConfig(env_file)
-    #     return config.copy(update=kwargs, deep=True)
-
     def __init__(self, env_file: Optional[str], **kwargs):
         args = {k: v for k, v in kwargs.items() if v is not None}
         super().__init__(_env_file=env_file, **args)
-
-        # CozyRunConfig.settings_customise_sources()
-        # init_settings = InitSettingsSource(CozyRunConfig, **kwargs)
-
-        # env_settings = DotEnvSettingsSource(
-        #     settings_cls=CozyRunConfig,
-        #     env_file=env_file,
-        #     env_file_encoding="utf-8",
-        #     env_ignore_empty=True,
-        #     env_nested_delimiter="__",
-        # )
-
-        # envs = {
-        #     name: env_settings.explode_env_vars(
-        #         name, getattr(CozyRunConfig, name), env_settings.env_vars
-        #     )
-        #     if  env_settings.explode_env_vars(getattr(CozyRunConfig, name))
-        #     else value
-        #     for name, value in env_settings.env_vars.items()
-        # }
-
-        # print(env_settings.explode_env_vars("s3", CozyRunConfig.s3))
 
 
 class CozyCommands(BaseSettings):

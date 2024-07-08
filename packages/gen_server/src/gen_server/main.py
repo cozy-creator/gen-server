@@ -4,11 +4,7 @@ import time
 
 from gen_server.base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# from .cli_args import args
-# from .common.firebase import initialize
-# from .settings import settings
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
