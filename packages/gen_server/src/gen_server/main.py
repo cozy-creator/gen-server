@@ -36,7 +36,6 @@ def main():
     # Sub-argument switch
     if subcommand == "run":
         config = CozyRunConfig(**commands.run.dict())
-
         print(json.dumps(config.dict(), indent=2, default=str))
         run_app(config)
     elif subcommand is None:

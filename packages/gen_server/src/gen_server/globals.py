@@ -162,7 +162,15 @@ class CozyRunConfig(BaseSettings, ExtendedRunConfig):
         extra="ignore",
     )
 
+    # @classmethod/
+    # def from_dict(cls, env_file, **kwargs):
+    #     config = CozyRunConfig(env_file)
+    #     return config.copy(update=kwargs, deep=True)
+
     def __init__(self, env_file: Optional[str], **kwargs):
+        args = {k: v for k, v in kwargs.items() if v is not None}
+        super().__init__(_env_file=env_file, **args)
+
         # CozyRunConfig.settings_customise_sources()
         # init_settings = InitSettingsSource(CozyRunConfig, **kwargs)
 
@@ -184,8 +192,6 @@ class CozyRunConfig(BaseSettings, ExtendedRunConfig):
         # }
 
         # print(env_settings.explode_env_vars("s3", CozyRunConfig.s3))
-
-        super().__init__(_env_file=env_file)
 
 
 class CozyCommands(BaseSettings):
