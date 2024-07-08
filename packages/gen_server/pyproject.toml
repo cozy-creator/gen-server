@@ -27,8 +27,8 @@ dependencies = [
     "uuid",
     "sentencepiece",
     "peft",
-    "pydantic",
-    "pydantic_settings",
+    "pydantic>=2.0",
+    "pydantic_settings>=2.3",
     "python-dotenv",
     "scikit-image",
     "timm",
@@ -45,4 +45,5 @@ performance = [
 ]
 
 [project.scripts]
-comfy-creator = "gen_server.main:main"
+cozy = "gen_server.main:main"
+cozy-creator = "gen_server.main:main"

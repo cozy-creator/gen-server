@@ -120,6 +120,7 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
 #     return response
 
 
+# TO DO: use config!
 async def start_server():
     """
     Starts the web server with API endpoints from extensions

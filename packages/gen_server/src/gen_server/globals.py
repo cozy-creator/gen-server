@@ -1,17 +1,168 @@
 import os
 import json
 import boto3
-from typing import Type, Dict, Optional, List, Any, Iterable, Callable, TypeVar, Union
+from pathlib import Path
+from typing import Type, Optional, Any, Iterable, Union
 from aiohttp import web
 from dotenv import load_dotenv
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict, CliPositionalArg, CliSubCommand
+from pydantic import Field, BaseModel, field_validator
+from pydantic_settings import PydanticBaseSettingsSource, CliSettingsSource
+
+# class RunCommand(BaseModel):
+#     config: CliPositionalArg[str] = Field(description="Path to JSON config file")
+
+# class MainCommand(BaseSettings):
+#     config: CliPositionalArg[str] = Field(default=os.getcwd(), description="Path to JSON config file")
+
+#     model_config = SettingsConfigDict(
+#         cli_parse_args = True,
+#         cli_prog_name = "cozy-creator"
+#     )
 
 
 DEFAULT_WORKSPACE_DIR = '~/.comfy-creator/'
 DEFAULT_MODELS_DIRS = ['~/.comfy-creator/models']
+
+# def json_config_settings_source(settings: BaseSettings) -> dict[str, Any]:
+#     """
+#     Load settings from a JSON file.
+#     """
+#     encoding = settings.model_config.get('env_file_encoding', 'utf-8')
+#     config_path = Path('config.json')
+#     if config_path.exists():
+#         return json.loads(config_path.read_text(encoding))
+#     else:
+#         return {}
+
+class S3Credentials(BaseSettings):
+    """
+    Credentials to read from / write to an S3 bucket
+    """
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        env_prefix="cozy_s3_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra='ignore'
+    )
+    
+    bucket_name: Optional[str] = Field(default=None, description="Name of the S3 bucket")
+    endpoint_fqdn: Optional[str] = Field(default=None, description="Fully Qualified Domain Name of the S3 endpoint")
+    folder: Optional[str] = Field(default=None, description="Folder within the S3 bucket")
+    access_key: Optional[str] = Field(default=None, description="Access key for S3 authentication")
+    secret_key: Optional[str] = Field(default=None, description="Secret key for S3 authentication")
+
+class CozyConfig(BaseSettings):
+    """
+    Configuration for the `cozy run` command
+    """
+    model_config = SettingsConfigDict(
+        cli_parse_args=True,
+        case_sensitive=False,
+        env_prefix="cozy_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        env_nested_delimiter="__",
+        # json_file="config.json",
+        # json_file_encoding="utf-8",
+        # secrets_dir = '/run/secrets',
+        extra='ignore'
+    )
+        
+    hostname: str = Field(default="localhost", description="Hostname to use")
+    port: int = Field(default=8080, description="Port to use")
+    workspace_dir: str = Field(
+        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_DIR),
+        description="Workspace directory"
+    )
+    models_dirs: list[str] = Field(
+        default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS],
+        description="Directories containing models"
+    )
+    filesystem_type: str = Field(default="LOCAL", description="Type of filesystem to use")
+    s3: Optional[S3Credentials] = Field(default=None, description="S3 credentials")
+    
+    # allow models_dirs list to be parsed from both JSON and a comma-separated string
+    @field_validator('models_dirs', mode='before')
+    @classmethod
+    def parse_models_dirs(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return v.split(',')  # fallback to comma-separated values
+        return v
+    
+    @field_validator('s3', mode='before')
+    @classmethod
+    def validate_s3(cls, v):
+        if v is None:
+            s3_config = S3Credentials()
+            if any(value is not None for value in s3_config.model_dump().values()):
+                return s3_config
+        return v
+
+
+class RunConfig(BaseModel):
+    model_config = {
+        "extra": "ignore"
+    }
+    
+    env_file: Optional[str] = Field(default=None, description="Path to .env file")
+    secrets_dir: Optional[str] = Field(default=None, description="Path to secrets directory")
+
+class CozyCommands(BaseSettings):
+    """
+    Configuration for the cozy-creator application
+    """
+    model_config = SettingsConfigDict(
+        cli_parse_args=True,
+        case_sensitive=False,
+        env_prefix='cozy_',
+        env_ignore_empty=True,
+        extra='ignore'
+    )
+    
+    # List of commands to run
+    run: CliSubCommand[RunConfig] = Field(description="Run the Cozy Gen Server")
+    
+    # @classmethod
+    # def settings_customise_sources(
+    #     cls,
+    #     settings_cls: Type[BaseSettings],
+    #     init_settings: PydanticBaseSettingsSource,
+    #     env_settings: PydanticBaseSettingsSource,
+    #     dotenv_settings: PydanticBaseSettingsSource,
+    #     file_secret_settings: PydanticBaseSettingsSource,
+    # ) -> tuple[PydanticBaseSettingsSource, ...]:
+    #     return (
+    #         init_settings,
+    #         CliSettingsSource(settings_cls),
+    #         env_settings,
+    #         dotenv_settings,
+    #         file_secret_settings,
+    #     )
+    
+    # @classmethod
+    # def settings_customise_sources(
+    #     cls,
+    #     settings_cls,
+    #     init_settings,
+    #     env_settings,
+    #     file_secret_settings,
+    # ):
+    #     return (
+    #         init_settings,
+    #         json_config_settings_source,
+    #         env_settings,
+    #         file_secret_settings,
+    #     )
+
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
@@ -40,22 +191,6 @@ CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 Dictionary of all discovered checkpoint files
 """
 
-class ComfyConfig(BaseSettings):
-    host: Optional[str] = "localhost"
-    port: Optional[int] = 8080
-    filesystem_type: Optional[str] = "LOCAL"
-    workspace_dir: str = Field(default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_DIR))
-    models_dirs: List[str] = Field(default_factory=lambda: [os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS])
-    s3: dict = Field(default_factory=dict)
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-comfy_config = ComfyConfig()
-"""
-Global configuration dataclass for the comfy-creator application
-"""
 
 def initialize_config(env_path: Optional[str] = None, config_path: Optional[str] = None):
     """
@@ -82,7 +217,7 @@ def initialize_config(env_path: Optional[str] = None, config_path: Optional[str]
             print("Invalid JSON format in the configuration file.")
     
     # Find our directories
-    comfy_config.host = config_dict.get("host", "localhost")
+    comfy_config.hostname = config_dict.get("host", "localhost")
     comfy_config.port = config_dict.get("port", 8080)
     comfy_config.filesystem_type = config_dict.get("filesystem_type", 'LOCAL')
     comfy_config.workspace_dir = os.path.expanduser(config_dict.get("workspace_dir", DEFAULT_WORKSPACE_DIR))

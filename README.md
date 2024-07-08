@@ -2,12 +2,22 @@
 
 To run the main application package, navigate to the `/packages/gen_server` folder:
 
-- Run `pip install -e .`; this adds the `comfy-creator` command to your path.
-- Run `comfy-creator --config=config.json`
+- Run `pip install -e .`; this adds the `cozy-creator` command to your path.
+- Run `cozy-creator --config=config.json`
 
 This will generate a `.egg-info` folder. The code will be installed in editable format, which means any changes to the code will be immediately reflected the next time you run it.
 
 Repeat this for all packages you want to install. The other packages extend functionality of the gen-server by specifying an entry-point group-name; they will be dynamically imported at runtime by the main gen-server application.
+
+### Cozy Creator Configuration
+
+On startup, the Cozy Gen Server will load its configuration from several possible sources, using the following order of precedence:
+
+1. Command-line arguments (ex; `cozy-creator --s3_bucket_name=cozy-storage`)
+2. Environment variables (ex; `export COZY_S3_BUCKET_NAME=cozy-storage`)
+3. JSON config file (ex; `cozy-creator --config=config.json`)
+4. Secrets directory (ex; `/run/secrets`)
+5. Default settings
 
 
 ### Building for Distribution
@@ -23,21 +33,21 @@ None of our packages currently use any C-APIs, and hence do not need to be recom
 
 ### Running in production
 
-`comfy-creator` flags:
+`cozy-creator` flags:
 
 --config path/to/config.json
 --env path/to/.env
 
-If these are not specified, comfy-creator will use default values.
+If these are not specified, cozy-creator will use default values.
 
 Example config.json:
 ```
     {
         "filesystem_type": "S3",
-        "workspace_dir": "~/.comfy-creator",
+        "workspace_dir": "~/.cozy-creator",
         "models_dirs": [
-            "~/.comfy-creator/models",
-            "~/.comfy-creator/models/stable-diffusion"
+            "~/.cozy-creator/models",
+            "~/.cozy-creator/models/stable-diffusion"
         ],
         "s3_credentials": {
             "bucket_name": "voidtech-storage-dev",
@@ -51,8 +61,8 @@ Example config.json:
 ### Configuration Details
 
 - **filesystem_type**: Specifies the type of file system to use. Options are `LOCAL` or `S3`.
-- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.comfy-creator`.
-- **models_dirs**: Directories where `comfy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.comfy-creator/models`.
+- **workspace_dir**: The default directory where files will be saved and loaded from. Defaults to your home directory at `~/.cozy-creator`.
+- **models_dirs**: Directories where `cozy-creator` will search for checkpoint files. Includes paths to general models and specific models like stable diffusion. Defaults to `~/.cozy-creator/models`.
 - **s3_credentials**: Contains the credentials for reading files from and writing files to an S3 bucket; only used if filesystem_type is set to S3.
   - **bucket_name**: The name of the S3 bucket.
   - **endpoint_fqdn**: The fully qualified domain name of the S3 endpoint.
@@ -66,11 +76,11 @@ Example config.json:
 
 In the root of this repo, run:
 
-`docker build -t comfy-creator/gen-server:0.0.4 .`
+`docker build -t cozy-creator/gen-server:0.0.4 .`
 
 ### Docker Run
 
-`docker run -p 8080:8080 comfy-creator/gen-server:0.0.4`
+`docker run -p 8080:8080 cozy-creator/gen-server:0.0.4`
 `docker run --env-file ./.env --volume ./config.json:/app/config.json`
 
 
