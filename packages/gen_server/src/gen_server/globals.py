@@ -31,6 +31,7 @@ from pydantic import Field, BaseModel, field_validator
 
 DEFAULT_WORKSPACE_DIR = "~/.comfy-creator/"
 DEFAULT_MODELS_DIRS = ["~/.comfy-creator/models"]
+DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
 
 # def json_config_settings_source(settings: BaseSettings) -> dict[str, Any]:
@@ -159,12 +160,21 @@ class CozyRunConfig(BaseSettings, ExtendedRunConfig):
         env_file_encoding="utf-8",
         env_ignore_empty=True,
         env_nested_delimiter="__",
+        env_file=DEFAULT_ENV_FILE_PATH,
         extra="ignore",
     )
 
-    def __init__(self, env_file: Optional[str], **kwargs):
+    def __init__(
+        self,
+        secrets_dir: Optional[str],
+        env_file: Optional[str] = DEFAULT_ENV_FILE_PATH,
+        **kwargs,
+    ):
         args = {k: v for k, v in kwargs.items() if v is not None}
-        super().__init__(_env_file=env_file, **args)
+        if env_file is None:
+            env_file = DEFAULT_ENV_FILE_PATH
+
+        super().__init__(_env_file=env_file, _secrets_dir=secrets_dir, **args)
 
 
 class CozyCommands(BaseSettings):
