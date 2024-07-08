@@ -1,6 +1,6 @@
-import os
+import json
 import time
-from pathlib import Path
+
 
 from gen_server.base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
@@ -17,100 +17,44 @@ from .globals import (
     CUSTOM_NODES,
     WIDGETS,
     CHECKPOINT_FILES,
-    initialize_config,
     CozyConfig,
     CozyCommands,
 )
 import argparse
 import asyncio
-from pydantic_settings import CliSettingsSource, CliSubCommand
 
-file_path = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors",
-    )
-)
 
 def main():
-    config = CozyCommands()
-    
-    if config.run:
-        # Use the env_file and secrets_dir from the command line args
-        cozy_config = CozyConfig(
-            _env_file=config.run.env_file,
-            _secrets_dir=config.run.secrets_dir
-        )
-        run_app(cozy_config)
-    else:
-        print("Use 'cozy run' to start the server.")
-    
-    return
-    
     parser = argparse.ArgumentParser(description="Cozy Creator")
-    
-    # add 'run' command
-    subparsers = parser.add_subparsers(dest='command', help='Sub-command help')
-    run_parser = subparsers.add_parser('run', help='Run the Cozy Gen Server')
-    run_parser.add_argument('--env-file', help="Path to .env file")
-    run_parser.add_argument('--secrets-dir', help="Path to secrets directory")
-    
+    commands = CozyCommands(parser)
     args = parser.parse_args()
-    
+
+    # Pydantic uses the :subcommand attribute to store the subcommand name.
+    # And if we set a prefix e.g "cozy", it will store the subcommand name in the attribute "cozy.:subcommand"
+    subcommand = getattr(args, ":subcommand")
+
     # Sub-argument switch
-    if args.command == 'run':
-        # use our cli-settings in the constructor of Cozy Creator's config
-        cli_settings = CliSettingsSource(CozyConfig, root_parser=run_parser)
-        config_kwargs = {'_cli_settings_source': cli_settings(args=True)}
-    
-        if args.env_file:
-            config_kwargs['_env_file'] = args.env_file
-        if args.secrets_dir:
-            config_kwargs['_secrets_dir'] = args.secrets_dir
-        
-        config = CozyConfig(**config_kwargs)
-        import json
+    if subcommand == "run":
+        config_kwargs = {}
+        if commands.run is not None:
+            if commands.run.env_file:
+                config_kwargs["_env_file"] = commands.run.env_file
+            if commands.run.secrets_dir:
+                config_kwargs["_secrets_dir"] = commands.run.secrets_dir
+
+        config = CozyConfig(parser, **config_kwargs)
+
         print(json.dumps(config.dict(), indent=2, default=str))
-        run_app(config.run)
-    elif args.command is None:
+        run_app(config)
+    elif subcommand is None:
         parser.print_help()
     else:
-        print(f"\nError: Unknown command '{args.command}'")
+        print(f"\nError: Unknown command '{subcommand}'")
         parser.print_help()
-    
-    return
-        
-    # Parse command-line args
-    parser = argparse.ArgumentParser(description="Cozy Creator")
-    parser.add_argument('--config', help="Path to JSON config file")
-    parser.add_argument('--hostname', help="Hostname to use")
-    parser.add_argument('--port', type=int, help="Port to use")
-    parser.add_argument('--workspace-dir', help="Workspace directory")
-    parser.add_argument('--models-dirs', nargs='+', help="Model directories")
-    parser.add_argument('--filesystem-type', choices=['LOCAL', 'S3'], help="Filesystem type")
-    
-    args = parser.parse_args()
-    
-    # Loads the application's config from environment variables and a .env file in the current
-    # working directory
-    config = CozyConfig(config_path=args.config)
-    
-    # Override configurations with command-line arguments provided
-    if args.hostname:
-        config.hostname = args.hostname
-    if args.port:
-        config.port = args.port
-    if args.workspace_dir:
-        config.workspace_dir = args.workspace_dir
-    if args.models_dirs:
-        config.models_dirs = args.models_dirs
-    if args.filesystem_type:
-        config.filesystem_type = args.filesystem_type
 
 
-def run_app(cozy_config: CliSubCommand[CozyConfig]):
+def run_app(cozy_config: CozyConfig):
     print(f"Running with config: {cozy_config}")
-    return
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
