@@ -17,7 +17,7 @@ from .globals import (
     CUSTOM_NODES,
     WIDGETS,
     CHECKPOINT_FILES,
-    CozyConfig,
+    CozyRunConfig,
     CozyCommands,
 )
 import argparse
@@ -35,14 +35,7 @@ def main():
 
     # Sub-argument switch
     if subcommand == "run":
-        config_kwargs = {}
-        if commands.run is not None:
-            if commands.run.env_file:
-                config_kwargs["_env_file"] = commands.run.env_file
-            if commands.run.secrets_dir:
-                config_kwargs["_secrets_dir"] = commands.run.secrets_dir
-
-        config = CozyConfig(parser, **config_kwargs)
+        config = CozyRunConfig(**commands.run.dict())
 
         print(json.dumps(config.dict(), indent=2, default=str))
         run_app(config)
@@ -53,8 +46,8 @@ def main():
         parser.print_help()
 
 
-def run_app(cozy_config: CozyConfig):
-    print(f"Running with config: {cozy_config}")
+def run_app(config: CozyRunConfig):
+    print(f"Running with config: {config}")
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
@@ -102,7 +95,7 @@ def run_app(cozy_config: CozyConfig):
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
-    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=cozy_config.models_dirs))
+    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=config.models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )

@@ -135,7 +135,7 @@ class ExtendedRunConfig:
         return v
 
 
-class RunConfig(BaseModel, ExtendedRunConfig):
+class RunCommandConfig(BaseModel, ExtendedRunConfig):
     model_config = {"extra": "ignore"}
 
     env_file: Optional[str] = Field(
@@ -149,7 +149,7 @@ class RunConfig(BaseModel, ExtendedRunConfig):
     )
 
 
-class CozyConfig(BaseSettings, ExtendedRunConfig):
+class CozyRunConfig(BaseSettings, ExtendedRunConfig):
     """
     Configuration for the `cozy run` command
     """
@@ -162,16 +162,30 @@ class CozyConfig(BaseSettings, ExtendedRunConfig):
         extra="ignore",
     )
 
-    def __init__(self, parser, **kwargs):
-        cli_settings = CliSettingsSource(
-            CozyConfig,
-            root_parser=parser,
-            cli_parse_args=True,
-        )
-        super().__init__(
-            _cli_settings_source=cli_settings,
-            **kwargs,
-        )
+    def __init__(self, env_file: Optional[str], **kwargs):
+        # CozyRunConfig.settings_customise_sources()
+        # init_settings = InitSettingsSource(CozyRunConfig, **kwargs)
+
+        # env_settings = DotEnvSettingsSource(
+        #     settings_cls=CozyRunConfig,
+        #     env_file=env_file,
+        #     env_file_encoding="utf-8",
+        #     env_ignore_empty=True,
+        #     env_nested_delimiter="__",
+        # )
+
+        # envs = {
+        #     name: env_settings.explode_env_vars(
+        #         name, getattr(CozyRunConfig, name), env_settings.env_vars
+        #     )
+        #     if  env_settings.explode_env_vars(getattr(CozyRunConfig, name))
+        #     else value
+        #     for name, value in env_settings.env_vars.items()
+        # }
+
+        # print(env_settings.explode_env_vars("s3", CozyRunConfig.s3))
+
+        super().__init__(_env_file=env_file)
 
 
 class CozyCommands(BaseSettings):
@@ -180,11 +194,7 @@ class CozyCommands(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        cli_parse_args=True,
-        case_sensitive=False,
-        env_prefix="cozy_",
-        env_ignore_empty=True,
-        extra="ignore",
+        cli_parse_args=True, case_sensitive=False, extra="ignore"
     )
 
     def __init__(self, parser: ArgumentParser):
@@ -197,7 +207,7 @@ class CozyCommands(BaseSettings):
         super().__init__(_cli_settings_source=cli_settings)
 
     # List of commands to run
-    run: CliSubCommand[RunConfig] = Field(description="Run the Cozy Gen Server")
+    run: CliSubCommand[RunCommandConfig] = Field(description="Run the Cozy Gen Server")
 
     # @classmethod
     # def settings_customise_sources(
