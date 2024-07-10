@@ -82,6 +82,8 @@ class LoadCheckpoint(CustomNode):
     """
     Takes a file with a state dict, outputs a dictionary of model-classes from Diffusers
     """
+    ux_node = "../ux_node.json"
+    ux_node2 = "../ux_node.tsx"
 
     display_name = {
         Language.ENGLISH: "Load Checkpoint",

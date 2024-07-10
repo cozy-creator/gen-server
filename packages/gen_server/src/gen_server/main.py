@@ -1,10 +1,12 @@
 import json
 import time
-
+import argparse
+import asyncio
+import sys
+from pydantic_settings import CliSettingsSource
 
 from gen_server.base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
@@ -13,36 +15,79 @@ from .globals import (
     CUSTOM_NODES,
     WIDGETS,
     CHECKPOINT_FILES,
-    CozyRunConfig,
-    CozyCommands,
+    RunCommandConfig,
+    BuildWebCommandConfig
 )
-import argparse
-import asyncio
+from .utils.cli_helpers import (
+    find_subcommand,
+    find_arg_value,
+    parse_known_args_wrapper
+)
+
+import warnings
+warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Cozy Creator")
-    commands = CozyCommands(parser)
-    args = parser.parse_args()
+    root_parser = argparse.ArgumentParser(description="Cozy Creator")
+    
+    # When we call parser.parse_args() the arg-parser will stop populating the --help menu
+    # So we need to find the arguments _before_ we call parser.parse_args() inside of
+    # CliSettingsSource() below.
+    env_file = find_arg_value('--env_file') or find_arg_value('--env-file') or '.env'
+    secrets_dir = find_arg_value('--secrets_dir') or find_arg_value('--secrets-dir') or '/run/secrets'
+    subcommand = find_subcommand()
 
-    # Pydantic uses the :subcommand attribute to store the subcommand name.
-    # And if we set a prefix e.g "cozy", it will store the subcommand name in the attribute "cozy.:subcommand"
-    subcommand = getattr(args, ":subcommand")
+    # Add subcommands
+    subparsers = root_parser.add_subparsers(dest='command', help='Available commands')
+    run_parser = subparsers.add_parser('run', help='Run the Cozy Creator server')
+    build_web_parser = subparsers.add_parser('build-web', help='Build the web bundle')
 
-    # Sub-argument switch
-    if subcommand == "run":
-        config = CozyRunConfig(**commands.run.dict())
-        print(json.dumps(config.dict(), indent=2, default=str))
-        run_app(config)
+    if subcommand == 'run':
+        cli_settings = CliSettingsSource(
+            RunCommandConfig,
+            root_parser=run_parser,
+            cli_parse_args=True,
+            cli_enforce_required=False,
+            # overwrite this method so that we don't get errors from unknown args
+            parse_args_method=parse_known_args_wrapper
+        )
+
+        cozy_config = RunCommandConfig(
+            _env_file=env_file, # type: ignore
+            _secrets_dir=secrets_dir, # type: ignore
+            _cli_settings_source=cli_settings(args=True) # type: ignore
+        )
+
+        print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
+        run_app(cozy_config)
+    
+    elif subcommand in ['build-web', 'build_web']:
+        cli_settings = CliSettingsSource(
+            BuildWebCommandConfig,
+            root_parser=build_web_parser
+        )
+        
+        build_config = BuildWebCommandConfig(
+            _env_file=env_file, # type: ignore
+            _secrets_dir=secrets_dir, # type: ignore
+            _cli_settings_source=cli_settings(args=True), # type: ignore
+        )
+        
+        print(json.dumps(build_config.model_dump(), indent=2, default=str))
+    
     elif subcommand is None:
-        parser.print_help()
+        print("No subcommand specified. Please specify a subcommand.")
+        root_parser.print_help()
+        sys.exit(1)
+    
     else:
-        print(f"\nError: Unknown command '{subcommand}'")
-        parser.print_help()
+        print(f"Unknown subcommand: {subcommand}")
+        root_parser.print_help()
+        sys.exit(1)
 
 
-def run_app(config: CozyRunConfig):
-    print(f"Running with config: {config}")
+def run_app(cozy_config: RunCommandConfig):
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
@@ -90,7 +135,7 @@ def run_app(config: CozyRunConfig):
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
-    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=config.models_dirs))
+    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=cozy_config.models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
@@ -110,16 +155,25 @@ def run_app(config: CozyRunConfig):
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
 
-    asyncio.run(start_server())
-
-    return
+    try:
+        asyncio.run(start_server(cozy_config.host, cozy_config.port))
+    except KeyboardInterrupt:
+        print("\nProcess interrupted by user. Exiting gracefully...")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("Cleaning up resources...")
 
 
 if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nProcess interrupted by user. Exiting gracefully...")
+        sys.exit(0)
     # initialize(json.loads(settings.firebase.service_account))
 
     # asyncio.run(main())
-    main()
 
     # Run our REST server
     # web.run_app(app, port=8080)

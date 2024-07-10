@@ -120,8 +120,7 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
 #     return response
 
 
-# TO DO: use config!
-async def start_server():
+async def start_server(host: str = 'localhost', port: int = 8188):
     """
     Starts the web server with API endpoints from extensions
     """
@@ -137,10 +136,15 @@ async def start_server():
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "localhost", 8080)  # Host and port
+    site = web.TCPSite(runner, host, port)
     await site.start()
-    print("Server running on http://localhost:8080/")
-    await asyncio.Future()  # Keep the server running
+    print(f"Server running on {site.name} (click to open)")
+    
+    try:
+        await asyncio.Future()  # Keep the server running
+    except asyncio.CancelledError:
+        print("Server is shutting down...")
+        await runner.cleanup()
 
 
 def api_routes_validator(plugin: Any) -> bool:
