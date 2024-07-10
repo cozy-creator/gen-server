@@ -32,7 +32,11 @@ Note:
 - CLI variables can be specified in two ways:
   - With an equals sign: `cozy run port=3000`
   - With a space: `cozy run port 3000`
-- Objects can be specified as JSON strings, example: `cozy run s3='{"endpoint_url": "https://nyc3.digitaloceanspaces.com", "access_key": "DO00W9N964WMQC2MV6JK", "secret_key": "*******", "region_name": "nyc3", "bucket_name": "storage", "folder": "public"}'`
+- Objects can be specified as JSON strings, example:
+
+```sh
+cozy run s3='{"endpoint_url": "https://nyc3.digitaloceanspaces.com", "access_key": "DO00W9N964WMQC2MV6JK", "secret_key": "*******", "region_name": "nyc3", "bucket_name": "storage", "folder": "public"}'
+```
 
 ### Using Environment Variables
 
@@ -69,5 +73,10 @@ In the root of this repo, run:
 
 ### Docker Run
 
-`docker run --env-file .env.example -p 8080:8080 cozy-creator/gen-server:0.1.0`
+`docker run --env-file=.env.example -p 8080:8080 --gpus=all cozy-creator/gen-server:0.1.0`
 
+You can set environment variables by using, for example 
+
+```sh
+docker run -p 9000:9000 -e PORT=9000 cozy-creator/gen-server:0.1.0
+```

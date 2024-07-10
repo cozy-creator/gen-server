@@ -16,7 +16,8 @@ from .globals import (
     WIDGETS,
     CHECKPOINT_FILES,
     RunCommandConfig,
-    BuildWebCommandConfig
+    BuildWebCommandConfig,
+    cozy_config
 )
 from .utils.cli_helpers import (
     find_subcommand,
@@ -52,7 +53,9 @@ def main():
             # overwrite this method so that we don't get errors from unknown args
             parse_args_method=parse_known_args_wrapper
         )
-
+        
+        # This updates the configuration globally
+        global cozy_config
         cozy_config = RunCommandConfig(
             _env_file=env_file, # type: ignore
             _secrets_dir=secrets_dir, # type: ignore
@@ -101,7 +104,7 @@ def run_app(cozy_config: RunCommandConfig):
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
     API_ENDPOINTS.update(
-        load_extensions("comfy_creator.api", validator=api_routes_validator)
+        load_extensions("cozy_creator.api", validator=api_routes_validator)
     )
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(
@@ -112,7 +115,7 @@ def run_app(cozy_config: RunCommandConfig):
     global ARCHITECTURES
     start_time_architectures = time.time()
     ARCHITECTURES.update(
-        load_extensions("comfy_creator.architectures", validator=architecture_validator)
+        load_extensions("cozy_creator.architectures", validator=architecture_validator)
     )
     print(
         f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
@@ -121,7 +124,7 @@ def run_app(cozy_config: RunCommandConfig):
     global CUSTOM_NODES
     start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
-        load_extensions("comfy_creator.custom_nodes", validator=custom_node_validator)
+        load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
@@ -129,7 +132,7 @@ def run_app(cozy_config: RunCommandConfig):
 
     global WIDGETS
     start_time_widgets = time.time()
-    WIDGETS.update(load_extensions("comfy_creator.widgets"))
+    WIDGETS.update(load_extensions("cozy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
 
     # compile model registry

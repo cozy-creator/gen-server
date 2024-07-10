@@ -10,9 +10,9 @@ authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
 dependencies = [
-    "comfy_creator"
+    "cozy_creator"
 ]
 
-[project.entry-points."comfy_creator.custom_nodes"]
+[project.entry-points."cozy_creator.custom_nodes"]
 node_a = "core_extension_2:main.node_a"
 node_b = "core_extension_2:main.node_b"

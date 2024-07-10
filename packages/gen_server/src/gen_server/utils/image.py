@@ -4,20 +4,12 @@ from typing import Union
 import numpy as np
 import torch
 from PIL import Image
-
-from gen_server.base_types.architecture import architecture_validator
-from gen_server.globals import ARCHITECTURES
-from gen_server.utils import load_extensions
 from gen_server.utils.load_models import from_file
 
 model_path = os.path.join(os.path.dirname(__file__), "models", "RealESRGAN_x8.pth")
 
-ARCHITECTURES.update(
-    load_extensions("comfy_creator.architectures", validator=architecture_validator)
-)
 
-
-def image_to_tensor(image: Union[str, Image, bytes]):
+def image_to_tensor(image: Union[str, Image.Image, bytes]):
     if isinstance(image, str):
         if not os.path.exists(image):
             raise FileNotFoundError(f"File '{image}' not found.")

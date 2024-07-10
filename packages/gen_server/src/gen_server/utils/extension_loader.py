@@ -21,7 +21,7 @@ def load_extensions(
     # print(f"Discovered plugins: {discovered_plugins}")
 
     for entry_point in discovered_plugins:
-        # Scope the plugin's name using the distribution name; ex. 'comfy_creator.sdxl' rather than just 'sdxl'
+        # Scope the plugin's name using the distribution name; ex. 'cozy_creator.sdxl' rather than just 'sdxl'
         try:
             assert (
                 entry_point.dist is not None

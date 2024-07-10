@@ -50,7 +50,7 @@ import logging
 from huggingface_hub import hf_hub_download
 import requests
 from tqdm import tqdm
-from gen_server.globals import comfy_config
+from gen_server.globals import cozy_config
 
 
 # Configure the logging
@@ -271,7 +271,7 @@ class LoadCivitai(CustomNode):
             file_name = file_info['name']
             download_url = f"{file_info['downloadUrl']}?token={os.getenv('civitaiToken')}"
 
-            model_path = os.path.join(comfy_config.workspace_dir, "models", file_name)
+            model_path = os.path.join(cozy_config.workspace_dir, "models", file_name)
 
             # Check if the file already exists and its size
             file_exists = os.path.exists(model_path)

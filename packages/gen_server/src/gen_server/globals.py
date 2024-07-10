@@ -162,6 +162,11 @@ class BuildWebCommandConfig(BaseSettings):
     )
 
 
+cozy_config: Optional[RunCommandConfig] = None
+"""
+Global configuration for the Cozy Gen-Server
+"""
+
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
 API_ENDPOINTS: dict[str, RouteDefinition] = {}
