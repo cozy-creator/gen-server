@@ -6,6 +6,8 @@ import sys
 from pydantic_settings import CliSettingsSource
 
 from gen_server.base_types.custom_node import custom_node_validator
+
+from gen_server.config import build_config as build_cozy_config
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
@@ -17,73 +19,61 @@ from .globals import (
     CHECKPOINT_FILES,
     RunCommandConfig,
     BuildWebCommandConfig,
-    cozy_config
-)
-from .utils.cli_helpers import (
-    find_subcommand,
-    find_arg_value,
-    parse_known_args_wrapper
 )
 
+from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 import warnings
+
 warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
-    
+
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
-    env_file = find_arg_value('--env_file') or find_arg_value('--env-file') or '.env'
-    secrets_dir = find_arg_value('--secrets_dir') or find_arg_value('--secrets-dir') or '/run/secrets'
+    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or ".env"
+    secrets_dir = (
+        find_arg_value("--secrets_dir")
+        or find_arg_value("--secrets-dir")
+        or "/run/secrets"
+    )
     subcommand = find_subcommand()
 
     # Add subcommands
-    subparsers = root_parser.add_subparsers(dest='command', help='Available commands')
-    run_parser = subparsers.add_parser('run', help='Run the Cozy Creator server')
-    build_web_parser = subparsers.add_parser('build-web', help='Build the web bundle')
+    subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
+    run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
+    build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
 
-    if subcommand == 'run':
-        cli_settings = CliSettingsSource(
-            RunCommandConfig,
-            root_parser=run_parser,
-            cli_parse_args=True,
-            cli_enforce_required=False,
-            # overwrite this method so that we don't get errors from unknown args
-            parse_args_method=parse_known_args_wrapper
-        )
-        
-        # This updates the configuration globally
+    if subcommand == "run":
         global cozy_config
-        cozy_config = RunCommandConfig(
-            _env_file=env_file, # type: ignore
-            _secrets_dir=secrets_dir, # type: ignore
-            _cli_settings_source=cli_settings(args=True) # type: ignore
+        cozy_config = build_cozy_config(
+            run_parser,
+            parse_known_args_wrapper,
+            env_file=env_file,
+            secrets_dir=secrets_dir,
         )
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
-    
-    elif subcommand in ['build-web', 'build_web']:
+    elif subcommand in ["build-web", "build_web"]:
         cli_settings = CliSettingsSource(
-            BuildWebCommandConfig,
-            root_parser=build_web_parser
+            BuildWebCommandConfig, root_parser=build_web_parser
         )
-        
+
         build_config = BuildWebCommandConfig(
-            _env_file=env_file, # type: ignore
-            _secrets_dir=secrets_dir, # type: ignore
-            _cli_settings_source=cli_settings(args=True), # type: ignore
+            _env_file=env_file,  # type: ignore
+            _secrets_dir=secrets_dir,  # type: ignore
+            _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
-        
+
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
-    
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()
         sys.exit(1)
-    
+
     else:
         print(f"Unknown subcommand: {subcommand}")
         root_parser.print_help()
