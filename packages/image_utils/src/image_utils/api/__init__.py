@@ -5,7 +5,7 @@ from typing import Optional, Dict, Union, Any, Iterable, List
 from aiohttp import web
 import blake3
 
-from gen_server.globals import cozy_config
+from gen_server.config import get_config
 import boto3
 from urllib.parse import urlparse
 import logging
@@ -20,7 +20,7 @@ class FileHandler:
     """
 
     def __init__(self):
-        self.s3_client = cozy_config.s3.get("client", None)
+        self.s3_client = get_config().s3.get("client", None)
 
     async def handle_upload(self, request: web.Request) -> web.Response:
         """
@@ -49,19 +49,19 @@ class FileHandler:
                 if self.s3_client:
                     try:
                         # Upload the file to the specified folder
-                        key = f'{cozy_config.s3["folder"]}/{filename}' if cozy_config.s3["folder"] else f'{filename}'
+                        key = f'{get_config().s3["folder"]}/{filename}' if get_config().s3["folder"] else f'{filename}'
 
                         # presigned_url = self.s3_client.generate_presigned_url(
                         # ClientMethod='put_object',
-                        # Params={'Bucket': cozy_config.s3['bucket_name'], 'Key': key},
+                        # Params={'Bucket': get_config().s3['bucket_name'], 'Key': key},
                         # ExpiresIn=3600,  # URL expiration time in seconds
                         # HttpMethod="PUT"
                         # )
 
-                        self.s3_client.put_object(Bucket=cozy_config.s3["bucket_name"], Key=key, Body=content, ACL="public-read")
+                        self.s3_client.put_object(Bucket=get_config().s3["bucket_name"], Key=key, Body=content, ACL="public-read")
                         
                         # # Generate and append the image URL
-                        image_url = f"{cozy_config.s3['url']}/{key}"
+                        image_url = f"{get_config().s3['url']}/{key}"
                         
                         # Return a success response with the URL
                         print("Successfully Uploaded Image")
@@ -83,27 +83,27 @@ class FileHandler:
             return web.json_response({'success': False, 'error': 'Key is missing'})
 
         try:
-            self.s3_client.put_object_acl(Bucket=cozy_config.s3["bucket_name"], Key=key, ACL='public-read')
+            self.s3_client.put_object_acl(Bucket=get_config().s3["bucket_name"], Key=key, ACL='public-read')
             return web.json_response({'success': True})
         except Exception as e:
             return web.json_response({'success': False, 'error': str(e)})
         
                     
     async def list_files(self, request: web.Request) -> web.Response:
-        if cozy_config.s3["folder"]:
-            folder = cozy_config.s3["folder"]
+        if get_config().s3["folder"]:
+            folder = get_config().s3["folder"]
         else:
             folder = request.match_info['folder']  # Get the folder path from URL
         
         try:
             # List objects in the specified folder (prefix)
-            response = self.s3_client.list_objects_v2(Bucket=cozy_config.s3["bucket_name"], Prefix=folder)
+            response = self.s3_client.list_objects_v2(Bucket=get_config().s3["bucket_name"], Prefix=folder)
             
             # Extract URLs of the files
             file_urls = []
             for obj in response.get('Contents', []):
                 # Generate the URL for each object in the bucket
-                object_url = f"https://{cozy_config.s3['bucket_name']}.{urlparse(self.s3_client.meta.endpoint_url).hostname}/{obj['Key']}"
+                object_url = f"https://{get_config().s3['bucket_name']}.{urlparse(self.s3_client.meta.endpoint_url).hostname}/{obj['Key']}"
                 file_urls.append(object_url)
             
             return web.json_response({'success': True, 'files': file_urls})
@@ -115,13 +115,13 @@ class FileHandler:
     async def download_file(self, request: web.Request) -> web.FileResponse:
         file_key = request.match_info['file_key']  # Get the file key from URL
 
-        key = f'{cozy_config.s3["folder"]}/{file_key}' if cozy_config.s3["folder"] else f'{file_key}'
+        key = f'{get_config().s3["folder"]}/{file_key}' if get_config().s3["folder"] else f'{file_key}'
         
         try:
             # Generate a presigned URL for downloading the file
             url = self.s3_client.generate_presigned_url(
                 ClientMethod='get_object',
-                Params={'Bucket': cozy_config.s3['bucket_name'], 'Key': key},
+                Params={'Bucket': get_config().s3['bucket_name'], 'Key': key},
                 ExpiresIn=3600  # URL expiration time in seconds
             )
             
@@ -137,7 +137,7 @@ class FileHandler:
         """
         file_path = request.match_info.get("file_path")  # Get the file path from the URL
 
-        file_path = os.path.join(cozy_config.workspace_dir, "assets", file_path)
+        file_path = os.path.join(get_config().workspace_dir, "assets", file_path)
 
         if os.path.exists(file_path):
             # Read the file content in bytes

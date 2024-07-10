@@ -1,7 +1,13 @@
 from pydantic_settings import CliSettingsSource
+from .globals import RunCommandConfig
+import argparse
+from typing import Optional, List, Callable
 
-from .globals import cozy_config, RunCommandConfig
 
+cozy_config: Optional[RunCommandConfig] = None
+"""
+Global configuration for the Cozy Gen-Server
+"""
 
 def config_loaded():
     """
@@ -20,13 +26,14 @@ def get_config():
         raise ValueError("Config has not been loaded yet")
     return cozy_config
 
+ParseArgsMethod = Callable[[argparse.ArgumentParser, Optional[List[str]], Optional[argparse.Namespace]], Optional[argparse.Namespace]]
 
-def build_config(
-    run_parser,
-    parse_args_method,
-    env_file=".env",
-    secrets_dir="/run/secrets",
-):
+def init_config(
+    run_parser: argparse.ArgumentParser,
+    parse_args_method: ParseArgsMethod,
+    env_file: str = ".env",
+    secrets_dir: str = "/run/secrets",
+) -> RunCommandConfig:
     """
     Loads the configuration for the server.
     This should be called at the start of the server.
@@ -41,8 +48,11 @@ def build_config(
     )
 
     # This updates the configuration globally
-    return RunCommandConfig(
+    global cozy_config
+    cozy_config = RunCommandConfig(
         _env_file=env_file,  # type: ignore
         _secrets_dir=secrets_dir,  # type: ignore
         _cli_settings_source=cli_settings(args=True),  # type: ignore
     )
+
+    return cozy_config

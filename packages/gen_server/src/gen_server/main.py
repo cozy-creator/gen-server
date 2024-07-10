@@ -7,7 +7,7 @@ from pydantic_settings import CliSettingsSource
 
 from gen_server.base_types.custom_node import custom_node_validator
 
-from gen_server.config import build_config as build_cozy_config
+from gen_server.config import init_config
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
@@ -47,8 +47,7 @@ def main():
     build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
 
     if subcommand == "run":
-        global cozy_config
-        cozy_config = build_cozy_config(
+        cozy_config = init_config(
             run_parser,
             parse_known_args_wrapper,
             env_file=env_file,
@@ -57,6 +56,7 @@ def main():
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
+        
     elif subcommand in ["build-web", "build_web"]:
         cli_settings = CliSettingsSource(
             BuildWebCommandConfig, root_parser=build_web_parser
@@ -69,6 +69,7 @@ def main():
         )
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
+        
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()

@@ -1,4 +1,6 @@
 import sys
+import argparse
+from typing import Optional, List
 
 
 def find_subcommand():
@@ -17,6 +19,10 @@ def find_arg_value(arg_name):
     return None
 
 
-def parse_known_args_wrapper(parser, args=None, namespace=None):
+def parse_known_args_wrapper(
+    parser: argparse.ArgumentParser,
+    args: Optional[List[str]] = None,
+    namespace: Optional[argparse.Namespace] = None
+) -> Optional[argparse.Namespace]:
     known_args, _ = parser.parse_known_args(args, namespace)
     return known_args

@@ -17,7 +17,7 @@ from .helper_decorators import convert_image_format
 import io
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
-from gen_server.globals import cozy_config
+from gen_server.config import get_config
 from multiprocessing import Pool
 from typing import TypedDict
 
@@ -110,7 +110,7 @@ class SaveFile(CustomNode):
         Saves images to the local filesystem or a remote S3 bucket.
         """
 
-        if cozy_config.filesystem_type == "LOCAL":  # Assuming environment variables for local/production
+        if get_config().filesystem_type == "LOCAL":  # Assuming environment variables for local/production
             if temp:
                 prefix = self.temp_prefix_append
                 dir = self.temp_dir
@@ -127,9 +127,9 @@ class SaveFile(CustomNode):
             # prepend our server's GET-file endpoint to these relative paths
             for url in image_urls:
                 print(url["url"])
-                url["url"] = f"http://{cozy_config.host}:{cozy_config.port}/files/{url['url']}"
+                url["url"] = f"http://{get_config().host}:{get_config().port}/files/{url['url']}"
             
-        elif cozy_config.filesystem_type == "S3":
+        elif get_config().filesystem_type == "S3":
             # Assuming you have environment variables for local/prod
             # Upload the image to the "temp" folder
             image_urls = self.upload_to_s3(
@@ -165,17 +165,17 @@ class SaveFile(CustomNode):
 
             filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
             
-            key = f'{cozy_config.s3["folder"]}/{filename}' if cozy_config.s3["folder"] else f'{filename}'
+            key = f'{get_config().s3["folder"]}/{filename}' if get_config().s3["folder"] else f'{filename}'
             
 
             # Upload the image data
-            cozy_config.s3["client"].put_object(Bucket=cozy_config.s3["bucket_name"], Key=key, Body=img_bytes, ACL="public-read")
+            get_config().s3["client"].put_object(Bucket=get_config().s3["bucket_name"], Key=key, Body=img_bytes, ACL="public-read")
 
             # Generate and append the image URL
             # endpoint_url = s3.meta.endpoint_url
             # hostname = urlparse(endpoint_url).hostname
             # image_url = f"https://{s3_bucket_name}.{hostname}/{key}"
-            image_url = f"{cozy_config.s3['url']}/{key}"
+            image_url = f"{get_config().s3['url']}/{key}"
 
             image_urls.append({
                 "url": image_url,
@@ -232,7 +232,7 @@ def save_image_to_filesystem(
     # images = tensor_to_pil(tensor_images)
     
     # TO DO: move this logic somewhere more general
-    workspace_dir = cozy_config.workspace_dir
+    workspace_dir = get_config().workspace_dir
     if not workspace_dir:
         raise FileNotFoundError(f"The workspace directory '{workspace_dir}' does not exist.")
 
@@ -281,7 +281,7 @@ def save_image(image_data) -> FileUrl:
 #     # TO DO: make this conversion more flexible
 #     images = tensor_to_pil(tensor_images)
     
-#     workspace_dir = cozy_config.workspace_dir
+#     workspace_dir = get_config().workspace_dir
 #     if not workspace_dir:
 #         raise FileNotFoundError(f"The workspace directory '{workspace_dir}' does not exist.")
     

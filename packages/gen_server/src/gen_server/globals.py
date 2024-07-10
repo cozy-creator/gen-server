@@ -9,8 +9,8 @@ from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
 
 
-DEFAULT_WORKSPACE_DIR = "~/.comfy-creator/"
-DEFAULT_MODELS_DIRS = ["~/.comfy-creator/models"]
+DEFAULT_WORKSPACE_DIR = "~/.cozy-creator/"
+DEFAULT_MODELS_DIRS = ["~/.cozy-creator/models"]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
 
@@ -161,11 +161,6 @@ class BuildWebCommandConfig(BaseSettings):
         description="Path to secrets directory",
     )
 
-
-cozy_config: Optional[RunCommandConfig] = None
-"""
-Global configuration for the Cozy Gen-Server
-"""
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]

@@ -73,10 +73,10 @@ In the root of this repo, run:
 
 ### Docker Run
 
-`docker run --env-file=.env.example -p 8080:8080 --gpus=all cozy-creator/gen-server:0.1.0`
+`docker run --env-file=.env.example -p 8188:8188 --gpus=all cozy-creator/gen-server:0.1.0`
 
-You can set environment variables by using, for example 
+You can set environment variables manually by using `-e`, for example:
 
 ```sh
-docker run -p 9000:9000 -e PORT=9000 cozy-creator/gen-server:0.1.0
+docker run -p 9000:9000 -e PORT=9000 -e HOST=0.0.0.0 cozy-creator/gen-server:0.1.0
 ```

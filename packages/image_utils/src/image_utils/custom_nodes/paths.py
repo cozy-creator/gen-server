@@ -1,14 +1,14 @@
 import os
-from gen_server.globals import cozy_config
+from gen_server.config import get_config
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 folders = {
     "core_nodes": os.path.join(base_path, 'extensions', 'core'),
     "extensions": os.path.join(base_path, 'extensions'),
-    "output": os.path.join(cozy_config.workspace_dir, 'output'),
-    "temp": os.path.join(cozy_config.workspace_dir, 'temp'),
-    "input": os.path.join(cozy_config.workspace_dir, 'input'),
+    "output": os.path.join(get_config().workspace_dir, 'output'),
+    "temp": os.path.join(get_config().workspace_dir, 'temp'),
+    "input": os.path.join(get_config().workspace_dir, 'input'),
     "models": os.path.join(base_path, 'models'),
     "custom_architecture": os.path.join(base_path, 'custom_architecture'),
     "vae": os.path.join(base_path, 'extensions/core2/VAE'),
