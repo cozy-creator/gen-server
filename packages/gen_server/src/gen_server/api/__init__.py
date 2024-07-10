@@ -6,8 +6,14 @@ import logging
 from ..globals import CHECKPOINT_FILES, API_ENDPOINTS, RouteDefinition
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
+import os
 
 routes = web.RouteTableDef()
+
+script_path = '../../../../web/buildPlugins.sh'
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+web_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..', '..', 'web', 'dist'))
 
 
 @routes.get("/checkpoints")
@@ -80,6 +86,29 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
     return response
 
 
+async def run_shell_script():
+    process = await asyncio.create_subprocess_shell(
+        script_path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0:
+        print(f'Error in script {script_path}:')
+        print(f'Stdout: {stdout.decode()}')
+        print(f'Stderr: {stderr.decode()}')
+        raise RuntimeError('Shell script failed')
+
+    print(f'Script {script_path} completed successfully')
+
+
+@routes.get("/")
+async def home(request: web.Request):
+    return web.FileResponse(os.path.join(web_root, "index.html"))
+
+
 # @routes.post("/generate")
 # async def handle_post(request: web.Request) -> web.StreamResponse:
 #     response = web.StreamResponse(
@@ -127,6 +156,11 @@ async def start_server(host: str = 'localhost', port: int = 8188):
     app = web.Application()
     global routes
     app.add_routes(routes)
+
+    # run shell script
+    await run_shell_script()
+
+    app.router.add_static('/', web_root)
 
     # Register all API endpoints from extensions
     # Iterate over API_ENDPOINTS and add routes
