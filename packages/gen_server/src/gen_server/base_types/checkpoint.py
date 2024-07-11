@@ -1,14 +1,14 @@
 from .architecture import ComponentMetadata
 from typing import Any
 from typing_extensions import override
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import dataclass, asdict, field
 import datetime
 
 
 @dataclass
 class CheckpointMetadata:
     """
-    This dataclass contains metadata describing a checkpoint file. It's used by Comfy-Creator's front
+    This dataclass contains metadata describing a checkpoint file. It's used by Cozy-Creator's front
     end to sort and display checkpoint files.
     """
     display_name: str
@@ -16,38 +16,32 @@ class CheckpointMetadata:
     author: str
     file_type: str
     file_path: str
-    components: dict[str, ComponentMetadata]
-    date_modified: datetime.datetime
+    components: dict[str, ComponentMetadata] = field(default_factory=dict)
+    date_modified: datetime.datetime = field(default_factory=datetime.datetime.now)
     
     def serialize(self) -> dict[str, Any]:
-        # Serialize all fields except 'components', 'date_modified', and 'file_path'
-        serialized_data = {
-            'display_name': self.display_name,
-            'category': self.category,
-            'author': self.author,
-            'file_type': self.file_type,
-            'date_modified': self.date_modified.strftime("%Y-%m-%d %H:%M:%S"),
-            'components': { name: component for name, component in self.components.items() }
-        }
-
-        # Serialize components
-        # for name, component in self.components.items():
-        #     try:
-        #         serialized_data['components'][name] = component.serialize()
-        #     except Exception:
-        #         continue
+        # Serialize all fields except 'file_path' and 'date_modified'
+        serialized_data = asdict(
+            self,
+            dict_factory=lambda fields: {
+                key: value for key, value in fields
+                if key not in ['file_path', 'date_modified']
+            }
+        )
+        
+        # Format the 'date_modified' field
+        serialized_data['date_modified'] = self.date_modified.strftime("%Y-%m-%d %H:%M:%S")
         
         return serialized_data
     
     @override
     def __str__(self) -> str:
         return str(self.serialize())
-    
 
 
 # class CheckpointMetadata:
 #     """
-#     This dataclass contains metadata describing a checkpoint file. It's used by Comfy-Creator's front
+#     This dataclass contains metadata describing a checkpoint file. It's used by Cozy-Creator's front
 #     end to sort and display checkpoint files.
 #     """
 #     display_name: str

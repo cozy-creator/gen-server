@@ -1,5 +1,19 @@
-# Stage 1: Build stage
-FROM python:3.11.9-slim as builder
+# Stage 1: Web-build stage
+FROM node:22-bookworm-slim as builder
+
+WORKDIR /app
+
+# Copy the web folder
+COPY web /app/web
+
+# Build the web folder
+RUN cd /app/web && \
+    npm install && \
+    npm run build
+
+
+# Stage 2: Python-build stage
+FROM python:3.11.9-slim as python-builder
 
 WORKDIR /app
 
@@ -21,14 +35,16 @@ RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server && \
     pip install ./packages/core_extension_1 && \
     pip install ./packages/image_utils
 
-# Stage 2: Final stage
+
+# Stage 3: Final stage
 FROM python:3.11.9-slim
 
 WORKDIR /app
 
-# Copy only the necessary files from the build stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy only the necessary files from the build stages
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/web/dist /app/web/dist
 
 COPY pyproject.toml ./pyproject.toml
 

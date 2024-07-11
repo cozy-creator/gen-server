@@ -67,13 +67,21 @@ None of our packages currently use any C-APIs, and hence do not need to be recom
 
 ### Docker Build
 
-In the root of this repo, run:
+Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-editor-0.0.1.tgz`. This will be used as a dependency when building the front-end. If you place the file somewhere else, be sure that the package.json dependency points to the right file-location, such as:
 
-`docker build -t cozy-creator/gen-server:0.1.0 .`
+`"@cozy-creator/graph-editor": "./cozy-graph-editor-0.0.1.tgz",`
+
+Then in the root of this repo, run:
+
+```sh
+docker build -t cozy-creator/gen-server:0.1.1 .
+```
 
 ### Docker Run
 
-`docker run --env-file=.env.example -p 8188:8188 --gpus=all cozy-creator/gen-server:0.1.0`
+```sh
+docker run --env-file=.env.example -p 8881:8881 --gpus=all cozy-creator/gen-server:0.1.0
+```
 
 You can set environment variables manually by using `-e`, for example:
 

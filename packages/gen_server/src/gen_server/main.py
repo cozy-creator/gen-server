@@ -150,7 +150,8 @@ def run_app(cozy_config: RunCommandConfig):
     )
 
     try:
-        asyncio.run(start_server(cozy_config.host, cozy_config.port))
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(start_server(cozy_config.host, cozy_config.port))
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")
     except Exception as e:

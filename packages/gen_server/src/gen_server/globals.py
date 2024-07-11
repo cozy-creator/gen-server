@@ -83,7 +83,7 @@ class RunCommandConfig(BaseSettings):
     )
 
     port: int = Field(
-        default=8188,
+        default=8881,
         description="Port to bind to",
     )
 

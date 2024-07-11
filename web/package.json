@@ -1,5 +1,5 @@
 {
-  "name": "comfy-creator",
+  "name": "cozy-creator",
   "version": "0.2.1",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@comfy-creator/graph-editor": "../../Comfy-Creator/comfy-creator-graph-editor-0.2.11.tgz",
+    "@cozy-creator/graph-editor": "./cozy-graph-editor-0.0.1.tgz",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

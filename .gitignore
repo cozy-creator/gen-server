@@ -21,6 +21,7 @@ venv/
 
 # Build dir
 **/dist/
+*.tgz
 
 # js dependencies
 **/node_modules/

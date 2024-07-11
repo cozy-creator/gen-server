@@ -7,6 +7,7 @@ from ..globals import CHECKPOINT_FILES, API_ENDPOINTS, RouteDefinition
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
+import socket
 
 routes = web.RouteTableDef()
 
@@ -14,11 +15,27 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 web_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..', '..', 'web', 'dist'))
 
 
+@routes.get("/")
+async def home(_request: web.Request):
+    # NOTE: This static-file server is intended only for running locally / development.
+    # For production, use a dedicated static file-server, such as Envoy-proxy, Nginx, Apache,
+    # or a CDN to serve the /web/dist folder.
+    index_path = os.path.join(web_root, "index.html")
+    
+    if not os.path.exists(index_path):
+        logging.error(f"Index file not found at {index_path}")
+        return web.Response(text="Index file not found", status=404)
+    
+    return web.FileResponse(index_path)
+
+
 @routes.get("/checkpoints")
 async def get_checkpoints(_req: web.Request) -> web.Response:
     serialized_checkpoints = {
         key: value.serialize() for key, value in CHECKPOINT_FILES.items()
     }
+    
+    print(f'here you go: {json.dumps(serialized_checkpoints)}')
 
     return web.Response(
         text=json.dumps(serialized_checkpoints), content_type="application/json"
@@ -84,60 +101,17 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
     return response
 
 
-@routes.get("/")
-async def home(request: web.Request):
-    return web.FileResponse(os.path.join(web_root, "index.html"))
-
-
-# @routes.post("/generate")
-# async def handle_post(request: web.Request) -> web.StreamResponse:
-#     response = web.StreamResponse(
-#         status=200, reason="OK", headers={"Content-Type": "application/json"}
-#     )
-#     await response.prepare(request)
-
-#     # TO DO: validate these types using something like pydantic
-#     try:
-#         data = await request.json()
-#         models: Dict[str, int] = data["models"]
-#         positive_prompt: str = data["positive_prompt"]
-#         negative_prompt: str = data["negative_prompt"]
-#         random_seed: Optional[int] = data.get("random_seed", None)
-#         aspect_ratio: str = data["aspect_ratio"]
-        
-#         print('request received')
-
-#         # Start streaming image URLs
-#         async for urls in generate_images(
-#             models,
-#             positive_prompt,
-#             negative_prompt,
-#             random_seed,
-#             aspect_ratio,
-#         ):
-#             print(f"urls received!: {urls}")
-#             json_response = json.dumps({ "output": urls })
-#             await response.write(json_response.encode('utf-8') + b"\n")
-#             # await response.write(json.dumps({"output": urls}).encode("utf-8") + b"\n")
-
-#     except Exception as e:
-#         logging.error(f"Error during image generation: {str(e)}")
-#         await response.write(json.dumps({"error": str(e)}).encode("utf-8"))
-
-#     await response.write_eof()
-    
-#     return response
-
-
-async def start_server(host: str = 'localhost', port: int = 8188):
+async def start_server(host: str = 'localhost', port: int = 8881):
     """
     Starts the web server with API endpoints from extensions
-    """
+    """ 
     app = web.Application()
     global routes
+    
+    # Make the entire /web/dist folder accessible at the root URL
+    routes.static('/', web_root)
+    
     app.add_routes(routes)
-
-    app.router.add_static('/', web_root)
 
     # Register all API endpoints from extensions
     # Iterate over API_ENDPOINTS and add routes
@@ -147,8 +121,17 @@ async def start_server(host: str = 'localhost', port: int = 8188):
 
     runner = web.AppRunner(app)
     await runner.setup()
+    
+    # Try to bind to the desired port
+    # try:
     site = web.TCPSite(runner, host, port)
     await site.start()
+    # except socket.error:
+    #     # If the desired port is in use, bind to a random available port
+    #     site = web.TCPSite(runner, host, 0)
+    #     await site.start()
+    #     # _, port = site._server.sockets[0].getsockname()
+    
     print(f"Server running on {site.name} (click to open)")
     
     try:

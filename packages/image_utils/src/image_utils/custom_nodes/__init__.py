@@ -78,7 +78,7 @@ class SaveFile(CustomNode):
             "inputs": {
                 "images": bytes,
                 "temp": bool,
-                # "filename_prefix": ("STRING", {"default": "ComfyUI"}),
+                # "filename_prefix": ("STRING", {"default": "CozyUI"}),
                 # "save_type": (["local", "s3"], {"default": "local"}),
                 # "bucket_name": ("STRING", {"default": "my-bucket"}),
             },
@@ -102,7 +102,7 @@ class SaveFile(CustomNode):
             images: List[Image],
             # images: torch.Tensor,
             temp: bool = True,
-            filename_prefix: str = "ComfyCreator", 
+            filename_prefix: str = "CozyCreator", 
             bucket_name: str = "my-bucket",
             image_metadata: Optional[dict] = None
         ) -> Dict[str, List[FileUrl]]:
