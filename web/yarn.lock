@@ -214,9 +214,9 @@
     "@babel/helper-validator-identifier" "^7.22.20"
     to-fast-properties "^2.0.0"
 
-"@comfy-creator/graph-editor@../../Comfy-Creator/comfy-creator-graph-editor-0.2.11.tgz":
-  version "0.2.11"
-  resolved "../../Comfy-Creator/comfy-creator-graph-editor-0.2.11.tgz#8e96a49220be4fb18ddd35ec377117cf63530fbb"
+"@cozy-creator/graph-editor@file:cozy-creator-graph-editor-v0.3.0.tgz":
+  version "0.3.0"
+  resolved "file:cozy-creator-graph-editor-v0.3.0.tgz#8fbba7f8657e66f3646c01853384e40ae5291243"
   dependencies:
     "@radix-ui/react-icons" "^1.3.0"
     "@tisoap/react-flow-smart-edge" "^3.0.0"
