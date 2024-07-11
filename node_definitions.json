@@ -1,573 +1,109 @@
 [
     {
-        "name": "CLIPVisionEncode",
-        "input_types": {
-            "required": {
-                "clip_vision": [
-                    "CLIP_VISION"
-                ],
-                "image": [
-                    "IMAGE"
-                ]
+        "name": "CreatePipe",
+        "display_name": "Create Pipe",
+        "category": "pipe",
+        "description": "Creates a StableDiffusionPipeline",
+        "interface": {
+            "inputs": {
+                "unet": {
+                    "type": "ModelConstraint",
+                    "model_type": "<class 'diffusers.models.unets.unet_2d_condition.UNet2DConditionModel'>"
+                }
+            },
+            "outputs": {
+                "pipe": "StableDiffusionPipeline"
             }
-        },
-        "return_types": [
-            "CLIP_VISION_OUTPUT"
-        ],
-        "category": "conditioning",
-        "display_name": null,
-        "description": null
-    },
-    {
-        "name": "ControlNetApply",
-        "input_types": {
-            "required": {
-                "conditioning": [
-                    "CONDITIONING"
-                ],
-                "control_net": [
-                    "CONTROL_NET"
-                ],
-                "feature": [
-                    "TENSOR"
-                ],
-                "embedding": [
-                    "CONDITIONING"
-                ],
-                "strength": [
-                    "FLOAT",
-                    {
-                        "default": 1.0,
-                        "min": 0.0,
-                        "max": 10.0,
-                        "step": 0.01
-                    }
-                ]
-            }
-        },
-        "return_types": [
-            "CONDITIONING"
-        ],
-        "category": "conditioning",
-        "display_name": null,
-        "description": null
-    },
-    {
-        "name": "CreatePipeline",
-        "input_types": {
-            "vae": {
-                "display_name": "VAE Model",
-                "edge_type": "AutoencoderKL",
-                "spec": {},
-                "required": true
-            },
-            "text_encoder": {
-                "display_name": "Text Encoder",
-                "edge_type": "CLIPTextModel",
-                "spec": {},
-                "required": true
-            },
-            "text_encoder_2": {
-                "display_name": "Text Encoder 2",
-                "edge_type": "CLIPTextModel",
-                "spec": {},
-                "required": false
-            },
-            "tokenizer": {
-                "display_name": "Tokenizer",
-                "edge_type": "CLIPTokenizer",
-                "spec": {},
-                "required": true
-            },
-            "tokenizer_2": {
-                "display_name": "Tokenizer 2",
-                "edge_type": "CLIPTokenizer",
-                "spec": {},
-                "required": false
-            },
-            "unet": {
-                "display_name": "UNet Model",
-                "edge_type": "UNet2DConditionModel",
-                "spec": {},
-                "required": true
-            },
-            "scheduler": {
-                "display_name": "Scheduler",
-                "edge_type": "DDIMScheduler",
-                "spec": {},
-                "required": true
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            }
-        },
-        "return_types": {
-            "display_name": "StableDiffusion Pipeline",
-            "edge_type": "Union[StableDiffusionPipeline, SDXLPipeline]"
-        },
-        "category": "pipeline_creation",
-        "display_name": {
-            "en": "Create StableDiffusion Pipeline",
-            "es": "Crear Pipeline de StableDiffusion"
-        },
-        "description": {
-            "en": "Creates a StableDiffusion or SDXL pipeline from the loaded components.",
-            "es": "Crea un pipeline de StableDiffusion o SDXL a partir de los componentes cargados."
         }
     },
     {
-        "name": "CreateStableDiffusionPipeline",
-        "input_types": {
-            "safetensors_file": {
-                "display_name": "Safetensors File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
+        "name": "GenerateMaskInpainting",
+        "display_name": "{<Language.ENGLISH: 'en'>: 'Generate Mask'}",
+        "category": "Category.MASK",
+        "description": "{<Language.ENGLISH: 'en'>: 'Generate Mask on specific portion of an image based on the text prompt'}",
+        "interface": {
+            "inputs": {
+                "mask_prompt": "<core_extension_1.widgets.TextInput object at 0x000002303B1A7CA0>",
+                "feather": "<core_extension_1.widgets.IntInput object at 0x0000023071C7E800>",
+                "image": "<core_extension_1.widgets.StringInput object at 0x0000023071C7EAA0>"
             },
-            "unet_config_file": {
-                "display_name": "UNet Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "vae_config_file": {
-                "display_name": "VAE Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "text_config_file": {
-                "display_name": "Text Encoder Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "text_2_config_file": {
-                "display_name": "Text Encoder 2 Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "device": {
-                "display_name": "Device",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
+            "outputs": {
+                "image": "typing.Union[typing.List[PIL.Image.Image], numpy.ndarray]"
             }
-        },
-        "return_types": {
-            "display_name": "StableDiffusion Pipeline",
-            "edge_type": "Union[StableDiffusionPipeline, SDXLPipeline]"
-        },
-        "category": "pipeline_creation",
-        "display_name": {
-            "en": "Create StableDiffusion Pipeline",
-            "es": "Crear Pipeline de StableDiffusion"
-        },
-        "description": {
-            "en": "Creates a StableDiffusion or SDXL pipeline by loading components from a Safetensors file and configuration files.",
-            "es": "Crea un pipeline de StableDiffusion o SDXL cargando componentes desde un archivo de Safetensors y archivos de configuraci\u00f3n."
         }
     },
     {
-        "name": "DenoiseScheduler",
-        "input_types": {
-            "required": {
-                "model": [
-                    "MODEL"
-                ],
-                "scheduler_name": [
-                    [
-                        "normal",
-                        "karras",
-                        "exponential",
-                        "sgm_uniform",
-                        "simple",
-                        "ddim_uniform"
-                    ]
-                ],
-                "sampler_name": [
-                    [
-                        "euler",
-                        "euler_ancestral",
-                        "heun",
-                        "heunpp2",
-                        "dpm_2",
-                        "dpm_2_ancestral",
-                        "lms",
-                        "dpm_fast",
-                        "dpm_adaptive",
-                        "dpmpp_2s_ancestral",
-                        "dpmpp_sde",
-                        "dpmpp_sde_gpu",
-                        "dpmpp_2m",
-                        "dpmpp_2m_sde",
-                        "dpmpp_2m_sde_gpu",
-                        "dpmpp_3m_sde",
-                        "dpmpp_3m_sde_gpu",
-                        "ddpm",
-                        "lcm",
-                        "ddim",
-                        "uni_pc",
-                        "uni_pc_bh2"
-                    ]
-                ],
-                "steps": [
-                    "INT",
-                    {
-                        "default": 20,
-                        "min": 1,
-                        "max": 10000
-                    }
-                ],
-                "denoise": [
-                    "FLOAT",
-                    {
-                        "default": 1.0,
-                        "min": 0.0,
-                        "max": 1.0,
-                        "step": 0.01
-                    }
-                ]
-            }
-        },
-        "return_types": [
-            "SIGMAS"
-        ],
-        "category": "sampling",
-        "display_name": null,
-        "description": null
-    },
-    {
-        "name": "Iterable",
-        "input_types": {
-            "required": {
-                "current_value": [
-                    "INT",
-                    {
-                        "default": 0
-                    }
-                ],
-                "next_value_method": [
-                    [
-                        "fixed",
-                        "random",
-                        "increment",
-                        "decrement"
-                    ]
-                ]
-            }
-        },
-        "return_types": [
-            "INT"
-        ],
-        "category": "misc",
-        "display_name": null,
-        "description": null
-    },
-    {
-        "name": "LoadSafetensors",
-        "input_types": {
-            "safetensors_file": {
-                "display_name": "Safetensors File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
+        "name": "InpaintImage",
+        "display_name": "{<Language.ENGLISH: 'en'>: 'Regenerate Image (Inpainting)'}",
+        "category": "Category.INPAINTING",
+        "description": "{<Language.ENGLISH: 'en'>: 'Regenerate an image based on the mask and text prompt'}",
+        "interface": {
+            "inputs": {
+                "image": "Image",
+                "mask": "typing.Union[typing.List[PIL.Image.Image], numpy.ndarray]",
+                "text_prompt": "<core_extension_1.widgets.TextInput object at 0x000002303B1A7CA0>",
+                "strength": "<core_extension_1.widgets.FloatInput object at 0x0000023071C7F040>",
+                "save": "<core_extension_1.widgets.BooleanInput object at 0x0000023071C7F2E0>"
             },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "component_name": {
-                "display_name": "Component Name",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
+            "outputs": {
+                "image": "typing.Union[typing.List[PIL.Image.Image], numpy.ndarray]"
             }
-        },
-        "return_types": {
-            "output": {
-                "display_name": "Loaded Tensors",
-                "edge_type": "Dict[str, torch.Tensor]"
-            }
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load Safetensors",
-            "es": "Cargar Safetensors"
-        },
-        "description": {
-            "en": "Loads tensors from a safetensors file.",
-            "es": "Carga tensores desde un archivo de safetensors."
         }
     },
     {
-        "name": "LoadTextEncoder",
-        "input_types": {
-            "text_encoder_state_dict": {
-                "display_name": "Text Encoder State Dict",
-                "edge_type": "Dict[str, torch.Tensor]",
-                "spec": {},
-                "required": true
+        "name": "LoadCheckpoint",
+        "display_name": "{<Language.ENGLISH: 'en'>: 'Load Checkpoint', <Language.CHINESE: 'zh'>: '\u52a0\u8f7d\u68c0\u67e5\u70b9'}",
+        "category": "Category.LOADER",
+        "description": "{<Language.ENGLISH: 'en'>: 'Loads a checkpoint file and returns a dictionary of model-classes', <Language.CHINESE: 'zh'>: '\u52a0\u8f7d\u68c0\u67e5\u70b9\u6587\u4ef6\uff0c\u5e76\u8fd4\u56de\u6a21\u578b\u7c7b\u7684\u5b57\u5178'}",
+        "interface": {
+            "inputs": {
+                "file_path": "<core_extension_1.widgets.EnumInput object at 0x000002303B1A7CA0>"
             },
-            "config_file": {
-                "display_name": "Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "device": {
-                "display_name": "Device",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            }
-        },
-        "return_types": {
-            "display_name": "Loaded Text Encoder",
-            "edge_type": "CLIPTextModel"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load Text Encoder",
-            "es": "Cargar Codificador de Texto"
-        },
-        "description": {
-            "en": "Loads a text encoder model from a state dictionary and configuration file.",
-            "es": "Carga un modelo de codificador de texto desde un diccionario de estado y un archivo de configuraci\u00f3n."
+            "outputs": {}
         }
     },
     {
-        "name": "LoadTextEncoder2",
-        "input_types": {
-            "text_encoder_state_dict": {
-                "display_name": "Text Encoder State Dict",
-                "edge_type": "Dict[str, torch.Tensor]",
-                "spec": {},
-                "required": true
+        "name": "LoadCivitai",
+        "display_name": "{'ENGLISH': 'Load Components', 'CHINESE': '\u52a0\u8f7d\u7ec4\u4ef6'}",
+        "category": "LOADER",
+        "description": "{'ENGLISH': 'Loads selected components from a repository and returns a dictionary of model-classes', 'CHINESE': '\u4ece\u5b58\u50a8\u5e93\u4e2d\u52a0\u8f7d\u6240\u9009\u7ec4\u4ef6\uff0c\u5e76\u8fd4\u56de\u6a21\u578b\u7c7b\u7684\u5b57\u5178'}",
+        "interface": {
+            "inputs": {
+                "model_name": "text",
+                "version_name": "text"
             },
-            "config_file": {
-                "display_name": "Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "device": {
-                "display_name": "Device",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "has_projection": {
-                "display_name": "Has Projection",
-                "edge_type": "bool",
-                "spec": {},
-                "required": false
+            "outputs": {
+                "model_file": "file"
             }
-        },
-        "return_types": {
-            "display_name": "Loaded Text Encoder 2",
-            "edge_type": "CLIPTextModel"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load Text Encoder 2",
-            "es": "Cargar Codificador de Texto 2"
-        },
-        "description": {
-            "en": "Loads a text encoder model (version 2) from a state dictionary and configuration file. This is useful for loading sdxl models.",
-            "es": "Carga un modelo de codificador de texto (versi\u00f3n 2) desde un diccionario de estado y un archivo de configuraci\u00f3n. Esto es \u00fatil para cargar modelos sdxl."
         }
     },
     {
-        "name": "LoadTokenizer",
-        "input_types": {
-            "pretrained_model_name_or_path": {
-                "display_name": "Pretrained Model Name or Path",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            }
-        },
-        "return_types": {
-            "display_name": "Loaded Tokenizer",
-            "edge_type": "CLIPTokenizer"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load Tokenizer"
-        },
-        "description": {
-            "en": "Loads a tokenizer from a pretrained model or a specified path.",
-            "es": "Carga un tokenizador desde un modelo preentrenado o una ruta especificada."
+        "name": "LoadComponents",
+        "display_name": "{<Language.ENGLISH: 'en'>: 'Load Components', <Language.CHINESE: 'zh'>: '\u52a0\u8f7d\u7ec4\u4ef6'}",
+        "category": "Category.LOADER",
+        "description": "{<Language.ENGLISH: 'en'>: 'Loads selected components from a repository and returns a dictionary of model-classes', <Language.CHINESE: 'zh'>: '\u4ece\u5b58\u50a8\u5e93\u4e2d\u52a0\u8f7d\u6240\u9009\u7ec4\u4ef6\uff0c\u5e76\u8fd4\u56de\u6a21\u578b\u7c7b\u7684\u5b57\u5178'}",
+        "interface": {
+            "inputs": {
+                "repo_id": "<core_extension_1.widgets.EnumInput object at 0x000002303B1A6260>",
+                "components": "<core_extension_1.widgets.EnumInput object at 0x0000023071CD4970>"
+            },
+            "outputs": {}
         }
     },
     {
-        "name": "LoadTokenizer2",
-        "input_types": {},
-        "return_types": {
-            "display_name": "Loaded Tokenizer 2",
-            "edge_type": "CLIPTokenizer"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load Tokenizer 2"
-        },
-        "description": {
-            "en": "Loads the second tokenizer for the SDXL model type.",
-            "es": "Carga el segundo tokenizador para el tipo de modelo SDXL."
-        }
-    },
-    {
-        "name": "LoadUnet",
-        "input_types": {
-            "unet_state_dict": {
-                "display_name": "UNet State Dict",
-                "edge_type": "Dict[str, torch.Tensor]",
-                "spec": {},
-                "required": true
+        "name": "RunPipe",
+        "display_name": "Run Pipe",
+        "category": "pipe",
+        "description": "Runs a StableDiffusionPipeline with a prompt",
+        "interface": {
+            "inputs": {
+                "pipe": "StableDiffusionPipeline",
+                "negative_prompt": "<core_extension_1.widgets.TextInput object at 0x000002303B1A6260>",
+                "prompt": "<core_extension_1.widgets.TextInput object at 0x0000023071CD51B0>"
             },
-            "config_file": {
-                "display_name": "Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "device": {
-                "display_name": "Device",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
+            "outputs": {
+                "image_output": "typing.Union[typing.List[PIL.Image.Image], numpy.ndarray]"
             }
-        },
-        "return_types": {
-            "display_name": "Loaded UNet",
-            "edge_type": "UNet2DConditionModel"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load UNet",
-            "es": "Cargar UNet"
-        },
-        "description": {
-            "en": "Loads a UNet model from a state dictionary and configuration file.",
-            "es": "Carga un modelo UNet desde un diccionario de estado y un archivo de configuraci\u00f3n."
         }
-    },
-    {
-        "name": "LoadVae",
-        "input_types": {
-            "vae_state_dict": {
-                "display_name": "VAE State Dict",
-                "edge_type": "Dict[str, torch.Tensor]",
-                "spec": {},
-                "required": true
-            },
-            "config_file": {
-                "display_name": "Config File",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            },
-            "device": {
-                "display_name": "Device",
-                "edge_type": "str",
-                "spec": {},
-                "required": false
-            },
-            "model_type": {
-                "display_name": "Model Type",
-                "edge_type": "str",
-                "spec": {},
-                "required": true
-            }
-        },
-        "return_types": {
-            "display_name": "Loaded VAE",
-            "edge_type": "AutoencoderKL"
-        },
-        "category": "model_loading",
-        "display_name": {
-            "en": "Load VAE",
-            "es": "Cargar VAE"
-        },
-        "description": {
-            "en": "Loads a VAE (Variational Autoencoder) model from a state dictionary and configuration file.",
-            "es": "Carga un modelo VAE (Autoencoder Variacional) desde un diccionario de estado y un archivo de configuraci\u00f3n."
-        }
-    },
-    {
-        "name": "OpenAITextGeneration",
-        "input_types": {
-            "required": {
-                "text": [
-                    "STRING",
-                    {
-                        "multiline": true
-                    }
-                ],
-                "model": [
-                    [
-                        "gpt-3.5-turbo",
-                        "gpt-3.5-turbo-0125",
-                        "gpt-3.5-turbo-1106",
-                        "gpt-3.5-turbo-0613",
-                        "gpt-4-turbo"
-                    ]
-                ]
-            },
-            "optional": {
-                "max_tokens": [
-                    "INT",
-                    {
-                        "default": 0
-                    }
-                ],
-                "temperature": [
-                    "INT",
-                    {
-                        "default": 1.0,
-                        "min": 0,
-                        "max": 2,
-                        "step": 0.01
-                    }
-                ]
-            }
-        },
-        "return_types": [
-            "STRING"
-        ],
-        "category": "OpenAI",
-        "display_name": null,
-        "description": null
     }
 ]

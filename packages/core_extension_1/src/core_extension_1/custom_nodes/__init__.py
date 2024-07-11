@@ -1,5 +1,6 @@
 import sys
-from typing import Any, Union, List, Optional, Dict
+from typing import Any, Union, List, Optional, Dict, Tuple
+from pathlib import Path
 
 # from RealESRGAN.rrdbnet_arch import RRDBNet
 
@@ -28,6 +29,7 @@ from diffusers import (
     EulerAncestralDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
     EDMEulerScheduler,
+    StableDiffusionXLInpaintPipeline
 )
 from transformers import (
     CLIPTokenizer,
@@ -37,7 +39,7 @@ from transformers import (
     T5EncoderModel,
 )
 
-from core_extension_1.widgets import TextInput, StringInput, EnumInput
+from core_extension_1.widgets import TextInput, StringInput, EnumInput, IntInput, FloatInput, BooleanInput
 import json
 import torch
 import os
@@ -50,7 +52,17 @@ import logging
 from huggingface_hub import hf_hub_download
 import requests
 from tqdm import tqdm
-from gen_server.globals import comfy_config
+from gen_server.config import get_config
+
+# Masking
+from segment_anything import sam_model_registry, SamPredictor
+from groundingdino.util.inference import load_model, predict
+import groundingdino.datasets.transforms as T
+from groundingdino.util import box_ops
+from core_extension_1.common.utils import resize_and_crop, load_image_from_url, save_tensor_as_image
+import numpy as np
+import scipy.ndimage
+from diffusers.utils import load_image
 
 
 # Configure the logging
@@ -82,6 +94,8 @@ class LoadCheckpoint(CustomNode):
     """
     Takes a file with a state dict, outputs a dictionary of model-classes from Diffusers
     """
+    ux_node = "../ux_node.json"
+    ux_node2 = "../ux_node.tsx"
 
     display_name = {
         Language.ENGLISH: "Load Checkpoint",
@@ -269,7 +283,7 @@ class LoadCivitai(CustomNode):
             file_name = file_info['name']
             download_url = f"{file_info['downloadUrl']}?token={os.getenv('civitaiToken')}"
 
-            model_path = os.path.join(comfy_config.workspace_dir, "models", file_name)
+            model_path = os.path.join(get_config().workspace_dir, "models", file_name)
 
             # Check if the file already exists and its size
             file_exists = os.path.exists(model_path)
@@ -594,3 +608,201 @@ class LoadLoRA(CustomNode):
         )
 
         return {"pipe": pipe}
+    
+
+class GenerateMaskInpainting(CustomNode):
+    """
+    Generate mask based on the text prompt. This mask will be used for inpainting
+    """
+
+    display_name = {
+        Language.ENGLISH: "Generate Mask",
+    }
+
+    category = Category.MASK
+
+    description = {
+        Language.ENGLISH: "Generate Mask on specific portion of an image based on the text prompt",
+    }
+
+    @staticmethod
+    def update_interface(inputs: Dict[str, Any] = None) -> NodeInterface:
+        interface = {
+            "inputs": {
+                "mask_prompt": TextInput(),
+                "feather": IntInput(),
+                "image": StringInput(),
+            },
+            "outputs": {"image": ImageOutputType},
+        }
+
+        return interface
+    
+    def __call__(
+        self,
+        image: Union[Path, str],
+        mask_prompt: str,
+        feather: int,
+    ) -> Tuple[Image.Image, Tuple[int, int]]:
+        # Load models
+        sam_predictor = self.get_sam()
+        grounding_dino_model = self.get_groundingdino()
+
+        # Load and process image
+        try:
+            image = load_image_from_url(image) if isinstance(image, str) else load_image(image)
+        except:
+            image = load_image(image)
+
+        image, img_size = resize_and_crop(image)
+        
+        image_np = np.array(image)
+        sam_predictor.set_image(image_np)
+
+        # Detect objects using GroundingDINO
+        boxes, logits, phrases = self.detect_objects(image, mask_prompt, grounding_dino_model)
+
+        if len(boxes) > 0:
+            combined_mask = np.zeros(image_np.shape[:2], dtype=bool)
+            
+            for i, box in enumerate(boxes):
+                # Generate mask using SAM
+                input_box = box.cpu().numpy()
+                masks, _, _ = sam_predictor.predict(
+                    point_coords=None,
+                    point_labels=None,
+                    box=input_box[None, :],
+                    multimask_output=False,
+                )
+                
+                combined_mask = np.logical_or(combined_mask, masks[0])
+
+            mask_image_pil = Image.fromarray(combined_mask.astype(np.uint8) * 255)
+            mask_image_pil.save("wmask.png")
+            
+            # Feather the mask
+            combined_mask = self.feather_mask(combined_mask, iterations=feather)
+            
+            mask_image_pil = Image.fromarray(combined_mask.astype(np.uint8) * 255)
+            mask_image_pil.save("wmfeathermask.png")
+
+            return mask_image_pil, img_size
+        else:
+            print(f"No objects matching '{mask_prompt}' found in the image.")
+            return None, img_size
+    
+    def get_sam(self) -> SamPredictor:
+        sam_checkpoint = "models/sam_vit_h_4b8939.pth"
+        model_type = "vit_h"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+        sam.to(device=device)
+        return SamPredictor(sam)
+    
+    def get_groundingdino(self) -> torch.nn.Module:
+        config_file = "GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+        checkpoint_file = "models/groundingdino_swint_ogc.pth"
+        model = load_model(config_file, checkpoint_file)
+        model.to("cuda" if torch.cuda.is_available() else "cpu")
+        return model
+
+    def transform_image(self, image: Image.Image) -> torch.Tensor:
+        transform = T.Compose([
+            T.RandomResize([800], max_size=1333),
+            T.ToTensor(),
+            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ])
+        image_transformed, _ = transform(image, None)
+        return image_transformed
+    
+    def detect_objects(self, image: Image.Image, text_prompt: str, model: torch.nn.Module) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
+        image_transformed = self.transform_image(image)
+        boxes, logits, phrases = predict(
+            model=model, 
+            image=image_transformed, 
+            caption=text_prompt, 
+            box_threshold=0.3, 
+            text_threshold=0.25
+        )
+
+        W, H = image.size
+        boxes = box_ops.box_cxcywh_to_xyxy(boxes) * torch.tensor([W, H, W, H])
+        return boxes, logits, phrases
+    
+    def feather_mask(self, mask: np.ndarray, iterations: int = 5) -> np.ndarray:
+        """
+        Feather the mask to increase its size and soften the edges.
+        """
+        mask = mask.astype(np.float32)
+        for _ in range(iterations):
+            mask = scipy.ndimage.gaussian_filter(mask, sigma=1)
+            mask[mask > 0] = 1  # Threshold to keep mask binary
+        return mask
+    
+
+class InpaintImage(CustomNode):
+    """
+    Regenerate an image based on the mask and text prompt
+    """
+
+    display_name = {
+        Language.ENGLISH: "Regenerate Image (Inpainting)",
+    }
+
+    category = Category.INPAINTING
+
+    description = {
+        Language.ENGLISH: "Regenerate an image based on the mask and text prompt",
+    }
+
+    @staticmethod
+    def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
+        interface = {
+            "inputs": {
+                "image": Image,
+                "mask": ImageOutputType,
+                "text_prompt": TextInput(),
+                "strength": FloatInput(),
+                "save": BooleanInput()
+            },
+            "outputs": {"image": ImageOutputType},
+        }
+
+        return interface
+    
+    def __call__(
+        image,
+        mask,
+        text_prompt,
+        strength,
+        save=False
+    ):
+        inpainter = StableDiffusionXLInpaintPipeline.from_pretrained("RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16).to("cuda" if torch.cuda.is_available() else "cpu")
+    
+        mask, img_size = mask
+
+        # Perform inpainting
+        with torch.no_grad():
+            output = inpainter(
+                prompt=text_prompt,
+                negative_prompt="bad quality, bad teeth, worst quality, sweat",
+                image=image,
+                mask_image=mask,
+                strength=strength,
+                guidance_scale=7.5,
+                num_inference_steps=50,
+                width=img_size[0],
+                height=img_size[1],
+                output_type="latent",
+            )
+
+            print("Done Muahahaha!!!")
+        
+        if save:
+            save_tensor_as_image(output.images, inpainter.vae, "inpainting.jpg")
+
+        return output.images, inpainter.vae  # Return both the latent tensor and the VAE
+
+    
+    
+

@@ -1,0 +1,12 @@
+/web/dist
+/web/node_modules
+
+# Python
+__pycache__
+*.egg-info
+
+# Virtual environments
+venv
+.venv
+env
+.env

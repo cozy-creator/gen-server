@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gen_server"
 description = "Generative-AI server for content production"
-version = "0.0.4"
+version = "0.1.0"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
@@ -27,6 +27,8 @@ dependencies = [
     "uuid",
     "sentencepiece",
     "peft",
+    "pydantic>=2.0",
+    "pydantic_settings>=2.3",
     "python-dotenv",
     "scikit-image",
     "timm",
@@ -43,4 +45,5 @@ performance = [
 ]
 
 [project.scripts]
-comfy-creator = "gen_server.main:main"
+cozy = "gen_server.main:main"
+cozy-creator = "gen_server.main:main"

@@ -64,7 +64,7 @@ class ArchRegistry:
 
     def _load_architectures(self):
         print("Loading architectures")
-        for entry_point in pkg_resources.iter_entry_points(group=f"comfy_creator.architectures"):
+        for entry_point in pkg_resources.iter_entry_points(group=f"cozy_creator.architectures"):
             try:
                 module = importlib.import_module(entry_point.module_name)
                 print(entry_point.attrs[0] )

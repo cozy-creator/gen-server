@@ -1,13 +1,14 @@
-import os
+import json
 import time
+import argparse
+import asyncio
+import sys
+from pydantic_settings import CliSettingsSource
 
 from gen_server.base_types.custom_node import custom_node_validator
-from .base_types.architecture import architecture_validator
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# from .cli_args import args
-# from .common.firebase import initialize
-# from .settings import settings
+from gen_server.config import init_config
+from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
 from .globals import (
@@ -16,31 +17,76 @@ from .globals import (
     CUSTOM_NODES,
     WIDGETS,
     CHECKPOINT_FILES,
-    initialize_config,
-    comfy_config,
+    RunCommandConfig,
+    BuildWebCommandConfig,
 )
-import argparse
-import asyncio
 
-file_path = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "../../../../models/sd3_medium_incl_clips_t5xxlfp8.safetensors",
-    )
-)
+from .node_definitions import produce_node_definitions_file
+
+from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
+import warnings
+
+warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
-    # Parse command-line args
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env", help="Environment file path", default=None)
-    parser.add_argument(
-        "--config", help="Configuration dictionary (JSON format)", default=None
+    # produce_node_definitions_file('node_definitions.json')
+    root_parser = argparse.ArgumentParser(description="Cozy Creator")
+
+    # When we call parser.parse_args() the arg-parser will stop populating the --help menu
+    # So we need to find the arguments _before_ we call parser.parse_args() inside of
+    # CliSettingsSource() below.
+    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or ".env"
+    secrets_dir = (
+        find_arg_value("--secrets_dir")
+        or find_arg_value("--secrets-dir")
+        or "/run/secrets"
     )
-    args = parser.parse_args()
+    subcommand = find_subcommand()
 
-    initialize_config(env_path=args.env, config_path=args.config)
+    # Add subcommands
+    subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
+    run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
+    build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
 
+    if subcommand == "run":
+        cozy_config = init_config(
+            run_parser,
+            parse_known_args_wrapper,
+            env_file=env_file,
+            secrets_dir=secrets_dir,
+        )
+
+        produce_node_definitions_file('node_definitions.json')
+
+        print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
+        run_app(cozy_config)
+        
+    elif subcommand in ["build-web", "build_web"]:
+        cli_settings = CliSettingsSource(
+            BuildWebCommandConfig, root_parser=build_web_parser
+        )
+
+        build_config = BuildWebCommandConfig(
+            _env_file=env_file,  # type: ignore
+            _secrets_dir=secrets_dir,  # type: ignore
+            _cli_settings_source=cli_settings(args=True),  # type: ignore
+        )
+
+        print(json.dumps(build_config.model_dump(), indent=2, default=str))
+        
+    elif subcommand is None:
+        print("No subcommand specified. Please specify a subcommand.")
+        root_parser.print_help()
+        sys.exit(1)
+
+    else:
+        print(f"Unknown subcommand: {subcommand}")
+        root_parser.print_help()
+        sys.exit(1)
+
+
+def run_app(cozy_config: RunCommandConfig):
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
@@ -54,7 +100,7 @@ def main():
     global API_ENDPOINTS
     start_time_api_endpoints = time.time()
     API_ENDPOINTS.update(
-        load_extensions("comfy_creator.api", validator=api_routes_validator)
+        load_extensions("cozy_creator.api", validator=api_routes_validator)
     )
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(
@@ -65,7 +111,7 @@ def main():
     global ARCHITECTURES
     start_time_architectures = time.time()
     ARCHITECTURES.update(
-        load_extensions("comfy_creator.architectures", validator=architecture_validator)
+        load_extensions("cozy_creator.architectures", validator=architecture_validator)
     )
     print(
         f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
@@ -74,7 +120,7 @@ def main():
     global CUSTOM_NODES
     start_time_custom_nodes = time.time()
     CUSTOM_NODES.update(
-        load_extensions("comfy_creator.custom_nodes", validator=custom_node_validator)
+        load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
@@ -82,13 +128,13 @@ def main():
 
     global WIDGETS
     start_time_widgets = time.time()
-    WIDGETS.update(load_extensions("comfy_creator.widgets"))
+    WIDGETS.update(load_extensions("cozy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
 
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
-    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=comfy_config.models_dirs))
+    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=cozy_config.models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
@@ -108,16 +154,26 @@ def main():
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
 
-    asyncio.run(start_server())
-
-    return
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(start_server(cozy_config.host, cozy_config.port))
+    except KeyboardInterrupt:
+        print("\nProcess interrupted by user. Exiting gracefully...")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("Cleaning up resources...")
 
 
 if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nProcess interrupted by user. Exiting gracefully...")
+        sys.exit(0)
     # initialize(json.loads(settings.firebase.service_account))
 
     # asyncio.run(main())
-    main()
 
     # Run our REST server
     # web.run_app(app, port=8080)

@@ -6,10 +6,10 @@ from .common import StateDict, TorchDevice
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
-ComponentMetadata = TypedDict(
-    "ComponentMetadata", {"display_name": str, "input_space": str, "output_space": str}
-)
-
+class ComponentMetadata(TypedDict):
+    display_name: str
+    input_space: str
+    output_space: str
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method? That might be more optimized.
@@ -17,7 +17,7 @@ ComponentMetadata = TypedDict(
 
 class Architecture(ABC, Generic[T]):
     """
-    The abstract-base-class that all comfy-creator Architectures should implement.
+    The abstract-base-class that all cozy-creator Architectures should implement.
     """
 
     @property

@@ -21,6 +21,7 @@ venv/
 
 # Build dir
 **/dist/
+*.tgz
 
 # js dependencies
 **/node_modules/
@@ -28,15 +29,18 @@ venv/
 # Environment variables
 .env*
 !.env.*example
-# config*.json
-# config.json
+config*.json
 !config.example.json
-
 
 *.pt
 *.pth
 *.safetensors
+*.ipadpt
+*.png
 
 inputs/
 outputs/
 models/
+
+# repo dependicies
+/GroundingDINO/
