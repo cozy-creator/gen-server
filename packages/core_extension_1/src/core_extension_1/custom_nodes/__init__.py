@@ -62,7 +62,7 @@ from groundingdino.util import box_ops
 from core_extension_1.common.utils import resize_and_crop, load_image_from_url, save_tensor_as_image
 import numpy as np
 import scipy.ndimage
-from diffusers.utils import load_image
+from diffusers.utils.loading_utils import load_image
 
 
 # Configure the logging

@@ -10,7 +10,8 @@ from .base_types import Architecture, CheckpointMetadata
 
 
 DEFAULT_WORKSPACE_DIR = "~/.cozy-creator/"
-DEFAULT_MODELS_DIRS = ["~/.cozy-creator/models"]
+# Note: the default model_dirs is [{workspace_dir}/models]
+# DEFAULT_MODELS_DIRS = ["~/.cozy-creator/models"]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
 
@@ -18,7 +19,7 @@ class S3Credentials(BaseModel):
     """
     Credentials to read from / write to an S3-compatible API
     """
-            
+    
     endpoint_url: Optional[str] = Field(
         default=None,
         description="S3 endpoint url, such as https://<accountid>.r2.cloudflarestorage.com"
@@ -89,20 +90,21 @@ class RunCommandConfig(BaseSettings):
 
     workspace_dir: str = Field(
         default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_DIR),
-        description="Workspace directory",
+        description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
     )
 
     # allow models_dirs list to be parsed from both JSON and a comma-separated string
     models_dirs: list[str] = Field(
-        default_factory=lambda: [
-            os.path.expanduser(dir) for dir in DEFAULT_MODELS_DIRS
-        ],
-        description="Directories containing models",
+        default_factory=list,
+        description=(
+            "A list of directories containing model-files (serialized state dictionaries), "
+            "such as .safetensors or .pth files. The default value is [{workspace_dir}/models]"
+        ),
     )
 
     filesystem_type: str = Field(
         default="LOCAL",
-        description="Type of filesystem to use",
+        description="Type of filesystem to use. (Not currently used; may remove?)",
     )
 
     s3: Optional[S3Credentials] = Field(
@@ -134,12 +136,27 @@ class RunCommandConfig(BaseSettings):
 
     @field_validator("models_dirs", mode="before")
     @classmethod
-    def parse_models_dirs(cls, v):
+    def parse_and_set_models_dirs(cls, v, values):
+        # If no value provided, use default based on workspace_dir
+        if v is None or (isinstance(v, list) and len(v) == 0):
+            workspace = values.get('workspace_dir', os.path.expanduser(DEFAULT_WORKSPACE_DIR))
+            return [os.path.join(workspace, 'models')]
+        
+        # If it's a string, try to parse it
         if isinstance(v, str):
             try:
-                return json.loads(v)
+                parsed = json.loads(v)
             except json.JSONDecodeError:
-                return v.split(",")  # fallback to comma-separated values
+                parsed = v.split(",")  # fallback to comma-separated values
+            
+            # Ensure each path is expanded
+            return [os.path.expanduser(path.strip()) for path in parsed]
+        
+        # If it's already a list, ensure each path is expanded
+        if isinstance(v, list):
+            return [os.path.expanduser(path) for path in v]
+        
+        # If it's none of the above, return as is
         return v
 
 

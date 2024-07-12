@@ -4,10 +4,10 @@ FROM node:22-bookworm-slim as builder
 WORKDIR /app
 
 # Copy the web folder
-COPY web /app/web
+COPY web ./web
 
 # Build the web folder
-RUN cd /app/web && \
+RUN cd ./web && \
     npm install && \
     npm run build
 
@@ -32,8 +32,8 @@ RUN apt-get update && \
 
 # Install the gen_server package and its plugin-packages
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server && \
-    pip install ./packages/core_extension_1 && \
-    pip install ./packages/image_utils
+    pip install ./packages/image_utils && \
+    pip install ./packages/core_extension_1
 
 
 # Stage 3: Final stage
@@ -44,8 +44,16 @@ WORKDIR /app
 # Copy only the necessary files from the build stages
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
-COPY --from=builder /app/web/dist /app/web/dist
+COPY --from=builder /app/web/dist /srv/www/cozy/dist
 
 COPY pyproject.toml ./pyproject.toml
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx libglib2.0-0 \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 
 CMD ["cozy", "run"]

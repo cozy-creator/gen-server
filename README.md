@@ -80,11 +80,11 @@ docker build -t cozy-creator/gen-server:0.1.1 .
 ### Docker Run
 
 ```sh
-docker run --env-file=.env.example -p 8881:8881 --gpus=all cozy-creator/gen-server:0.1.0
+docker run --env-file=.env -e COZY_HOST=0.0.0.0 -p 8881:8881 -v ~/.cozy_creator:/workspace -e COZY_WORKSPACE_DIR=/workspace --gpus=all cozy-creator/gen-server:0.1.1
 ```
 
-You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first, for example:
+You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
 
 ```sh
-docker run -p 9000:9000 -e COZY_PORT=9000 -e COZY_HOST=0.0.0.0 cozy-creator/gen-server:0.1.0
+docker run -e COZY_HOST=0.0.0.0 -p 9000:9000 -e COZY_PORT=9000  -v "C:/git/comfyui/models":/models -e COZY_MODELS_DIRS='["/models"]' cozy-creator/gen-server:0.1.0
 ```

@@ -4,10 +4,11 @@ import time
 import argparse
 import asyncio
 import sys
+import os
 from pydantic_settings import CliSettingsSource
 
-from base_types.custom_node import custom_node_validator
-from config import init_config
+from .config import init_config
+from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
@@ -34,7 +35,15 @@ def main():
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
-    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or ".env"
+
+    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
+    # If no .env file is specified, try to find one in the current working directory
+    if env_file is None:
+        if os.path.exists(".env"):
+            env_file = ".env"
+        elif os.path.exists(".env.local"):
+            env_file = ".env.local"
+    
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")

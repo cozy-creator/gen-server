@@ -5,12 +5,26 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "core-extension-1"
 description = "Generative-AI server for content production"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
 dependencies = [
+    "accelerate",
+    "diffusers",
     "gen_server",
+    "groundingdino-py",
+    "huggingface_hub",
+    "image_utils",
+    "numpy",
+    "Pillow",
+    "requests",
+    "scipy",
+    "segment_anything",
+    "spandrel",
+    "torch",
+    "tqdm",
+    "transformers"
 ]
 
 [project.entry-points."cozy_creator.architectures"]

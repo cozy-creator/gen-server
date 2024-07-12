@@ -11,7 +11,14 @@ authors = [
 ]
 
 dependencies = [
-  "gen_server", "boto3", "pillow", "numpy", "python-dotenv"
+  "blake3",
+  "boto3",
+  "gen_server",
+  "numpy",
+  "Pillow",
+  "python-dotenv",
+  "torch",
+  "torchvision"
 ]
 
 [project.entry-points."cozy_creator.custom_nodes"]

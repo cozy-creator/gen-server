@@ -7,12 +7,10 @@ from ..globals import CHECKPOINT_FILES, API_ENDPOINTS, RouteDefinition
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
-import socket
+from ..utils.paths import get_web_root
 
 routes = web.RouteTableDef()
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-web_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..', '..', 'web', 'dist'))
 
 
 @routes.get("/")
@@ -20,7 +18,7 @@ async def home(_request: web.Request):
     # NOTE: This static-file server is intended only for running locally / development.
     # For production, use a dedicated static file-server, such as Envoy-proxy, Nginx, Apache,
     # or a CDN to serve the /web/dist folder.
-    index_path = os.path.join(web_root, "index.html")
+    index_path = os.path.join(get_web_root(), "index.html")
     
     if not os.path.exists(index_path):
         logging.error(f"Index file not found at {index_path}")
@@ -109,7 +107,7 @@ async def start_server(host: str = 'localhost', port: int = 8881):
     global routes
     
     # Make the entire /web/dist folder accessible at the root URL
-    routes.static('/', web_root)
+    routes.static('/', get_web_root())
     
     app.add_routes(routes)
 
@@ -132,7 +130,7 @@ async def start_server(host: str = 'localhost', port: int = 8881):
     #     await site.start()
     #     # _, port = site._server.sockets[0].getsockname()
     
-    print(f"Server running on {site.name} (click to open)")
+    print(f"Server running on {site.name} (click to open)", flush=True)
     
     try:
         await asyncio.Future()  # Keep the server running
