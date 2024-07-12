@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@cozy-creator/graph-editor": "file:cozy-creator-graph-editor-v0.3.0.tgz",
+    "@cozy-creator/graph-editor": "file:cozy-creator-graph-editor-v0.3.7.tgz",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

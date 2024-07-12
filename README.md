@@ -83,8 +83,8 @@ docker build -t cozy-creator/gen-server:0.1.1 .
 docker run --env-file=.env.example -p 8881:8881 --gpus=all cozy-creator/gen-server:0.1.0
 ```
 
-You can set environment variables manually by using `-e`, for example:
+You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first, for example:
 
 ```sh
-docker run -p 9000:9000 -e PORT=9000 -e HOST=0.0.0.0 cozy-creator/gen-server:0.1.0
+docker run -p 9000:9000 -e COZY_PORT=9000 -e COZY_HOST=0.0.0.0 cozy-creator/gen-server:0.1.0
 ```

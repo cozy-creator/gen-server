@@ -5,16 +5,9 @@ import argparse
 import asyncio
 import sys
 from pydantic_settings import CliSettingsSource
-import argparse
-import asyncio
-import sys
-from pydantic_settings import CliSettingsSource
 
-from gen_server.base_types.custom_node import custom_node_validator
-
-from gen_server.config import init_config
-
-from gen_server.config import init_config
+from base_types.custom_node import custom_node_validator
+from config import init_config
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
@@ -27,9 +20,7 @@ from .globals import (
     RunCommandConfig,
     BuildWebCommandConfig,
 )
-
 from .node_definitions import produce_node_definitions_file
-
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 import warnings
 
