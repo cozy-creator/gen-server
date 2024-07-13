@@ -1,15 +1,122 @@
+import io
 import os
+import traceback
 from typing import List
 
-from aiohttp import web
 import blake3
-from boto3 import session
+from aiohttp import web
+from boto3.session import Session
 
 from gen_server.config import get_config
-from urllib.parse import urlparse
 import logging
 
+from gen_server.globals import LocalStorage, S3Credentials
+
 logger = logging.getLogger(__name__)
+
+
+class LocalFileHandler:
+    def __init__(self, config):
+        if not isinstance(config, LocalStorage):
+            raise ValueError("Invalid storage configuration")
+
+        self.storage = config
+
+    def upload_file(self, content: bytes | str, filename: str):
+        if not os.path.exists(self.storage.assets_dir):
+            os.makedirs(self.storage.assets_dir)
+
+        filepath = os.path.join(self.storage.assets_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(content)
+
+        return f"http://127.0.0.1:8881/file/{filename}"
+
+    def list_files(self, folder: str):
+        """
+        Lists all files in the specified folder.
+        """
+
+        folder_path = os.path.join(self.storage.assets_dir, folder)
+        if not os.path.exists(folder_path):
+            return []
+
+        def _make_url(file):
+            if folder:
+                return f"http://127.0.0.1:8881/file/{folder}/{file}"
+            return f"http://127.0.0.1:8881/file/{file}"
+
+        return [_make_url(file) for file in os.listdir(folder_path)]
+
+    def download_file(self, filename: str, folder: str = None):
+        filename = f"{folder}/{filename}" if folder else filename
+        full_filepath = os.path.join(self.storage.assets_dir, filename)
+
+        if not os.path.exists(full_filepath):
+            return None
+
+        with open(full_filepath, mode="rb") as f:
+            return f.read()
+
+
+class S3FileHandler:
+    def __init__(self, config):
+        if not isinstance(config, S3Credentials):
+            raise ValueError("Invalid storage configuration")
+
+        session = Session()
+        self.config = config
+        self.client = session.client(
+            config.type,
+            region_name=config.region_name,
+            endpoint_url=config.endpoint_url,
+            aws_access_key_id=config.access_key,
+            aws_secret_access_key=config.secret_key,
+        )
+
+    def upload_file(self, content: bytes | str, filename: str):
+        key = f"{self.config.folder}/{filename}" if self.config.folder else filename
+
+        self.client.put_object(
+            Bucket=self.config.bucket_name,
+            Key=key,
+            Body=content,
+            ACL="public-read",
+        )
+
+        return f"{self.config.endpoint_url}/{key}"
+
+    async def set_public_acl(self, key: str):
+        """
+        Sets the ACL of the uploaded object to public-read.
+        """
+
+        self.client.put_object_acl(
+            Bucket=self.client.config,
+            Key=key,
+            ACL="public-read",
+        )
+
+    def list_files(self, folder: str):
+        """
+        Lists all files in the specified folder.
+        """
+        response = self.client.list_objects_v2(
+            Bucket=self.config.bucket_name,
+            Prefix=folder,
+        )
+
+        def _make_url(obj):
+            return f"{self.config.endpoint_url}/{obj['Key']}"
+
+        return [_make_url(url) for url in response.get("Contents", [])]
+
+    def download_file(self, filename: str, folder: str = None):
+        key = f"{folder}/{filename}" if folder else f"{self.config.folder}/{filename}"
+
+        bytesio = io.BytesIO()
+        self.client.download_fileobj(self.config.bucket_name, key, bytesio)
+        return bytesio.getvalue()
 
 
 # Create an AioHttp handler class
@@ -18,14 +125,10 @@ class FileHandler:
     AioHttp handler for uploading images.
     """
 
-    def __init__(self, upload_chunk_size: int = 5 * 1024 * 1024):
-        self.upload_chunk_size = upload_chunk_size
-        self.s3_client = session.Session().client(
-            "s3",
-            region_name=get_config().s3.region_name,
-            endpoint_url=get_config().s3.endpoint_url,
-            aws_access_key_id=get_config().s3.access_key,
-            aws_secret_access_key=get_config().s3.secret_access_key,
+    def __init__(self):
+        config = get_config().storage
+        self.handler = (
+            S3FileHandler(config) if config.type == "s3" else LocalFileHandler(config)
         )
 
     async def handle_upload(self, request: web.Request) -> web.Response:
@@ -34,57 +137,25 @@ class FileHandler:
         """
 
         reader = await request.multipart()
-
-        # Initialize variables to store content and filename
         content = None
         filename = None
+        try:
+            while True:
+                part = await reader.next()
+                if not part:
+                    break
+                if part.name == "file":
+                    content = await part.read()
+                    filehash = blake3.blake3(content).hexdigest()
+                    extension = os.path.splitext(part.filename)[1]
+                    filename = f"{filehash}{extension}"
 
-        # Iterate over parts
-        while True:
-            part = await reader.next()
-            if not part:
-                break
-            if part.name == "file":  # Assuming the file field is named "file"
-                # Read the content
-                content = await part.read()
-
-                # Generate a unique filename based on hash
-                filename = f"{blake3.blake3(content).hexdigest()}{os.path.splitext(part.filename)[1]}"  # Assuming PNG files
-
-                # Upload to S3 (if S3 client is provided)
-                if self.s3_client:
-                    try:
-                        # Upload the file to the specified folder
-                        key = (
-                            f'{get_config().s3["folder"]}/{filename}'
-                            if get_config().s3["folder"]
-                            else f"{filename}"
-                        )
-
-                        # presigned_url = self.s3_client.generate_presigned_url(
-                        # ClientMethod='put_object',
-                        # Params={'Bucket': cozy_config.s3.bucket_name, 'Key': key},
-                        # ExpiresIn=3600,  # URL expiration time in seconds
-                        # HttpMethod="PUT"
-                        # )
-
-                        self.s3_client.put_object(
-                            Bucket=get_config().s3["bucket_name"],
-                            Key=key,
-                            Body=content,
-                            ACL="public-read",
-                        )
-
-                        # # Generate and append the image URL
-                        image_url = f"{get_config().s3['url']}/{key}"
-
-                        # Return a success response with the URL
-                        print("Successfully Uploaded Image")
-                        return web.json_response({"success": True, "url": image_url})
-                    except Exception as e:
-                        # Handle errors appropriately
-                        print(f"Error uploading to S3: {e}")
-                        return web.json_response({"success": False, "error": str(e)})
+            url = self.handler.upload_file(content, filename)
+            return web.json_response({"success": True, "url": url}, status=201)
+        except Exception as e:
+            traceback.print_exc()
+            print(f"Error uploading file: {e}")
+            return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def set_public_acl(self, request: web.Request) -> web.Response:
         """
@@ -94,86 +165,68 @@ class FileHandler:
         key = data.get("key")
 
         if not key:
-            return web.json_response({"success": False, "error": "Key is missing"})
+            return web.json_response(
+                {"success": False, "error": "Key is missing"}, status=400
+            )
 
         try:
-            self.s3_client.put_object_acl(
-                Bucket=get_config().s3["bucket_name"], Key=key, ACL="public-read"
-            )
-            return web.json_response({"success": True})
+            if not isinstance(self.handler, S3FileHandler):
+                return web.json_response(
+                    {"success": False, "error": "Operation not supported"}
+                )
+
+            await self.handler.set_public_acl(key)
+            return web.json_response({"success": True}, status=200)
         except Exception as e:
-            return web.json_response({"success": False, "error": str(e)})
+            return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def list_files(self, request: web.Request) -> web.Response:
-        if get_config().s3["folder"]:
-            folder = get_config().s3["folder"]
-        else:
-            folder = request.match_info.folder  # Get the folder path from URL
-
         try:
-            # List objects in the specified folder (prefix)
-            response = self.s3_client.list_objects_v2(
-                Bucket=get_config().s3["bucket_name"], Prefix=folder
-            )
-
-            # Extract URLs of the files
-            file_urls = []
-            for obj in response.get("Contents", []):
-                # Generate the URL for each object in the bucket
-                object_url = f"https://{get_config().s3['bucket_name']}.{urlparse(self.s3_client.meta.endpoint_url).hostname}/{obj['Key']}"
-                file_urls.append(object_url)
-
-            return web.json_response({"success": True, "files": file_urls})
-
+            files = self.handler.list_files(request.query.get("folder", None))
+            return web.json_response({"success": True, "files": files}, status=200)
         except Exception as e:
-            return web.json_response({"success": False, "error": str(e)})
+            return web.json_response({"success": False, "error": str(e)}, status=500)
 
-    async def download_file(self, request: web.Request) -> web.FileResponse:
-        file_key = request.match_info["file_key"]  # Get the file key from URL
-
-        key = (
-            f'{get_config().s3["folder"]}/{file_key}'
-            if get_config().s3["folder"]
-            else f"{file_key}"
-        )
-
+    async def download_file(self, request: web.Request) -> web.Response:
+        filename = request.match_info["filename"]
         try:
-            # Generate a presigned URL for downloading the file
-            url = self.s3_client.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={"Bucket": get_config().s3["bucket_name"], "Key": key},
-                ExpiresIn=3600,  # URL expiration time in seconds
-            )
+            body = self.handler.download_file(filename)
+            if body is None:
+                return web.json_response(
+                    {"success": False, "error": "File not found"},
+                    status=404,
+                )
 
-            return web.json_response({"success": True, "download_url": url})
+            headers = {
+                "Content-Type": get_content_type(filename),
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            }
 
+            return web.Response(body=body, headers=headers, status=200)
         except Exception as e:
-            return web.json_response({"success": False, "error": str(e)})
+            return web.json_response({"success": False, "error": str(e)}, status=500)
 
-    async def serve_local_file(self, request: web.Request) -> web.Response:
+    async def serve_file(self, request: web.Request) -> web.Response:
         """
         Serves a static file from the local filesystem.
         """
-        file_path = request.match_info.get(
-            "file_path"
-        )  # Get the file path from the URL
 
-        file_path = os.path.join(get_config().workspace_dir, "assets", file_path)
-
-        if os.path.exists(file_path):
-            # Read the file content in bytes
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-
-            # Get the content type dynamically
-            content_type = get_content_type(file_path)
-
-            # Create the response
-            return web.Response(
-                body=file_content, content_type=content_type, status=200
+        filename = request.match_info.get("filename")
+        if not isinstance(self.handler, LocalFileHandler):
+            return web.json_response(
+                {"success": False, "error": "Operation not supported"},
+                status=400,
             )
-        else:
-            return web.Response(text="File not found", status=404)
+
+        body = self.handler.download_file(filename)
+        if body is None:
+            return web.json_response(
+                {"success": False, "error": "File not found"},
+                status=404,
+            )
+
+        headers = {"Content-Type": get_content_type(filename)}
+        return web.Response(body=body, headers=headers, status=200)
 
 
 def get_content_type(file_path):
@@ -189,6 +242,7 @@ def get_content_type(file_path):
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
         ".gif": "image/gif",
+        ".webp": "image/webp",
         ".ico": "image/x-icon",
     }
     return content_types.get(file_extension, "application/octet-stream")
@@ -199,10 +253,7 @@ handler = FileHandler()
 routes: List[web.RouteDef] = [
     web.post("/upload", handler.handle_upload),
     web.post("/set-public-acl", handler.set_public_acl),
-    web.get("/list", handler.list_files),
-    web.get("/download/{file_key}", handler.download_file),
-    web.get("/files/{file_path}", handler.serve_local_file),
+    web.post("/files", handler.list_files),
+    web.post("/files/{filename}", handler.serve_file),
+    web.post("/download/{filename}", handler.download_file),
 ]
-"""
-Defines the routes for file operations.
-"""

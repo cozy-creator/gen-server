@@ -12,6 +12,7 @@ import json
 from typing import Optional
 from PIL.PngImagePlugin import PngInfo
 import boto3
+
 # from dotenv import load_dotenv
 from .helper_decorators import convert_image_format
 import io
@@ -46,14 +47,17 @@ from typing import TypedDict
 #                     aws_secret_access_key=s3_secret_key,
 #                     region_name=os.getenv("S3__REGION_NAME"))
 
+
 class FileUrl(TypedDict):
     url: str
     is_temp: bool
+
 
 class SaveFile(CustomNode):
     """
     Custom node to save or upload generated images.
     """
+
     display_name = "Saves Images"
 
     category = "images"
@@ -65,12 +69,18 @@ class SaveFile(CustomNode):
         self.temp_dir = get_folder_path("temp")
         self.type = "output"
         self.prefix_append = ""
-        self.temp_prefix_append = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for _ in range(5))
+        self.temp_prefix_append = "_temp_" + "".join(
+            random.choice("abcdefghijklmnopqrstupvxyz") for _ in range(5)
+        )
         self.compress_level = 4
         self.temp_compress_level = 1
 
     @staticmethod
-    def update_interface(inputs: Dict[str, Union[Tuple[str, ...], Tuple[str, Dict[str, Union[str, int]]]]] = None) -> NodeInterface:
+    def update_interface(
+        inputs: Dict[
+            str, Union[Tuple[str, ...], Tuple[str, Dict[str, Union[str, int]]]]
+        ] = None,
+    ) -> NodeInterface:
         """
         Defines the input and output interface for the node.
         """
@@ -97,51 +107,62 @@ class SaveFile(CustomNode):
         return interface
 
     def __call__(
-            self,
-            # TO DO: make this type less fixed; ImageOutputType is also needed
-            images: List[Image],
-            # images: torch.Tensor,
-            temp: bool = True,
-            filename_prefix: str = "CozyCreator", 
-            bucket_name: str = "my-bucket",
-            image_metadata: Optional[dict] = None
-        ) -> Dict[str, List[FileUrl]]:
+        self,
+        # TO DO: make this type less fixed; ImageOutputType is also needed
+        images: List[Image],
+        # images: torch.Tensor,
+        temp: bool = True,
+        filename_prefix: str = "CozyCreator",
+        bucket_name: str = "my-bucket",
+        image_metadata: Optional[dict] = None,
+    ) -> Dict[str, List[FileUrl]]:
         """
         Saves images to the local filesystem or a remote S3 bucket.
         """
 
-        if get_config().filesystem_type == "LOCAL":  # Assuming environment variables for local/production
+        if (
+            get_config().filesystem_type == "LOCAL"
+        ):  # Assuming environment variables for local/production
             if temp:
                 prefix = self.temp_prefix_append
                 dir = self.temp_dir
             else:
                 prefix = self.prefix_append
                 dir = self.output_dir
-                
+
             image_urls = save_image_to_filesystem(
                 images,
                 compress_level=self.compress_level,
                 image_metadata=image_metadata,
-                is_temp=temp)
-            
+                is_temp=temp,
+            )
+
             # prepend our server's GET-file endpoint to these relative paths
             for url in image_urls:
                 print(url["url"])
-                url["url"] = f"http://{get_config().host}:{get_config().port}/files/{url['url']}"
-            
+                url["url"] = (
+                    f"http://{get_config().host}:{get_config().port}/files/{url['url']}"
+                )
+
         elif get_config().filesystem_type == "S3":
             # Assuming you have environment variables for local/prod
             # Upload the image to the "temp" folder
             image_urls = self.upload_to_s3(
-                images, bucket_name, folder_name="temp" if temp else None)
-        
+                images, bucket_name, folder_name="temp" if temp else None
+            )
+
         else:
             image_urls = []
 
-        return { "images": image_urls }
+        return {"images": image_urls}
 
     # @convert_image_format
-    def upload_to_s3(self, image_data: Union[bytes, List[bytes]], bucket_name, folder_name: Optional[str] = None):
+    def upload_to_s3(
+        self,
+        image_data: Union[bytes, List[bytes]],
+        bucket_name,
+        folder_name: Optional[str] = None,
+    ):
         """
         Uploads image data to an S3 bucket and returns the URL(s) of the uploaded image(s).
 
@@ -164,12 +185,20 @@ class SaveFile(CustomNode):
                 img_bytes = output.getvalue()
 
             filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
-            
-            key = f'{get_config().s3["folder"]}/{filename}' if get_config().s3["folder"] else f'{filename}'
-            
+
+            key = (
+                f'{get_config().s3["folder"]}/{filename}'
+                if get_config().s3["folder"]
+                else f"{filename}"
+            )
 
             # Upload the image data
-            get_config().s3["client"].put_object(Bucket=get_config().s3["bucket_name"], Key=key, Body=img_bytes, ACL="public-read")
+            get_config().s3["client"].put_object(
+                Bucket=get_config().s3["bucket_name"],
+                Key=key,
+                Body=img_bytes,
+                ACL="public-read",
+            )
 
             # Generate and append the image URL
             # endpoint_url = s3.meta.endpoint_url
@@ -177,12 +206,14 @@ class SaveFile(CustomNode):
             # image_url = f"https://{s3_bucket_name}.{hostname}/{key}"
             image_url = f"{get_config().s3['url']}/{key}"
 
-            image_urls.append({
-                "url": image_url,
-                "filename": filename,
-                "subfolder": folder_name if folder_name else "root",
-                "type": folder_name if folder_name else "output"
-            })
+            image_urls.append(
+                {
+                    "url": image_url,
+                    "filename": filename,
+                    "subfolder": folder_name if folder_name else "root",
+                    "type": folder_name if folder_name else "output",
+                }
+            )
 
         print(image_urls)
 
@@ -220,26 +251,27 @@ def tensor_to_pil(tensor: torch.Tensor) -> List[Image]:
 
 
 def save_image_to_filesystem(
-        images: List[Image],
-        # tensor_images: torch.Tensor,
-        filename_prefix: str = '',
-        image_metadata: Optional[dict] = None,
-        compress_level: Optional[int] = None,
-        file_type: str = "png",
-        is_temp: bool = False
-    ) -> List[FileUrl]:
+    images: List[Image],
+    # tensor_images: torch.Tensor,
+    filename_prefix: str = "",
+    image_metadata: Optional[dict] = None,
+    compress_level: Optional[int] = None,
+    file_type: str = "png",
+    is_temp: bool = False,
+) -> List[FileUrl]:
     # TO DO: make this conversion more automatic in the executor rather than manual / fixed
     # images = tensor_to_pil(tensor_images)
-    
+
     # TO DO: move this logic somewhere more general
-    workspace_dir = get_config().workspace_dir
-    if not workspace_dir:
-        raise FileNotFoundError(f"The workspace directory '{workspace_dir}' does not exist.")
+    workspace_path = get_config().workspace_path
+    if not workspace_path:
+        raise FileNotFoundError(
+            f"The workspace directory '{workspace_path}' does not exist."
+        )
 
     print(is_temp)
-    
-    assets_dir = os.path.join(
-        workspace_dir, 'assets', 'temp' if is_temp else '')
+
+    assets_dir = os.path.join(workspace_path, "assets", "temp" if is_temp else "")
     if not os.path.exists(assets_dir):
         os.makedirs(assets_dir)
 
@@ -248,7 +280,17 @@ def save_image_to_filesystem(
 
     # Prepare data for multiprocessing
     image_data_list = [
-        (batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp, counter + batch_number)
+        (
+            batch_number,
+            image,
+            filename_prefix,
+            file_type,
+            assets_dir,
+            image_metadata,
+            compress_level,
+            is_temp,
+            counter + batch_number,
+        )
         for batch_number, image in enumerate(images)
     ]
 
@@ -260,15 +302,26 @@ def save_image_to_filesystem(
 
 
 def save_image(image_data) -> FileUrl:
-    batch_number, image, filename_prefix, file_type, assets_dir, image_metadata, compress_level, is_temp, counter = image_data
+    (
+        batch_number,
+        image,
+        filename_prefix,
+        file_type,
+        assets_dir,
+        image_metadata,
+        compress_level,
+        is_temp,
+        counter,
+    ) = image_data
     filename_with_batch_num = filename_prefix.replace("%batch_num%", str(batch_number))
     file_name = f"{filename_with_batch_num}_{counter:05}_.{file_type}"
     image_path = os.path.join(assets_dir, file_name)
-    
+
     image.save(image_path, pnginfo=image_metadata, compress_level=compress_level)
-    
+
     # TO DO: we need to sychronize this with how they're read from the get-files endpoint
     return FileUrl(url=file_name, is_temp=is_temp)
+
 
 # def save_image_to_filesystem(
 #         tensor_images: torch.Tensor,
@@ -280,22 +333,22 @@ def save_image(image_data) -> FileUrl:
 #     ) -> List[FileUrl]:
 #     # TO DO: make this conversion more flexible
 #     images = tensor_to_pil(tensor_images)
-    
-#     workspace_dir = get_config().workspace_dir
-#     if not workspace_dir:
-#         raise FileNotFoundError(f"The workspace directory '{workspace_dir}' does not exist.")
-    
-#     assets_dir = os.path.join(workspace_dir, 'assets')
-    
+
+#     workspace_path = get_config().workspace_path
+#     if not workspace_path:
+#         raise FileNotFoundError(f"The workspace directory '{workspace_path}' does not exist.")
+
+#     assets_dir = os.path.join(workspace_path, 'assets')
+
 #     if is_temp:
 #         assets_dir = os.path.join(assets_dir, 'temp')
-    
+
 #     if not os.path.exists(assets_dir):
 #         os.makedirs(assets_dir)
-    
+
 #     counter = 0
 #     urls: List[FileUrl] = []
-    
+
 #     for batch_number, image in enumerate(images):
 #         filename_with_batch_num = filename_prefix.replace("%batch_num%", str(batch_number))
 #         file = f"{filename_with_batch_num}_{counter:05}_.{file_type}"
@@ -303,15 +356,15 @@ def save_image(image_data) -> FileUrl:
 #         image.save(image_path, pnginfo=image_metadata, compress_level=compress_level)
 #         urls.append(FileUrl(url=image_path, is_temp=is_temp))
 #         counter += 1
-    
+
 #     return urls
-    
+
 #     full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path(
 #         filename_prefix, output_dir, images[0].width, images[0].height
 #     )
-    
+
 #     urls: List[FileUrl] = []
-    
+
 #     for batch_number, image in enumerate(images):
 #         # i = 255. * image.cpu().numpy()
 #         # img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
@@ -323,12 +376,11 @@ def save_image(image_data) -> FileUrl:
 #         #     if extra_pnginfo is not None:
 #         #         for x in extra_pnginfo:
 #         #             metadata.add_text(x, json.dumps(extra_pnginfo[x]))
-        
+
 #         filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
 #         file = f"{filename_with_batch_num}_{counter:05}_.png"
 #         image.save(os.path.join(full_output_folder, file), pnginfo=metadata, compress_level=compress_level)
 #         urls.append(FileUrl(url=file, is_temp=is_temp))
 #         counter += 1
-    
-#     return urls
 
+#     return urls

@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.entry-points."cozy_creator.custom_nodes"]
-save_file = "image_utils.custom_nodes:SaveFile"
+# save_file = "image_utils.custom_nodes:SaveFile"
 
 [project.entry-points."cozy_creator.api"]
 image_upload = "image_utils.api:routes"

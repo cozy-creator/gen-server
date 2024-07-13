@@ -2,13 +2,12 @@ from pydantic_settings import CliSettingsSource
 from .globals import RunCommandConfig
 import argparse
 from typing import Optional, List, Callable
-import os
-
 
 cozy_config: Optional[RunCommandConfig] = None
 """
 Global configuration for the Cozy Gen-Server
 """
+
 
 def config_loaded() -> bool:
     """
@@ -27,7 +26,12 @@ def get_config() -> RunCommandConfig:
         raise ValueError("Config has not been loaded yet")
     return cozy_config
 
-ParseArgsMethod = Callable[[argparse.ArgumentParser, Optional[List[str]], Optional[argparse.Namespace]], Optional[argparse.Namespace]]
+
+ParseArgsMethod = Callable[
+    [argparse.ArgumentParser, Optional[List[str]], Optional[argparse.Namespace]],
+    Optional[argparse.Namespace],
+]
+
 
 def init_config(
     run_parser: argparse.ArgumentParser,
@@ -57,4 +61,3 @@ def init_config(
     )
 
     return cozy_config
-

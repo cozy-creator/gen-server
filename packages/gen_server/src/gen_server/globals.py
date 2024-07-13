@@ -1,24 +1,24 @@
 import os
 import json
 from enum import Enum
-from typing import Type, Optional, Any, Iterable, Union, Literal
+from typing import Type, Optional, Any, Iterable, Union
 from aiohttp import web
-from pydantic import Field, BaseModel, field_validator, ValidationInfo, model_validator
+from pydantic import Field, BaseModel, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
-
 
 DEFAULT_WORKSPACE_PATH = "~/.cozy-creator/"
 # Note: the default models_path is [{workspace_path}/models]
 # Note: the default assets_path is [{workspace_path}/assets]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
+
 class FilesystemTypeEnum(str, Enum):
-    LOCAL = 'local'
-    S3 = 's3'
-    
+    LOCAL = "local"
+    S3 = "s3"
+
     # make it case-insensitive
     @classmethod
     def _missing_(cls, value: str):
@@ -31,26 +31,25 @@ class S3Credentials(BaseModel):
     """
     Credentials to read from / write to an S3-compatible API
     """
-    
+
     endpoint_url: Optional[str] = Field(
         default=None,
-        description="S3 endpoint url, such as https://<accountid>.r2.cloudflarestorage.com"
+        description="S3 endpoint url, such as https://<accountid>.r2.cloudflarestorage.com",
     )
 
     access_key: Optional[str] = Field(
-        default=None,
-        description="Access key for S3 authentication"
+        default=None, description="Access key for S3 authentication"
     )
 
     secret_key: Optional[str] = Field(
         default=None,
         description="Secret key for S3 authentication",
     )
-    
+
     region_name: Optional[str] = Field(
         default=None, description="Optional region, such as `us-east-1` or `weur`"
     )
-    
+
     bucket_name: Optional[str] = Field(
         default=None, description="Name of the S3 bucket to read from / write to"
     )
@@ -64,6 +63,7 @@ class RunCommandConfig(BaseSettings):
     """
     Configuration for the run CLI command. Loaded by the pydantic-settings library
     """
+
     model_config = SettingsConfigDict(
         case_sensitive=False,
         cli_parse_args=True,
@@ -74,7 +74,7 @@ class RunCommandConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
-    
+
     env_file: Optional[str] = Field(
         default=None,
         description="Path to .env file",
@@ -84,7 +84,7 @@ class RunCommandConfig(BaseSettings):
         default=None,
         description="Path to secrets directory",
     )
-    
+
     environment: str = Field(
         default="dev",
         description="Server environment, such as dev or prod",
@@ -120,10 +120,10 @@ class RunCommandConfig(BaseSettings):
             "such as .safetensors or .pth files."
         ),
     )
-    
+
     assets_path: Optional[str] = Field(
         default=None,
-        description="Directory for storing assets locally, Default value is {workspace_path}/assets"
+        description="Directory for storing assets locally, Default value is {workspace_path}/assets",
     )
 
     filesystem_type: FilesystemTypeEnum = Field(
@@ -133,42 +133,38 @@ class RunCommandConfig(BaseSettings):
             "If `s3`, files will be saved to and served from the specified S3 bucket and folder."
         ),
     )
-    
+
     s3: Optional[S3Credentials] = Field(
         default=None,
-        description="Credentials to read from and write to an S3-compatible API."
+        description="Credentials to read from and write to an S3-compatible API.",
     )
-    
+
     # This allows the aux_models_paths field to be a comma-separated string of paths
     # or a list of paths
     @field_validator("aux_models_paths", mode="before")
     @classmethod
-    def parse_and_set_aux_models_paths(
-        cls,
-        v: Any,
-        info: ValidationInfo
-    ) -> list[str]:
+    def parse_and_set_aux_models_paths(cls, v: Any, info: ValidationInfo) -> list[str]:
         # If no value provided, return an empty list
         if v is None or (isinstance(v, list) and len(v) == 0):
             return []
-        
+
         # If it's a string, try to parse it
         if isinstance(v, str):
             try:
                 parsed = json.loads(v)
             except json.JSONDecodeError:
                 parsed = v.split(",")  # fallback to comma-separated values
-            
+
             # Ensure each path is expanded
             return [os.path.expanduser(path.strip()) for path in parsed]
-        
+
         # If it's already a list, ensure each path is expanded
         if isinstance(v, list):
             return [os.path.expanduser(path) for path in v]
-        
+
         # If it's none of the above, return as is
         return v
-    
+
     @field_validator("s3", mode="before")
     @classmethod
     def validate_s3(cls, v: Any) -> Optional[S3Credentials]:
@@ -196,10 +192,9 @@ class BuildWebCommandConfig(BaseSettings):
     """
     Configuration for the build-web CLI command. Loaded by the pydantic-settings library
     """
-    model_config = { 
-        "extra": "ignore"
-    }
-    
+
+    model_config = {"extra": "ignore"}
+
     env_file: Optional[str] = Field(
         default=None,
         description="Path to .env file",
@@ -237,4 +232,3 @@ CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 """
 Dictionary of all discovered checkpoint files
 """
-

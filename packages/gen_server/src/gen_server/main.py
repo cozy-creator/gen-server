@@ -1,5 +1,4 @@
 import json
-import json
 import time
 import argparse
 import asyncio
@@ -44,7 +43,7 @@ def main():
             env_file = ".env"
         elif os.path.exists(".env.local"):
             env_file = ".env.local"
-    
+
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")
@@ -65,11 +64,11 @@ def main():
             secrets_dir=secrets_dir,
         )
 
-        produce_node_definitions_file('node_definitions.json')
+        produce_node_definitions_file("node_definitions.json")
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
-        
+
     elif subcommand in ["build-web", "build_web"]:
         cli_settings = CliSettingsSource(
             BuildWebCommandConfig, root_parser=build_web_parser
@@ -82,7 +81,7 @@ def main():
         )
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
-        
+
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()
