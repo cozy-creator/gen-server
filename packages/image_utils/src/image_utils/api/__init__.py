@@ -30,7 +30,7 @@ class LocalFileHandler:
         with open(filepath, "wb") as f:
             f.write(content)
 
-        return f"http://127.0.0.1:8881/file/{filename}"
+        return f"http://127.0.0.1:8881/files/{filename}"
 
     def list_files(self):
         """
@@ -42,7 +42,7 @@ class LocalFileHandler:
             return []
 
         def _make_url(file):
-            return f"http://127.0.0.1:8881/file/{file}"
+            return f"http://127.0.0.1:8881/files/{file}"
 
         return [_make_url(file) for file in os.listdir(folder_path)]
 
@@ -218,8 +218,7 @@ handler = FileHandler()
 
 routes: List[web.RouteDef] = [
     web.post("/upload", handler.handle_upload),
-    # web.post("/set-public-acl", handler.set_public_acl),
-    web.post("/files", handler.list_files),
-    web.post("/files/{filename}", handler.get_file),
-    web.post("/download/{filename}", handler.download_file),
+    web.get("/files", handler.list_files),
+    web.get("/files/{filename}", handler.get_file),
+    web.get("/download/{filename}", handler.download_file),
 ]

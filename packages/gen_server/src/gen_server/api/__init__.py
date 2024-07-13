@@ -118,7 +118,7 @@ async def start_server(host: str = "localhost", port: int = 8881):
     global routes
 
     # Make the entire /web/dist folder accessible at the root URL
-    routes.static("/", get_web_root())
+    # routes.static("/", get_web_root())
     app.add_routes(routes)
 
     # Register all API endpoints from extensions
