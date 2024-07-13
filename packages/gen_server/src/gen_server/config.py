@@ -1,7 +1,8 @@
 from pydantic_settings import CliSettingsSource
-from .globals import RunCommandConfig
+from .globals import RunCommandConfig, LocalStorage
 import argparse
 from typing import Optional, List, Callable
+import os
 
 
 cozy_config: Optional[RunCommandConfig] = None
@@ -9,7 +10,7 @@ cozy_config: Optional[RunCommandConfig] = None
 Global configuration for the Cozy Gen-Server
 """
 
-def config_loaded():
+def config_loaded() -> bool:
     """
     Returns a boolean indicating whether the config has been loaded.
     This will return True if called within the gen_server runtime, since the config is loaded at the start of the server.
@@ -17,12 +18,12 @@ def config_loaded():
     return cozy_config is not None
 
 
-def get_config():
+def get_config() -> RunCommandConfig:
     """
     Returns the global configuration object. This is only available if the config has been loaded, which happens at
     the start of the server, else it will raise an error.
     """
-    if not config_loaded():
+    if cozy_config is None:
         raise ValueError("Config has not been loaded yet")
     return cozy_config
 
@@ -56,3 +57,25 @@ def init_config(
     )
 
     return cozy_config
+
+
+def get_assets_dir() -> str:
+    """
+    Helper function; used to find the /assets directory.
+    """
+    config = get_config()
+    if config.filesystem_type.storage.type == 'local':
+        local_storage = config.filesystem_type.storage
+        if isinstance(local_storage, LocalStorage) and local_storage.assets_dir:
+            return local_storage.assets_dir
+    return os.path.join(config.workspace_path, 'assets')
+
+
+def get_models_dir() -> str:
+    """
+    Helper function; used to find the /models directory.
+    """
+    config = get_config()
+    if config.models_path:
+        return config.models_path
+    return os.path.join(config.workspace_path, 'models')

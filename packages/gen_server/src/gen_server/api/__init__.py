@@ -12,7 +12,6 @@ from ..utils.paths import get_web_root
 routes = web.RouteTableDef()
 
 
-
 @routes.get("/")
 async def home(_request: web.Request):
     # NOTE: This static-file server is intended only for running locally / development.
@@ -71,6 +70,8 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
     
     return response
 
+
+# This does inference using an arbitrary hugging face repo
 @routes.post("/generate-from-repo")
 async def generate_from_repo(request: web.Request) -> web.StreamResponse:
     response = web.StreamResponse(status=200, reason='OK', headers={'Content-Type': 'application/json'})

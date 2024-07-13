@@ -1,17 +1,18 @@
 import os
 import json
-from typing import Type, Optional, Any, Iterable, Union
+from enum import Enum
+from typing import Type, Optional, Any, Iterable, Union, Literal
 from aiohttp import web
-from pydantic import Field, BaseModel, field_validator, ValidationInfo
+from pydantic import Field, BaseModel, field_validator, ValidationInfo, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
 
 
-DEFAULT_WORKSPACE_DIR = "~/.cozy-creator/"
-# Note: the default model_dirs is [{workspace_dir}/models]
-# DEFAULT_MODELS_DIRS = ["~/.cozy-creator/models"]
+DEFAULT_WORKSPACE_PATH = "~/.cozy-creator/"
+# Note: the default model_dirs is [{workspace_path}/models]
+# DEFAULT_AUX_MODELS_PATHS = ["~/.cozy-creator/models"]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
 
@@ -19,6 +20,7 @@ class S3Credentials(BaseModel):
     """
     Credentials to read from / write to an S3-compatible API
     """
+    type: Literal['s3'] = 's3'
     
     endpoint_url: Optional[str] = Field(
         default=None,
@@ -46,6 +48,65 @@ class S3Credentials(BaseModel):
     folder: Optional[str] = Field(
         default=None, description="Folder within the S3 bucket"
     )
+
+class LocalStorage(BaseModel):
+    """
+    Where to store files and serve them from locally
+    """
+    type: Literal['local'] = 'local'
+    
+    assets_dir: Optional[str] = Field(
+        default=None,
+        description="Directory for storing assets locally, Default value is {workspace_path}/assets"
+    )
+
+class FilesystemType(BaseModel):
+    storage: Union[S3Credentials, LocalStorage] = Field(discriminator='type')
+    
+    @field_validator("storage", mode="before")
+    @classmethod
+    def validate_storage(cls, v: Any) -> Union[S3Credentials, LocalStorage]:
+        if isinstance(v, (S3Credentials, LocalStorage)):
+            return v
+        if isinstance(v, dict):
+            if v.get('type') == 's3':
+                return S3Credentials(**v)
+            elif v.get('type') == 'local':
+                return LocalStorage(**v)
+        if isinstance(v, str):
+            try:
+                data = json.loads(v)
+                if data.get('type') == 's3':
+                    return S3Credentials(**data)
+                elif data.get('type') == 'local':
+                    return LocalStorage(**data)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON string for storage configuration: {e}")
+        raise ValueError(f"Invalid storage configuration: {v}")
+    
+    @model_validator(mode='after')
+    def validate_storage_type(cls, values):
+        if not isinstance(values.storage, (S3Credentials, LocalStorage)):
+            raise ValueError('Invalid storage configuration')
+        return values
+
+# # To use the storage field:
+# if filesystem.type == 's3':
+#     s3_creds = filesystem.storage
+#     # Use s3_creds.endpoint_url, s3_creds.access_key, etc.
+# elif filesystem.type == 'local':
+#     assets_dir = filesystem.storage
+#     # Use assets_dir as a string path
+
+# # You can also use isinstance for type checking:
+# if isinstance(filesystem.storage, S3Credentials):
+#     # It's S3
+#     s3_creds = filesystem.storage
+#     # Use s3 credentials
+# elif isinstance(filesystem.storage, str):
+#     # It's local
+#     assets_dir = filesystem.storage
+#     # Use local assets directory
 
 
 class RunCommandConfig(BaseSettings):
@@ -88,64 +149,45 @@ class RunCommandConfig(BaseSettings):
         description="Port to bind to",
     )
 
-    workspace_dir: str = Field(
-        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_DIR),
+    workspace_path: str = Field(
+        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
         description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
     )
 
-    # allow models_dirs list to be parsed from both JSON and a comma-separated string
-    models_dirs: list[str] = Field(
-        default_factory=list,
+    models_path: Optional[str] = Field(
+        default=None,
         description=(
-            "A list of directories containing model-files (serialized state dictionaries), "
-            "such as .safetensors or .pth files. The default value is [{workspace_dir}/models]"
+            "The directory where models will be saved to and loaded from by default."
+            "The default value is {workspace_path}/models"
         ),
     )
 
-    filesystem_type: str = Field(
-        default="LOCAL",
-        description="Type of filesystem to use. (Not currently used; may remove?)",
+    aux_models_paths: list[str] = Field(
+        default_factory=list,
+        description=(
+            "A list of additional directories containing model-files (serialized state dictionaries), "
+            "such as .safetensors or .pth files."
+        ),
     )
 
-    s3: Optional[S3Credentials] = Field(
-        default=None,
-        description="S3 credentials",
+    filesystem_type: FilesystemType = Field(
+        default_factory=lambda: FilesystemType(storage=LocalStorage()),
+        description=(
+            "If `local`, files will be saved to and served from the {workspace_path}/assets folder. "
+            "If `s3`, files will be saved to and served from the specified S3 bucket."
+        ),
     )
-    
-    @field_validator("s3", mode="before")
-    @classmethod
-    def validate_s3(cls, v: Any) -> Optional[S3Credentials]:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            try:
-                # Parse the string as JSON
-                s3_dict = json.loads(v)
-                # Create an S3Credentials instance from the parsed dict
-                return S3Credentials(**s3_dict)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON string for S3 credentials: {e}")
-        elif isinstance(v, dict):
-            # If it's already a dict, create an S3Credentials instance
-            return S3Credentials(**v)
-        elif isinstance(v, S3Credentials):
-            # If it's already an S3Credentials instance, return it as-is
-            return v
-        else:
-            raise ValueError(f"Unexpected type for S3 credentials: {type(v)}")
 
-    @field_validator("models_dirs", mode="before")
+    @field_validator("aux_models_paths", mode="before")
     @classmethod
-    def parse_and_set_models_dirs(
+    def parse_and_set_aux_models_paths(
         cls,
         v: Any,
         info: ValidationInfo
     ) -> list[str]:
-        values = info.data
-        # If no value provided, use default based on workspace_dir
+        # If no value provided, return an empty list
         if v is None or (isinstance(v, list) and len(v) == 0):
-            workspace = values.get('workspace_dir', os.path.expanduser(DEFAULT_WORKSPACE_DIR))
-            return [os.path.join(workspace, 'models')]
+            return []
         
         # If it's a string, try to parse it
         if isinstance(v, str):
@@ -162,6 +204,39 @@ class RunCommandConfig(BaseSettings):
             return [os.path.expanduser(path) for path in v]
         
         # If it's none of the above, return as is
+        return v
+    
+    @field_validator("filesystem_type", mode="before")
+    @classmethod
+    def validate_filesystem_type(cls, v: Any) -> FilesystemType:
+        if isinstance(v, str):
+            try:
+                # Try to parse the string as JSON
+                data = json.loads(v)
+                if isinstance(data, dict):
+                    if data.get('type') == 'local':
+                        return FilesystemType(storage=LocalStorage(**data))
+                    elif data.get('type') == 's3':
+                        return FilesystemType(storage=S3Credentials(**data))
+            except json.JSONDecodeError:
+                # If it's not valid JSON, check for simple string values
+                if v.upper() == 'LOCAL':
+                    return FilesystemType(storage=LocalStorage())
+                elif v.upper() == 'S3':
+                    return FilesystemType(storage=S3Credentials())
+        
+        # If it's already a FilesystemType instance, return it as is
+        if isinstance(v, FilesystemType):
+            return v
+        
+        # If it's a dict, try to create a FilesystemType instance
+        if isinstance(v, dict):
+            if v.get('type') == 'local':
+                return FilesystemType(storage=LocalStorage(**v))
+            elif v.get('type') == 's3':
+                return FilesystemType(storage=S3Credentials(**v))
+        
+        # If we can't parse it, let Pydantic handle the validation error
         return v
 
 
