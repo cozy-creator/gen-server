@@ -151,13 +151,6 @@ def run_app(cozy_config: RunCommandConfig):
     # debug
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
 
-    # print(CHECKPOINT_FILES)
-    def print_dict(d):
-        for key, value in d.items():
-            print(f"{key}: {str(value)}")
-
-    print_dict(CHECKPOINT_FILES)
-
     end_time = time.time()
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"

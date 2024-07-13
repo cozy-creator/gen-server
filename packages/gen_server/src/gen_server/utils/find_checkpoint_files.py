@@ -1,6 +1,6 @@
 import os
 import glob
-from typing import List, Any, Dict, Optional
+from typing import List, Dict
 from ..base_types import CheckpointMetadata, ComponentMetadata
 from .load_models import (
     load_state_dict_from_file, 
