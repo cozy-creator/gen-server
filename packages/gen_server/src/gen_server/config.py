@@ -1,5 +1,5 @@
 from pydantic_settings import CliSettingsSource
-from .globals import RunCommandConfig, LocalStorage
+from .globals import RunCommandConfig
 import argparse
 from typing import Optional, List, Callable
 import os
@@ -32,8 +32,8 @@ ParseArgsMethod = Callable[[argparse.ArgumentParser, Optional[List[str]], Option
 def init_config(
     run_parser: argparse.ArgumentParser,
     parse_args_method: ParseArgsMethod,
-    env_file: str = ".env",
-    secrets_dir: str = "/run/secrets",
+    env_file: Optional[str] = ".env",
+    secrets_dir: Optional[str] = "/run/secrets",
 ) -> RunCommandConfig:
     """
     Loads the configuration for the server.
@@ -58,24 +58,3 @@ def init_config(
 
     return cozy_config
 
-
-def get_assets_dir() -> str:
-    """
-    Helper function; used to find the /assets directory.
-    """
-    config = get_config()
-    if config.filesystem_type.storage.type == 'local':
-        local_storage = config.filesystem_type.storage
-        if isinstance(local_storage, LocalStorage) and local_storage.assets_dir:
-            return local_storage.assets_dir
-    return os.path.join(config.workspace_path, 'assets')
-
-
-def get_models_dir() -> str:
-    """
-    Helper function; used to find the /models directory.
-    """
-    config = get_config()
-    if config.models_path:
-        return config.models_path
-    return os.path.join(config.workspace_path, 'models')

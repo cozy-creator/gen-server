@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from gen_server.config import get_config
 
 DEFAULT_DIST_PATH = Path('/srv/www/cozy/dist')
 
@@ -16,3 +18,23 @@ def get_web_root() -> Path:
         return prod_path
     else:
         raise FileNotFoundError("Neither primary nor secondary web root paths exist.")
+
+
+def get_assets_dir() -> str:
+    """
+    Helper function; used to find the /assets directory.
+    """
+    config = get_config()
+    if config.assets_path:
+        return config.assets_path
+    return os.path.join(config.workspace_path, 'assets')
+
+
+def get_models_dir() -> str:
+    """
+    Helper function; used to find the /models directory.
+    """
+    config = get_config()
+    if config.models_path:
+        return config.models_path
+    return os.path.join(config.workspace_path, 'models')

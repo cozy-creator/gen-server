@@ -12,6 +12,7 @@ from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
+from .utils.paths import get_models_dir
 from .globals import (
     API_ENDPOINTS,
     ARCHITECTURES,
@@ -141,7 +142,8 @@ def run_app(cozy_config: RunCommandConfig):
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
-    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=cozy_config.models_dirs))
+    models_paths = [get_models_dir()] + cozy_config.aux_models_paths
+    CHECKPOINT_FILES.update(find_checkpoint_files(models_paths=models_paths))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )

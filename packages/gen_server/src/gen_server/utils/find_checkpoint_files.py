@@ -12,7 +12,7 @@ import uuid
 import datetime
 
 
-def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata]:
+def find_checkpoint_files(models_paths: List[str]) -> dict[str, CheckpointMetadata]:
     """
     Scans the specified directories for checkpoint files.
     Once found, it compiles the checkpoint metadata including the absolute path and returns a dictionary
@@ -23,10 +23,10 @@ def find_checkpoint_files(model_dirs: List[str]) -> dict[str, CheckpointMetadata
     # We need to support .onnx based models for sure.
     valid_extensions = ('.safetensors', '.pth', '.ckpt', '.pt')
 
-    for model_dir in model_dirs:
+    for models_path in models_paths:
 
         # Use glob to find files with the specified extensions
-        pattern = os.path.join(model_dir, '**', '*')
+        pattern = os.path.join(models_path, '**', '*')
         for extension in valid_extensions:
             full_pattern = f"{pattern}{extension}"
             for absolute_path in glob.iglob(full_pattern, recursive=True):
