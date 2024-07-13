@@ -10,23 +10,23 @@ from boto3.session import Session
 from gen_server.config import get_config
 import logging
 
-from gen_server.globals import LocalStorage, S3Credentials
+from gen_server.globals import FilesystemTypeEnum, RunCommandConfig
 
 logger = logging.getLogger(__name__)
 
 
 class LocalFileHandler:
-    def __init__(self, config):
-        if not isinstance(config, LocalStorage):
+    def __init__(self, config: RunCommandConfig):
+        if config.filesystem_type != FilesystemTypeEnum.LOCAL:
             raise ValueError("Invalid storage configuration")
 
-        self.storage = config
+        self.assets_path = config.assets_path
 
     def upload_file(self, content: bytes | str, filename: str):
-        if not os.path.exists(self.storage.assets_dir):
-            os.makedirs(self.storage.assets_dir)
+        if not os.path.exists(self.assets_path):
+            os.makedirs(self.assets_path)
 
-        filepath = os.path.join(self.storage.assets_dir, filename)
+        filepath = os.path.join(self.assets_path, filename)
         with open(filepath, "wb") as f:
             f.write(content)
 
@@ -37,7 +37,7 @@ class LocalFileHandler:
         Lists all files in the specified folder.
         """
 
-        folder_path = self.storage.assets_dir
+        folder_path = self.assets_path
         if not os.path.exists(folder_path):
             return []
 
@@ -47,7 +47,7 @@ class LocalFileHandler:
         return [_make_url(file) for file in os.listdir(folder_path)]
 
     def download_file(self, filename: str):
-        full_filepath = os.path.join(self.storage.assets_dir, filename)
+        full_filepath = os.path.join(self.assets_path, filename)
 
         if not os.path.exists(full_filepath):
             return None
@@ -58,17 +58,18 @@ class LocalFileHandler:
 
 class S3FileHandler:
     def __init__(self, config):
-        if not isinstance(config, S3Credentials):
+        if config.filesystem_type != FilesystemTypeEnum.S3:
             raise ValueError("Invalid storage configuration")
 
+        self.config = config.s3
+
         session = Session()
-        self.config = config
         self.client = session.client(
-            config.type,
-            region_name=config.region_name,
-            endpoint_url=config.endpoint_url,
-            aws_access_key_id=config.access_key,
-            aws_secret_access_key=config.secret_key,
+            config.filesystem_type,
+            region_name=config.s3.region_name,
+            endpoint_url=config.s3.endpoint_url,
+            aws_access_key_id=config.s3.access_key,
+            aws_secret_access_key=config.s3.secret_key,
         )
 
     def upload_file(self, content: bytes | str, filename: str):
@@ -87,6 +88,7 @@ class S3FileHandler:
         """
         Lists all files in the specified folder.
         """
+
         response = self.client.list_objects_v2(
             Bucket=self.config.bucket_name,
             Prefix=self.config.folder,
@@ -115,9 +117,11 @@ class FileHandler:
     """
 
     def __init__(self):
-        config = get_config().storage
+        config = get_config()
         self.handler = (
-            S3FileHandler(config) if config.type == "s3" else LocalFileHandler(config)
+            S3FileHandler(config)
+            if config.filesystem_type == FilesystemTypeEnum.S3
+            else LocalFileHandler(config)
         )
 
     async def handle_upload(self, request: web.Request) -> web.Response:
@@ -151,6 +155,7 @@ class FileHandler:
             files = self.handler.list_files()
             return web.json_response({"success": True, "files": files}, status=200)
         except Exception as e:
+            traceback.print_exc()
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def download_file(self, request: web.Request) -> web.Response:
