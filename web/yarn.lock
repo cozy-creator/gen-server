@@ -214,6 +214,33 @@
     "@babel/helper-validator-identifier" "^7.22.20"
     to-fast-properties "^2.0.0"
 
+"@cozy-creator/graph-editor@file:cozy-creator-graph-editor-v0.3.13.tgz":
+  version "0.3.13"
+  resolved "file:cozy-creator-graph-editor-v0.3.13.tgz#009b31df7ea4664ee257e454007198b53949d23c"
+  dependencies:
+    "@radix-ui/react-icons" "^1.3.0"
+    "@tisoap/react-flow-smart-edge" "^3.0.0"
+    "@xyflow/react" "^12.0.1"
+    glob "^10.3.12"
+    lib0 "^0.2.91"
+    nice-grpc "^2.1.7"
+    nice-grpc-common "^2.0.2"
+    nice-grpc-web "^3.3.2"
+    protobufjs "^7.2.6"
+    react "^18.2.0"
+    react-dom "^18.2.0"
+    react-draggable "^4.4.6"
+    react-hot-keys "^2.7.3"
+    react-toastify "^10.0.4"
+    reconnecting-websocket "^4.4.0"
+    rollup-plugin-dts "^6.1.1"
+    socket.io-client "^4.7.4"
+    tsup "^8.0.2"
+    viewerjs "^1.11.6"
+    y-protocols "^1.0.6"
+    yjs "^13.6.14"
+    zustand "^4.5.1"
+
 "@cozy-creator/graph-editor@file:cozy-creator-graph-editor-v0.3.8.tgz":
   version "0.3.8"
   resolved "file:cozy-creator-graph-editor-v0.3.8.tgz#73ed112c086aa80aa8abcd97d709f0ed37009f8f"

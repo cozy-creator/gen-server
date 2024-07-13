@@ -2,7 +2,7 @@ import os
 import json
 from typing import Type, Optional, Any, Iterable, Union
 from aiohttp import web
-from pydantic import Field, BaseModel, field_validator
+from pydantic import Field, BaseModel, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import CustomNode
@@ -114,7 +114,7 @@ class RunCommandConfig(BaseSettings):
     
     @field_validator("s3", mode="before")
     @classmethod
-    def validate_s3(cls, v):
+    def validate_s3(cls, v: Any) -> Optional[S3Credentials]:
         if v is None:
             return None
         if isinstance(v, str):
@@ -136,7 +136,12 @@ class RunCommandConfig(BaseSettings):
 
     @field_validator("models_dirs", mode="before")
     @classmethod
-    def parse_and_set_models_dirs(cls, v, values):
+    def parse_and_set_models_dirs(
+        cls,
+        v: Any,
+        info: ValidationInfo
+    ) -> list[str]:
+        values = info.data
         # If no value provided, use default based on workspace_dir
         if v is None or (isinstance(v, list) and len(v) == 0):
             workspace = values.get('workspace_dir', os.path.expanduser(DEFAULT_WORKSPACE_DIR))
