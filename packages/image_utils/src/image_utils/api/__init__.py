@@ -32,24 +32,21 @@ class LocalFileHandler:
 
         return f"http://127.0.0.1:8881/file/{filename}"
 
-    def list_files(self, folder: str):
+    def list_files(self):
         """
         Lists all files in the specified folder.
         """
 
-        folder_path = os.path.join(self.storage.assets_dir, folder)
+        folder_path = self.storage.assets_dir
         if not os.path.exists(folder_path):
             return []
 
         def _make_url(file):
-            if folder:
-                return f"http://127.0.0.1:8881/file/{folder}/{file}"
             return f"http://127.0.0.1:8881/file/{file}"
 
         return [_make_url(file) for file in os.listdir(folder_path)]
 
-    def download_file(self, filename: str, folder: str = None):
-        filename = f"{folder}/{filename}" if folder else filename
+    def download_file(self, filename: str):
         full_filepath = os.path.join(self.storage.assets_dir, filename)
 
         if not os.path.exists(full_filepath):
@@ -86,24 +83,13 @@ class S3FileHandler:
 
         return f"{self.config.endpoint_url}/{key}"
 
-    async def set_public_acl(self, key: str):
-        """
-        Sets the ACL of the uploaded object to public-read.
-        """
-
-        self.client.put_object_acl(
-            Bucket=self.client.config,
-            Key=key,
-            ACL="public-read",
-        )
-
-    def list_files(self, folder: str):
+    def list_files(self):
         """
         Lists all files in the specified folder.
         """
         response = self.client.list_objects_v2(
             Bucket=self.config.bucket_name,
-            Prefix=folder,
+            Prefix=self.config.folder,
         )
 
         def _make_url(obj):
@@ -111,8 +97,11 @@ class S3FileHandler:
 
         return [_make_url(url) for url in response.get("Contents", [])]
 
-    def download_file(self, filename: str, folder: str = None):
-        key = f"{folder}/{filename}" if folder else f"{self.config.folder}/{filename}"
+    def download_file(
+        self,
+        filename: str,
+    ):
+        key = f"{self.config.folder}/{filename}"
 
         bytesio = io.BytesIO()
         self.client.download_fileobj(self.config.bucket_name, key, bytesio)
@@ -157,32 +146,9 @@ class FileHandler:
             print(f"Error uploading file: {e}")
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
-    async def set_public_acl(self, request: web.Request) -> web.Response:
-        """
-        Sets the ACL of the uploaded object to public-read.
-        """
-        data = await request.json()
-        key = data.get("key")
-
-        if not key:
-            return web.json_response(
-                {"success": False, "error": "Key is missing"}, status=400
-            )
-
+    async def list_files(self, _request: web.Request) -> web.Response:
         try:
-            if not isinstance(self.handler, S3FileHandler):
-                return web.json_response(
-                    {"success": False, "error": "Operation not supported"}
-                )
-
-            await self.handler.set_public_acl(key)
-            return web.json_response({"success": True}, status=200)
-        except Exception as e:
-            return web.json_response({"success": False, "error": str(e)}, status=500)
-
-    async def list_files(self, request: web.Request) -> web.Response:
-        try:
-            files = self.handler.list_files(request.query.get("folder", None))
+            files = self.handler.list_files()
             return web.json_response({"success": True, "files": files}, status=200)
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
@@ -206,7 +172,7 @@ class FileHandler:
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
-    async def serve_file(self, request: web.Request) -> web.Response:
+    async def get_file(self, request: web.Request) -> web.Response:
         """
         Serves a static file from the local filesystem.
         """
@@ -252,8 +218,8 @@ handler = FileHandler()
 
 routes: List[web.RouteDef] = [
     web.post("/upload", handler.handle_upload),
-    web.post("/set-public-acl", handler.set_public_acl),
+    # web.post("/set-public-acl", handler.set_public_acl),
     web.post("/files", handler.list_files),
-    web.post("/files/{filename}", handler.serve_file),
+    web.post("/files/{filename}", handler.get_file),
     web.post("/download/{filename}", handler.download_file),
 ]
