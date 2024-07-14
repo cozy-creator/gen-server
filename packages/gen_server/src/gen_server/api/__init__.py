@@ -5,7 +5,7 @@ from aiohttp import web
 import asyncio
 import logging
 
-from blake3 import blake3
+import blake3
 
 from gen_server.config import get_config
 from image_utils import (
