@@ -1,25 +1,18 @@
 import json
-from pprint import pprint
-from typing import List, Tuple, Dict, Optional, AsyncGenerator, Any
-from aiohttp import web
+from typing import List, Tuple, Dict, Optional, Any
+from aiohttp import web, BodyPartReader, MultipartReader
 import asyncio
 import logging
 
 import blake3
 
 from gen_server.config import get_config
-from image_utils import (
-    S3FileUploader,
-    LocalFileUploader,
+from gen_server.utils.file_handler import (
+    LocalFileHandler,
     get_content_type,
-    get_uploader,
+    get_file_handler,
 )
-from ..globals import (
-    CHECKPOINT_FILES,
-    API_ENDPOINTS,
-    RouteDefinition,
-    FilesystemTypeEnum,
-)
+from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
@@ -135,17 +128,33 @@ async def handle_upload(request: web.Request) -> web.Response:
     content = None
     filename = None
     try:
+        async def process_part(part):
+            if part.name == "file":
+                content = await part.read()
+                filehash = blake3.blake3(content).hexdigest()
+                if part.filename is None:
+                    raise ValueError("File name is required")
+                extension = os.path.splitext(part.filename)[1]
+                return content, f"{filehash}{extension}"
+            return None, None
+
         while True:
             part = await reader.next()
             if not part:
                 break
-            if part.name == "file":
-                content = await part.read()
-                filehash = blake3.blake3(content).hexdigest()
-                extension = os.path.splitext(part.filename)[1]
-                filename = f"{filehash}{extension}"
+            elif isinstance(part, BodyPartReader):
+                content, filename = await process_part(part)
+            elif isinstance(part, MultipartReader):
+                async for subpart in part:
+                    if isinstance(subpart, BodyPartReader):
+                        content, filename = await process_part(subpart)
+            else:
+                raise ValueError(f"Unexpected part type: {type(part)}")
 
-        uploader = get_uploader(get_config())
+            if content and filename:
+                break
+
+        uploader = get_file_handler(get_config())
         url = uploader.upload_file(content, filename)
         return web.json_response({"success": True, "url": url}, status=201)
     except Exception as e:
@@ -156,7 +165,7 @@ async def handle_upload(request: web.Request) -> web.Response:
 @routes.get("/files")
 async def list_files(_request: web.Request) -> web.Response:
     try:
-        uploader = get_uploader(get_config())
+        uploader = get_file_handler(get_config())
         files = uploader.list_files()
         return web.json_response({"success": True, "files": files}, status=200)
     except Exception as e:
@@ -167,7 +176,7 @@ async def list_files(_request: web.Request) -> web.Response:
 async def download_file(request: web.Request) -> web.Response:
     filename = request.match_info["filename"]
     try:
-        uploader = get_uploader(get_config())
+        uploader = get_file_handler(get_config())
         body = uploader.download_file(filename)
         if body is None:
             return web.json_response(
@@ -191,9 +200,9 @@ async def get_file(request: web.Request) -> web.Response:
     Serves a static file from the local filesystem.
     """
 
-    uploader = get_uploader(get_config())
+    uploader = get_file_handler(get_config())
     filename = request.match_info.get("filename")
-    if not isinstance(uploader, LocalFileUploader):
+    if not isinstance(uploader, LocalFileHandler):
         return web.json_response(
             {"success": False, "error": "Operation not supported"},
             status=400,
