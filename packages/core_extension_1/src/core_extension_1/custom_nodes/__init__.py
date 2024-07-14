@@ -626,7 +626,7 @@ class GenerateMaskInpainting(CustomNode):
     }
 
     @staticmethod
-    def update_interface(inputs: Dict[str, Any] = None) -> NodeInterface:
+    def update_interface(inputs: Dict[str, Any] = {}) -> NodeInterface:
         interface = {
             "inputs": {
                 "mask_prompt": TextInput(),

@@ -27,6 +27,9 @@ class LocalFileUploader:
         self.assets_path = config.assets_path
 
     def upload_file(self, content: bytes | str, filename: str):
+        if isinstance(content, str):
+            content = content.encode('utf-8')
+
         if not os.path.exists(self.assets_path):
             os.makedirs(self.assets_path)
 

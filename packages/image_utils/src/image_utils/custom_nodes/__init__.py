@@ -105,6 +105,9 @@ class SaveFile(CustomNode):
                 interface["outputs"]["image_url"] = str
 
         return interface
+    
+    class NodeResponse(TypedDict):
+        image_urls: List[FileUrl]
 
     def __call__(
         self,
@@ -115,7 +118,7 @@ class SaveFile(CustomNode):
         filename_prefix: str = "CozyCreator",
         bucket_name: str = "my-bucket",
         image_metadata: Optional[dict] = None,
-    ) -> Dict[str, List[FileUrl]]:
+    ) -> NodeResponse:
         """
         Saves images to the local filesystem or a remote S3 bucket.
         """
@@ -147,6 +150,7 @@ class SaveFile(CustomNode):
         elif get_config().filesystem_type == "S3":
             # Assuming you have environment variables for local/prod
             # Upload the image to the "temp" folder
+            
             image_urls = self.upload_to_s3(
                 images, bucket_name, folder_name="temp" if temp else None
             )
@@ -154,13 +158,13 @@ class SaveFile(CustomNode):
         else:
             image_urls = []
 
-        return {"images": image_urls}
+        return { "image_urls": image_urls }
 
     # @convert_image_format
     def upload_to_s3(
         self,
-        image_data: Union[bytes, List[bytes]],
-        bucket_name,
+        images: Union[List[Image], Image],
+        bucket_name: str,
         folder_name: Optional[str] = None,
     ):
         """
@@ -174,12 +178,12 @@ class SaveFile(CustomNode):
         Returns:
             Union[str, List[str]]: A single URL or a list of URLs of the uploaded image(s).
         """
-        if not isinstance(image_data, list):
-            image_data = [image_data]
+        if not isinstance(images, list):
+            images = [images]
 
         image_urls = []
 
-        for idx, img_pil in enumerate(image_data):
+        for i, img_pil in enumerate(images):
             with io.BytesIO() as output:
                 img_pil.save(output, format="PNG")
                 img_bytes = output.getvalue()

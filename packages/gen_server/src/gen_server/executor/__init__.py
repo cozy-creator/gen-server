@@ -14,7 +14,7 @@ async def generate_images(
     negative_prompt: str, 
     random_seed: Optional[int], 
     aspect_ratio: str
-) -> AsyncGenerator[List[dict[str, Any]], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     start = time.time()
 
     # Simulate image generation and yield URLs
@@ -207,7 +207,7 @@ async def generate_images(
         # === Node 4: Save Files ===
         SaveNode = CUSTOM_NODES["image_utils.save_file"]
         save_node = SaveNode()
-        urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)["images"]
+        urls: dict[str, Any] = save_node(images=pil_images, temp=False)
 
         print(f"Image generated in {time.time() - start} seconds")
 
