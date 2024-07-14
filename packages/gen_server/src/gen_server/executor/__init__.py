@@ -3,7 +3,10 @@ import time
 import torch
 import inspect
 import asyncio
+import io
+from PIL import Image
 from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
+from ..utils.file_handler import get_file_handler
 
 # === Simulating the executor code ===
 
@@ -205,6 +208,22 @@ async def generate_images(
 
         # Save the images
         # === Node 4: Save Files ===
+        file_handler = get_file_handler()
+        
+        # Create a new PIL image
+        new_image = Image.new("RGB", (width, height), color="white")
+        new_image.save("test.png")
+        pil_images.append(new_image)
+        
+        # Convert PIL images to bytes
+        image_bytes_list = []
+        for image in pil_images:
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            image_bytes_list.append(img_byte_arr)
+            
+        urls = file_handler.upload_files(image_bytes_list)
         SaveNode = CUSTOM_NODES["image_utils.save_file"]
         save_node = SaveNode()
         urls: dict[str, Any] = save_node(images=pil_images, temp=False)

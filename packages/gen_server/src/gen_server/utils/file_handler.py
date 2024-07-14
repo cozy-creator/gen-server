@@ -1,24 +1,35 @@
 import io
 import os
-
-from boto3.session import Session
-
+from typing import Protocol, Union, Optional, runtime_checkable, TypedDict, AsyncGenerator
 import logging
-
-from gen_server.globals import FilesystemTypeEnum, RunCommandConfig
+from boto3.session import Session
+import blake3
+from ..globals import FilesystemTypeEnum, RunCommandConfig
+from ..config import get_config
 
 logger = logging.getLogger(__name__)
 
 
-def get_file_handler(config):
-    return (
-        S3FileHandler(config)
-        if config.filesystem_type == FilesystemTypeEnum.S3
-        else LocalFileHandler(config)
-    )
+class FileMetadata(TypedDict):
+    url: str
+    is_temp: bool
 
 
-class LocalFileHandler:
+@runtime_checkable
+class FileHandler(Protocol):
+    async def upload_files(
+        self, content: Union[list[bytes], bytes], file_type: str, metadata: Optional[bytes] = None
+    ) -> AsyncGenerator[FileMetadata, None]:
+        ...
+
+    def list_files(self) -> list[str]:
+        ...
+
+    def download_file(self, filename: str) -> Union[bytes, None]:
+        ...
+
+
+class LocalFileHandler(FileHandler):
     def __init__(self, config: RunCommandConfig):
         if config.filesystem_type != FilesystemTypeEnum.LOCAL:
             raise ValueError("Invalid storage configuration")
@@ -29,10 +40,7 @@ class LocalFileHandler:
 
         self.assets_path = config.assets_path
 
-    def upload_file(self, content: bytes | str, filename: str):
-        if isinstance(content, str):
-            content = content.encode('utf-8')
-        
+    def upload_files(self, content: Union[list[bytes], bytes], filename: Optional[str] = None) -> list[str]:
         if not os.path.exists(self.assets_path):
             os.makedirs(self.assets_path)
 
@@ -42,7 +50,7 @@ class LocalFileHandler:
 
         return f"{self.server_url}/files/{filename}"
 
-    def list_files(self):
+    def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -50,12 +58,12 @@ class LocalFileHandler:
         if not os.path.exists(self.assets_path):
             return []
 
-        def _make_url(file):
+        def _make_url(file: str):
             return f"{self.server_url}/files/{file}"
 
         return [_make_url(file) for file in os.listdir(self.assets_path)]
 
-    def download_file(self, filename: str):
+    def download_file(self, filename: str) -> Union[bytes, None]:
         full_filepath = os.path.join(self.assets_path, filename)
 
         if not os.path.exists(full_filepath):
@@ -65,8 +73,8 @@ class LocalFileHandler:
             return f.read()
 
 
-class S3FileHandler:
-    def __init__(self, config):
+class S3FileHandler(FileHandler):
+    def __init__(self, config: RunCommandConfig):
         if config.filesystem_type != FilesystemTypeEnum.S3:
             raise ValueError("Invalid storage configuration")
 
@@ -81,7 +89,7 @@ class S3FileHandler:
             aws_secret_access_key=config.s3.secret_key,
         )
 
-    def upload_file(self, content: bytes | str, filename: str):
+    def upload_files(self, content: Union[list[bytes], bytes], filename: Optional[str] = None) -> list[str]:
         key = f"{self.config.folder}/{filename}" if self.config.folder else filename
 
         self.client.put_object(
@@ -93,7 +101,7 @@ class S3FileHandler:
 
         return f"{self.config.endpoint_url}/{key}"
 
-    def list_files(self):
+    def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -108,10 +116,7 @@ class S3FileHandler:
 
         return [_make_url(url) for url in response.get("Contents", [])]
 
-    def download_file(
-        self,
-        filename: str,
-    ):
+    def download_file(self, filename: str) -> Union[bytes, None]:
         key = f"{self.config.folder}/{filename}"
 
         bytesio = io.BytesIO()
@@ -119,11 +124,23 @@ class S3FileHandler:
         return bytesio.getvalue()
 
 
-def get_content_type(file_path):
+def get_file_handler() -> FileHandler:
+    config = get_config()
+    
+    if config.filesystem_type == FilesystemTypeEnum.S3:
+        return S3FileHandler(config)
+    elif config.filesystem_type == FilesystemTypeEnum.LOCAL:
+        return LocalFileHandler(config)
+    else:
+        raise ValueError("Invalid Filesystem-type")
+
+
+def get_mime_type(file_path: str) -> str:
     """
     Determines the content type based on the file extension.
     """
     file_extension = os.path.splitext(file_path)[1].lower()
+    
     content_types = {
         ".html": "text/html",
         ".css": "text/css",
@@ -132,7 +149,24 @@ def get_content_type(file_path):
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
         ".gif": "image/gif",
+        ".avif": "image/avif",
         ".webp": "image/webp",
         ".ico": "image/x-icon",
+        ".mp4": "video/mp4",
+        ".avi": "video/x-msvideo",
+        ".mov": "video/quicktime",
+        ".wmv": "video/x-ms-wmv",
+        ".flv": "video/x-flv",
+        ".mkv": "video/x-matroska",
     }
+    
     return content_types.get(file_extension, "application/octet-stream")
+
+
+def calculate_blake3_hash(file_bytes: bytes) -> str:
+    """
+    Calculates the BLAKE3 hash of the given file bytes and returns it as a string.
+    """
+    hasher = blake3.blake3()
+    hasher.update(file_bytes)
+    return hasher.hexdigest()

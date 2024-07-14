@@ -116,7 +116,7 @@ class S3FileUploader:
         return bytesio.getvalue()
 
 
-def get_content_type(file_path):
+def get_mime_type(file_path):
     """
     Determines the content type based on the file extension.
     """

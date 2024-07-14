@@ -9,7 +9,7 @@ import blake3
 from gen_server.config import get_config
 from gen_server.utils.file_handler import (
     LocalFileHandler,
-    get_content_type,
+    get_mime_type,
     get_file_handler,
 )
 from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
@@ -185,7 +185,7 @@ async def download_file(request: web.Request) -> web.Response:
             )
 
         headers = {
-            "Content-Type": get_content_type(filename),
+            "Content-Type": get_mime_type(filename),
             "Content-Disposition": f'attachment; filename="{filename}"',
         }
 
@@ -215,7 +215,7 @@ async def get_file(request: web.Request) -> web.Response:
             status=404,
         )
 
-    headers = {"Content-Type": get_content_type(filename)}
+    headers = {"Content-Type": get_mime_type(filename)}
     return web.Response(body=body, headers=headers, status=200)
 
 
