@@ -29,7 +29,7 @@ from diffusers import (
     EulerAncestralDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
     EDMEulerScheduler,
-    StableDiffusionXLInpaintPipeline
+    StableDiffusionXLInpaintPipeline,
 )
 from transformers import (
     CLIPTokenizer,
@@ -39,7 +39,14 @@ from transformers import (
     T5EncoderModel,
 )
 
-from core_extension_1.widgets import TextInput, StringInput, EnumInput, IntInput, FloatInput, BooleanInput
+from core_extension_1.widgets import (
+    TextInput,
+    StringInput,
+    EnumInput,
+    IntInput,
+    FloatInput,
+    BooleanInput,
+)
 import json
 import torch
 import os
@@ -59,7 +66,11 @@ from segment_anything import sam_model_registry, SamPredictor
 from groundingdino.util.inference import load_model, predict
 import groundingdino.datasets.transforms as T
 from groundingdino.util import box_ops
-from core_extension_1.common.utils import resize_and_crop, load_image_from_url, save_tensor_as_image
+from core_extension_1.common.utils import (
+    resize_and_crop,
+    load_image_from_url,
+    save_tensor_as_image,
+)
 import numpy as np
 import scipy.ndimage
 from diffusers.utils.loading_utils import load_image
@@ -78,6 +89,7 @@ config_path_play = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "config.json"
 )
 
+
 def components_from_model_index(file_path: str) -> Dict[str, Any]:
     with open(file_path, "r") as file:
         data = json.load(file)
@@ -94,6 +106,7 @@ class LoadCheckpoint(CustomNode):
     """
     Takes a file with a state dict, outputs a dictionary of model-classes from Diffusers
     """
+
     ux_node = "../ux_node.json"
     ux_node2 = "../ux_node.tsx"
 
@@ -195,7 +208,13 @@ class LoadComponents(CustomNode):
                     module_name, class_name = data[component]
                     module = __import__(module_name, fromlist=[class_name])
                     class_ = getattr(module, class_name)
-                    loaded_component = class_.from_pretrained(repo_id, subfolder=component, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+                    loaded_component = class_.from_pretrained(
+                        repo_id,
+                        subfolder=component,
+                        torch_dtype=torch.float16,
+                        variant="fp16",
+                        use_safetensors=True,
+                    )
                     loaded_components[component] = loaded_component
                 else:
                     loaded_components[component] = None
@@ -229,13 +248,8 @@ class LoadCivitai(CustomNode):
     @staticmethod
     def update_interface(inputs: Dict[str, Any]) -> Dict[str, Any]:
         interface = {
-            "inputs": {
-                "model_name": "text",
-                "version_name": "text"
-            },
-            "outputs": {
-                "model_file": "file"
-            },
+            "inputs": {"model_name": "text", "version_name": "text"},
+            "outputs": {"model_file": "file"},
         }
         if inputs:
             model_name = inputs.get("model_name")
@@ -252,17 +266,19 @@ class LoadCivitai(CustomNode):
     def search_model_by_name(model_name: str):
         try:
             # Search for models by name
-            search_response = requests.get(f"https://api.civitai.com/v1/models?query={model_name.lower()}")
+            search_response = requests.get(
+                f"https://api.civitai.com/v1/models?query={model_name.lower()}"
+            )
             search_response.raise_for_status()
             search_results = search_response.json()
 
-            if not search_results or search_results['items'] == []:
+            if not search_results or search_results["items"] == []:
                 logging.error(f"No models found with the name: {model_name}")
                 return None
 
             # Assuming the first result is the desired model
             # Should we use id instead of name to get the exact model? Will that be too complex for users?
-            model_id = search_results['items'][0]['id']
+            model_id = search_results["items"][0]["id"]
             return model_id
 
         except requests.RequestException as e:
@@ -277,13 +293,22 @@ class LoadCivitai(CustomNode):
             model_details = response.json()
 
             # Find the correct file version
-            file_version = next((v for v in model_details['modelVersions'] if version_name in v['name']), model_details['modelVersions'][0])
-            file_info = file_version['files'][0]
-            file_size_kb = file_info['sizeKB']
-            file_name = file_info['name']
-            download_url = f"{file_info['downloadUrl']}?token={os.getenv('civitaiToken')}"
+            file_version = next(
+                (
+                    v
+                    for v in model_details["modelVersions"]
+                    if version_name in v["name"]
+                ),
+                model_details["modelVersions"][0],
+            )
+            file_info = file_version["files"][0]
+            file_size_kb = file_info["sizeKB"]
+            file_name = file_info["name"]
+            download_url = (
+                f"{file_info['downloadUrl']}?token={os.getenv('civitaiToken')}"
+            )
 
-            model_path = os.path.join(get_config().workspace_dir, "models", file_name)
+            model_path = os.path.join(get_config().workspace_path, "models", file_name)
 
             # Check if the file already exists and its size
             file_exists = os.path.exists(model_path)
@@ -302,9 +327,15 @@ class LoadCivitai(CustomNode):
             response = requests.get(download_url, headers=headers, stream=True)
             response.raise_for_status()
 
-            mode = 'ab' if file_exists else 'wb'
+            mode = "ab" if file_exists else "wb"
             with open(model_path, mode) as f:
-                with tqdm(total=total_size, initial=existing_file_size, unit='B', unit_scale=True, unit_divisor=1024) as pbar:
+                with tqdm(
+                    total=total_size,
+                    initial=existing_file_size,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                ) as pbar:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
@@ -317,19 +348,21 @@ class LoadCivitai(CustomNode):
         except Exception as e:
             logging.error(f"Error downloading model: {e}")
 
-    def __call__(self, model_name: str, version_name: str = None, device: Optional[TorchDevice] = None) -> dict[str, Architecture]:
+    def __call__(
+        self,
+        model_name: str,
+        version_name: str = None,
+        device: Optional[TorchDevice] = None,
+    ) -> dict[str, Architecture]:
         model_id = self.search_model_by_name(model_name)
         if not model_id:
             return {"error": f"No models found with the name: {model_name}"}
-        
+
         model_path = self.download_model(model_id, version_name)
         if not model_path:
             return {"error": "Failed to download model."}
-        
 
         return load_models.from_file(model_path, device)
-
-
 
 
 class CreatePipe(CustomNode):
@@ -383,7 +416,7 @@ class CreatePipe(CustomNode):
         text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
-        model_type: str = None
+        model_type: str = None,
     ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
         if loaded_components:
             class_name = loaded_components.pop("_class_name", None)
@@ -401,11 +434,12 @@ class CreatePipe(CustomNode):
                 return pipe
 
         # Default behavior when loaded_components is not provided
-        
 
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
             tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-            tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
+            tokenizer_2 = CLIPTokenizer.from_pretrained(
+                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
+            )
             tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
             # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
             # scheduler = DDIMScheduler.from_pretrained(
@@ -428,15 +462,28 @@ class CreatePipe(CustomNode):
             ).to(torch.bfloat16)
         elif text_encoder_2 is not None and text_encoder_3 is None:
             if model_type == "playground":
-                tokenizer = CLIPTokenizer.from_pretrained("playgroundai/playground-v2.5-1024px-aesthetic", subfolder="tokenizer")
-                scheduler = EDMDPMSolverMultistepScheduler.from_pretrained("playgroundai/playground-v2.5-1024px-aesthetic", subfolder="scheduler")
+                tokenizer = CLIPTokenizer.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="tokenizer",
+                )
+                scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="scheduler",
+                )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
-                    "playgroundai/playground-v2.5-1024px-aesthetic", subfolder="tokenizer_2"
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="tokenizer_2",
                 )
             else:
-                tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer")
-                scheduler = EulerDiscreteScheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler")
-                tokenizer_2 = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2")
+                tokenizer = CLIPTokenizer.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer"
+                )
+                scheduler = EulerDiscreteScheduler.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler"
+                )
+                tokenizer_2 = CLIPTokenizer.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2"
+                )
 
             pipe = StableDiffusionXLPipeline(
                 vae=vae,
@@ -608,7 +655,7 @@ class LoadLoRA(CustomNode):
         )
 
         return {"pipe": pipe}
-    
+
 
 class GenerateMaskInpainting(CustomNode):
     """
@@ -637,7 +684,7 @@ class GenerateMaskInpainting(CustomNode):
         }
 
         return interface
-    
+
     def __call__(
         self,
         image: Union[Path, str],
@@ -650,21 +697,27 @@ class GenerateMaskInpainting(CustomNode):
 
         # Load and process image
         try:
-            image = load_image_from_url(image) if isinstance(image, str) else load_image(image)
+            image = (
+                load_image_from_url(image)
+                if isinstance(image, str)
+                else load_image(image)
+            )
         except:
             image = load_image(image)
 
         image, img_size = resize_and_crop(image)
-        
+
         image_np = np.array(image)
         sam_predictor.set_image(image_np)
 
         # Detect objects using GroundingDINO
-        boxes, logits, phrases = self.detect_objects(image, mask_prompt, grounding_dino_model)
+        boxes, logits, phrases = self.detect_objects(
+            image, mask_prompt, grounding_dino_model
+        )
 
         if len(boxes) > 0:
             combined_mask = np.zeros(image_np.shape[:2], dtype=bool)
-            
+
             for i, box in enumerate(boxes):
                 # Generate mask using SAM
                 input_box = box.cpu().numpy()
@@ -674,15 +727,15 @@ class GenerateMaskInpainting(CustomNode):
                     box=input_box[None, :],
                     multimask_output=False,
                 )
-                
+
                 combined_mask = np.logical_or(combined_mask, masks[0])
 
             mask_image_pil = Image.fromarray(combined_mask.astype(np.uint8) * 255)
             mask_image_pil.save("wmask.png")
-            
+
             # Feather the mask
             combined_mask = self.feather_mask(combined_mask, iterations=feather)
-            
+
             mask_image_pil = Image.fromarray(combined_mask.astype(np.uint8) * 255)
             mask_image_pil.save("wmfeathermask.png")
 
@@ -690,7 +743,7 @@ class GenerateMaskInpainting(CustomNode):
         else:
             print(f"No objects matching '{mask_prompt}' found in the image.")
             return None, img_size
-    
+
     def get_sam(self) -> SamPredictor:
         sam_checkpoint = "models/sam_vit_h_4b8939.pth"
         model_type = "vit_h"
@@ -698,7 +751,7 @@ class GenerateMaskInpainting(CustomNode):
         sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
         sam.to(device=device)
         return SamPredictor(sam)
-    
+
     def get_groundingdino(self) -> torch.nn.Module:
         config_file = "GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
         checkpoint_file = "models/groundingdino_swint_ogc.pth"
@@ -707,28 +760,32 @@ class GenerateMaskInpainting(CustomNode):
         return model
 
     def transform_image(self, image: Image.Image) -> torch.Tensor:
-        transform = T.Compose([
-            T.RandomResize([800], max_size=1333),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ])
+        transform = T.Compose(
+            [
+                T.RandomResize([800], max_size=1333),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ]
+        )
         image_transformed, _ = transform(image, None)
         return image_transformed
-    
-    def detect_objects(self, image: Image.Image, text_prompt: str, model: torch.nn.Module) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
+
+    def detect_objects(
+        self, image: Image.Image, text_prompt: str, model: torch.nn.Module
+    ) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
         image_transformed = self.transform_image(image)
         boxes, logits, phrases = predict(
-            model=model, 
-            image=image_transformed, 
-            caption=text_prompt, 
-            box_threshold=0.3, 
-            text_threshold=0.25
+            model=model,
+            image=image_transformed,
+            caption=text_prompt,
+            box_threshold=0.3,
+            text_threshold=0.25,
         )
 
         W, H = image.size
         boxes = box_ops.box_cxcywh_to_xyxy(boxes) * torch.tensor([W, H, W, H])
         return boxes, logits, phrases
-    
+
     def feather_mask(self, mask: np.ndarray, iterations: int = 5) -> np.ndarray:
         """
         Feather the mask to increase its size and soften the edges.
@@ -738,7 +795,7 @@ class GenerateMaskInpainting(CustomNode):
             mask = scipy.ndimage.gaussian_filter(mask, sigma=1)
             mask[mask > 0] = 1  # Threshold to keep mask binary
         return mask
-    
+
 
 class InpaintImage(CustomNode):
     """
@@ -763,22 +820,18 @@ class InpaintImage(CustomNode):
                 "mask": ImageOutputType,
                 "text_prompt": TextInput(),
                 "strength": FloatInput(),
-                "save": BooleanInput()
+                "save": BooleanInput(),
             },
             "outputs": {"image": ImageOutputType},
         }
 
         return interface
-    
-    def __call__(
-        image,
-        mask,
-        text_prompt,
-        strength,
-        save=False
-    ):
-        inpainter = StableDiffusionXLInpaintPipeline.from_pretrained("RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16).to("cuda" if torch.cuda.is_available() else "cpu")
-    
+
+    def __call__(image, mask, text_prompt, strength, save=False):
+        inpainter = StableDiffusionXLInpaintPipeline.from_pretrained(
+            "RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16
+        ).to("cuda" if torch.cuda.is_available() else "cpu")
+
         mask, img_size = mask
 
         # Perform inpainting
@@ -797,12 +850,8 @@ class InpaintImage(CustomNode):
             )
 
             print("Done Muahahaha!!!")
-        
+
         if save:
             save_tensor_as_image(output.images, inpainter.vae, "inpainting.jpg")
 
         return output.images, inpainter.vae  # Return both the latent tensor and the VAE
-
-    
-    
-
