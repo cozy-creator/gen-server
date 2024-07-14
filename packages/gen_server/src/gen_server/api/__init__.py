@@ -128,6 +128,7 @@ async def handle_upload(request: web.Request) -> web.Response:
     content = None
     filename = None
     try:
+
         async def process_part(part):
             if part.name == "file":
                 content = await part.read()
@@ -239,8 +240,8 @@ async def start_server(host: str = "localhost", port: int = 8881):
     runner = web.AppRunner(app)
     await runner.setup()
 
-    for route in app.router.routes():
-        print(f"Route: {route}")
+    # for route in app.router.routes():
+    #     print(f"Route: {route}")
 
     # Try to bind to the desired port
     # try:

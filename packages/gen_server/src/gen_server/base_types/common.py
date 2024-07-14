@@ -25,6 +25,7 @@ class Category(Enum):
     UPSCALER = {Language.ENGLISH: "Upscaler", Language.CHINESE: "升频器"}
     MASK = {Language.ENGLISH: "Mask"}
     INPAINTING = {Language.ENGLISH: "Inpainting"}
+    IMAGES = {Language.ENGLISH: "Images"}
 
 
 StateDict = dict[str, torch.Tensor]

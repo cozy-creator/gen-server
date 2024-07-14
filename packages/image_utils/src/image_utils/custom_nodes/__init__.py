@@ -1,51 +1,21 @@
 from typing import Dict, Tuple, Union, List
-from gen_server.base_types import CustomNode, NodeInterface, ImageOutputType
+from gen_server import Category, Language
+from gen_server.base_types import CustomNode, NodeInterface
 import random
 import os
 import blake3
-from urllib.parse import urlparse
 from PIL.Image import Image
-import numpy as np
+from gen_server.utils.file_handler import get_file_handler
 from .paths import get_folder_path, get_next_counter
 import torch
-import json
 from typing import Optional
-from PIL.PngImagePlugin import PngInfo
-import boto3
 
-# from dotenv import load_dotenv
-from .helper_decorators import convert_image_format
 import io
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
 from gen_server.config import get_config
 from multiprocessing import Pool
 from typing import TypedDict
-
-
-# load_dotenv()  # Load environment variables from .env file
-
-# env = os.getenv('ENVIRONMENT')
-# print(f"Environment: {env}")
-
-# S3 configuration
-# s3_folder = os.getenv('S3__FOLDER', '')
-# s3_bucket_name = os.getenv('S3__BUCKET_NAME', '')
-# s3_endpoint_fqdn = os.getenv('S3__ENDPOINT_URL', '')
-# s3_access_key = os.getenv('S3__ACCESS_KEY', '')
-# s3_secret_key = os.getenv('S3__SECRET_ACCESS_KEY', '')
-
-# print(f"S3 Bucket: {s3_bucket_name}")
-
-# Set up S3 client
-# if not all([s3_bucket_name, s3_endpoint_fqdn, s3_access_key, s3_secret_key]):
-#     raise ValueError('Missing S3 configuration in production mode')
-
-# s3 = boto3.client('s3',
-#                     endpoint_url=f'https://{s3_endpoint_fqdn}',
-#                     aws_access_key_id=s3_access_key,
-#                     aws_secret_access_key=s3_secret_key,
-#                     region_name=os.getenv("S3__REGION_NAME"))
 
 
 class FileUrl(TypedDict):
@@ -58,11 +28,11 @@ class SaveFile(CustomNode):
     Custom node to save or upload generated images.
     """
 
-    display_name = "Saves Images"
+    display_name = {Language.ENGLISH: "Saves Images"}
 
-    category = "images"
+    category = Category.INPAINTING
 
-    description = "Useful for saving images"
+    description = {Language.ENGLISH: "Useful for saving images"}
 
     def __init__(self) -> None:
         self.output_dir = get_folder_path("output")
@@ -77,8 +47,8 @@ class SaveFile(CustomNode):
 
     @staticmethod
     def update_interface(
-        inputs: Dict[
-            str, Union[Tuple[str, ...], Tuple[str, Dict[str, Union[str, int]]]]
+        inputs: Optional[
+            Dict[str, Union[Tuple[str, ...], Tuple[str, Dict[str, Union[str, int]]]]]
         ] = None,
     ) -> NodeInterface:
         """
@@ -88,9 +58,9 @@ class SaveFile(CustomNode):
             "inputs": {
                 "images": bytes,
                 "temp": bool,
-                # "filename_prefix": ("STRING", {"default": "CozyUI"}),
-                # "save_type": (["local", "s3"], {"default": "local"}),
-                # "bucket_name": ("STRING", {"default": "my-bucket"}),
+                "filename_prefix": ("STRING", {"default": "Cozy"}),
+                "save_type": (["local", "s3"], {"default": "local"}),
+                "bucket_name": ("STRING", {"default": "my_bucket"}),
             },
             "outputs": {},  # No explicit outputs for this node
         }
@@ -105,75 +75,25 @@ class SaveFile(CustomNode):
                 interface["outputs"]["image_url"] = str
 
         return interface
-    
+
     class NodeResponse(TypedDict):
         image_urls: List[FileUrl]
 
-    def __call__(
-        self,
-        # TO DO: make this type less fixed; ImageOutputType is also needed
-        images: List[Image],
-        # images: torch.Tensor,
-        temp: bool = True,
-        filename_prefix: str = "CozyCreator",
-        bucket_name: str = "my-bucket",
-        image_metadata: Optional[dict] = None,
-    ) -> NodeResponse:
+    def __call__(self, images: List[Image]) -> NodeResponse:
         """
         Saves images to the local filesystem or a remote S3 bucket.
         """
 
-        if (
-            get_config().filesystem_type == "LOCAL"
-        ):  # Assuming environment variables for local/production
-            if temp:
-                prefix = self.temp_prefix_append
-                dir = self.temp_dir
-            else:
-                prefix = self.prefix_append
-                dir = self.output_dir
-
-            image_urls = save_image_to_filesystem(
-                images,
-                compress_level=self.compress_level,
-                image_metadata=image_metadata,
-                is_temp=temp,
-            )
-
-            # prepend our server's GET-file endpoint to these relative paths
-            for url in image_urls:
-                print(url["url"])
-                url["url"] = (
-                    f"http://{get_config().host}:{get_config().port}/files/{url['url']}"
-                )
-
-        elif get_config().filesystem_type == "S3":
-            # Assuming you have environment variables for local/prod
-            # Upload the image to the "temp" folder
-            
-            image_urls = self.upload_to_s3(
-                images, bucket_name, folder_name="temp" if temp else None
-            )
-
-        else:
-            image_urls = []
-
-        return { "image_urls": image_urls }
+        image_urls = self.upload(images)
+        return {"image_urls": image_urls}
 
     # @convert_image_format
-    def upload_to_s3(
-        self,
-        images: Union[List[Image], Image],
-        bucket_name: str,
-        folder_name: Optional[str] = None,
-    ):
+    def upload(self, images: Union[List[Image], Image]):
         """
-        Uploads image data to an S3 bucket and returns the URL(s) of the uploaded image(s).
+        Uploads image(s) data returns the URL(s) of the uploaded image(s).
 
         Args:
             image_data (Union[bytes, List[bytes]]): A byte string or a list of byte strings representing image(s) to be uploaded.
-            bucket_name (str): Name of the S3 bucket.
-            folder_name (str): Optional folder name within the bucket to upload the image(s) to.
 
         Returns:
             Union[str, List[str]]: A single URL or a list of URLs of the uploaded image(s).
@@ -183,43 +103,16 @@ class SaveFile(CustomNode):
 
         image_urls = []
 
-        for i, img_pil in enumerate(images):
+        for img_pil in images:
             with io.BytesIO() as output:
                 img_pil.save(output, format="PNG")
                 img_bytes = output.getvalue()
 
             filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
 
-            key = (
-                f'{get_config().s3["folder"]}/{filename}'
-                if get_config().s3["folder"]
-                else f"{filename}"
-            )
-
-            # Upload the image data
-            get_config().s3["client"].put_object(
-                Bucket=get_config().s3["bucket_name"],
-                Key=key,
-                Body=img_bytes,
-                ACL="public-read",
-            )
-
-            # Generate and append the image URL
-            # endpoint_url = s3.meta.endpoint_url
-            # hostname = urlparse(endpoint_url).hostname
-            # image_url = f"https://{s3_bucket_name}.{hostname}/{key}"
-            image_url = f"{get_config().s3['url']}/{key}"
-
-            image_urls.append(
-                {
-                    "url": image_url,
-                    "filename": filename,
-                    "subfolder": folder_name if folder_name else "root",
-                    "type": folder_name if folder_name else "output",
-                }
-            )
-
-        print(image_urls)
+            file_handler = get_file_handler(get_config())
+            url = file_handler.upload_file(img_bytes, filename)
+            image_urls.append({"url": url, "filename": filename})
 
         return image_urls if len(image_urls) > 1 else image_urls[0]
 
