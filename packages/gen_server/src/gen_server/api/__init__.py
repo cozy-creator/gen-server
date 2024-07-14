@@ -4,7 +4,22 @@ from typing import List, Tuple, Dict, Optional, AsyncGenerator, Any
 from aiohttp import web
 import asyncio
 import logging
-from ..globals import CHECKPOINT_FILES, API_ENDPOINTS, RouteDefinition
+
+from blake3 import blake3
+
+from gen_server.config import get_config
+from image_utils import (
+    S3FileUploader,
+    LocalFileUploader,
+    get_content_type,
+    get_uploader,
+)
+from ..globals import (
+    CHECKPOINT_FILES,
+    API_ENDPOINTS,
+    RouteDefinition,
+    FilesystemTypeEnum,
+)
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
@@ -108,6 +123,91 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
     await response.write_eof()
 
     return response
+
+
+@routes.post("/upload")
+async def handle_upload(request: web.Request) -> web.Response:
+    """
+    Handles image upload requests.
+    """
+
+    reader = await request.multipart()
+    content = None
+    filename = None
+    try:
+        while True:
+            part = await reader.next()
+            if not part:
+                break
+            if part.name == "file":
+                content = await part.read()
+                filehash = blake3.blake3(content).hexdigest()
+                extension = os.path.splitext(part.filename)[1]
+                filename = f"{filehash}{extension}"
+
+        uploader = get_uploader(get_config())
+        url = uploader.upload_file(content, filename)
+        return web.json_response({"success": True, "url": url}, status=201)
+    except Exception as e:
+        print(f"Error uploading file: {e}")
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
+@routes.get("/files")
+async def list_files(_request: web.Request) -> web.Response:
+    try:
+        uploader = get_uploader(get_config())
+        files = uploader.list_files()
+        return web.json_response({"success": True, "files": files}, status=200)
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
+@routes.get("/download/{filename}")
+async def download_file(request: web.Request) -> web.Response:
+    filename = request.match_info["filename"]
+    try:
+        uploader = get_uploader(get_config())
+        body = uploader.download_file(filename)
+        if body is None:
+            return web.json_response(
+                {"success": False, "error": "File not found"},
+                status=404,
+            )
+
+        headers = {
+            "Content-Type": get_content_type(filename),
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        }
+
+        return web.Response(body=body, headers=headers, status=200)
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
+@routes.get("/files/{filename}")
+async def get_file(request: web.Request) -> web.Response:
+    """
+    Serves a static file from the local filesystem.
+    """
+
+    uploader = get_uploader(get_config())
+    filename = request.match_info.get("filename")
+    if not isinstance(uploader, LocalFileUploader):
+        return web.json_response(
+            {"success": False, "error": "Operation not supported"},
+            status=400,
+        )
+
+    body = uploader.download_file(filename)
+    if body is None:
+        return web.json_response(
+            {"success": False, "error": "File not found"},
+            status=404,
+        )
+
+    headers = {"Content-Type": get_content_type(filename)}
+    return web.Response(body=body, headers=headers, status=200)
 
 
 async def start_server(host: str = "localhost", port: int = 8881):
