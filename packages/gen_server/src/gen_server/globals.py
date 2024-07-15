@@ -2,8 +2,9 @@ import os
 import json
 from enum import Enum
 from typing import Type, Optional, Any, Iterable, Union
+
 from aiohttp import web
-from pydantic import Extra, Field, BaseModel, field_validator, ValidationInfo
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import CustomNode
@@ -21,18 +22,13 @@ class FilesystemTypeEnum(str, Enum):
 
     # make it case-insensitive
     @classmethod
-    def _missing_(cls, value: str):
+    def _missing_(cls, value: object):
+        if not isinstance(value, str):
+            raise ValueError(f"Invalid value for FilesystemTypeEnum: {value}")
         for member in cls:
             if member.value.lower() == value.lower():
                 return member
 
-#    @classmethod
-#     def _missing_(cls, value: object):
-#         if not isinstance(value, str):
-#             raise ValueError(f"Invalid value for FilesystemTypeEnum: {value}")
-#         for member in cls:
-#             if member.value.lower() == value.lower():
-#                 return member
 
 class S3Credentials(BaseModel):
     """
@@ -200,7 +196,7 @@ class BuildWebCommandConfig(BaseSettings):
     Configuration for the build-web CLI command. Loaded by the pydantic-settings library
     """
 
-    model_config = {"extra": Extra.ignore}
+    model_config = {"extra": "ignore"}
 
     env_file: Optional[str] = Field(
         default=None,

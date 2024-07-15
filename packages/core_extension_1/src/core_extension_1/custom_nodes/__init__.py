@@ -430,7 +430,7 @@ class CreatePipe(CustomNode):
                 # print(class_)
                 # Instantiate the class with the provided components
                 pipe = class_(**component_kwargs)
-                pipe.to("cuda")
+                pipe.to("mps")
                 return pipe
 
         # Default behavior when loaded_components is not provided

@@ -1,12 +1,11 @@
 import json
 from typing import List, Tuple, Dict, Optional, Any
-from aiohttp import web, BodyPartReader, MultipartReader
-from aiohttp_middlewares import cors_middleware
+from aiohttp import web, BodyPartReader
+from aiohttp_middlewares.cors import cors_middleware
 import asyncio
 import logging
 import blake3
 
-from ..config import get_config
 from ..utils.file_handler import (
     LocalFileHandler,
     get_mime_type,
@@ -21,14 +20,14 @@ from ..utils.paths import get_web_root
 routes = web.RouteTableDef()
 
 
-@routes.get('/{filename:.*}')
-async def serve_spa(request):
-    filename = request.match_info['filename']
+@routes.get("/{filename:.*}")
+async def serve_spa(request: web.Request) -> web.FileResponse:
+    filename = request.match_info["filename"]
     if not filename:
-        filename = 'index.html'
-    
+        filename = "index.html"
+
     file_path = os.path.join(get_web_root(), filename)
-    
+
     if os.path.exists(file_path) and not os.path.isdir(file_path):
         return web.FileResponse(file_path)
     else:
@@ -129,7 +128,10 @@ async def handle_upload(request: web.Request) -> web.Response:
     content = None
     filename = None
     try:
-        async def process_part(part):
+
+        async def _process_part(
+            part: BodyPartReader,
+        ) -> Tuple[bytes | None, str | None]:
             if part.name == "file":
                 content = await part.read()
                 filehash = blake3.blake3(content).hexdigest()
@@ -144,20 +146,22 @@ async def handle_upload(request: web.Request) -> web.Response:
             if not part:
                 break
             elif isinstance(part, BodyPartReader):
-                content, filename = await process_part(part)
-            elif isinstance(part, MultipartReader):
-                async for subpart in part:
-                    if isinstance(subpart, BodyPartReader):
-                        content, filename = await process_part(subpart)
+                content, filename = await _process_part(part)
             else:
-                raise ValueError(f"Unexpected part type: {type(part)}")
+                async for subpart in part:
+                    content, filename = await _process_part(subpart)
 
             if content and filename:
                 break
 
-        uploader = get_file_handler()
-        url = uploader.upload_files(content, filename)
-        return web.json_response({"success": True, "url": url}, status=201)
+        if content and filename:
+            uploader = get_file_handler()
+            url = uploader.upload_files([content], filename)
+            return web.json_response({"success": True, "url": url}, status=201)
+        else:
+            return web.json_response(
+                {"success": False, "error": "No file uploaded"}, status=400
+            )
     except Exception as e:
         print(f"Error uploading file: {e}")
         return web.json_response({"success": False, "error": str(e)}, status=500)
@@ -203,10 +207,10 @@ async def get_file(request: web.Request) -> web.Response:
 
     uploader = get_file_handler()
     filename = request.match_info.get("filename")
-    
+
     if filename is None:
         return web.Response(body=b"", status=200)
-    
+
     if not isinstance(uploader, LocalFileHandler):
         return web.json_response(
             {"success": False, "error": "Operation not supported"},
@@ -220,7 +224,7 @@ async def get_file(request: web.Request) -> web.Response:
             status=404,
         )
 
-    headers = { "Content-Type": get_mime_type(filename) }
+    headers = {"Content-Type": get_mime_type(filename)}
     return web.Response(body=body, headers=headers, status=200)
 
 
@@ -228,22 +232,24 @@ async def start_server(host: str = "localhost", port: int = 8881):
     """
     Starts the web server with API endpoints from extensions
     """
-    app = web.Application(middlewares=[
-        cors_middleware(allow_all=True)  # Enable CORS for all routes
-    ])
+    app = web.Application(
+        middlewares=[
+            cors_middleware(allow_all=True)  # Enable CORS for all routes
+        ]
+    )
     global routes
 
     # Make the entire /web/dist folder accessible at the root URL
-    # routes.static("/", get_web_root())
-    
+    # routes.static("/static", get_web_root())
+
     # Register built-in routes
     app.add_routes(routes)
 
     # Register all API endpoints added by extensions
-    for name, routes in API_ENDPOINTS.items():
+    for _name, api_routes in API_ENDPOINTS.items():
         # TO DO: consider adding prefixes to the routes based on extension-name?
         # How can we overwrite built-in routes
-        app.router.add_routes(routes)
+        app.router.add_routes(api_routes)
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -275,7 +281,7 @@ def api_routes_validator(plugin: Any) -> bool:
         return True
 
     if isinstance(plugin, Iterable):
-        return all(isinstance(route, web.RouteDef) for route in plugin)
+        return all(isinstance(route, web.AbstractRouteDef) for route in plugin)
 
     return False
 

@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 if is_accelerate_available():
     from accelerate import init_empty_weights
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_3.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_3.json"
+)
 
 
 def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
@@ -52,16 +54,14 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
 
         self._model = text_encoder
         self._config = config
-        
+
         self._display_name = "T5 XXL Text Encoder"
         self._input_space = "SD3"
         self._output_space = "SD3"
 
     @classmethod
     def detect(
-        cls,
-        state_dict: StateDict,
-        **ignored: Any
+        cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 3 architecture.

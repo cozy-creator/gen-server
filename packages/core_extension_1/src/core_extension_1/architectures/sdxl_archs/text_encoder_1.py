@@ -24,7 +24,9 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "text_encoders.clip_l.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json"
+)
 
 
 class SDXLTextEncoder(Architecture[CLIPTextModel]):
@@ -43,16 +45,14 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
 
             self._model = text_encoder
             self._config = config
-        
+
         self._display_name = "CLIP Text Encoder"
         self._input_space = "SDXL"
         self._output_space = "SDXL"
 
     @classmethod
     def detect(
-        cls,
-        state_dict: StateDict,
-        **ignored: Any
+        cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "conditioner.embedders.0.transformer.text_model.encoder.layers.0.layer_norm1.weight",
@@ -111,7 +111,6 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
                 and hasattr(text_encoder.embeddings.position_ids)
             ):
                 text_model_dict.pop("text_model.embeddings.position_ids", None)
-
 
             text_encoder.load_state_dict(text_model_dict)
 

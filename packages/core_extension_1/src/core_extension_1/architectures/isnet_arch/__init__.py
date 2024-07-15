@@ -13,7 +13,7 @@ config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.j
 
 
 class ISNetDIS(Architecture[ISNetDISModel]):
-    def __init__(self):
+    def __init__(self, **ignored: Any):
         super().__init__()
         with open(config_path, "r") as file:
             config = json.load(file)
@@ -29,7 +29,7 @@ class ISNetDIS(Architecture[ISNetDISModel]):
     def detect(
         cls,
         state_dict: Optional[StateDict] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        **ignored: Any,
     ) -> Optional[ComponentMetadata]:
         required_keys = {}
 

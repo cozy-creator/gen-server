@@ -16,7 +16,9 @@ from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_unet.json"
+)
 
 
 if is_accelerate_available():
@@ -38,16 +40,14 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
 
         self._model = model
         self._config = config
-        
+
         self._display_name = "SD3 U-Net"
         self._input_space = "SD3"
         self._output_space = "SD3"
 
     @classmethod
     def detect(
-        cls,
-        state_dict: StateDict,
-        **ignored: Any
+        cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 U-Net architecture.
