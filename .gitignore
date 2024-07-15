@@ -22,7 +22,6 @@ venv/
 # Build dir
 **/dist/
 *.tgz
-*.tgz
 
 # js dependencies
 **/node_modules/
@@ -33,6 +32,7 @@ venv/
 config*.json
 !config.example.json
 
+# state dictionaries
 *.pt
 *.pth
 *.safetensors
@@ -42,6 +42,10 @@ config*.json
 inputs/
 outputs/
 models/
+node_definitions.json
 
 # repo dependicies
 /GroundingDINO/
+
+upload_assets/
+.vscode

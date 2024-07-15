@@ -1,23 +1,17 @@
 import json
-import json
 import time
 import argparse
 import asyncio
 import sys
-from pydantic_settings import CliSettingsSource
-import argparse
-import asyncio
-import sys
+import os
 from pydantic_settings import CliSettingsSource
 
-from gen_server.base_types.custom_node import custom_node_validator
-
-from gen_server.config import init_config
-
-from gen_server.config import init_config
+from .config import init_config
+from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
+from .utils.paths import get_models_dir
 from .globals import (
     API_ENDPOINTS,
     ARCHITECTURES,
@@ -27,9 +21,7 @@ from .globals import (
     RunCommandConfig,
     BuildWebCommandConfig,
 )
-
 from .node_definitions import produce_node_definitions_file
-
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 import warnings
 
@@ -43,7 +35,15 @@ def main():
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
-    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or ".env"
+
+    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
+    # If no .env file is specified, try to find one in the current working directory
+    if env_file is None:
+        if os.path.exists(".env"):
+            env_file = ".env"
+        elif os.path.exists(".env.local"):
+            env_file = ".env.local"
+
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")
@@ -64,11 +64,11 @@ def main():
             secrets_dir=secrets_dir,
         )
 
-        produce_node_definitions_file('node_definitions.json')
+        produce_node_definitions_file("node_definitions.json")
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
-        
+
     elif subcommand in ["build-web", "build_web"]:
         cli_settings = CliSettingsSource(
             BuildWebCommandConfig, root_parser=build_web_parser
@@ -81,7 +81,7 @@ def main():
         )
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
-        
+
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()
@@ -141,20 +141,14 @@ def run_app(cozy_config: RunCommandConfig):
     # compile model registry
     global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
-    CHECKPOINT_FILES.update(find_checkpoint_files(model_dirs=cozy_config.models_dirs))
+    models_paths = [get_models_dir()] + cozy_config.aux_models_paths
+    CHECKPOINT_FILES.update(find_checkpoint_files(models_paths=models_paths))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
 
     # debug
     print("Number of checkpoint files:", len(CHECKPOINT_FILES))
-
-    # print(CHECKPOINT_FILES)
-    def print_dict(d):
-        for key, value in d.items():
-            print(f"{key}: {str(value)}")
-
-    print_dict(CHECKPOINT_FILES)
 
     end_time = time.time()
     print(

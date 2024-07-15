@@ -1,12 +1,22 @@
 [tool.pyright]
-include = ["gen_server", "core_library"]
-exclude = ["**/node_modules", "**/__pycache__"]
+include = ["packages/*/src"]
+extraPaths = ["packages/*/src"]
 
-defineConstant = { DEBUG = true }
-stubPath = "src/stubs"
+pythonVersion = "3.11"
+
+typeCheckingMode = "strict"
 
 reportMissingImports = false
+reportUnusedImport = "none"
 reportMissingTypeStubs = false
+reportUnknownParameterType = "none"
+reportUnknownArgumentType = "none"
+reportMissingTypeArgument = "none"
+reportMissingParameterType = "error"
+reportIncompatibleMethodOverride = "error"
+reportUntypedFunctionDecorator = "error"
+reportUnknownDecoratorType = "error"
+reportUnknownMemberType = "none"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

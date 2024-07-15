@@ -12,6 +12,8 @@ authors = [
 
 dependencies = [
     "aiohttp",
+    "aiohttp_middlewares",
+    "aiofiles",
     "blake3",
     "boto3",
     "diffusers>=0.29",
@@ -47,3 +49,11 @@ performance = [
 [project.scripts]
 cozy = "gen_server.main:main"
 cozy-creator = "gen_server.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["gen_server*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"gen_server" = ["py.typed"]

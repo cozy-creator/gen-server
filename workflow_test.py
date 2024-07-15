@@ -1,11 +1,12 @@
 import torch
-from diffusers import StableDiffusionPipeline, StableDiffusionInpaintPipeline, StableDiffusionControlNetPipeline, StableDiffusionXLControlNetPipeline, StableDiffusionXLInpaintPipeline, StableDiffusionXLPipeline
-from diffusers.models import ControlNetModel
+from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
+from diffusers import StableDiffusionInpaintPipeline, StableDiffusionControlNetPipeline, StableDiffusionXLControlNetPipeline, StableDiffusionXLInpaintPipeline, StableDiffusionXLPipeline
+from diffusers.models.controlnet import ControlNetModel
 from PIL import Image, ImageOps, ImageDraw, ImageFilter
 import numpy as np
 from controlnet_aux import OpenposeDetector, MLSDdetector, MidasDetector    # pip install controlnet_aux (note you'd have to reinstall torch again 🥲. Use this command instead to avoid conflict `pip install torch==2.3.1+cu121 -f https://download.pytorch.org/whl/torch_stable.html`)
 from transformers import CLIPTextModel, CLIPTokenizer
-from diffusers.utils import load_image
+from diffusers.utils.loading_utils import load_image
 from briarmbg_arch.briarmbg import BriaRMBG    # This should be synced with the bg remover Rahman implemented
 import cv2
 from depth_anything.depth_anything_v2.dpt import DepthAnythingV2

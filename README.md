@@ -80,11 +80,19 @@ docker build -t cozy-creator/gen-server:0.1.1 .
 ### Docker Run
 
 ```sh
-docker run --env-file=.env.example -p 8881:8881 --gpus=all cozy-creator/gen-server:0.1.0
+docker run --env-file=.env -e COZY_HOST=0.0.0.0 -p 8881:8881 -v ~/.cozy_creator:/workspace -e COZY_WORKSPACE_DIR=/workspace --gpus=all cozy-creator/gen-server:0.1.1
 ```
 
-You can set environment variables manually by using `-e`, for example:
+You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
 
 ```sh
-docker run -p 9000:9000 -e PORT=9000 -e HOST=0.0.0.0 cozy-creator/gen-server:0.1.0
+docker run -e COZY_HOST=0.0.0.0 -p 9000:9000 -e COZY_PORT=9000  -v "C:/git/comfyui/models":/models -e COZY_MODELS_DIRS='["/models"]' cozy-creator/gen-server:0.1.0
 ```
+
+### Gen-Server Spec
+
+- Plugin system: add aiohttp routes, architecture-definitions, custom-nodes (frontend and backend), and widgets (frontend)
+- Searches filesystem for models (checkpoints) available and matches them to architecture definitions
+- Endpoint to receive inference requests (prebuilt workflows for now)
+- Location to save files to (locally or remotely)
+- Endpoint to serve files (not a great use for aiohttp but it should work)

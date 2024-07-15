@@ -11,11 +11,16 @@ authors = [
 ]
 
 dependencies = [
-  "gen_server", "boto3", "pillow", "numpy", "python-dotenv"
+  "blake3",
+  "boto3",
+  "gen_server",
+  "numpy",
+  "Pillow",
+  "python-dotenv",
+  "torch",
+  "torchvision"
 ]
 
 [project.entry-points."cozy_creator.custom_nodes"]
 save_file = "image_utils.custom_nodes:SaveFile"
 
-[project.entry-points."cozy_creator.api"]
-image_upload = "image_utils.api:routes"

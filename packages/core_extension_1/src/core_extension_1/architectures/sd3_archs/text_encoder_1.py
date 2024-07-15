@@ -22,7 +22,9 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "text_encoders.clip_l.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_text_encoder_1.json"
+)
 
 
 class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
@@ -40,16 +42,14 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
 
         self._model = text_encoder
         self._config = config
-        
+
         self._display_name = "CLIP Text Encoder"
         self._input_space = "SD3"
         self._output_space = "SD3"
 
     @classmethod
     def detect(
-        cls,
-        state_dict: StateDict,
-        **ignored: Any
+        cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
         Detects whether the given state dictionary matches the SD3 Text Encoder 1 architecture.

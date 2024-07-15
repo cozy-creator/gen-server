@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 if is_accelerate_available():
     from accelerate import init_empty_weights
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_unet.json"
+)
 
 
 class SDXLUNet(Architecture[UNet2DConditionModel]):
@@ -35,7 +37,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
 
         self._model = model
         self._config = config
-        
+
         self._display_name = "SDXL UNet"
         self._input_space = "SDXL"
         self._output_space = "SDXL"
@@ -79,11 +81,14 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
 
         if is_accelerate_available():
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
+
             print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict)
             if unet._keys_to_ignore_on_load_unexpected is not None:
                 for pat in unet._keys_to_ignore_on_load_unexpected:
-                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+                    unexpected_keys = [
+                        k for k in unexpected_keys if re.search(pat, k) is None
+                    ]
 
             if len(unexpected_keys) > 0:
                 logger.warning(
@@ -106,4 +111,3 @@ if __name__ == "__main__":
     total_time = time.time() - start_performance_timer
     average_time = total_time / 5
     print(f"Average instantiation time for SDXLUNet: {average_time} seconds")
-
