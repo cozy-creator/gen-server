@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 async function* generateImages() {
    const requestBody = {
       models: {
-         citron_anime_treasure_v10: 4,
-         break_domain_xl_v05g: 1
+         // citron_anime_treasure_v10: 4,
+         break_domain_xl_v05g: 4
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
       positive_prompt:
@@ -21,9 +21,6 @@ async function* generateImages() {
          body: JSON.stringify(requestBody)
       });
 
-      console.log('first received');
-      console.log("rr", await response.json())
-
       if (!response.ok) {
          throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -36,16 +33,14 @@ async function* generateImages() {
 
       while (true) {
          const { done, value } = await reader.read();
-
          if (value) {
-            const stringValue = new TextDecoder().decode(value);
+            const decoded = new TextDecoder().decode(value);
             try {
-               const jsonValue = JSON.parse(stringValue);
+               // const jsonValue = JSON.parse(stringValue);
 
-               console.log('message received')
-               console.log(`value: ${value}`)
+               console.log(`decoded value: ${decoded}`)
 
-               yield jsonValue;
+               yield decoded;
             } catch (parseError) {
                console.error('Failed to parse JSON:', parseError);
             }

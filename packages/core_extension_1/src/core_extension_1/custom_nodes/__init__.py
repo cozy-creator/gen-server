@@ -721,8 +721,9 @@ class RunPipe(CustomNode):
         guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     ) -> Union[List[Image.Image], ndarray]:
+        prompts = [prompt] * num_images
         images: Union[List[Image.Image], ndarray] = pipe(
-            prompt,
+            prompt=prompts,
             # negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
             # width=width,
