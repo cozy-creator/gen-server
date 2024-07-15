@@ -1,6 +1,7 @@
 # from .paths import get_folder_path
 import sys
 import logging
+import traceback
 from typing import TypeVar, Optional
 
 from gen_server.base_types.common import Validator
@@ -58,6 +59,7 @@ def load_extensions(
                 _load_plugin_inner(scoped_name, plugin)
 
         except Exception as error:
+            traceback.print_exc()
             logging.error(f"Failed to load plugin {scoped_name}: {str(error)}")
 
     return plugins

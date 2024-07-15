@@ -51,10 +51,9 @@ import json
 import torch
 import os
 from PIL import Image
+from PIL.Image import Image as PILImage
 from numpy import ndarray
-from spandrel import ModelLoader
 
-from image_utils.custom_nodes import pil_to_tensor, tensor_to_pil
 import logging
 from huggingface_hub import hf_hub_download
 import requests
@@ -691,7 +690,7 @@ class GenerateMaskInpainting(CustomNode):
         image: Union[Path, str],
         mask_prompt: str,
         feather: int,
-    ) -> Tuple[Image, Tuple[int, int]]:
+    ) -> Tuple[PILImage, Tuple[int, int]]:
         # Load models
         sam_predictor = self.get_sam()
         grounding_dino_model = self.get_groundingdino()
