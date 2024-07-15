@@ -34,9 +34,10 @@ async def generate_images(
             print(f"No checkpoint file found for model: {checkpoint_id}")
             continue # skip to next model
         file_path = checkpoint_metadata.file_path
+        print(file_path)
         
-        # LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
-        # load_checkpoint = LoadCheckpoint()
+        LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
+        load_checkpoint = LoadCheckpoint()
 
         LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_civitai"]
         load_checkpoint = LoadCheckpoint()
@@ -44,11 +45,13 @@ async def generate_images(
         # figure out what outputs we need from this node
         output_keys = {}
 
-        components = load_checkpoint("SDXL VAE", "fp16")
+        components = load_checkpoint(file_path, output_keys=output_keys)
 
-        print("Number of items loaded:", len(components))
-        for key in components.keys():
-            print(f"Model key: {key}")
+        # components = load_checkpoint("SDXL VAE", "fp16")
+
+        # print("Number of items loaded:", len(components))
+        # for key in components.keys():
+        #     print(f"Model key: {key}")
 
 
         # === Node 2: Create Pipe ===

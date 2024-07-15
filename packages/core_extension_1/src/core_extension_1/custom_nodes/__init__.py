@@ -30,6 +30,9 @@ from diffusers import (
     EDMDPMSolverMultistepScheduler,
     EDMEulerScheduler,
     StableDiffusionXLInpaintPipeline,
+    StableDiffusion3ControlNetPipeline,
+    DiffusionPipeline,
+    SD3ControlNetModel
 )
 from transformers import (
     CLIPTokenizer,
@@ -245,7 +248,7 @@ class LoadCivitai(CustomNode):
     }
 
     @staticmethod
-    def update_interface(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def update_interface(inputs: Dict[str, Any]) -> NodeInterface:
         interface = {
             "inputs": {"model_name": "text", "version_name": "text"},
             "outputs": {"model_file": "file"},
@@ -521,6 +524,166 @@ class CreatePipe(CustomNode):
         # pipe.to(device)
 
         return pipe
+    
+
+class CreateControlNetPipe(CustomNode):
+    """
+    Produces a diffusers contro; pipeline.
+    """
+
+    display_name = "Create ControlNet Pipe"
+    category = "pipe"
+    description = "Creates a DiffusionControlNetPipeline"
+
+
+    @staticmethod
+    def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
+        interface = {
+            "inputs": {"unet": ModelConstraint(model_type=UNet2DConditionModel)},
+            "outputs": {"pipe": DiffusionPipeline},
+        }
+
+        if (
+            inputs is not None
+            and isinstance(inputs.get("unet"), Architecture)
+            and isinstance(inputs["unet"].model, UNet2DConditionModel)
+        ):
+            # Ensure that the vae and text_encoder are compatible with this unet
+            arch: Architecture = inputs["unet"]
+            interface["inputs"].update(
+                {
+                    "vae": ModelConstraint(
+                        model_type=AutoencoderKL,
+                        input_space=arch.input_space,
+                        output_space=arch.output_space,
+                    ),
+                    "text_encoder": ModelConstraint(
+                        model_type=CLIPTextModel, output_space=arch.input_space
+                    ),
+                }
+            )
+
+        return interface
+
+    def __call__(
+        self,
+        loaded_components: Optional[Dict[str, Any]] = None,
+        unet: Union[UNet2DConditionModel, SD3Transformer2DModel] = None,
+        vae: AutoencoderKL = None,
+        text_encoder: Union[CLIPTextModel, CLIPTextModelWithProjection] = None,
+        text_encoder_2: Optional[CLIPTextModelWithProjection] = None,
+        text_encoder_3: Optional[T5EncoderModel] = None,
+        device: Optional[TorchDevice] = None,
+        model_type: str = None,
+    ) -> Union[StableDiffusion3ControlNetPipeline]:
+        
+        if loaded_components:
+            class_name = loaded_components.pop("_class_name", None)
+            if class_name:
+                # Dynamically fetch the required components from loaded_components
+                component_kwargs = {k: v for k, v in loaded_components.items()}
+
+                # Dynamically fetch the class
+                module = __import__("diffusers", fromlist=[class_name])
+                class_ = getattr(module, class_name)
+                # print(class_)
+                # Instantiate the class with the provided components
+                pipe = class_(**component_kwargs)
+                pipe.to("mps")
+                return pipe
+
+        # Default behavior when loaded_components is not provided
+
+        if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+            tokenizer_2 = CLIPTokenizer.from_pretrained(
+                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
+            )
+            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
+            # tokenizer_2 = CLIPTokenizer.from_pretrained("laion/CLIP-ViT-bigG-14-laion2B-39B-b160k")
+            # scheduler = DDIMScheduler.from_pretrained(
+            #     "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+            # )
+
+            scheduler_config = json.load(open(config_path))
+            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+
+            controlnet = SD3ControlNetModel.from_pretrained("InstantX/SD3-Controlnet-Canny")
+
+            pipe = StableDiffusion3ControlNetPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                text_encoder_2=text_encoder_2,
+                text_encoder_3=text_encoder_3,
+                tokenizer=tokenizer,
+                tokenizer_2=tokenizer_2,
+                tokenizer_3=tokenizer_3,
+                transformer=unet,
+                scheduler=scheduler,
+                controlnet=controlnet
+            ).to(torch.bfloat16)
+        elif text_encoder_2 is not None and text_encoder_3 is None:
+            if model_type == "playground":
+                tokenizer = CLIPTokenizer.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="tokenizer",
+                )
+                scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="scheduler",
+                )
+                tokenizer_2 = CLIPTokenizer.from_pretrained(
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="tokenizer_2",
+                )
+            else:
+                tokenizer = CLIPTokenizer.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer"
+                )
+                scheduler = EulerDiscreteScheduler.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler"
+                )
+                tokenizer_2 = CLIPTokenizer.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2"
+                )
+
+            pipe = StableDiffusionXLPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                text_encoder_2=text_encoder_2,
+                unet=unet,
+                scheduler=scheduler,
+                tokenizer=tokenizer,
+                tokenizer_2=tokenizer_2,
+            ).to(torch.float16)
+        else:
+            # EulerDiscreteScheduler
+            # runwayml/stable-diffusion-v1-5
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+            scheduler = DDIMScheduler.from_pretrained(
+                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+            )
+            pipe = StableDiffusionPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                unet=unet,
+                scheduler=scheduler,
+                safety_checker=None,
+                feature_extractor=None,
+                requires_safety_checker=False,
+            )
+
+        print("Got Here")
+
+        # if "xformers" in sys.modules:
+        #     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
+        if "accelerate" in sys.modules:
+            pipe.enable_model_cpu_offload()
+        # pipe.enable_vae_tiling()
+        # pipe.to(device)
+
+        return pipe
 
 
 class RunPipe(CustomNode):
@@ -604,7 +767,7 @@ class UpscaleImage(CustomNode):
 
     def __call__(
         self,
-        model,
+        model: Any, # To be changed to model class
         image: torch.Tensor,
         *,
         output_keys: dict = {},
@@ -827,7 +990,7 @@ class InpaintImage(CustomNode):
 
         return interface
 
-    def __call__(image, mask, text_prompt, strength, save=False):
+    def __call__(image, mask: Tuple[Any, Tuple[int, int]], text_prompt: str, strength: float, save: bool =False):
         inpainter = StableDiffusionXLInpaintPipeline.from_pretrained(
             "RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16
         ).to("cuda" if torch.cuda.is_available() else "cpu")
@@ -855,3 +1018,5 @@ class InpaintImage(CustomNode):
             save_tensor_as_image(output.images, inpainter.vae, "inpainting.jpg")
 
         return output.images, inpainter.vae  # Return both the latent tensor and the VAE
+    
+

@@ -31,7 +31,7 @@ class ISNetDIS(Architecture[ISNetDISModel]):
         state_dict: Optional[StateDict] = None,
         **ignored: Any,
     ) -> Optional[ComponentMetadata]:
-        required_keys = {}
+        required_keys = {"is_net"}  # Ensure to change this to its actual keys. This is just a random key to prevent it from being detected by other models
 
         return (
             ComponentMetadata(
