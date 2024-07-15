@@ -43,7 +43,7 @@ from core_extension_1.widgets import TextInput, StringInput, EnumInput, IntInput
 import json
 import torch
 import os
-from PIL.Image import Image
+from PIL import Image
 from numpy import ndarray
 from spandrel import ModelLoader
 
@@ -513,8 +513,8 @@ class RunPipe(CustomNode):
         num_inference_steps: int = 25,
         guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-    ) -> Union[List[Image], ndarray]:
-        images: Union[List[Image], ndarray] = pipe(
+    ) -> Union[List[Image.Image], ndarray]:
+        images: Union[List[Image.Image], ndarray] = pipe(
             prompt,
             # negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,

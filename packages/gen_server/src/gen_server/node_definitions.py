@@ -5,6 +5,7 @@ from pkg_resources import iter_entry_points
 import inspect
 from gen_server.base_types import ModelConstraint, Category, Language
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, property):
