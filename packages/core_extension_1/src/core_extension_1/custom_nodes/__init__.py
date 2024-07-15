@@ -514,8 +514,6 @@ class CreatePipe(CustomNode):
                 requires_safety_checker=False,
             )
 
-        print("Got Here")
-
         # if "xformers" in sys.modules:
         #     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
         if "accelerate" in sys.modules:

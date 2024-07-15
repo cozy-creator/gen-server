@@ -10,7 +10,7 @@ def find_subcommand():
     return None  # Return None if no subcommand is found
 
 
-def find_arg_value(arg_name):
+def find_arg_value(arg_name: str) -> Optional[str]:
     for i, arg in enumerate(sys.argv):
         if arg.startswith(f"{arg_name}="):
             return arg.split("=", 1)[1]

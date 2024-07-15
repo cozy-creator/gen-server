@@ -46,6 +46,5 @@ node_definitions.json
 
 # repo dependicies
 /GroundingDINO/
-
 upload_assets/
-.vscode
+

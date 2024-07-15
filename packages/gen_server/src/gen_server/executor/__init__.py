@@ -81,12 +81,9 @@ async def generate_images(
         
         match checkpoint_metadata.category:
             case "SD1":
-                print("Got Here")
                 vae = components["core_extension_1.vae"].model
                 unet = components["core_extension_1.sd1_unet"].model
                 text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
-
-                print("Got Here again")
 
                 pipe = create_pipe(
                     vae=vae, 
