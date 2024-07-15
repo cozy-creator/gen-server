@@ -97,12 +97,8 @@ def save_tensor_as_image(latents, vae, filename):
     with torch.no_grad():
         image = vae.decode(latents, return_dict=False)[0]
 
-    print("Got Here")
-
     # Normalize the image tensor
     image = (image / 2 + 0.5).clamp(0, 1)
-
-    print("HAhahaha")
     
     # # Convert to CPU and then to numpy array
     image = image.cpu().permute(0, 2, 3, 1).float().numpy()

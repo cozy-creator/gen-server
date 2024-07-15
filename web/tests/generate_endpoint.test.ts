@@ -32,39 +32,42 @@ async function* generateImages() {
          throw new Error('No body in response');
       }
 
-      // const reader = response.body.getReader();
+      const reader = response.body.getReader();
 
-      // while (true) {
-      //    const { done, value } = await reader.read();
+      while (true) {
+         const { done, value } = await reader.read();
 
-      //    if (value) {
-      //       const stringValue = new TextDecoder().decode(value);
-      //       try {
-      //          const jsonValue = JSON.parse(stringValue);
+         if (value) {
+            const stringValue = new TextDecoder().decode(value);
+            try {
+               const jsonValue = JSON.parse(stringValue);
 
-      //          console.log('message received')
-      //          console.log(`value: ${value}`)
+               console.log('message received')
+               console.log(`value: ${value}`)
 
-      //          yield jsonValue;
-      //       } catch (parseError) {
-      //          console.error('Failed to parse JSON:', parseError);
-      //       }
-      //    }
+               yield jsonValue;
+            } catch (parseError) {
+               console.error('Failed to parse JSON:', parseError);
+            }
+         }
 
-      //    if (done) break;
-      // }
+         if (done) break;
+      }
    } catch (error) {
       console.error('Failed to generate images:', error);
       throw error;
    }
 }
 
-describe('Image Generation API', () => {
-   it('should generate images and return valid JSON responses', async () => {
-      const chunks: any[] = [];
+describe(
+   'Image Generation API',
+   { timeout: 300_000 },
+   () => {
+      it('Should generate images on the gen-server, then yield the image-urls as each job completes', async () => {
+         const chunks: any[] = [];
 
       for await (const chunk of generateImages()) {
-         // console.log(chunk)
+         console.log('Chunk received: ', chunk)
 
          // Validate chunk structure
          // expect(chunk).toHaveProperty('image_urls');
@@ -81,8 +84,6 @@ describe('Image Generation API', () => {
       // Ensure we received at least one chunk
       // expect(chunks.length).toBeGreaterThan(0);
    });
-}, {
-   timeout: 120_000
 });
 
 // Invoke generate-images and collect results

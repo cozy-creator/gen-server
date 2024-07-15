@@ -17,6 +17,7 @@ reportIncompatibleMethodOverride = "error"
 reportUntypedFunctionDecorator = "error"
 reportUnknownDecoratorType = "error"
 reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -37,7 +38,7 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.

@@ -1,6 +1,6 @@
 import io
 import os
-from typing import Union, Optional, TypedDict, AsyncGenerator
+from typing import Union, Optional, TypedDict, AsyncGenerator, Any
 import logging
 from boto3.session import Session
 import blake3
@@ -21,7 +21,7 @@ class FileMetadata(TypedDict):
 
 class FileHandler(ABC):
     @abstractmethod
-    async def upload_files(
+    def upload_files(
         self,
         content: list[bytes] | dict[str, bytes],
         file_extension: str,
@@ -205,7 +205,7 @@ class S3FileHandler(FileHandler):
             Prefix=self.config.folder,
         )
 
-        def _make_url(obj):
+        def _make_url(obj: dict[str, Any]) -> str:
             return f"{self.config.endpoint_url}/{obj['Key']}"
 
         return [_make_url(url) for url in response.get("Contents", [])]
