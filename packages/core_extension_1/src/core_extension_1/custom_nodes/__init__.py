@@ -351,7 +351,7 @@ class LoadCivitai(CustomNode):
     def __call__(
         self,
         model_name: str,
-        version_name: str = None,
+        version_name: Optional[str] = None,
         device: Optional[TorchDevice] = None,
     ) -> dict[str, Architecture]:
         model_id = self.search_model_by_name(model_name)

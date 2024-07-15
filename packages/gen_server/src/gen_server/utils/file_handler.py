@@ -55,8 +55,10 @@ class FileHandler(ABC):
             # Store in dictionary
             image_dict[img_hash] = img_bytes
 
-        results = await self.upload_files(
-            content=image_dict, file_extension="png", is_temp=is_temp
+        results = self.upload_files(
+            content=image_dict,
+            file_extension="png",
+            is_temp=is_temp,
         )
 
         async for result in results:
@@ -96,7 +98,7 @@ class LocalFileHandler(FileHandler):
         else:
             content_dict = content
 
-        async def upload_file(basename: str, file_content: bytes) -> str:
+        async def _upload_file(basename: str, file_content: bytes) -> str:
             filename = f"{basename}.{file_extension}"
             base_path = (
                 os.path.join(self.assets_path, "temp") if is_temp else self.assets_path
@@ -107,7 +109,7 @@ class LocalFileHandler(FileHandler):
             return f"{self.server_url}/media/{filename}"
 
         tasks = [
-            asyncio.create_task(upload_file(basename, file_content))
+            asyncio.create_task(_upload_file(basename, file_content))
             for basename, file_content in content_dict.items()
         ]
 
@@ -167,7 +169,7 @@ class S3FileHandler(FileHandler):
         else:
             content_dict = content
 
-        async def upload_file(basename: str, file_content: bytes) -> str:
+        async def _upload_file(basename: str, file_content: bytes) -> str:
             folder_prefix = f"{self.config.folder}/" if self.config.folder else ""
             temp_prefix = "temp/" if is_temp else ""
             key = f"{folder_prefix}{temp_prefix}{basename}.{file_extension}"
@@ -186,7 +188,7 @@ class S3FileHandler(FileHandler):
             return f"{self.config.endpoint_url}/{key}"
 
         tasks = [
-            asyncio.create_task(upload_file(basename, file_content))
+            asyncio.create_task(_upload_file(basename, file_content))
             for basename, file_content in content_dict.items()
         ]
 

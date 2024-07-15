@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 async function* generateImages() {
    const requestBody = {
       models: {
-         "sd_xl_base_1.0": 4,
-         // break_domain_xl_v05g: 1
+         citron_anime_treasure_v10: 4,
+         break_domain_xl_v05g: 1
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
       positive_prompt:
