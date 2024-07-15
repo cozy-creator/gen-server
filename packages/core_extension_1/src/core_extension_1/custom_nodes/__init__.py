@@ -560,8 +560,8 @@ class RunPipe(CustomNode):
         num_inference_steps: int = 25,
         guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-    ) -> Union[List[Image], ndarray]:
-        images: Union[List[Image], ndarray] = pipe(
+    ) -> List[Image]:
+        images: List[Image] = pipe(
             prompt,
             # negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
@@ -570,6 +570,7 @@ class RunPipe(CustomNode):
             guidance_scale=guidance_scale,
             # num_images_per_prompt=num_images,
             # generator=generator,
+            # output_type='pt'
         ).images
 
         return images
@@ -690,7 +691,7 @@ class GenerateMaskInpainting(CustomNode):
         image: Union[Path, str],
         mask_prompt: str,
         feather: int,
-    ) -> Tuple[Image.Image, Tuple[int, int]]:
+    ) -> Tuple[Image, Tuple[int, int]]:
         # Load models
         sam_predictor = self.get_sam()
         grounding_dino_model = self.get_groundingdino()
@@ -759,7 +760,7 @@ class GenerateMaskInpainting(CustomNode):
         model.to("cuda" if torch.cuda.is_available() else "cpu")
         return model
 
-    def transform_image(self, image: Image.Image) -> torch.Tensor:
+    def transform_image(self, image: Image) -> torch.Tensor:
         transform = T.Compose(
             [
                 T.RandomResize([800], max_size=1333),
@@ -771,7 +772,7 @@ class GenerateMaskInpainting(CustomNode):
         return image_transformed
 
     def detect_objects(
-        self, image: Image.Image, text_prompt: str, model: torch.nn.Module
+        self, image: Image, text_prompt: str, model: torch.nn.Module
     ) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
         image_transformed = self.transform_image(image)
         boxes, logits, phrases = predict(

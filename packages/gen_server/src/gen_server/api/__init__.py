@@ -1,13 +1,13 @@
 import json
 from typing import List, Tuple, Dict, Optional, Any
 from aiohttp import web, BodyPartReader, MultipartReader
+from aiohttp_middlewares import cors_middleware
 import asyncio
 import logging
-
 import blake3
 
-from gen_server.config import get_config
-from gen_server.utils.file_handler import (
+from ..config import get_config
+from ..utils.file_handler import (
     LocalFileHandler,
     get_mime_type,
     get_file_handler,
@@ -21,18 +21,19 @@ from ..utils.paths import get_web_root
 routes = web.RouteTableDef()
 
 
-@routes.get("/")
-async def home(_request: web.Request):
-    # NOTE: This static-file server is intended only for running locally / development.
-    # For production, use a dedicated static file-server, such as Envoy-proxy, Nginx, Apache,
-    # or a CDN to serve the /web/dist folder.
-    index_path = os.path.join(get_web_root(), "index.html")
-
-    if not os.path.exists(index_path):
-        logging.error(f"Index file not found at {index_path}")
-        return web.Response(text="Index file not found", status=404)
-
-    return web.FileResponse(index_path)
+@routes.get('/{filename:.*}')
+async def serve_spa(request):
+    filename = request.match_info['filename']
+    if not filename:
+        filename = 'index.html'
+    
+    file_path = os.path.join(get_web_root(), filename)
+    
+    if os.path.exists(file_path) and not os.path.isdir(file_path):
+        return web.FileResponse(file_path)
+    else:
+        # Throw a 404 error if not found
+        raise web.HTTPNotFound(text="File not found")
 
 
 @routes.get("/checkpoints")
@@ -128,7 +129,6 @@ async def handle_upload(request: web.Request) -> web.Response:
     content = None
     filename = None
     try:
-
         async def process_part(part):
             if part.name == "file":
                 content = await part.read()
@@ -155,18 +155,18 @@ async def handle_upload(request: web.Request) -> web.Response:
             if content and filename:
                 break
 
-        uploader = get_file_handler(get_config())
-        url = uploader.upload_file(content, filename)
+        uploader = get_file_handler()
+        url = uploader.upload_files(content, filename)
         return web.json_response({"success": True, "url": url}, status=201)
     except Exception as e:
         print(f"Error uploading file: {e}")
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/files")
+@routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
     try:
-        uploader = get_file_handler(get_config())
+        uploader = get_file_handler()
         files = uploader.list_files()
         return web.json_response({"success": True, "files": files}, status=200)
     except Exception as e:
@@ -177,7 +177,7 @@ async def list_files(_request: web.Request) -> web.Response:
 async def download_file(request: web.Request) -> web.Response:
     filename = request.match_info["filename"]
     try:
-        uploader = get_file_handler(get_config())
+        uploader = get_file_handler()
         body = uploader.download_file(filename)
         if body is None:
             return web.json_response(
@@ -195,14 +195,18 @@ async def download_file(request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/files/{filename}")
+@routes.get("/media/{filename}")
 async def get_file(request: web.Request) -> web.Response:
     """
     Serves a static file from the local filesystem.
     """
 
-    uploader = get_file_handler(get_config())
+    uploader = get_file_handler()
     filename = request.match_info.get("filename")
+    
+    if filename is None:
+        return web.Response(body=b"", status=200)
+    
     if not isinstance(uploader, LocalFileHandler):
         return web.json_response(
             {"success": False, "error": "Operation not supported"},
@@ -216,7 +220,7 @@ async def get_file(request: web.Request) -> web.Response:
             status=404,
         )
 
-    headers = {"Content-Type": get_mime_type(filename)}
+    headers = { "Content-Type": get_mime_type(filename) }
     return web.Response(body=body, headers=headers, status=200)
 
 
@@ -224,17 +228,21 @@ async def start_server(host: str = "localhost", port: int = 8881):
     """
     Starts the web server with API endpoints from extensions
     """
-    app = web.Application()
+    app = web.Application(middlewares=[
+        cors_middleware(allow_all=True)  # Enable CORS for all routes
+    ])
     global routes
 
     # Make the entire /web/dist folder accessible at the root URL
     # routes.static("/", get_web_root())
+    
+    # Register built-in routes
     app.add_routes(routes)
 
-    # Register all API endpoints from extensions
-    # Iterate over API_ENDPOINTS and add routes
+    # Register all API endpoints added by extensions
     for name, routes in API_ENDPOINTS.items():
         # TO DO: consider adding prefixes to the routes based on extension-name?
+        # How can we overwrite built-in routes
         app.router.add_routes(routes)
 
     runner = web.AppRunner(app)
@@ -274,4 +282,3 @@ def api_routes_validator(plugin: Any) -> bool:
 
 if __name__ == "__main__":
     asyncio.run(start_server())
-    # web.run_app(app, port=8080)

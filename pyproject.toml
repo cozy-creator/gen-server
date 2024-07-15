@@ -1,19 +1,23 @@
 [tool.pyright]
-include = ["packages/gen_server/src", "packages/core_extension_1/src"]
-exclude = ["**/node_modules", "**/__pycache__"]
+include = ["packages/*/src"]
+extraPaths = ["packages/*/src"]
+
 pythonVersion = "3.11"
 
 typeCheckingMode = "strict"
+
 reportMissingImports = false
 reportUnusedImport = "none"
 reportMissingTypeStubs = false
 reportUnknownParameterType = "none"
 reportUnknownArgumentType = "none"
 reportUnknownMemberType = "error"
+reportMissingTypeArgument = "none"
 reportMissingParameterType = "error"
 reportIncompatibleMethodOverride = "error"
 reportUntypedFunctionDecorator = "error"
 reportUnknownDecoratorType = "error"
+reportUnknownMemberType = "none"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
