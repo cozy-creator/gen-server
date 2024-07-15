@@ -6,6 +6,7 @@ from boto3.session import Session
 import blake3
 from ..globals import FilesystemTypeEnum, RunCommandConfig
 from ..config import get_config
+from .paths import get_assets_dir
 from PIL import Image, PngImagePlugin
 from abc import ABC, abstractmethod
 import asyncio
@@ -75,14 +76,8 @@ class FileHandler(ABC):
 
 class LocalFileHandler(FileHandler):
     def __init__(self, config: RunCommandConfig):
-        if config.filesystem_type != FilesystemTypeEnum.LOCAL:
-            raise ValueError("Invalid storage configuration")
-
         self.server_url = f"http://{config.host}:{config.port}"
-        if config.assets_path is None:
-            raise ValueError("Assets path is required")
-
-        self.assets_path = config.assets_path
+        self.assets_path = get_assets_dir()
 
     async def upload_files(
         self,
@@ -141,9 +136,6 @@ class LocalFileHandler(FileHandler):
 
 class S3FileHandler(FileHandler):
     def __init__(self, config: RunCommandConfig):
-        if config.filesystem_type != FilesystemTypeEnum.S3:
-            raise ValueError("Invalid storage configuration")
-
         if config.s3 is None:
             raise ValueError("S3 configuration is required")
 
