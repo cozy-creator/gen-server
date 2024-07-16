@@ -76,8 +76,6 @@ async def generate_images(
                 unet = components["core_extension_1.sd1_unet"].model
                 text_encoder_1 = components["core_extension_1.sd1_text_encoder"].model
 
-                print("Got Here again")
-
                 pipe = create_pipe(vae=vae, text_encoder=text_encoder_1, unet=unet)
                 cfg = 7.0
                 num_inference_steps = 25
@@ -102,7 +100,7 @@ async def generate_images(
                     model_type=sdxl_type,
                 )
                 cfg = 7.0
-                num_inference_steps = 25
+                num_inference_steps = 20
 
             case "SD3":
                 vae = components["core_extension_1.vae"].model
@@ -179,6 +177,7 @@ async def generate_images(
         # execute the 3rd node
         # prompt = "Beautiful anime woman with dark-skin"
         # negative_prompt = "poor quality, worst quality, watermark, blurry"
+        
         pil_images = run_pipe(
             pipe,
             prompt=positive_prompt,
@@ -314,3 +313,4 @@ def aspect_ratio_to_dimensions(
     )
 
     return aspect_ratio_map[aspect_ratio][size]
+

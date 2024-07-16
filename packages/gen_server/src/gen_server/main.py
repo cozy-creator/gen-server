@@ -154,6 +154,21 @@ def run_app(cozy_config: RunCommandConfig):
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
+    
+    # ====== The server is initialized; good spot to run your tests here ======
+    
+    # from .executor import generate_images
+    # async def test_generate_images():
+    #     async for file_metadata in generate_images(
+    #         { "dark_sushi_25d_v40": 1 },
+    #         "a beautiful anime girl", 
+    #         "poor quality, worst quality, watermark, blurry", 
+    #         42069, 
+    #         "16/9"
+    #     ):
+    #         print(file_metadata)
+    
+    # asyncio.run(test_generate_images())
 
     try:
         loop = asyncio.get_event_loop()

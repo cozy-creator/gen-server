@@ -15,24 +15,9 @@ from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
-from ..utils.paths import get_web_root
+from ..utils.paths import get_web_root, get_assets_dir
 
 routes = web.RouteTableDef()
-
-
-@routes.get("/{filename:.*}")
-async def serve_spa(request: web.Request) -> web.FileResponse:
-    filename = request.match_info["filename"]
-    if not filename:
-        filename = "index.html"
-
-    file_path = os.path.join(get_web_root(), filename)
-
-    if os.path.exists(file_path) and not os.path.isdir(file_path):
-        return web.FileResponse(file_path)
-    else:
-        # Throw a 404 error if not found
-        raise web.HTTPNotFound(text="File not found")
 
 
 @routes.get("/checkpoints")
@@ -199,33 +184,39 @@ async def download_file(request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/media/{filename}")
-async def get_file(request: web.Request) -> web.Response:
+# this is a catch-all route, defined last so that all other routes can be matched first
+@routes.get("/{filename:.*}")
+async def serve_file(request: web.Request) -> web.Response:
     """
-    Serves a static file from the local filesystem.
+    Serves a static file from either the assets directory or the web root.
     """
+    filename = request.match_info["filename"]
+    if not filename:
+        filename = "index.html"
+        
+    # serve from the assets folder
+    if filename.startswith("media/"):
+        # Serve from assets directory
+        safe_filename = os.path.basename(filename[6:])  # Remove 'media/' prefix
+        file_path = os.path.join(get_assets_dir(), safe_filename)
+        print(f"Attempting to serve file from assets: {file_path}", flush=True)
+    else:
+        # Serve from web root
+        file_path = os.path.join(get_web_root(), filename)
+        print(f"Attempting to serve file from web root: {file_path}", flush=True)
+    
+    # serve from the static web-dist folder
+    if not os.path.exists(file_path) or not os.path.isdir(file_path):
+        if os.path.exists(file_path) and not os.path.isdir(file_path):
+            with open(file_path, 'rb') as file:
+                body = file.read()
+            headers = {"Content-Type": get_mime_type(os.path.basename(file_path))}
+            return web.Response(body=body, headers=headers, status=200)
+        else:
+            raise web.HTTPNotFound(text="File not found")
 
-    uploader = get_file_handler()
-    filename = request.match_info.get("filename")
-
-    if filename is None:
-        return web.Response(body=b"", status=200)
-
-    if not isinstance(uploader, LocalFileHandler):
-        return web.json_response(
-            {"success": False, "error": "Operation not supported"},
-            status=400,
-        )
-
-    body = uploader.download_file(filename)
-    if body is None:
-        return web.json_response(
-            {"success": False, "error": "File not found"},
-            status=404,
-        )
-
-    headers = {"Content-Type": get_mime_type(filename)}
-    return web.Response(body=body, headers=headers, status=200)
+    # If we reach here, it means the path exists but is a directory
+    raise web.HTTPNotFound(text="File not found")
 
 
 async def start_server(host: str = "localhost", port: int = 8881):
@@ -285,6 +276,3 @@ def api_routes_validator(plugin: Any) -> bool:
 
     return False
 
-
-if __name__ == "__main__":
-    asyncio.run(start_server())

@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Union, List, Optional, Dict, Tuple
+from typing import Any, Union, List, Optional, Dict, Tuple, cast
 from pathlib import Path
 
 # from RealESRGAN.rrdbnet_arch import RRDBNet
@@ -419,7 +419,7 @@ class CreatePipe(CustomNode):
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
         model_type: str = None,
-    ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline]:
+    ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionPipeline]:
         if loaded_components:
             class_name = loaded_components.pop("_class_name", None)
             if class_name:
@@ -520,6 +520,9 @@ class CreatePipe(CustomNode):
             pipe.enable_model_cpu_offload()
         # pipe.enable_vae_tiling()
         # pipe.to(device)
+        
+        # TO DO: find better logic than this
+        pipe.to(torch.bfloat16)
 
         return pipe
     
@@ -720,19 +723,18 @@ class RunPipe(CustomNode):
         num_inference_steps: int = 25,
         guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-    ) -> Union[List[Image.Image], ndarray]:
-        prompts = [prompt] * num_images
-        images: Union[List[Image.Image], ndarray] = pipe(
-            prompt=prompts,
-            # negative_prompt=negative_prompt,
+    ) -> list[Image.Image]:
+        images = cast(list[Image.Image], pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
-            # width=width,
-            # height=height,
+            width=width,
+            height=height,
             guidance_scale=guidance_scale,
-            # num_images_per_prompt=num_images,
-            # generator=generator,
+            num_images_per_prompt=num_images,
+            generator=generator,
             # output_type='pt'
-        ).images
+        ).images)
 
         return images
 

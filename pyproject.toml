@@ -18,6 +18,7 @@ reportUntypedFunctionDecorator = "error"
 reportUnknownDecoratorType = "error"
 reportUnknownMemberType = "none"
 reportUnknownVariableType = "none"
+reportPrivateUsage = "none"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

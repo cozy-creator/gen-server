@@ -3,14 +3,15 @@ import { describe, it, expect } from 'vitest';
 async function* generateImages() {
    const requestBody = {
       models: {
-         // citron_anime_treasure_v10: 4,
-         break_domain_xl_v05g: 4
+         citron_anime_treasure_v10: 1,
+         dark_sushi_25d_v40: 2,
+         // break_domain_xl_v05g: 1
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
       positive_prompt:
          'anime style, a badass man swinging a massive broadsword above his head, detailed, epic masterpiece, highly detailed',
       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 53,
+      random_seed: 59,
       aspect_ratio: '9/16'
    };
 
@@ -37,8 +38,6 @@ async function* generateImages() {
             const decoded = new TextDecoder().decode(value);
             try {
                // const jsonValue = JSON.parse(stringValue);
-
-               console.log(`decoded value: ${decoded}`)
 
                yield decoded;
             } catch (parseError) {
