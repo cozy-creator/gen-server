@@ -5,7 +5,7 @@ import logging
 from boto3.session import Session
 import blake3
 from ..globals import FilesystemTypeEnum, RunCommandConfig
-from ..config import get_config
+from ..config import get_config, is_runpod_available, get_runpod_url
 from .paths import get_assets_dir
 from PIL import Image, PngImagePlugin
 from abc import ABC, abstractmethod
@@ -76,7 +76,12 @@ class FileHandler(ABC):
 
 class LocalFileHandler(FileHandler):
     def __init__(self, config: RunCommandConfig):
-        self.server_url = f"http://{config.host}:{config.port}"
+        self.server_url = (
+            get_runpod_url(config.port)
+            if is_runpod_available()
+            else f"http://{config.host}:{config.port}"
+        )
+
         self.assets_path = get_assets_dir()
 
     async def upload_files(

@@ -7,7 +7,6 @@ import logging
 import blake3
 
 from ..utils.file_handler import (
-    LocalFileHandler,
     get_mime_type,
     get_file_handler,
 )
@@ -193,7 +192,7 @@ async def serve_file(request: web.Request) -> web.Response:
     filename = request.match_info["filename"]
     if not filename:
         filename = "index.html"
-        
+
     # serve from the assets folder
     if filename.startswith("media/"):
         # Serve from assets directory
@@ -204,11 +203,11 @@ async def serve_file(request: web.Request) -> web.Response:
         # Serve from web root
         file_path = os.path.join(get_web_root(), filename)
         print(f"Attempting to serve file from web root: {file_path}", flush=True)
-    
+
     # serve from the static web-dist folder
     if not os.path.exists(file_path) or not os.path.isdir(file_path):
         if os.path.exists(file_path) and not os.path.isdir(file_path):
-            with open(file_path, 'rb') as file:
+            with open(file_path, "rb") as file:
                 body = file.read()
             headers = {"Content-Type": get_mime_type(os.path.basename(file_path))}
             return web.Response(body=body, headers=headers, status=200)
@@ -275,4 +274,3 @@ def api_routes_validator(plugin: Any) -> bool:
         return all(isinstance(route, web.AbstractRouteDef) for route in plugin)
 
     return False
-

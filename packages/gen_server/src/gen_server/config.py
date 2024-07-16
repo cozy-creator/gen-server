@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import CliSettingsSource
 from .globals import RunCommandConfig
 import argparse
@@ -61,3 +62,21 @@ def init_config(
     )
 
     return cozy_config
+
+
+def is_runpod_available() -> bool:
+    """
+    Returns a boolean indicating whether the server is running within a RunPod.
+    """
+    return os.environ.get("RUNPOD_POD_ID") is not None
+
+
+def get_runpod_url(port: str, token: Optional[str] = None) -> str:
+    """
+    Returns the URL of the RunPod.
+    """
+
+    url = f"https://p5msj35vzzc9s0-{port}.proxy.runpod.net"
+    if token is not None:
+        return f"{url}?token={token}"
+    return url
