@@ -51,6 +51,7 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
         async for urls in generate_images(
             models, positive_prompt, negative_prompt, random_seed, aspect_ratio
         ):
+            print(urls)
             json_response = json.dumps({"output": urls})
             await response.write((json_response).encode("utf-8") + b"\n")
 
