@@ -83,8 +83,8 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
         text_encoder.load_state_dict(text_model_dict)
 
         if device is not None:
-            text_encoder.to(device=device) # type: ignore
-        text_encoder.to(torch.bfloat16) # type: ignore
+            text_encoder.to(device=device)
+        
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")
 

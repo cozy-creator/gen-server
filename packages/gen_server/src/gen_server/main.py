@@ -64,7 +64,7 @@ def main():
             secrets_dir=secrets_dir,
         )
 
-        produce_node_definitions_file("node_definitions.json")
+        # produce_node_definitions_file("node_definitions.json")
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)

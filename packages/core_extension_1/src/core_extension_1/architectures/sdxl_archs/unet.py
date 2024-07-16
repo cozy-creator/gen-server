@@ -99,8 +99,6 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
 
         if device is not None:
             unet.to(device=device)
-        # unet.to(torch.float16)
-        # unet.to(torch.bfloat16)
 
         print(f"UNet state dict loaded in {time.time() - start} seconds")
 
