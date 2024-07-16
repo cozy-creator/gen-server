@@ -6,6 +6,8 @@ import time
 import torch
 import asyncio
 from PIL import PngImagePlugin
+from PIL import Image
+from typing import Generator
 from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
 from ..utils.file_handler import get_file_handler, FileMetadata
 
@@ -25,6 +27,7 @@ def generate_images_internal(
     random_seed: Optional[int],
     aspect_ratio: str,
 ):
+# ) -> Generator[list[PilImagePlugin.PngImageFile], None, None]:
     # Simulate image generation and yield URLs
     for checkpoint_id, num_images in models.items():
         # Yield a list of placeholder URLs and then sleep
@@ -209,22 +212,31 @@ async def generate_images(
     aspect_ratio: str,
 ) -> AsyncGenerator[FileMetadata, None]:
     start = time.time()
+    
+    pil_images: list[Image.Image] = generate_images_internal(
+        models,
+        positive_prompt,
+        negative_prompt,
+        random_seed,
+        aspect_ratio,
+    )
 
-    loop = asyncio.get_event_loop()
-    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
-        try:
-            pil_images = await loop.run_in_executor(
-                pool,
-                generate_images_internal,
-                models,
-                positive_prompt,
-                negative_prompt,
-                random_seed,
-                aspect_ratio,
-            )
-        except Exception as e:
-            logger.error(f"Error in ProcessPoolExecutor: {e}")
-            return
+    # loop = asyncio.get_event_loop()
+    # with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
+    #     try:
+    #         pil_images = await loop.run_in_executor(
+    #             pool,
+    #             generate_images_internal,
+    #             models,
+    #             positive_prompt,
+    #             negative_prompt,
+    #             random_seed,
+    #             aspect_ratio,
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Error in ProcessPoolExecutor: {e}")
+    #         return
+        
     # Save Images
     # images[0].save("output.png")
 

@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 async function* generateImages() {
    const requestBody = {
       models: {
-         // citron_anime_treasure_v10: 1,
-         // dark_sushi_25d_v40: 2,
+         citron_anime_treasure_v10: 2,
+         dark_sushi_25d_v40: 2,
          break_domain_xl_v05g: 1
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },

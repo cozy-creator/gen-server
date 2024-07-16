@@ -42,7 +42,7 @@ config*.json
 inputs/
 outputs/
 models/
-node_definitions.json
+**/node_definitions.json
 
 # repo dependicies
 /GroundingDINO/
