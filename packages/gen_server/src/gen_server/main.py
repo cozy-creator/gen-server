@@ -6,7 +6,7 @@ import sys
 import os
 from pydantic_settings import CliSettingsSource
 
-from .config import init_config
+from .config import init_config, get_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
@@ -29,7 +29,6 @@ warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
-    # produce_node_definitions_file('node_definitions.json')
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
 
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
@@ -63,8 +62,8 @@ def main():
             env_file=env_file,
             secrets_dir=secrets_dir,
         )
-
-        # produce_node_definitions_file("node_definitions.json")
+        
+        produce_node_definitions_file(f"{cozy_config.workspace_path}/node_definitions.json")
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
