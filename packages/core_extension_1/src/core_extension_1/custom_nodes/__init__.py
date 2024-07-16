@@ -94,10 +94,10 @@ config_path_play = os.path.join(
 
 
 # model directory used for caching downloaded models from huggingface in order to prevent conflict with other programs
-model_dir = get_models_dir()
+# model_dir = get_models_dir()
 
-if not os.path.exists(model_dir):
-    os.makedirs(model_dir)
+# if not os.path.exists(model_dir):
+#     os.makedirs(model_dir)
 
 
 def components_from_model_index(file_path: str) -> Dict[str, Any]:
@@ -223,8 +223,7 @@ class LoadComponents(CustomNode):
                         subfolder=component,
                         torch_dtype=torch.float16,
                         variant="fp16",
-                        use_safetensors=True,
-                        cache_dir=model_dir
+                        use_safetensors=True
                     )
                     loaded_components[component] = loaded_component
                 else:
@@ -447,11 +446,11 @@ class CreatePipe(CustomNode):
         # Default behavior when loaded_components is not provided
 
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=model_dir)
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             tokenizer_2 = CLIPTokenizer.from_pretrained(
-                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k", cache_dir=model_dir
+                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
             )
-            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl", cache_dir=model_dir)
+            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
 
 
             scheduler_config = json.load(open(config_path))
@@ -472,28 +471,25 @@ class CreatePipe(CustomNode):
             if model_type == "playground":
                 tokenizer = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer",
-                    cache_dir=model_dir
+                    subfolder="tokenizer"
                 )
                 scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="scheduler",
-                    cache_dir=model_dir
+                    subfolder="scheduler"
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer_2",
-                    cache_dir=model_dir
+                    subfolder="tokenizer_2"
                 )
             else:
                 tokenizer = CLIPTokenizer.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer"
                 )
                 scheduler = EulerDiscreteScheduler.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler"
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2"
                 )
 
             pipe = StableDiffusionXLPipeline(
@@ -508,9 +504,9 @@ class CreatePipe(CustomNode):
         else:
             # EulerDiscreteScheduler
             # runwayml/stable-diffusion-v1-5
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=model_dir)
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             scheduler = DDIMScheduler.from_pretrained(
-                "runwayml/stable-diffusion-v1-5", subfolder="scheduler", cache_dir=model_dir
+                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
             )
             pipe = StableDiffusionPipeline(
                 vae=vae,
@@ -604,16 +600,16 @@ class CreateControlNetPipe(CustomNode):
         # Default behavior when loaded_components is not provided
 
         if isinstance(unet, SD3Transformer2DModel) and text_encoder_3 is not None:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=model_dir)
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             tokenizer_2 = CLIPTokenizer.from_pretrained(
-                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k", cache_dir=model_dir
+                "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
             )
-            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl", cache_dir=model_dir)
+            tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
 
             scheduler_config = json.load(open(config_path))
             scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
-            controlnet = SD3ControlNetModel.from_pretrained("InstantX/SD3-Controlnet-Canny", cache_dir=model_dir)
+            controlnet = SD3ControlNetModel.from_pretrained("InstantX/SD3-Controlnet-Canny")
 
             pipe = StableDiffusion3ControlNetPipeline(
                 vae=vae,
@@ -631,25 +627,25 @@ class CreateControlNetPipe(CustomNode):
             if model_type == "playground":
                 tokenizer = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer", cache_dir=model_dir
+                    subfolder="tokenizer"
                 )
                 scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic", 
-                    subfolder="scheduler", cache_dir=model_dir
+                    subfolder="scheduler"
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer_2", cache_dir=model_dir
+                    subfolder="tokenizer_2"
                 )
             else:
                 tokenizer = CLIPTokenizer.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer"
                 )
                 scheduler = EulerDiscreteScheduler.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler"
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
-                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2", cache_dir=model_dir
+                    "stabilityai/stable-diffusion-xl-base-1.0", subfolder="tokenizer_2"
                 )
 
             pipe = StableDiffusionXLPipeline(
@@ -664,9 +660,9 @@ class CreateControlNetPipe(CustomNode):
         else:
             # EulerDiscreteScheduler
             # runwayml/stable-diffusion-v1-5
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=model_dir)
+            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
             scheduler = DDIMScheduler.from_pretrained(
-                "runwayml/stable-diffusion-v1-5", subfolder="scheduler", cache_dir=model_dir
+                "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
             )
             pipe = StableDiffusionPipeline(
                 vae=vae,
@@ -997,7 +993,7 @@ class InpaintImage(CustomNode):
 
     def __call__(image, mask: Tuple[Any, Tuple[int, int]], text_prompt: str, strength: float, save: bool =False):
         inpainter = StableDiffusionXLInpaintPipeline.from_pretrained(
-            "RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16, cache_dir=model_dir
+            "RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16
         ).to("cuda" if torch.cuda.is_available() else "cpu")
 
         mask, img_size = mask
