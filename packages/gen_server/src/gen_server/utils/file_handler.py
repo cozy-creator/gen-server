@@ -7,7 +7,7 @@ from boto3.session import Session
 import blake3
 from ..globals import FilesystemTypeEnum, RunCommandConfig
 from ..config import get_config, is_runpod_available, get_runpod_url
-from .paths import get_assets_dir
+from .paths import get_assets_dir, get_s3_public_url
 from PIL import Image, PngImagePlugin
 from abc import ABC, abstractmethod
 import asyncio
@@ -109,8 +109,6 @@ class LocalFileHandler(FileHandler):
             async with aiofiles.open(filepath, "wb") as f:
                 await f.write(file_content)
 
-            # sleep for 5s
-            await asyncio.sleep(10)
             return f"{self.server_url}/media/{filename}"
 
         tasks = {
@@ -185,13 +183,11 @@ class S3FileHandler(FileHandler):
                     ACL="public-read",
                 )
 
-                # sleep for 5s
-                await asyncio.sleep(10)
             except Exception as e:
                 logger.error(f"Failed to upload file {key}: {e}")
                 raise
 
-            return f"{self.config.endpoint_url}/{key}"
+            return f"{get_s3_public_url()}/{key}"
 
         tasks = [
             asyncio.create_task(_upload_file(basename, file_content))

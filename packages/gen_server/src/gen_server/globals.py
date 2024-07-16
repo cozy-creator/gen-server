@@ -61,6 +61,14 @@ class S3Credentials(BaseModel):
         default=None, description="Folder within the S3 bucket"
     )
 
+    public_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Url where the S3 files can be publicly accessed from, example: https://storage.cozy.dev."
+            "If not specified, the endpoint-url will be used instead"
+        ),
+    )
+
 
 class RunCommandConfig(BaseSettings):
     """

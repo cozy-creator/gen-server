@@ -9,9 +9,9 @@ async function* generateImages() {
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
       positive_prompt:
-         'anime style, a badass man swinging a massive broadsword above his head, detailed, epic masterpiece, highly detailed',
+         'beautiful anme woman, high quality, masterpiece',
       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 59,
+      random_seed: 61,
       aspect_ratio: '9/16'
    };
 
