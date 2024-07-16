@@ -2,7 +2,7 @@ import os
 from pydantic_settings import CliSettingsSource
 from .globals import RunCommandConfig
 import argparse
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Union
 
 cozy_config: Optional[RunCommandConfig] = None
 """
@@ -71,12 +71,13 @@ def is_runpod_available() -> bool:
     return os.environ.get("RUNPOD_POD_ID") is not None
 
 
-def get_runpod_url(port: str, token: Optional[str] = None) -> str:
+def get_runpod_url(port: Union[str, int], token: Optional[str] = None) -> str:
     """
     Returns the URL of the RunPod.
     """
 
-    url = f"https://p5msj35vzzc9s0-{port}.proxy.runpod.net"
+    pod_id = os.environ.get("RUNPOD_POD_ID")
+    url = f"https://{pod_id}-{port}.proxy.runpod.net"
     if token is not None:
         return f"{url}?token={token}"
     return url

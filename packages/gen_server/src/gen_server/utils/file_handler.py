@@ -1,5 +1,6 @@
 import io
 import os
+import time
 from typing import Union, Optional, TypedDict, AsyncGenerator, Any
 import logging
 from boto3.session import Session
@@ -63,6 +64,7 @@ class FileHandler(ABC):
         )
 
         async for result in results:
+            print("result", result)
             yield result
 
     @abstractmethod
@@ -106,15 +108,19 @@ class LocalFileHandler(FileHandler):
             filepath = os.path.join(base_path, filename)
             async with aiofiles.open(filepath, "wb") as f:
                 await f.write(file_content)
+
+            # sleep for 5s
+            await asyncio.sleep(10)
             return f"{self.server_url}/media/{filename}"
 
-        tasks = [
-            asyncio.create_task(_upload_file(basename, file_content))
+        tasks = {
+            asyncio.create_task(_upload_file(basename, file_content)): basename
             for basename, file_content in content_dict.items()
-        ]
+        }
 
         for completed_task in asyncio.as_completed(tasks):
-            yield {"url": await completed_task, "is_temp": is_temp}
+            url = await completed_task
+            yield {"url": url, "is_temp": is_temp}
 
     def list_files(self) -> list[str]:
         """
@@ -172,12 +178,15 @@ class S3FileHandler(FileHandler):
             key = f"{folder_prefix}{temp_prefix}{basename}.{file_extension}"
 
             try:
-                await self.client.put_object(
+                self.client.put_object(
                     Bucket=self.config.bucket_name,
                     Key=key,
                     Body=file_content,
                     ACL="public-read",
                 )
+
+                # sleep for 5s
+                await asyncio.sleep(10)
             except Exception as e:
                 logger.error(f"Failed to upload file {key}: {e}")
                 raise
@@ -190,7 +199,9 @@ class S3FileHandler(FileHandler):
         ]
 
         for completed_task in asyncio.as_completed(tasks):
-            yield {"url": await completed_task, "is_temp": is_temp}
+            url = await completed_task
+            print("url", url)
+            yield {"url": url, "is_temp": is_temp}
 
     def list_files(self) -> list[str]:
         """
