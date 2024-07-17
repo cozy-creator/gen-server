@@ -4,6 +4,7 @@ import multiprocessing
 from typing import List, Tuple, Dict, Optional, Any
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
+import aiohttp_cors
 import asyncio
 import logging
 import blake3
@@ -20,6 +21,24 @@ from ..utils.paths import get_web_root, get_assets_dir
 
 routes = web.RouteTableDef()
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+web_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..', '..', 'web', 'dist'))
+react_components = os.path.abspath(os.path.join(script_dir, '..', 'react_components'))
+
+
+@routes.get("/")
+async def home(_request: web.Request):
+    # NOTE: This static-file server is intended only for running locally / development.
+    # For production, use a dedicated static file-server, such as Envoy-proxy, Nginx, Apache,
+    # or a CDN to serve the /web/dist folder.
+    index_path = os.path.join(web_root, "index.html")
+    
+    if not os.path.exists(index_path):
+        logging.error(f"Index file not found at {index_path}")
+        return web.Response(text="Index file not found", status=404)
+    
+    return web.FileResponse(index_path)
+
 
 @routes.get("/checkpoints")
 async def get_checkpoints(_req: web.Request) -> web.Response:
@@ -33,17 +52,34 @@ async def get_checkpoints(_req: web.Request) -> web.Response:
         text=json.dumps(serialized_checkpoints), content_type="application/json"
     )
 
+@routes.get("/react-components")
+async def get_react_components(_req: web.Request) -> web.Response:
+    components = {}
+    for filename in os.listdir(react_components):
+        if filename.endswith('.js'):
+            # Read the file
+            with open(os.path.join(react_components, filename), 'r') as f:
+                content = f.read()
+            # Store the file name and content in the dictionary
+            components[filename.replace('.js', '')] = content.strip()
+
+    return web.Response(
+        text=json.dumps(components), content_type="application/json"
+    )
+
 
 @routes.post("/generate")
 async def handle_post(request: web.Request) -> web.StreamResponse:
     response = web.StreamResponse(
         status=200, reason="OK", headers={"Content-Type": "application/json"}
     )
+    print('Request>>', type(request), request, request.get('method'))
     await response.prepare(request)
 
     try:
         # TO DO: validate these types using something like pydantic
         data = await request.json()
+        print('Request>>', data)
         models: Dict[str, int] = data["models"]
         positive_prompt: str = data["positive_prompt"]
         negative_prompt: str = data["negative_prompt"]

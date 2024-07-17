@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cozy-creator/graph-editor": "file:cozy-creator-graph-editor-v0.3.13.tgz",
+    "@cozy-creator/graph-editor": "file:cozy-creator-graph-editor-v0.3.15.tgz",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
