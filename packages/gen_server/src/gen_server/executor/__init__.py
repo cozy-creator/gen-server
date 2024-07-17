@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 import logging
 import multiprocessing
 from typing import Optional, Tuple, List, Any, AsyncGenerator
@@ -7,15 +7,11 @@ import torch
 import asyncio
 from PIL import PngImagePlugin
 from PIL import Image
-from typing import Generator
 from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
 from ..utils.file_handler import get_file_handler, FileMetadata
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-if multiprocessing.get_start_method(allow_none=True) != "spawn":
-    multiprocessing.set_start_method("spawn", force=True)
 
 # === Simulating the executor code ===
 
@@ -26,8 +22,8 @@ def generate_images_internal(
     negative_prompt: str,
     random_seed: Optional[int],
     aspect_ratio: str,
-):
-# ) -> Generator[list[PilImagePlugin.PngImageFile], None, None]:
+) -> Optional[list[Image.Image]]:
+    # ) -> Generator[list[PilImagePlugin.PngImageFile], None, None]:
     # Simulate image generation and yield URLs
     for checkpoint_id, num_images in models.items():
         # Yield a list of placeholder URLs and then sleep
@@ -212,8 +208,8 @@ async def generate_images(
     aspect_ratio: str,
 ) -> AsyncGenerator[FileMetadata, None]:
     start = time.time()
-    
-    pil_images: list[Image.Image] = generate_images_internal(
+
+    pil_images = generate_images_internal(
         models,
         positive_prompt,
         negative_prompt,
@@ -236,7 +232,7 @@ async def generate_images(
     #     except Exception as e:
     #         logger.error(f"Error in ProcessPoolExecutor: {e}")
     #         return
-        
+
     # Save Images
     # images[0].save("output.png")
 
@@ -256,6 +252,9 @@ async def generate_images(
     metadata.add_text("Author", "gen_server")
 
     file_handler = get_file_handler()
+
+    if pil_images is None:
+        return
 
     async for file_metadata in file_handler.upload_png_files(pil_images, metadata):
         yield file_metadata
@@ -357,3 +356,49 @@ def aspect_ratio_to_dimensions(
     )
 
     return aspect_ratio_map[aspect_ratio][size]
+
+
+async def run_worker(request_queue: multiprocessing.Queue):
+    while True:
+        if not request_queue.empty():
+            (data, response_queue) = request_queue.get()
+            if not isinstance(data, dict):
+                print("Invalid data received")
+                continue
+
+            try:
+                async for image_metadata in generate_images(**data):
+                    response_queue.put(image_metadata)
+            except StopIteration:
+                print("Images generated")
+
+        else:
+            time.sleep(1)
+
+
+# async def run_worker(request_queue: multiprocessing.Queue):
+#     with ThreadPoolExecutor() as executor:
+#         while True:
+#             if not request_queue.empty():
+#                 (data, response_queue) = request_queue.get()
+#                 if not isinstance(data, dict):
+#                     print("Invalid data received")
+#                     continue
+
+#                 try:
+#                     future = executor.submit(generate_images, **data)
+#                     async for image_metadata in iterate_results(future):
+#                         response_queue.put(image_metadata)
+#                 except StopIteration:
+#                     print("Images generated")
+
+#             else:
+#                 time.sleep(1)
+
+
+# async def iterate_results(future: Future[AsyncGenerator[FileMetadata, None]]):
+#     while not future.done():
+#         await asyncio.sleep(0.1)
+
+#     async for result in future.result():
+#         yield result

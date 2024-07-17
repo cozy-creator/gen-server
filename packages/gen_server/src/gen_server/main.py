@@ -1,15 +1,17 @@
+import asyncio
 import json
+from multiprocessing import Process, Queue
 import time
 import argparse
-import asyncio
 import sys
 import os
+from gen_server.executor import run_worker
 from pydantic_settings import CliSettingsSource
 
-from .config import init_config, get_config
+from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-from .api import start_server, api_routes_validator
+from .api import api_routes_validator, start_server_sync
 from .utils import load_extensions, find_checkpoint_files
 from .utils.paths import get_models_dir
 from .globals import (
@@ -62,8 +64,10 @@ def main():
             env_file=env_file,
             secrets_dir=secrets_dir,
         )
-        
-        produce_node_definitions_file(f"{cozy_config.workspace_path}/node_definitions.json")
+
+        produce_node_definitions_file(
+            f"{cozy_config.workspace_path}/node_definitions.json"
+        )
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
@@ -153,25 +157,31 @@ def run_app(cozy_config: RunCommandConfig):
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
-    
+
     # ====== The server is initialized; good spot to run your tests here ======
-    
+
     # from .executor import generate_images
     # async def test_generate_images():
     #     async for file_metadata in generate_images(
     #         { "dark_sushi_25d_v40": 1 },
-    #         "a beautiful anime girl", 
-    #         "poor quality, worst quality, watermark, blurry", 
-    #         42069, 
+    #         "a beautiful anime girl",
+    #         "poor quality, worst quality, watermark, blurry",
+    #         42069,
     #         "16/9"
     #     ):
     #         print(file_metadata)
-    
+
     # asyncio.run(test_generate_images())
 
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(start_server(cozy_config.host, cozy_config.port))
+        requests_queue = Queue()
+        process = Process(
+            target=start_server_sync,
+            args=(cozy_config.host, cozy_config.port, requests_queue),
+        )
+
+        process.start()
+        asyncio.run(run_worker(requests_queue))
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")
     except Exception as e:

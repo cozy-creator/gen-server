@@ -1,6 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import multiprocessing
+from queue import Queue
 from typing import List, Tuple, Dict, Optional, Any
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
@@ -19,6 +20,7 @@ import os
 from ..utils.paths import get_web_root, get_assets_dir
 
 routes = web.RouteTableDef()
+request_queue = None
 
 
 @routes.get("/checkpoints")
@@ -44,18 +46,31 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
     try:
         # TO DO: validate these types using something like pydantic
         data = await request.json()
-        models: Dict[str, int] = data["models"]
-        positive_prompt: str = data["positive_prompt"]
-        negative_prompt: str = data["negative_prompt"]
-        random_seed: Optional[int] = data.get("random_seed", None)
-        aspect_ratio: str = data["aspect_ratio"]
+        # models: Dict[str, int] = data["models"]
+        # positive_prompt: str = data["positive_prompt"]
+        # negative_prompt: str = data["negative_prompt"]
+        # random_seed: Optional[int] = data.get("random_seed", None)
+        # aspect_ratio: str = data["aspect_ratio"]
 
-        async for urls in generate_images(
-            models, positive_prompt, negative_prompt, random_seed, aspect_ratio
-        ):
-            print(urls)
-            json_response = json.dumps({"output": urls})
-            await response.write((json_response).encode("utf-8") + b"\n")
+        with multiprocessing.Manager() as manager:
+            response_queue = manager.Queue()
+            if request_queue is not None:
+                request_queue.put((data, response_queue))
+
+            while response_queue.empty():
+                await asyncio.sleep(0)
+
+            while not response_queue.empty():
+                urls = response_queue.get()
+                await response.write(
+                    json.dumps({"output": urls}).encode("utf-8") + b"\n"
+                )
+        # async for urls in generate_images(
+        #     models, positive_prompt, negative_prompt, random_seed, aspect_ratio
+        # ):
+        #     print(urls)
+        #     json_response = json.dumps({"output": urls})
+        #     await response.write((json_response).encode("utf-8") + b"\n")
 
     except Exception as e:
         # Handle the exception, you might want to log it or send an error response
@@ -221,7 +236,11 @@ async def serve_file(request: web.Request) -> web.Response:
     raise web.HTTPNotFound(text="File not found")
 
 
-async def start_server(host: str = "localhost", port: int = 8881):
+async def start_server(
+    host: str = "localhost",
+    port: int = 8881,
+    queue: multiprocessing.Queue = None,
+):
     """
     Starts the web server with API endpoints from extensions
     """
@@ -231,6 +250,7 @@ async def start_server(host: str = "localhost", port: int = 8881):
         ]
     )
     global routes
+    global request_queue
 
     # Make the entire /web/dist folder accessible at the root URL
     # routes.static("/static", get_web_root())
@@ -253,6 +273,7 @@ async def start_server(host: str = "localhost", port: int = 8881):
     # Try to bind to the desired port
     # try:
     site = web.TCPSite(runner, host, port)
+    request_queue = queue
     await site.start()
     # except socket.error:
     #     # If the desired port is in use, bind to a random available port
@@ -267,6 +288,11 @@ async def start_server(host: str = "localhost", port: int = 8881):
     except asyncio.CancelledError:
         print("Server is shutting down...")
         await runner.cleanup()
+
+
+def start_server_sync(host: str, port: int, queue: multiprocessing.Queue):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(start_server(host, port, queue))
 
 
 def api_routes_validator(plugin: Any) -> bool:
