@@ -22,22 +22,8 @@ from ..utils.paths import get_web_root, get_assets_dir
 routes = web.RouteTableDef()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-web_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..', '..', 'web', 'dist'))
 react_components = os.path.abspath(os.path.join(script_dir, '..', 'react_components'))
 
-
-@routes.get("/")
-async def home(_request: web.Request):
-    # NOTE: This static-file server is intended only for running locally / development.
-    # For production, use a dedicated static file-server, such as Envoy-proxy, Nginx, Apache,
-    # or a CDN to serve the /web/dist folder.
-    index_path = os.path.join(web_root, "index.html")
-    
-    if not os.path.exists(index_path):
-        logging.error(f"Index file not found at {index_path}")
-        return web.Response(text="Index file not found", status=404)
-    
-    return web.FileResponse(index_path)
 
 
 @routes.get("/checkpoints")
@@ -52,34 +38,20 @@ async def get_checkpoints(_req: web.Request) -> web.Response:
         text=json.dumps(serialized_checkpoints), content_type="application/json"
     )
 
-@routes.get("/react-components")
-async def get_react_components(_req: web.Request) -> web.Response:
-    components = {}
-    for filename in os.listdir(react_components):
-        if filename.endswith('.js'):
-            # Read the file
-            with open(os.path.join(react_components, filename), 'r') as f:
-                content = f.read()
-            # Store the file name and content in the dictionary
-            components[filename.replace('.js', '')] = content.strip()
-
-    return web.Response(
-        text=json.dumps(components), content_type="application/json"
-    )
-
 
 @routes.post("/generate")
-async def handle_post(request: web.Request) -> web.StreamResponse:
+async def handle_generate(request: web.Request) -> web.StreamResponse:
+    """
+    Submits generation requests from the user to the queue and streams the results.
+    """
     response = web.StreamResponse(
         status=200, reason="OK", headers={"Content-Type": "application/json"}
     )
-    print('Request>>', type(request), request, request.get('method'))
     await response.prepare(request)
 
     try:
         # TO DO: validate these types using something like pydantic
         data = await request.json()
-        print('Request>>', data)
         models: Dict[str, int] = data["models"]
         positive_prompt: str = data["positive_prompt"]
         negative_prompt: str = data["negative_prompt"]
@@ -144,7 +116,7 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
 @routes.post("/upload")
 async def handle_upload(request: web.Request) -> web.Response:
     """
-    Handles image upload requests.
+    Receives files from users and saves them to the file system (S3 bucket or local).
     """
 
     reader = await request.multipart()
@@ -192,6 +164,7 @@ async def handle_upload(request: web.Request) -> web.Response:
 
 @routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
+    """ Lists files available in the the /assets directory """
     try:
         uploader = get_file_handler()
         files = uploader.list_files()
@@ -200,33 +173,32 @@ async def list_files(_request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/download/{filename}")
-async def download_file(request: web.Request) -> web.Response:
-    filename = request.match_info["filename"]
-    try:
-        uploader = get_file_handler()
-        body = uploader.download_file(filename)
-        if body is None:
-            return web.json_response(
-                {"success": False, "error": "File not found"},
-                status=404,
-            )
+@routes.get("/react-components")
+async def get_react_components(_req: web.Request) -> web.Response:
+    """
+    Returns additional react components and node definitions used by the custom-
+    node factory on the client.
+    """
+    components = {}
+    for filename in os.listdir(react_components):
+        if filename.endswith('.js'):
+            # Read the file
+            with open(os.path.join(react_components, filename), 'r') as f:
+                content = f.read()
+            # Store the file name and content in the dictionary
+            components[filename.replace('.js', '')] = content.strip()
 
-        headers = {
-            "Content-Type": get_mime_type(filename),
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        }
-
-        return web.Response(body=body, headers=headers, status=200)
-    except Exception as e:
-        return web.json_response({"success": False, "error": str(e)}, status=500)
+    return web.Response(
+        text=json.dumps(components), content_type="application/json"
+    )
 
 
-# this is a catch-all route, defined last so that all other routes can be matched first
 @routes.get("/{filename:.*}")
 async def serve_file(request: web.Request) -> web.Response:
     """
-    Serves a static file from either the assets directory or the web root.
+    Serves a static file from either the /assets folder or the /web/dist folder.
+    This is a catch-all route, defined last so that all other routes can be matched
+    first.
     """
     filename = request.match_info["filename"]
     if not filename:
