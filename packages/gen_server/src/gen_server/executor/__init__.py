@@ -382,7 +382,7 @@ def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor)
                     continue
 
                 # Submit the job to the process pool
-                _future = executor.submit(sync_response, data, response_conn)
+                _future = executor.submit(run_sync_response, data, response_conn)
                 
                 # We don't need to wait for the future here, as sync_response handles the communication
 
@@ -395,6 +395,9 @@ def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor)
 
     logger.info("Worker shut down complete")
 
+
+def run_sync_response(data: dict[str, Any], response_conn: Connection):
+    asyncio.run(sync_response(data, response_conn))
 
 async def sync_response(data: dict[str, Any], response_conn: Connection):
     try:
