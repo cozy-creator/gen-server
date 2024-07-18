@@ -247,7 +247,7 @@ async def serve_file(request: web.Request) -> web.Response:
 async def start_server(
     host: str = "localhost",
     port: int = 8881,
-    queue: multiprocessing.Queue = None,
+    queue: Optional[multiprocessing.Queue] = None,
 ):
     """
     Starts the web server with API endpoints from extensions
@@ -298,8 +298,9 @@ async def start_server(
         await runner.cleanup()
 
 
-def start_server_sync(host: str, port: int, queue: multiprocessing.Queue):
-    loop = asyncio.get_event_loop()
+def run_server(host: str, port: int, queue: multiprocessing.Queue):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.run_until_complete(start_server(host, port, queue))
 
 

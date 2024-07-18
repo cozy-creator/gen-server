@@ -1,14 +1,18 @@
-from concurrent.futures import Future, ThreadPoolExecutor
-import logging
+from concurrent.futures import Future, ProcessPoolExecutor
 import multiprocessing
-from typing import Optional, Tuple, List, Any, AsyncGenerator
+import concurrent.futures
+from multiprocessing import process
+from multiprocessing.connection import Connection
+import queue
 import time
 import torch
 import asyncio
+import logging
+from typing import Optional, Tuple, List, Any, AsyncGenerator
 from PIL import PngImagePlugin
 from PIL import Image
 from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
-from ..utils.file_handler import get_file_handler, FileMetadata
+from ..utils.file_handler import get_file_handler, FileURL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -206,7 +210,7 @@ async def generate_images(
     negative_prompt: str,
     random_seed: Optional[int],
     aspect_ratio: str,
-) -> AsyncGenerator[FileMetadata, None]:
+) -> AsyncGenerator[FileURL, None]:
     start = time.time()
 
     pil_images = generate_images_internal(
@@ -358,23 +362,50 @@ def aspect_ratio_to_dimensions(
     return aspect_ratio_map[aspect_ratio][size]
 
 
-async def run_worker(request_queue: multiprocessing.Queue):
+def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor):
+    logger = logging.getLogger(__name__)
+    
     while True:
-        if not request_queue.empty():
-            (data, response_queue) = request_queue.get()
-            if not isinstance(data, dict):
-                print("Invalid data received")
+        try:
+            # Check for new jobs
+            try:
+                data, response_conn = task_queue.get(timeout=1.0)
+                
+                if data is None:  # Use None as a signal to stop the worker
+                    logger.info("Received stop signal. Worker shutting down.")
+                    break
+
+                if not isinstance(data, dict):
+                    logger.error(f"Invalid data received: {data}")
+                    response_conn.send(None)  # Signal error to API server
+                    response_conn.close()
+                    continue
+
+                # Submit the job to the process pool
+                _future = executor.submit(sync_response, data, response_conn)
+                
+                # We don't need to wait for the future here, as sync_response handles the communication
+
+            except queue.Empty:
+                # No new job, continue the loop
                 continue
 
-            try:
-                async for image_metadata in generate_images(**data):
-                    response_queue.put(image_metadata)
-            except StopIteration:
-                print("Images generated")
+        except Exception as e:
+            logger.error(f"Unexpected error in worker: {str(e)}")
 
-        else:
-            time.sleep(1)
+    logger.info("Worker shut down complete")
 
+
+async def sync_response(data: dict[str, Any], response_conn: Connection):
+    try:
+        async for file_url in generate_images(**data):
+            response_conn.send(file_url)
+    except Exception as e:
+        logger.error(f"Error in generate_images: {str(e)}")
+        response_conn.send(None)  # Signal error to API server
+    finally:
+        response_conn.send(StopIteration)  # Signal end of stream
+        response_conn.close()
 
 # async def run_worker(request_queue: multiprocessing.Queue):
 #     with ThreadPoolExecutor() as executor:
@@ -396,7 +427,7 @@ async def run_worker(request_queue: multiprocessing.Queue):
 #                 time.sleep(1)
 
 
-# async def iterate_results(future: Future[AsyncGenerator[FileMetadata, None]]):
+# async def iterate_results(future: Future[AsyncGenerator[FileURL, None]]):
 #     while not future.done():
 #         await asyncio.sleep(0.1)
 
