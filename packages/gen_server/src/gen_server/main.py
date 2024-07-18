@@ -5,7 +5,6 @@ import argparse
 import sys
 import os
 
-from .api import start_server
 from .executor import run_worker
 from pydantic_settings import CliSettingsSource
 from concurrent.futures import ProcessPoolExecutor
@@ -13,12 +12,12 @@ from concurrent.futures import ProcessPoolExecutor
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-from .api import api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
-from .api import start_server, api_routes_validator
+from .api import start_api_server, api_routes_validator, create_aiohttp_app
 from .utils import load_extensions, find_checkpoint_files, load_custom_node_specs
 from .utils.paths import get_models_dir
 from .globals import (
+    get_api_endpoints,
     update_api_endpoints,
     update_architectures,
     update_custom_nodes,
@@ -196,13 +195,15 @@ def run_app(cozy_config: RunCommandConfig):
     try:
         # Create a queue for communication between server and worker
         job_queue = multiprocessing.Queue()
+        checkpoint_files = get_checkpoint_files()
+        api_endpoints = get_api_endpoints()
 
         # Create a process pool for the worker
         with ProcessPoolExecutor() as executor:
             # Start the server process
             gunicorn_aiohttp = multiprocessing.Process(
-                target=start_server,
-                args=(cozy_config, job_queue),
+                target=start_api_server,
+                args=(cozy_config, job_queue, checkpoint_files, api_endpoints),
             )
 
             # Start our producer; these api-servers will respond to user-requests

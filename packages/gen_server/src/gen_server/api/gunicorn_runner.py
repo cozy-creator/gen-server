@@ -4,8 +4,8 @@ import aiohttp.web
 from typing import Optional, Any
 from gunicorn.app.base import BaseApplication
 
-from ..globals import RunCommandConfig
-from . import create_aiohttp_app
+from ..globals import RunCommandConfig, RouteDefinition, CheckpointMetadata
+from .api_routes import create_aiohttp_app
 
 
 class Application(BaseApplication):
@@ -36,11 +36,13 @@ def get_workers_count(config: RunCommandConfig) -> int:
         return 2
 
 
-def start_server(
+def start_api_server(
     config: RunCommandConfig,
     job_queue: multiprocessing.Queue,
+    checkpoint_files: dict[str, CheckpointMetadata] = None,
+    extra_routes: Optional[dict[str, RouteDefinition]] = None
 ):
-    aiohttp_app = create_aiohttp_app(job_queue)
+    aiohttp_app = create_aiohttp_app(job_queue, checkpoint_files, extra_routes)
 
     options = {
         "bind": f"{config.host}:{config.port}",

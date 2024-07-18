@@ -17,8 +17,8 @@ from ..utils.file_handler import get_file_handler, FileURL
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# === Simulating the executor code ===
 
+# === Simulating the executor code ===
 
 def generate_images_internal(
     models: dict[str, int],
