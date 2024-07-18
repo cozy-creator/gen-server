@@ -5,6 +5,7 @@ from queue import Queue
 from typing import List, Tuple, Dict, Optional, Any
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
+import aiohttp_cors
 import asyncio
 import logging
 import blake3
@@ -22,6 +23,10 @@ from ..utils.paths import get_web_root, get_assets_dir
 routes = web.RouteTableDef()
 request_queue = None
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+react_components = os.path.abspath(os.path.join(script_dir, '..', 'react_components'))
+
+
 
 @routes.get("/checkpoints")
 async def get_checkpoints(_req: web.Request) -> web.Response:
@@ -37,7 +42,10 @@ async def get_checkpoints(_req: web.Request) -> web.Response:
 
 
 @routes.post("/generate")
-async def handle_post(request: web.Request) -> web.StreamResponse:
+async def handle_generate(request: web.Request) -> web.StreamResponse:
+    """
+    Submits generation requests from the user to the queue and streams the results.
+    """
     response = web.StreamResponse(
         status=200, reason="OK", headers={"Content-Type": "application/json"}
     )
@@ -123,7 +131,7 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
 @routes.post("/upload")
 async def handle_upload(request: web.Request) -> web.Response:
     """
-    Handles image upload requests.
+    Receives files from users and saves them to the file system (S3 bucket or local).
     """
 
     reader = await request.multipart()
@@ -171,6 +179,7 @@ async def handle_upload(request: web.Request) -> web.Response:
 
 @routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
+    """ Lists files available in the the /assets directory """
     try:
         uploader = get_file_handler()
         files = uploader.list_files()
@@ -179,33 +188,32 @@ async def list_files(_request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/download/{filename}")
-async def download_file(request: web.Request) -> web.Response:
-    filename = request.match_info["filename"]
-    try:
-        uploader = get_file_handler()
-        body = uploader.download_file(filename)
-        if body is None:
-            return web.json_response(
-                {"success": False, "error": "File not found"},
-                status=404,
-            )
+@routes.get("/react-components")
+async def get_react_components(_req: web.Request) -> web.Response:
+    """
+    Returns additional react components and node definitions used by the custom-
+    node factory on the client.
+    """
+    components = {}
+    for filename in os.listdir(react_components):
+        if filename.endswith('.js'):
+            # Read the file
+            with open(os.path.join(react_components, filename), 'r') as f:
+                content = f.read()
+            # Store the file name and content in the dictionary
+            components[filename.replace('.js', '')] = content.strip()
 
-        headers = {
-            "Content-Type": get_mime_type(filename),
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        }
-
-        return web.Response(body=body, headers=headers, status=200)
-    except Exception as e:
-        return web.json_response({"success": False, "error": str(e)}, status=500)
+    return web.Response(
+        text=json.dumps(components), content_type="application/json"
+    )
 
 
-# this is a catch-all route, defined last so that all other routes can be matched first
 @routes.get("/{filename:.*}")
 async def serve_file(request: web.Request) -> web.Response:
     """
-    Serves a static file from either the assets directory or the web root.
+    Serves a static file from either the /assets folder or the /web/dist folder.
+    This is a catch-all route, defined last so that all other routes can be matched
+    first.
     """
     filename = request.match_info["filename"]
     if not filename:
