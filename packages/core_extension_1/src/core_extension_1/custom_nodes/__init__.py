@@ -15,7 +15,7 @@ from gen_server.base_types import (
     Language,
     Category,
 )
-from gen_server.globals import CHECKPOINT_FILES
+from gen_server.globals import get_checkpoint_files
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusion3Pipeline,
@@ -32,7 +32,7 @@ from diffusers import (
     StableDiffusionXLInpaintPipeline,
     StableDiffusion3ControlNetPipeline,
     DiffusionPipeline,
-    SD3ControlNetModel
+    SD3ControlNetModel,
 )
 from transformers import (
     CLIPTokenizer,
@@ -135,7 +135,9 @@ class LoadCheckpoint(CustomNode):
     @staticmethod
     def update_interface(inputs: dict[str, Any]) -> NodeInterface:
         interface = {
-            "inputs": {"file_path": EnumInput(options=list(CHECKPOINT_FILES.keys()))},
+            "inputs": {
+                "file_path": EnumInput(options=list(get_checkpoint_files().keys()))
+            },
             "outputs": {},
         }
         if inputs:
@@ -223,7 +225,7 @@ class LoadComponents(CustomNode):
                         subfolder=component,
                         torch_dtype=torch.float16,
                         variant="fp16",
-                        use_safetensors=True
+                        use_safetensors=True,
                     )
                     loaded_components[component] = loaded_component
                 else:
@@ -427,7 +429,9 @@ class CreatePipe(CustomNode):
         text_encoder_3: Optional[T5EncoderModel] = None,
         device: Optional[TorchDevice] = None,
         model_type: str = None,
-    ) -> Union[StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionPipeline]:
+    ) -> Union[
+        StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionPipeline
+    ]:
         if loaded_components:
             class_name = loaded_components.pop("_class_name", None)
             if class_name:
@@ -452,7 +456,6 @@ class CreatePipe(CustomNode):
             )
             tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
 
-
             scheduler_config = json.load(open(config_path))
             scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
@@ -471,15 +474,15 @@ class CreatePipe(CustomNode):
             if model_type == "playground":
                 tokenizer = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer"
+                    subfolder="tokenizer",
                 )
                 scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="scheduler"
+                    subfolder="scheduler",
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer_2"
+                    subfolder="tokenizer_2",
                 )
             else:
                 tokenizer = CLIPTokenizer.from_pretrained(
@@ -519,17 +522,16 @@ class CreatePipe(CustomNode):
                 requires_safety_checker=False,
             ).to(torch.bfloat16)
 
-
         if "accelerate" in sys.modules:
             pipe.enable_model_cpu_offload()
         # pipe.enable_vae_tiling()
         # pipe.to(device)
-        
+
         # TO DO: find better logic than this
         # pipe.to(torch.float16)
 
         return pipe
-    
+
 
 class CreateControlNetPipe(CustomNode):
     """
@@ -539,7 +541,6 @@ class CreateControlNetPipe(CustomNode):
     display_name = "Create ControlNet Pipe"
     category = "pipe"
     description = "Creates a DiffusionControlNetPipeline"
-
 
     @staticmethod
     def update_interface(inputs: dict[str, Any] = None) -> NodeInterface:
@@ -581,7 +582,6 @@ class CreateControlNetPipe(CustomNode):
         device: Optional[TorchDevice] = None,
         model_type: str = None,
     ) -> Union[StableDiffusion3ControlNetPipeline]:
-        
         if loaded_components:
             class_name = loaded_components.pop("_class_name", None)
             if class_name:
@@ -609,7 +609,9 @@ class CreateControlNetPipe(CustomNode):
             scheduler_config = json.load(open(config_path))
             scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
-            controlnet = SD3ControlNetModel.from_pretrained("InstantX/SD3-Controlnet-Canny")
+            controlnet = SD3ControlNetModel.from_pretrained(
+                "InstantX/SD3-Controlnet-Canny"
+            )
 
             pipe = StableDiffusion3ControlNetPipeline(
                 vae=vae,
@@ -621,21 +623,21 @@ class CreateControlNetPipe(CustomNode):
                 tokenizer_3=tokenizer_3,
                 transformer=unet,
                 scheduler=scheduler,
-                controlnet=controlnet
+                controlnet=controlnet,
             ).to(torch.bfloat16)
         elif text_encoder_2 is not None and text_encoder_3 is None:
             if model_type == "playground":
                 tokenizer = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer"
+                    subfolder="tokenizer",
                 )
                 scheduler = EDMDPMSolverMultistepScheduler.from_pretrained(
-                    "playgroundai/playground-v2.5-1024px-aesthetic", 
-                    subfolder="scheduler"
+                    "playgroundai/playground-v2.5-1024px-aesthetic",
+                    subfolder="scheduler",
                 )
                 tokenizer_2 = CLIPTokenizer.from_pretrained(
                     "playgroundai/playground-v2.5-1024px-aesthetic",
-                    subfolder="tokenizer_2"
+                    subfolder="tokenizer_2",
                 )
             else:
                 tokenizer = CLIPTokenizer.from_pretrained(
@@ -724,17 +726,20 @@ class RunPipe(CustomNode):
         guidance_scale: float = 7.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     ) -> list[Image.Image]:
-        images = cast(list[Image.Image], pipe(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            num_inference_steps=num_inference_steps,
-            width=width,
-            height=height,
-            guidance_scale=guidance_scale,
-            num_images_per_prompt=num_images,
-            generator=generator,
-            # output_type='pt'
-        ).images)
+        images = cast(
+            list[Image.Image],
+            pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=num_inference_steps,
+                width=width,
+                height=height,
+                guidance_scale=guidance_scale,
+                num_images_per_prompt=num_images,
+                generator=generator,
+                # output_type='pt'
+            ).images,
+        )
 
         return images
 
@@ -768,7 +773,7 @@ class UpscaleImage(CustomNode):
 
     def __call__(
         self,
-        model: Any, # To be changed to model class
+        model: Any,  # To be changed to model class
         image: torch.Tensor,
         *,
         output_keys: dict = {},
@@ -991,7 +996,13 @@ class InpaintImage(CustomNode):
 
         return interface
 
-    def __call__(image, mask: Tuple[Any, Tuple[int, int]], text_prompt: str, strength: float, save: bool =False):
+    def __call__(
+        image,
+        mask: Tuple[Any, Tuple[int, int]],
+        text_prompt: str,
+        strength: float,
+        save: bool = False,
+    ):
         inpainter = StableDiffusionXLInpaintPipeline.from_pretrained(
             "RunDiffusion/Juggernaut-XL-v9", variant="fp16", torch_dtype=torch.float16
         ).to("cuda" if torch.cuda.is_available() else "cpu")
@@ -1019,5 +1030,3 @@ class InpaintImage(CustomNode):
             save_tensor_as_image(output.images, inpainter.vae, "inpainting.jpg")
 
         return output.images, inpainter.vae  # Return both the latent tensor and the VAE
-    
-

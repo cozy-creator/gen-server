@@ -10,12 +10,14 @@ from spandrel.__helpers.unpickler import (
 )  # probably shouldn't import from private modules...
 
 from ..base_types import Architecture, StateDict, TorchDevice, ComponentMetadata
-from ..globals import ARCHITECTURES
+from ..globals import get_architectures
 
 import struct
 import json
 
 METADATA_HEADER_SIZE = 8
+
+ARCHITECTURES = get_architectures()
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -56,7 +58,7 @@ def from_state_dict(
     components = components_from_state_dict(state_dict, metadata, registry)
 
     # Load the state dict into the class instance, and move to device
-    for arch_id, architecture in components.items():
+    for _arch_id, architecture in components.items():
         try:
             architecture.load(state_dict, device)
         except Exception as e:

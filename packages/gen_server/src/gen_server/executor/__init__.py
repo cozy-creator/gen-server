@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Tuple, List, Any, AsyncGenerator
 from PIL import PngImagePlugin
 from PIL import Image
-from ..globals import CUSTOM_NODES, CHECKPOINT_FILES
+from ..globals import get_custom_nodes, get_checkpoint_files
 from ..utils.file_handler import get_file_handler, FileURL
 
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +27,9 @@ def generate_images_internal(
     random_seed: Optional[int],
     aspect_ratio: str,
 ) -> Optional[list[Image.Image]]:
+    custom_nodes = get_custom_nodes()
+    checkpoint_files = get_checkpoint_files()
+
     # ) -> Generator[list[PilImagePlugin.PngImageFile], None, None]:
     # Simulate image generation and yield URLs
     for checkpoint_id, num_images in models.items():
@@ -36,13 +39,13 @@ def generate_images_internal(
 
         # === Node 1: Load Checkpoint ===
 
-        checkpoint_metadata = CHECKPOINT_FILES.get(checkpoint_id, None)
+        checkpoint_metadata = checkpoint_files.get(checkpoint_id, None)
         print(checkpoint_metadata)
         if checkpoint_metadata is None:
             print(f"No checkpoint file found for model: {checkpoint_id}")
             continue  # skip to next model
 
-        LoadCheckpoint = CUSTOM_NODES["core_extension_1.load_checkpoint"]
+        LoadCheckpoint = custom_nodes["core_extension_1.load_checkpoint"]
         load_checkpoint = LoadCheckpoint()
 
         # figure out what outputs we need from this node
@@ -60,7 +63,7 @@ def generate_images_internal(
         #     print(f"Model key: {key}")
 
         # === Node 2: Create Pipe ===
-        CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
+        CreatePipe = custom_nodes["core_extension_1.create_pipe"]
         create_pipe = CreatePipe()
 
         # ???
@@ -171,7 +174,7 @@ def generate_images_internal(
         # )
 
         # === Node 3: Run Pipe ===
-        run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
+        run_pipe = custom_nodes["core_extension_1.run_pipe"]()
 
         # Determine the width and height based on the aspect ratio and base model
         width, height = aspect_ratio_to_dimensions(
@@ -263,7 +266,7 @@ async def generate_images(
     async for file_metadata in file_handler.upload_png_files(pil_images, metadata):
         yield file_metadata
 
-    # SaveNode = CUSTOM_NODES["image_utils.save_file"]
+    # SaveNode = custom_nodes["image_utils.save_file"]
     # save_node = SaveNode()
     # urls: dict[str, Any] = save_node(images=pil_images, temp=False)
 
@@ -303,20 +306,21 @@ async def generate_images_from_repo(
     aspect_ratio: Tuple[int, int],
 ):
     start = time.time()
+    custom_nodes = get_custom_nodes()
 
-    LoadComponents = CUSTOM_NODES["core_extension_1.load_components"]
+    LoadComponents = custom_nodes["core_extension_1.load_components"]
     load_components = LoadComponents()
 
     components = load_components(repo_id, components)
 
     # runwayml/stable-diffusion-v1-5
 
-    CreatePipe = CUSTOM_NODES["core_extension_1.create_pipe"]
+    CreatePipe = custom_nodes["core_extension_1.create_pipe"]
     create_pipe = CreatePipe()
 
     pipe = create_pipe(loaded_components=components)
 
-    run_pipe = CUSTOM_NODES["core_extension_1.run_pipe"]()
+    run_pipe = custom_nodes["core_extension_1.run_pipe"]()
 
     pil_images = run_pipe(
         pipe,
@@ -330,7 +334,7 @@ async def generate_images_from_repo(
         else None,
     )
 
-    SaveNode = CUSTOM_NODES["image_utils.save_file"]
+    SaveNode = custom_nodes["image_utils.save_file"]
     save_node = SaveNode()
     urls: List[dict[str, Any]] = save_node(images=pil_images, temp=False)
 
@@ -364,13 +368,13 @@ def aspect_ratio_to_dimensions(
 
 def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor):
     logger = logging.getLogger(__name__)
-    
+
     while True:
         try:
             # Check for new jobs
             try:
                 data, response_conn = task_queue.get(timeout=1.0)
-                
+
                 if data is None:  # Use None as a signal to stop the worker
                     logger.info("Received stop signal. Worker shutting down.")
                     break
@@ -383,7 +387,7 @@ def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor)
 
                 # Submit the job to the process pool
                 _future = executor.submit(run_sync_response, data, response_conn)
-                
+
                 # We don't need to wait for the future here, as sync_response handles the communication
 
             except queue.Empty:
@@ -399,6 +403,7 @@ def run_worker(task_queue: multiprocessing.Queue, executor: ProcessPoolExecutor)
 def run_sync_response(data: dict[str, Any], response_conn: Connection):
     asyncio.run(sync_response(data, response_conn))
 
+
 async def sync_response(data: dict[str, Any], response_conn: Connection):
     try:
         async for file_url in generate_images(**data):
@@ -409,6 +414,7 @@ async def sync_response(data: dict[str, Any], response_conn: Connection):
     finally:
         response_conn.send(StopIteration)  # Signal end of stream
         response_conn.close()
+
 
 # async def run_worker(request_queue: multiprocessing.Queue):
 #     with ThreadPoolExecutor() as executor:

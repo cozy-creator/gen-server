@@ -14,7 +14,7 @@ from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
 )
-from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
+from ..globals import get_checkpoint_files, get_api_endpoints
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
@@ -37,7 +37,7 @@ routes = web.RouteTableDef()
 @routes.get("/checkpoints")
 async def get_checkpoints(_req: web.Request) -> web.Response:
     serialized_checkpoints = {
-        key: value.serialize() for key, value in CHECKPOINT_FILES.items()
+        key: value.serialize() for key, value in get_checkpoint_files().items()
     }
 
     print(f"here you go: {json.dumps(serialized_checkpoints)}")
@@ -268,7 +268,7 @@ def create_aiohttp_app(queue: multiprocessing.Queue):
     app.add_routes(routes)
 
     # Register all API endpoints added by extensions
-    for _name, api_routes in API_ENDPOINTS.items():
+    for _name, api_routes in get_api_endpoints().items():
         # TO DO: consider adding prefixes to the routes based on extension-name?
         # How can we overwrite built-in routes
         app.router.add_routes(api_routes)
