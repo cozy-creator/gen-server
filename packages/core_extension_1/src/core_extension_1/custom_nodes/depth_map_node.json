@@ -1,0 +1,46 @@
+{
+    "display_name": {
+      "en": "Depth Map",
+      "zh": "深度图"
+    },
+    "description": {
+      "en": "Estimates a depth map from an image.",
+      "zh": "从图像估计深度图。"
+    },
+    "category": "feature-extractor",
+    "inputs": {
+      "image": {
+        "display_name": "Image",
+        "description": {
+          "en": "The input image.",
+          "zh": "输入图像。"
+        },
+        "type": "torch.Tensor"
+      },
+      "model_type": {
+        "display_name": "Model Type",
+        "description": {
+          "en": "Select the depth estimation model.",
+          "zh": "选择深度估计模型。"
+        },
+        "widgets": {
+          "type": "dropdown", 
+          "options": [
+            {"label": "MiDaS Small", "value": "midas"}, 
+            {"label": "Depth Anything v2", "value": "depth_anything_v2"} 
+
+          ]
+        }
+      }
+    },
+    "outputs": {
+      "depth_map": {
+        "display_name": "Depth Map",
+        "description": {
+          "en": "The estimated depth map as a colorized image.", 
+          "zh": "估计的深度图（彩色图像）。"
+        },
+        "type": "PIL.Image.Image"
+      }
+    }
+  }

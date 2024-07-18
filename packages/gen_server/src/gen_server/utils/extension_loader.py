@@ -14,6 +14,32 @@ else:
 T = TypeVar("T")
 
 
+
+def load_custom_node_specs():
+    custom_node_specs = {}
+
+    # Use importlib.metadata to find entry points for cozy_creator.custom_nodes
+    eps = entry_points()
+    if 'cozy_creator.custom_nodes' in eps:
+        for ep in eps['cozy_creator.custom_nodes']:
+            module_name, class_name = ep.value.split(":")
+            module = __import__(module_name, fromlist=[class_name])
+            node_class = getattr(module, class_name)
+
+            # Create a namespace for each node using module and class names
+            namespace = f"{module_name.replace('.', '_')}.{class_name}"
+            
+            try:
+                spec = node_class.get_spec()
+                
+                # Namespace the ID to avoid clashes
+                custom_node_specs[namespace] = spec
+            except AttributeError as e:
+                logging.error(f"Failed to get spec for custom node {namespace}: {str(e)}")
+
+    return custom_node_specs
+
+
 def load_extensions(
     entry_point_group: str, validator: Optional[Validator] = None
 ) -> dict[str, T]:

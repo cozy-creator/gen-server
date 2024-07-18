@@ -1,0 +1,34 @@
+{
+    "display_name": {
+      "en": "Video",
+      "zh": "视频"
+    },
+    "description": {
+      "en": "Loads a video from a file path or URL.",
+      "zh": "从文件路径或 URL 加载视频。"
+    },
+    "category": "input", 
+    "inputs": {
+      "file_path": {
+        "display_name": "File Path/URL", 
+        "description": {
+          "en": "Enter the file path or URL of the video.",
+          "zh": "输入视频的文件路径或 URL。"
+        },
+        "widgets": {
+          "type": "string",
+          "multiline": false 
+        }
+      }
+    },
+    "outputs": {
+      "video": {
+        "display_name": "Video",
+        "description": {
+          "en": "The loaded video as a tensor (frames, height, width, channels).",
+          "zh": "加载的视频，以张量形式表示（帧数，高度，宽度，通道数）。"
+        },
+        "type": "torch.Tensor" 
+      }
+    }
+  }

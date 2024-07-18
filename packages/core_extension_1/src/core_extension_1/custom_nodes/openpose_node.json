@@ -1,0 +1,31 @@
+{
+    "display_name": {
+      "en": "OpenPose",
+      "zh": "OpenPose 姿态估计" 
+    },
+    "description": {
+      "en": "Detects human poses in an image using OpenPose.",
+      "zh": "使用 OpenPose 检测图像中的人体姿态。"
+    },
+    "category": "feature-extractor",
+    "inputs": {
+      "image": {
+        "display_name": "Image",
+        "description": {
+          "en": "The input image.",
+          "zh": "输入图像。"
+        },
+        "type": "torch.Tensor"
+      }
+    },
+    "outputs": {
+      "openpose_image": {
+        "display_name": "OpenPose Image", 
+        "description": {
+          "en": "Image with detected OpenPose keypoints.",
+          "zh": "检测到 OpenPose 关键点的图像。" 
+        },
+        "type": "PIL.Image.Image"
+      }
+    }
+  }

@@ -10,7 +10,7 @@ from .config import init_config, get_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .api import start_server, api_routes_validator
-from .utils import load_extensions, find_checkpoint_files
+from .utils import load_extensions, find_checkpoint_files, load_custom_node_specs
 from .utils.paths import get_models_dir
 from .globals import (
     API_ENDPOINTS,
@@ -26,6 +26,9 @@ from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
+
+
+
 
 
 def main():
@@ -63,7 +66,7 @@ def main():
             secrets_dir=secrets_dir,
         )
         
-        produce_node_definitions_file(f"{cozy_config.workspace_path}/node_definitions.json")
+        # produce_node_definitions_file(f"{cozy_config.workspace_path}/node_definitions.json")
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
@@ -144,6 +147,19 @@ def run_app(cozy_config: RunCommandConfig):
     CHECKPOINT_FILES.update(find_checkpoint_files(models_paths=models_paths))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
+    )
+
+
+    # Load custom node specs and send them to the client
+    start_time_custom_nodes_specs = time.time()
+    custom_node_specs = load_custom_node_specs()
+    with open(f"{cozy_config.workspace_path}/custom_node_specs.json", "w") as f:
+        json.dump(custom_node_specs, f, indent=2)
+
+
+    end_time = time.time()
+    print(
+        f"Time taken to load extensions and compile registries: {end_time - start_time_custom_nodes_specs:.2f} seconds"
     )
 
     # debug

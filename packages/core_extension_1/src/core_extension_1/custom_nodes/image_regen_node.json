@@ -1,0 +1,72 @@
+{
+    "display_name": {
+      "en": "Image Regeneration (Inpainting)",
+      "zh": "图像再生（修复）"
+    },
+    "description": {
+      "en": "Regenerates a masked area in an image using a Stable Diffusion inpainting model.",
+      "zh": "使用稳定扩散修复模型再生图像中的蒙版区域。"
+    },
+    "category": "image-editing", 
+    "inputs": {
+      "image": {
+        "display_name": "Image",
+        "description": {
+          "en": "The input image.",
+          "zh": "输入图像。"
+        },
+        "type": "torch.Tensor" 
+      },
+      "mask": {
+        "display_name": "Mask",
+        "description": {
+          "en": "The mask (white is the area to be inpainted).",
+          "zh": "掩码（白色是要修复的区域）。"
+        },
+        "type": "torch.Tensor" 
+      },
+      "text_prompt": {
+        "display_name": "Text Prompt",
+        "description": {
+          "en": "Text prompt for the inpainting process.",
+          "zh": "修复过程的文本提示。"
+        },
+        "widgets": {
+          "type": "string",
+          "multiline": true 
+        }
+      },
+      "strength": {
+        "display_name": "Strength",
+        "description": {
+          "en": "Strength of the inpainting effect (0.0 - 1.0).",
+          "zh": "修复效果的强度（0.0 - 1.0）。"
+        },
+        "widgets": {
+          "type": "float",
+          "default": 0.8 
+        }
+      },
+      "checkpoint_id": {
+        "display_name": "Checkpoint",
+        "description": {
+          "en": "Select the inpainting model checkpoint.",
+          "zh": "选择修复模型检查点。"
+        },
+        "widgets": {
+          "type": "dropdown",
+          "options": [] 
+        }
+      }
+    },
+    "outputs": {
+      "inpainted_image": {
+        "display_name": "Inpainted Image",
+        "description": {
+          "en": "The image with the masked area regenerated.",
+          "zh": "蒙版区域已再生的图像。"
+        },
+        "type": "PIL.Image.Image"
+      }
+    }
+  }

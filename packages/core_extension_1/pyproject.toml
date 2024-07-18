@@ -69,4 +69,4 @@ include = ["core_extension_1*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"core_extension_1" = ["py.typed"]
+"core_extension_1" = ["**/*.json", "py.typed"]

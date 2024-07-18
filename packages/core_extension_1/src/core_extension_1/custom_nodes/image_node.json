@@ -1,0 +1,34 @@
+{
+    "display_name": {
+      "en": "Image",
+      "zh": "图像"
+    },
+    "description": {
+      "en": "Loads an image from a file path or URL.",
+      "zh": "从文件路径或 URL 加载图像。"
+    },
+    "category": "input", 
+    "inputs": {
+      "file_path": {
+        "display_name": "File Path/URL", 
+        "description": {
+          "en": "Enter the file path or URL of the image.",
+          "zh": "输入图像的文件路径或 URL。"
+        },
+        "widgets": {
+          "type": "string",
+          "multiline": false 
+        }
+      }
+    },
+    "outputs": {
+      "image": {
+        "display_name": "Image",
+        "description": {
+          "en": "The loaded image as a tensor.",
+          "zh": "加载的图像，以张量形式表示。"
+        },
+        "type": "torch.Tensor" 
+      }
+    }
+  }
