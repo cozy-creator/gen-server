@@ -12,8 +12,9 @@ authors = [
 
 dependencies = [
     "aiohttp",
-    "aiohttp_middlewares",
     "aiofiles",
+    "aiohttp_cors",
+    "aiohttp_middlewares",
     "blake3",
     "boto3",
     "diffusers>=0.29",
@@ -38,6 +39,7 @@ dependencies = [
     "tqdm",
     "opencv-python",
     "einops",
+    "gunicorn"
 ]
 
 [project.optional-dependencies]

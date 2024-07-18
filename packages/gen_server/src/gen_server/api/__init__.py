@@ -24,8 +24,7 @@ routes = web.RouteTableDef()
 request_queue = None
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-react_components = os.path.abspath(os.path.join(script_dir, '..', 'react_components'))
-
+react_components = os.path.abspath(os.path.join(script_dir, "..", "react_components"))
 
 
 @routes.get("/checkpoints")
@@ -179,7 +178,7 @@ async def handle_upload(request: web.Request) -> web.Response:
 
 @routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
-    """ Lists files available in the the /assets directory """
+    """Lists files available in the the /assets directory"""
     try:
         uploader = get_file_handler()
         files = uploader.list_files()
@@ -196,16 +195,14 @@ async def get_react_components(_req: web.Request) -> web.Response:
     """
     components = {}
     for filename in os.listdir(react_components):
-        if filename.endswith('.js'):
+        if filename.endswith(".js"):
             # Read the file
-            with open(os.path.join(react_components, filename), 'r') as f:
+            with open(os.path.join(react_components, filename), "r") as f:
                 content = f.read()
             # Store the file name and content in the dictionary
-            components[filename.replace('.js', '')] = content.strip()
+            components[filename.replace(".js", "")] = content.strip()
 
-    return web.Response(
-        text=json.dumps(components), content_type="application/json"
-    )
+    return web.Response(text=json.dumps(components), content_type="application/json")
 
 
 @routes.get("/{filename:.*}")
@@ -244,11 +241,7 @@ async def serve_file(request: web.Request) -> web.Response:
     raise web.HTTPNotFound(text="File not found")
 
 
-async def start_server(
-    host: str = "localhost",
-    port: int = 8881,
-    queue: Optional[multiprocessing.Queue] = None,
-):
+def create_app(queue: Optional[multiprocessing.Queue] = None):
     """
     Starts the web server with API endpoints from extensions
     """
@@ -257,8 +250,8 @@ async def start_server(
             cors_middleware(allow_all=True)  # Enable CORS for all routes
         ]
     )
-    global routes
-    global request_queue
+
+    global routes, request_queue
 
     # Make the entire /web/dist folder accessible at the root URL
     # routes.static("/static", get_web_root())
@@ -272,36 +265,38 @@ async def start_server(
         # How can we overwrite built-in routes
         app.router.add_routes(api_routes)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
+    request_queue = queue
+    return app
+
+    # runner = web.AppRunner(app)
+    # await runner.setup()
 
     # for route in app.router.routes():
     #     print(f"Route: {route}")
 
     # Try to bind to the desired port
     # try:
-    site = web.TCPSite(runner, host, port)
-    request_queue = queue
-    await site.start()
+    # site = web.TCPSite(runner, host, port)
+    # await site.start()
     # except socket.error:
     #     # If the desired port is in use, bind to a random available port
     #     site = web.TCPSite(runner, host, 0)
     #     await site.start()
     #     # _, port = site._server.sockets[0].getsockname()
 
-    print(f"Server running on {site.name} (click to open)", flush=True)
+    # print(f"Server running on {site.name} (click to open)", flush=True)
 
-    try:
-        await asyncio.Future()  # Keep the server running
-    except asyncio.CancelledError:
-        print("Server is shutting down...")
-        await runner.cleanup()
+    # try:
+    #     await asyncio.Future()  # Keep the server running
+    # except asyncio.CancelledError:
+    #     print("Server is shutting down...")
+    #     await runner.cleanup()
 
 
-def run_server(host: str, port: int, queue: multiprocessing.Queue):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(start_server(host, port, queue))
+# def run_server(host: str, port: int, queue: multiprocessing.Queue):
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     loop.run_until_complete(start_server(host, port, queue))
 
 
 def api_routes_validator(plugin: Any) -> bool:

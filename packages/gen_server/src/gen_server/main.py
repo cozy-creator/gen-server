@@ -1,11 +1,11 @@
-import asyncio
 import json
 import multiprocessing
-import subprocess
 import time
 import argparse
 import sys
 import os
+
+from gen_server.server import run_server
 from gen_server.executor import run_worker
 from pydantic_settings import CliSettingsSource
 from concurrent.futures import ProcessPoolExecutor
@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-from .api import api_routes_validator, run_server
+from .api import api_routes_validator
 from .utils import load_extensions, find_checkpoint_files
 from .utils.paths import get_models_dir
 from .globals import (
@@ -178,24 +178,24 @@ def run_app(cozy_config: RunCommandConfig):
     try:
         # Create a queue for communication between server and worker
         request_queue = multiprocessing.Queue()
-        
+
         # Create a process pool for the worker
         with ProcessPoolExecutor() as executor:
             # Start the server process
             server_process = multiprocessing.Process(
                 target=run_server,
-                args=(cozy_config.host, cozy_config.port, request_queue)
+                args=(cozy_config.host, cozy_config.port, request_queue),
             )
-            
+
             # TO DO: try gunicorn here instead to startup the aiohttp server
-            
+
             # start our producer; this api-server will respond to user-requests
             # and place jobs on the queue
             server_process.start()
-        
+
             # start our consumer; this worker will process jobs from the queue
             run_worker(request_queue, executor)
-    
+
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")
     except Exception as e:
