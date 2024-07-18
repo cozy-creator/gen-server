@@ -20,11 +20,18 @@ from typing import Iterable
 import os
 from ..utils.paths import get_web_root, get_assets_dir
 
-routes = web.RouteTableDef()
-request_queue = None
+if os.name != 'nt':
+    # Unix-like systems (Linux, macOS, BSD, etc.)
+    from .gunicorn_runner import start_server
+else:
+    # Windows
+    from .gunicorn_fallback import start_server
 
+# TO DO: get rid of this
 script_dir = os.path.dirname(os.path.abspath(__file__))
 react_components = os.path.abspath(os.path.join(script_dir, "..", "react_components"))
+
+routes = web.RouteTableDef()
 
 
 @routes.get("/checkpoints")
@@ -61,8 +68,8 @@ async def handle_generate(request: web.Request) -> web.StreamResponse:
 
         with multiprocessing.Manager() as manager:
             response_queue = manager.Queue()
-            if request_queue is not None:
-                request_queue.put((data, response_queue))
+            job_queue: multiprocessing.Queue = request.app['job_queue']
+            job_queue.put((data, response_queue))
 
             while response_queue.empty():
                 await asyncio.sleep(0)
@@ -176,6 +183,7 @@ async def handle_upload(request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
+# TO DO: replace this with a database, so that the client can query for available assets
 @routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
     """Lists files available in the the /assets directory"""
@@ -241,7 +249,7 @@ async def serve_file(request: web.Request) -> web.Response:
     raise web.HTTPNotFound(text="File not found")
 
 
-def create_app(queue: Optional[multiprocessing.Queue] = None):
+def create_aiohttp_app(queue: multiprocessing.Queue):
     """
     Starts the web server with API endpoints from extensions
     """
@@ -251,7 +259,7 @@ def create_app(queue: Optional[multiprocessing.Queue] = None):
         ]
     )
 
-    global routes, request_queue
+    global routes
 
     # Make the entire /web/dist folder accessible at the root URL
     # routes.static("/static", get_web_root())
@@ -265,7 +273,9 @@ def create_app(queue: Optional[multiprocessing.Queue] = None):
         # How can we overwrite built-in routes
         app.router.add_routes(api_routes)
 
-    request_queue = queue
+    # Store a reference to the queue in the aiohttp-application state
+    app['job_queue'] = queue
+    
     return app
 
     # runner = web.AppRunner(app)
