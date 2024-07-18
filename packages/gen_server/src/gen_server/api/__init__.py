@@ -1,9 +1,11 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import multiprocessing
+from queue import Queue
 from typing import List, Tuple, Dict, Optional, Any
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
+import aiohttp_cors
 import asyncio
 import logging
 import blake3
@@ -12,11 +14,22 @@ from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
 )
-from ..globals import CHECKPOINT_FILES, API_ENDPOINTS
+from ..globals import get_checkpoint_files, get_api_endpoints
 from ..executor import generate_images, generate_images_from_repo
 from typing import Iterable
 import os
 from ..utils.paths import get_web_root, get_assets_dir
+
+if os.name != 'nt':
+    # Unix-like systems (Linux, macOS, BSD, etc.)
+    from .gunicorn_runner import start_server
+else:
+    # Windows
+    from .gunicorn_fallback import start_server
+
+# TO DO: get rid of this
+script_dir = os.path.dirname(os.path.abspath(__file__))
+react_components = os.path.abspath(os.path.join(script_dir, "..", "react_components"))
 
 routes = web.RouteTableDef()
 
@@ -24,7 +37,7 @@ routes = web.RouteTableDef()
 @routes.get("/checkpoints")
 async def get_checkpoints(_req: web.Request) -> web.Response:
     serialized_checkpoints = {
-        key: value.serialize() for key, value in CHECKPOINT_FILES.items()
+        key: value.serialize() for key, value in get_checkpoint_files().items()
     }
 
     print(f"here you go: {json.dumps(serialized_checkpoints)}")
@@ -35,7 +48,10 @@ async def get_checkpoints(_req: web.Request) -> web.Response:
 
 
 @routes.post("/generate")
-async def handle_post(request: web.Request) -> web.StreamResponse:
+async def handle_generate(request: web.Request) -> web.StreamResponse:
+    """
+    Submits generation requests from the user to the queue and streams the results.
+    """
     response = web.StreamResponse(
         status=200, reason="OK", headers={"Content-Type": "application/json"}
     )
@@ -44,18 +60,31 @@ async def handle_post(request: web.Request) -> web.StreamResponse:
     try:
         # TO DO: validate these types using something like pydantic
         data = await request.json()
-        models: Dict[str, int] = data["models"]
-        positive_prompt: str = data["positive_prompt"]
-        negative_prompt: str = data["negative_prompt"]
-        random_seed: Optional[int] = data.get("random_seed", None)
-        aspect_ratio: str = data["aspect_ratio"]
+        # models: Dict[str, int] = data["models"]
+        # positive_prompt: str = data["positive_prompt"]
+        # negative_prompt: str = data["negative_prompt"]
+        # random_seed: Optional[int] = data.get("random_seed", None)
+        # aspect_ratio: str = data["aspect_ratio"]
 
-        async for urls in generate_images(
-            models, positive_prompt, negative_prompt, random_seed, aspect_ratio
-        ):
-            print(urls)
-            json_response = json.dumps({"output": urls})
-            await response.write((json_response).encode("utf-8") + b"\n")
+        with multiprocessing.Manager() as manager:
+            response_queue = manager.Queue()
+            job_queue: multiprocessing.Queue = request.app['job_queue']
+            job_queue.put((data, response_queue))
+
+            while response_queue.empty():
+                await asyncio.sleep(0)
+
+            while not response_queue.empty():
+                urls = response_queue.get()
+                await response.write(
+                    json.dumps({"output": urls}).encode("utf-8") + b"\n"
+                )
+        # async for urls in generate_images(
+        #     models, positive_prompt, negative_prompt, random_seed, aspect_ratio
+        # ):
+        #     print(urls)
+        #     json_response = json.dumps({"output": urls})
+        #     await response.write((json_response).encode("utf-8") + b"\n")
 
     except Exception as e:
         # Handle the exception, you might want to log it or send an error response
@@ -108,7 +137,7 @@ async def generate_from_repo(request: web.Request) -> web.StreamResponse:
 @routes.post("/upload")
 async def handle_upload(request: web.Request) -> web.Response:
     """
-    Handles image upload requests.
+    Receives files from users and saves them to the file system (S3 bucket or local).
     """
 
     reader = await request.multipart()
@@ -154,8 +183,10 @@ async def handle_upload(request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
+# TO DO: replace this with a database, so that the client can query for available assets
 @routes.get("/media")
 async def list_files(_request: web.Request) -> web.Response:
+    """Lists files available in the the /assets directory"""
     try:
         uploader = get_file_handler()
         files = uploader.list_files()
@@ -164,33 +195,30 @@ async def list_files(_request: web.Request) -> web.Response:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@routes.get("/download/{filename}")
-async def download_file(request: web.Request) -> web.Response:
-    filename = request.match_info["filename"]
-    try:
-        uploader = get_file_handler()
-        body = uploader.download_file(filename)
-        if body is None:
-            return web.json_response(
-                {"success": False, "error": "File not found"},
-                status=404,
-            )
+@routes.get("/react-components")
+async def get_react_components(_req: web.Request) -> web.Response:
+    """
+    Returns additional react components and node definitions used by the custom-
+    node factory on the client.
+    """
+    components = {}
+    for filename in os.listdir(react_components):
+        if filename.endswith(".js"):
+            # Read the file
+            with open(os.path.join(react_components, filename), "r") as f:
+                content = f.read()
+            # Store the file name and content in the dictionary
+            components[filename.replace(".js", "")] = content.strip()
 
-        headers = {
-            "Content-Type": get_mime_type(filename),
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        }
-
-        return web.Response(body=body, headers=headers, status=200)
-    except Exception as e:
-        return web.json_response({"success": False, "error": str(e)}, status=500)
+    return web.Response(text=json.dumps(components), content_type="application/json")
 
 
-# this is a catch-all route, defined last so that all other routes can be matched first
 @routes.get("/{filename:.*}")
 async def serve_file(request: web.Request) -> web.Response:
     """
-    Serves a static file from either the assets directory or the web root.
+    Serves a static file from either the /assets folder or the /web/dist folder.
+    This is a catch-all route, defined last so that all other routes can be matched
+    first.
     """
     filename = request.match_info["filename"]
     if not filename:
@@ -221,7 +249,7 @@ async def serve_file(request: web.Request) -> web.Response:
     raise web.HTTPNotFound(text="File not found")
 
 
-async def start_server(host: str = "localhost", port: int = 8881):
+def create_aiohttp_app(queue: multiprocessing.Queue):
     """
     Starts the web server with API endpoints from extensions
     """
@@ -230,6 +258,7 @@ async def start_server(host: str = "localhost", port: int = 8881):
             cors_middleware(allow_all=True)  # Enable CORS for all routes
         ]
     )
+
     global routes
 
     # Make the entire /web/dist folder accessible at the root URL
@@ -239,34 +268,45 @@ async def start_server(host: str = "localhost", port: int = 8881):
     app.add_routes(routes)
 
     # Register all API endpoints added by extensions
-    for _name, api_routes in API_ENDPOINTS.items():
+    for _name, api_routes in get_api_endpoints().items():
         # TO DO: consider adding prefixes to the routes based on extension-name?
         # How can we overwrite built-in routes
         app.router.add_routes(api_routes)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
+    # Store a reference to the queue in the aiohttp-application state
+    app['job_queue'] = queue
+    
+    return app
+
+    # runner = web.AppRunner(app)
+    # await runner.setup()
 
     # for route in app.router.routes():
     #     print(f"Route: {route}")
 
     # Try to bind to the desired port
     # try:
-    site = web.TCPSite(runner, host, port)
-    await site.start()
+    # site = web.TCPSite(runner, host, port)
+    # await site.start()
     # except socket.error:
     #     # If the desired port is in use, bind to a random available port
     #     site = web.TCPSite(runner, host, 0)
     #     await site.start()
     #     # _, port = site._server.sockets[0].getsockname()
 
-    print(f"Server running on {site.name} (click to open)", flush=True)
+    # print(f"Server running on {site.name} (click to open)", flush=True)
 
-    try:
-        await asyncio.Future()  # Keep the server running
-    except asyncio.CancelledError:
-        print("Server is shutting down...")
-        await runner.cleanup()
+    # try:
+    #     await asyncio.Future()  # Keep the server running
+    # except asyncio.CancelledError:
+    #     print("Server is shutting down...")
+    #     await runner.cleanup()
+
+
+# def run_server(host: str, port: int, queue: multiprocessing.Queue):
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     loop.run_until_complete(start_server(host, port, queue))
 
 
 def api_routes_validator(plugin: Any) -> bool:

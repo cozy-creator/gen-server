@@ -38,3 +38,16 @@ def get_models_dir() -> str:
     if config.models_path:
         return config.models_path
     return os.path.join(config.workspace_path, 'models')
+
+
+def get_s3_public_url() -> str:
+    """
+    Helper function; used to find the public S3 URL.
+    """
+    config = get_config()
+    if config.s3 and config.s3.public_url:
+        return config.s3.public_url
+    elif config.s3 and config.s3.endpoint_url:
+        return config.s3.endpoint_url
+    else:
+        raise ValueError("No S3 public URL or endpoint URL found in the configuration")

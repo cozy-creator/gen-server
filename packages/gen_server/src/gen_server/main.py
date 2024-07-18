@@ -1,23 +1,30 @@
 import json
+import multiprocessing
 import time
 import argparse
-import asyncio
 import sys
 import os
-from pydantic_settings import CliSettingsSource
 
-from .config import init_config, get_config
+from .api import start_server
+from .executor import run_worker
+from pydantic_settings import CliSettingsSource
+from concurrent.futures import ProcessPoolExecutor
+
+from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
+from .api import api_routes_validator
+from .utils import load_extensions, find_checkpoint_files
 from .api import start_server, api_routes_validator
 from .utils import load_extensions, find_checkpoint_files, load_custom_node_specs
 from .utils.paths import get_models_dir
 from .globals import (
-    API_ENDPOINTS,
-    ARCHITECTURES,
-    CUSTOM_NODES,
-    WIDGETS,
-    CHECKPOINT_FILES,
+    update_api_endpoints,
+    update_architectures,
+    update_custom_nodes,
+    update_widgets,
+    update_checkpoint_files,
+    get_checkpoint_files,
     RunCommandConfig,
     BuildWebCommandConfig,
 )
@@ -65,8 +72,10 @@ def main():
             env_file=env_file,
             secrets_dir=secrets_dir,
         )
-        
-        # produce_node_definitions_file(f"{cozy_config.workspace_path}/node_definitions.json")
+
+        produce_node_definitions_file(
+            f"{cozy_config.workspace_path}/node_definitions.json"
+        )
 
         print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
@@ -106,45 +115,44 @@ def run_app(cozy_config: RunCommandConfig):
     start_time = time.time()
 
     # All routes must be a function that returns -> Iterable[web.AbstractRouteDef]
-    global API_ENDPOINTS
+
     start_time_api_endpoints = time.time()
-    API_ENDPOINTS.update(
+    update_api_endpoints(
         load_extensions("cozy_creator.api", validator=api_routes_validator)
     )
+
     # expected_type=Callable[[], Iterable[web.AbstractRouteDef]]
     print(
         f"API_ENDPOINTS loading time: {time.time() - start_time_api_endpoints:.2f} seconds"
     )
 
     # compile architecture registry
-    global ARCHITECTURES
     start_time_architectures = time.time()
-    ARCHITECTURES.update(
+    update_architectures(
         load_extensions("cozy_creator.architectures", validator=architecture_validator)
     )
+
     print(
         f"ARCHITECTURES loading time: {time.time() - start_time_architectures:.2f} seconds"
     )
 
-    global CUSTOM_NODES
     start_time_custom_nodes = time.time()
-    CUSTOM_NODES.update(
+    update_custom_nodes(
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
+
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
     )
 
-    global WIDGETS
     start_time_widgets = time.time()
-    WIDGETS.update(load_extensions("cozy_creator.widgets"))
+    update_widgets(load_extensions("cozy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
 
     # compile model registry
-    global CHECKPOINT_FILES
     start_time_checkpoint_files = time.time()
     models_paths = [get_models_dir()] + cozy_config.aux_models_paths
-    CHECKPOINT_FILES.update(find_checkpoint_files(models_paths=models_paths))
+    update_checkpoint_files(find_checkpoint_files(models_paths=models_paths))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
@@ -163,31 +171,47 @@ def run_app(cozy_config: RunCommandConfig):
     )
 
     # debug
-    print("Number of checkpoint files:", len(CHECKPOINT_FILES))
+    print("Number of checkpoint files:", len(get_checkpoint_files()))
 
     end_time = time.time()
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
-    
+
     # ====== The server is initialized; good spot to run your tests here ======
-    
+
     # from .executor import generate_images
     # async def test_generate_images():
     #     async for file_metadata in generate_images(
     #         { "dark_sushi_25d_v40": 1 },
-    #         "a beautiful anime girl", 
-    #         "poor quality, worst quality, watermark, blurry", 
-    #         42069, 
+    #         "a beautiful anime girl",
+    #         "poor quality, worst quality, watermark, blurry",
+    #         42069,
     #         "16/9"
     #     ):
     #         print(file_metadata)
-    
+
     # asyncio.run(test_generate_images())
 
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(start_server(cozy_config.host, cozy_config.port))
+        # Create a queue for communication between server and worker
+        job_queue = multiprocessing.Queue()
+
+        # Create a process pool for the worker
+        with ProcessPoolExecutor() as executor:
+            # Start the server process
+            gunicorn_aiohttp = multiprocessing.Process(
+                target=start_server,
+                args=(cozy_config, job_queue),
+            )
+
+            # Start our producer; these api-servers will respond to user-requests
+            # and place jobs on the job-queue
+            gunicorn_aiohttp.start()
+
+            # Start our consumer; this worker will process jobs from the job-queue
+            run_worker(job_queue, executor)
+
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")
     except Exception as e:

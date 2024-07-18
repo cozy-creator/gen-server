@@ -7,7 +7,7 @@ from boto3.session import Session
 import blake3
 from ..globals import FilesystemTypeEnum, RunCommandConfig
 from ..config import get_config, is_runpod_available, get_runpod_url
-from .paths import get_assets_dir
+from .paths import get_assets_dir, get_s3_public_url
 from PIL import Image, PngImagePlugin
 from abc import ABC, abstractmethod
 import asyncio
@@ -16,7 +16,7 @@ import aiofiles
 logger = logging.getLogger(__name__)
 
 
-class FileMetadata(TypedDict):
+class FileURL(TypedDict):
     url: str
     is_temp: bool
 
@@ -28,7 +28,7 @@ class FileHandler(ABC):
         content: list[bytes] | dict[str, bytes],
         file_extension: str,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileMetadata, None]:
+    ) -> AsyncGenerator[FileURL, None]:
         pass
 
     async def upload_png_files(
@@ -36,7 +36,7 @@ class FileHandler(ABC):
         images: list[Image.Image],
         metadata: Optional[PngImagePlugin.PngInfo] = None,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileMetadata, None]:
+    ) -> AsyncGenerator[FileURL, None]:
         """
         This is a convenient method for uploading PNG files, which is a common use-case.
         It wraps the built-in `upload_files` method.
@@ -91,7 +91,7 @@ class LocalFileHandler(FileHandler):
         content: list[bytes] | dict[str, bytes],
         file_extension: str,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileMetadata, None]:
+    ) -> AsyncGenerator[FileURL, None]:
         if not os.path.exists(self.assets_path):
             os.makedirs(self.assets_path)
 
@@ -109,8 +109,6 @@ class LocalFileHandler(FileHandler):
             async with aiofiles.open(filepath, "wb") as f:
                 await f.write(file_content)
 
-            # sleep for 5s
-            await asyncio.sleep(10)
             return f"{self.server_url}/media/{filename}"
 
         tasks = {
@@ -166,7 +164,7 @@ class S3FileHandler(FileHandler):
         content: list[bytes] | dict[str, bytes],
         file_extension: str,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileMetadata, None]:
+    ) -> AsyncGenerator[FileURL, None]:
         if isinstance(content, list):
             content_dict = {blake3.blake3(item).hexdigest(): item for item in content}
         else:
@@ -185,13 +183,11 @@ class S3FileHandler(FileHandler):
                     ACL="public-read",
                 )
 
-                # sleep for 5s
-                await asyncio.sleep(10)
             except Exception as e:
                 logger.error(f"Failed to upload file {key}: {e}")
                 raise
 
-            return f"{self.config.endpoint_url}/{key}"
+            return f"{get_s3_public_url()}/{key}"
 
         tasks = [
             asyncio.create_task(_upload_file(basename, file_content))
