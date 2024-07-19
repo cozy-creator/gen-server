@@ -219,7 +219,7 @@ def run_app(cozy_config: RunCommandConfig):
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
             futures = [
                 executor.submit(start_api_server, cozy_config, job_queue, checkpoint_files, api_endpoints),
-                executor.submit(run_gpu_worker, job_queue, cozy_config, custom_nodes, checkpoint_files),
+                executor.submit(run_gpu_worker, job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files),
                 executor.submit(run_io_worker, tensor_queue, file_handler)
             ]
 

@@ -105,7 +105,9 @@ def create_aiohttp_app(
                     # Connection was closed
                     break
 
-            await response.write(json.dumps({"status": "finished"}).encode("utf-8") + b"\n")
+            await response.write(
+                json.dumps({"status": "finished"}).encode("utf-8") + b"\n"
+            )
 
         except TimeoutError as e:
             logger.error(f"Generation timed out: {str(e)}")
@@ -118,6 +120,7 @@ def create_aiohttp_app(
                 parent_conn.close()
 
         await response.write_eof()
+        
         return response
 
 
