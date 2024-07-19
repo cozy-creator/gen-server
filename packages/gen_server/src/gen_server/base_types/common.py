@@ -3,6 +3,7 @@ from typing import Union, List, Callable, Any
 import PIL.Image
 import numpy as np
 from enum import Enum
+from multiprocessing.connection import Connection
 
 
 class Language(Enum):
@@ -44,3 +45,8 @@ Static typing for image outputs
 """
 
 Validator = Callable[[Any], bool]
+
+JobQueueItem = tuple[dict[str, Any], Connection]
+"""
+Type of items on the job-queue
+"""

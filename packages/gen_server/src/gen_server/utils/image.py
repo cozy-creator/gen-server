@@ -88,3 +88,32 @@ def remove_background(model, image: torch.Tensor, device):
 
     with torch.no_grad():
         return model(image)
+
+
+# TO DO: is this permutation correct?
+# TO DO: handle tensors with an alpha-channel maybe?
+def tensor_to_pil(tensor: torch.Tensor) -> Image.Image:
+    return Image.fromarray(tensor.byte().permute(1, 2, 0).cpu().numpy())
+
+
+def aspect_ratio_to_dimensions(
+    aspect_ratio: str, model_category: str
+) -> tuple[int, int]:
+    aspect_ratio_map = {
+        "21/9": {"large": (1536, 640), "default": (896, 384)},
+        "16/9": {"large": (1344, 768), "default": (768, 448)},
+        "4/3": {"large": (1152, 896), "default": (704, 512)},
+        "1/1": {"large": (1024, 1024), "default": (512, 512)},
+        "3/4": {"large": (896, 1152), "default": (512, 704)},
+        "9/16": {"large": (768, 1344), "default": (448, 768)},
+        "9/21": {"large": (640, 1536), "default": (384, 896)},
+    }
+
+    if aspect_ratio not in aspect_ratio_map:
+        raise ValueError(f"Unsupported aspect ratio: {aspect_ratio}")
+
+    size = (
+        "large" if (model_category == "SDXL" or model_category == "SD3") else "default"
+    )
+
+    return aspect_ratio_map[aspect_ratio][size]

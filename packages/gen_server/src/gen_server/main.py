@@ -1,21 +1,28 @@
 import json
-import multiprocessing
 import time
 import argparse
 import sys
 import os
+import concurrent.futures
+import signal
+from types import FrameType
+from typing import Optional
 
-from .executor import run_worker
 from pydantic_settings import CliSettingsSource
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+from multiprocessing.managers import SyncManager
+from typing import cast
 
 from .config import init_config
+from .base_types.common import JobQueueItem
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .utils import load_extensions, find_checkpoint_files
 from .api import start_api_server, api_routes_validator, create_aiohttp_app
 from .utils import load_extensions, find_checkpoint_files, load_custom_node_specs
 from .utils.paths import get_models_dir
+from .utils.file_handler import get_file_handler
 from .globals import (
     get_api_endpoints,
     get_custom_nodes,
@@ -30,6 +37,8 @@ from .globals import (
 )
 from .node_definitions import produce_node_definitions_file
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
+from .executor.io_worker import run_io_worker
+from .executor.gpu_worker import run_gpu_worker
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
@@ -192,26 +201,41 @@ def run_app(cozy_config: RunCommandConfig):
     # asyncio.run(test_generate_images())
 
     try:
-        # Create a queue for communication between server and worker
-        job_queue = multiprocessing.Queue()
+        manager = multiprocessing.Manager()
+        
+        # Gen-tasks will be placed on this by the api-server, and consumed by the
+        # gpu-worker.
+        job_queue: SyncManager.Queue[JobQueueItem] = manager.Queue()
+        
+        # A tensor queue so that the gpu-workers process can push their finished
+        # files into the io-worker process.
+        tensor_queue = manager.Queue()
+        
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
+        file_handler = get_file_handler()
 
-        # Create a process pool for the worker
-        with ProcessPoolExecutor() as executor:
-            # Start the server process
-            gunicorn_aiohttp = multiprocessing.Process(
-                target=start_api_server,
-                args=(cozy_config, job_queue, checkpoint_files, api_endpoints),
-            )
+        # Create a process pool for the workers
+        with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(start_api_server, cozy_config, job_queue, checkpoint_files, api_endpoints),
+                executor.submit(run_gpu_worker, job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files),
+                executor.submit(run_io_worker, tensor_queue, file_handler)
+            ]
 
-            # Start our producer; these api-servers will respond to user-requests
-            # and place jobs on the job-queue
-            gunicorn_aiohttp.start()
+            def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
+                print("Received shutdown signal. Terminating processes...")
+                for future in futures:
+                    future.cancel()
+                executor.shutdown(wait=False)
+                sys.exit(0)
 
-            # Start our consumer; this worker will process jobs from the job-queue
-            run_worker(job_queue, executor, cozy_config, custom_nodes, checkpoint_files)
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
+            # Wait for futures to complete (which they won't, unless cancelled)
+            concurrent.futures.wait(futures)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")

@@ -3,18 +3,20 @@ from gen_server.config import get_config
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-folders = {
-    "core_nodes": os.path.join(base_path, "extensions", "core"),
-    "extensions": os.path.join(base_path, "extensions"),
-    "output": os.path.join(get_config().workspace_path, "output"),
-    "temp": os.path.join(get_config().workspace_path, "temp"),
-    "input": os.path.join(get_config().workspace_path, "input"),
-    "models": os.path.join(base_path, "models"),
-    "custom_architecture": os.path.join(base_path, "custom_architecture"),
-    "vae": os.path.join(base_path, "extensions/core2/VAE"),
-    "unet": os.path.join(base_path, "extensions/core2/unet"),
-    "text_encoder": os.path.join(base_path, "extensions/core2/text_encoder"),
-}
+# this won't work in multi-process
+
+# folders = {
+#     "core_nodes": os.path.join(base_path, "extensions", "core"),
+#     "extensions": os.path.join(base_path, "extensions"),
+#     "output": os.path.join(get_config().workspace_path, "output"),
+#     "temp": os.path.join(get_config().workspace_path, "temp"),
+#     "input": os.path.join(get_config().workspace_path, "input"),
+#     "models": os.path.join(base_path, "models"),
+#     "custom_architecture": os.path.join(base_path, "custom_architecture"),
+#     "vae": os.path.join(base_path, "extensions/core2/VAE"),
+#     "unet": os.path.join(base_path, "extensions/core2/unet"),
+#     "text_encoder": os.path.join(base_path, "extensions/core2/text_encoder"),
+# }
 
 
 def get_folder_path(folder_name):
