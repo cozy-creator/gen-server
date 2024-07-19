@@ -1,0 +1,82 @@
+{
+    "display_name": {
+      "en": "Load Image",
+      "zh": "加载图像"
+    },
+    "description": {
+      "en": "Loads one or more images from file IDs or byte data, handling size variations.",
+      "zh": "从文件 ID 或字节数据加载一个或多个图像，处理大小变化。"
+    },
+    "category": "input",
+    "inputs": {
+      "filenames": { 
+        "display_name": "Filenames",
+        "description": {
+            "en": "List of file IDs (strings) or binary encoded byte data.",
+            "zh": "文件 ID 列表（字符串）或二进制编码的字节数据。"
+        },
+        "display_type": "Image", 
+        "widgets": {
+            "type": "file",
+            "multiple": true,
+            "accept": "image/*"
+        }
+      },
+      "size_handling": {
+        "display_name": "Size Handling",
+        "description": {
+          "en": "How to handle images with different sizes.",
+          "zh": "如何处理不同大小的图像。"
+        },
+        "display_type": "string",
+        "widgets": {
+          "type": "dropdown",
+          "options": [
+            {"label": "Uniform Size (all images must be the same size)", "value": "uniform_size"},
+            {"label": "Resize to Common Size", "value": "resize"},
+            {"label": "Batch by Size", "value": "batch_by_size"}
+          ],
+          "default": "uniform_size" 
+        }
+      },
+      "target_size": {
+        "display_name": "Target Size",
+        "description": {
+          "en": "Target width and height for resizing (used only if 'Resize to Common Size' is selected).",
+          "zh": "调整大小的目标宽度和高度（仅当选择“调整为通用大小”时使用）。"
+        },
+        "display_type": "Tuple[int, int]",
+        "widgets": {
+          "type": "tuple",
+          "subwidgets": [
+            {"type": "int", "default": 512}, 
+            {"type": "int", "default": 512}
+          ],
+          "default": [512, 512]
+        },
+        "advanced": true
+      }
+    },
+    "outputs": {
+      "images": {
+        "display_name": "Images",
+        "description": {
+          "en": "Batch of loaded images as tensors (if all images have the same size or are resized).",
+          "zh": "加载的图像批次，以张量形式表示（如果所有图像具有相同的大小或已调整大小）。"
+        },
+        "display_type": "Image",
+        "type": "torch.Tensor",
+        "advanced": true
+      },
+      "image_batches": {
+        "display_name": "Image Batches",
+        "description": {
+          "en": "List of image tensor batches, grouped by size (if 'Batch by Size' is selected).",
+          "zh": "图像张量批次列表，按大小分组（如果选择“按大小批次”）。"
+        },
+        "display_type": "List[Image]", 
+        "type": "List[torch.Tensor]", 
+        "advanced": true
+      }
+    }
+  }

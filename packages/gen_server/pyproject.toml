@@ -39,7 +39,8 @@ dependencies = [
     "transformers>=4.25",
     "tqdm",
     "typing_extensions",
-    "uuid"
+    "uuid",
+    "waitress"
 ]
 
 [project.optional-dependencies]

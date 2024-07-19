@@ -25,7 +25,7 @@ from transformers import (
     CLIPTextModelWithProjection,
     T5EncoderModel,
 )
-from gen_server.globals import CHECKPOINT_FILES
+from gen_server.globals import _CHECKPOINT_FILES
 from gen_server.utils import load_models
 from PIL import Image
 import os
@@ -61,7 +61,7 @@ class ImageGenNode(CustomNode):
         """
 
         try:
-            checkpoint_metadata = CHECKPOINT_FILES.get(checkpoint_id, None)
+            checkpoint_metadata = _CHECKPOINT_FILES.get(checkpoint_id, None)
             if checkpoint_metadata is None:
                 raise ValueError(f"No checkpoint file found for ID: {checkpoint_id}")
             

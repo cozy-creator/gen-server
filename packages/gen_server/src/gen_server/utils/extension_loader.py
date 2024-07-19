@@ -62,6 +62,7 @@ def load_extensions(
             continue  # Skip this entry point
         try:
             plugin = entry_point.load()
+            
 
             def _load_plugin_inner(plugin_name, plugin_item):
                 # Optionally validate the plugin, if a validator is provided

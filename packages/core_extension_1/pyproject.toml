@@ -50,13 +50,14 @@ isnet = "core_extension_1.architectures.isnet_arch:ISNetDIS"
 
 
 [project.entry-points."cozy_creator.custom_nodes"]
-load_checkpoint = "core_extension_1.custom_nodes:LoadCheckpoint"
-load_components = "core_extension_1.custom_nodes:LoadComponents"
-load_civitai = "core_extension_1.custom_nodes:LoadCivitai"
-create_pipe = "core_extension_1.custom_nodes:CreatePipe"
-run_pipe = "core_extension_1.custom_nodes:RunPipe"
-generate_mask = "core_extension_1.custom_nodes:GenerateMaskInpainting"
-inpaint_image ="core_extension_1.custom_nodes:InpaintImage"
+audio_node = "core_extension_1.custom_nodes:AudioNode"
+depth_map_node = "core_extension_1.custom_nodes:DepthMapNode"
+image_gen_node = "core_extension_1.custom_nodes:ImageGenNode"
+video_node = "core_extension_1.custom_nodes:VideoNode"
+image_node = "core_extension_1.custom_nodes:ImageNode"
+image_regen_node = "core_extension_1.custom_nodes:ImageRegenNode"
+select_area_node ="core_extension_1.custom_nodes:SelectAreaNode"
+openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
 
 
 [project.entry-points."cozy_creator.api"]

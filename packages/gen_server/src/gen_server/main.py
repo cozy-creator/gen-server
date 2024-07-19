@@ -70,11 +70,11 @@ def main():
             secrets_dir=secrets_dir,
         )
 
-        produce_node_definitions_file(
-            f"{cozy_config.workspace_path}/node_definitions.json"
-        )
+        # produce_node_definitions_file(
+        #     f"{cozy_config.workspace_path}/node_definitions.json"
+        # )
 
-        print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
+        # print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
 
     elif subcommand in ["build-web", "build_web"]:
@@ -134,6 +134,7 @@ def run_app(cozy_config: RunCommandConfig):
     )
 
     start_time_custom_nodes = time.time()
+    
     update_custom_nodes(
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
