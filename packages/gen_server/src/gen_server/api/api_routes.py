@@ -33,6 +33,8 @@ def create_aiohttp_app(
     """
     Starts the web server with API endpoints from extensions
     """
+    logger = logging.getLogger(__name__)
+    
     app = web.Application(
         middlewares=[
             cors_middleware(allow_all=True)  # Enable CORS for all routes
@@ -53,12 +55,12 @@ def create_aiohttp_app(
             text=json.dumps(serialized_checkpoints), content_type="application/json"
         )
 
-
     @routes.post("/generate")
     async def handle_generate(request: web.Request) -> web.StreamResponse:
         """
         Submits generation requests from the user to the queue and streams the results.
         """
+        
         response = web.StreamResponse(
             status=200, reason="OK", headers={"Content-Type": "application/json"}
         )
@@ -67,39 +69,55 @@ def create_aiohttp_app(
         try:
             # TO DO: validate these types using something like pydantic
             data = await request.json()
-            # models: Dict[str, int] = data["models"]
-            # positive_prompt: str = data["positive_prompt"]
-            # negative_prompt: str = data["negative_prompt"]
-            # random_seed: Optional[int] = data.get("random_seed", None)
-            # aspect_ratio: str = data["aspect_ratio"]
+            
+            # Print out a message about the data received
+            logger.info(f"Received generation request with data: {data}")
 
-            with multiprocessing.Manager() as manager:
-                response_queue = manager.Queue()
-                # job_queue: multiprocessing.Queue = request.app['job_queue']
-                job_queue.put((data, response_queue))
+            # Create a pair of connections for inter-process communication
+            parent_conn, child_conn = multiprocessing.Pipe()
 
-                while response_queue.empty():
-                    await asyncio.sleep(0)
+            # Submit the job to the queue
+            job_queue.put((data, child_conn))
 
-                while not response_queue.empty():
-                    urls = response_queue.get()
-                    await response.write(
-                        json.dumps({"output": urls}).encode("utf-8") + b"\n"
+            # Set a timeout for the entire operation
+            total_timeout = 300  # 5 minutes, adjust as needed
+            start_time = asyncio.get_event_loop().time()
+
+            while True:
+                try:
+                    # Use asyncio to make the blocking call non-blocking
+                    file_url = await asyncio.get_event_loop().run_in_executor(
+                        None, parent_conn.poll, 1  # 1 second timeout
                     )
-            # async for urls in generate_images(
-            #     models, positive_prompt, negative_prompt, random_seed, aspect_ratio
-            # ):
-            #     print(urls)
-            #     json_response = json.dumps({"output": urls})
-            #     await response.write((json_response).encode("utf-8") + b"\n")
 
+                    if file_url:
+                        if file_url is None:  # Signal for completion
+                            break
+                        await response.write(
+                            json.dumps({"output": file_url}).encode("utf-8") + b"\n"
+                        )
+                    
+                    # Check if we've exceeded the total timeout
+                    if asyncio.get_event_loop().time() - start_time > total_timeout:
+                        raise TimeoutError("Operation timed out")
+
+                except EOFError:
+                    # Connection was closed
+                    break
+
+            await response.write(json.dumps({"status": "finished"}).encode("utf-8") + b"\n")
+
+        except TimeoutError as e:
+            logger.error(f"Generation timed out: {str(e)}")
+            await response.write(json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n")
         except Exception as e:
-            # Handle the exception, you might want to log it or send an error response
-            error_message = json.dumps({"error": str(e)})
-            await response.write((error_message + "\n").encode("utf-8"))
+            logger.error(f"Error in generation: {str(e)}")
+            await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
+        finally:
+            if 'parent_conn' in locals():
+                parent_conn.close()
 
         await response.write_eof()
-
         return response
 
 
