@@ -18,6 +18,7 @@ from .utils import load_extensions, find_checkpoint_files, load_custom_node_spec
 from .utils.paths import get_models_dir
 from .globals import (
     get_api_endpoints,
+    get_custom_nodes,
     update_api_endpoints,
     update_architectures,
     update_custom_nodes,
@@ -32,9 +33,6 @@ from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
-
-
-
 
 
 def main():
@@ -197,6 +195,7 @@ def run_app(cozy_config: RunCommandConfig):
         job_queue = multiprocessing.Queue()
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
+        custom_nodes = get_custom_nodes()
 
         # Create a process pool for the worker
         with ProcessPoolExecutor() as executor:
@@ -211,7 +210,7 @@ def run_app(cozy_config: RunCommandConfig):
             gunicorn_aiohttp.start()
 
             # Start our consumer; this worker will process jobs from the job-queue
-            run_worker(job_queue, executor)
+            run_worker(job_queue, executor, cozy_config, custom_nodes, checkpoint_files)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")

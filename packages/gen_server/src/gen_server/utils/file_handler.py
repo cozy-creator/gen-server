@@ -229,13 +229,14 @@ _file_handler_cache = None
 """
 
 
-def get_file_handler() -> FileHandler:
+def get_file_handler(config: Optional[RunCommandConfig] = None) -> FileHandler:
     global _file_handler_cache
 
     if _file_handler_cache is not None:
         return _file_handler_cache
-
-    config = get_config()
+    
+    if config is None:
+        config = get_config()
 
     if config.filesystem_type == FilesystemTypeEnum.S3:
         _file_handler_cache = S3FileHandler(config)
