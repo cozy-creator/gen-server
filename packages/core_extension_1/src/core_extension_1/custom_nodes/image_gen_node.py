@@ -1,31 +1,18 @@
 import torch
-from gen_server.base_types import CustomNode, ModelConstraint
+from gen_server.base_types import CustomNode
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusion3Pipeline,
     DDIMScheduler,
-    AutoencoderKL,
-    UNet2DConditionModel,
-    SD3Transformer2DModel,
     FlowMatchEulerDiscreteScheduler,
     StableDiffusionXLPipeline,
     EulerDiscreteScheduler,
-    EulerAncestralDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
-    EDMEulerScheduler,
-    StableDiffusionXLInpaintPipeline,
-    StableDiffusion3ControlNetPipeline,
-    DiffusionPipeline,
-    SD3ControlNetModel
 )
 from transformers import (
     CLIPTokenizer,
-    CLIPTextModel,
     T5TokenizerFast,
-    CLIPTextModelWithProjection,
-    T5EncoderModel,
 )
-from gen_server.globals import get_checkpoint_files
 from gen_server.utils import load_models
 from PIL import Image
 import os
@@ -35,18 +22,20 @@ import json
 class ImageGenNode(CustomNode):
     """Generates images using Stable Diffusion pipelines."""
 
-    def __call__(self, 
-                 checkpoint_id: str,
-                 positive_prompt: str,
-                 checkpoint_files: dict,
-                 architectures: dict,
-                 negative_prompt: str = "",
-                 width: int = 512, 
-                 height: int = 512,
-                 num_images: int = 1,
-                 guidance_scale: float = 7.5,
-                 num_inference_steps: int = 50,
-                 random_seed: int = None) -> dict[str, list[Image.Image]]:
+    def __call__(
+        self,
+        checkpoint_id: str,
+        positive_prompt: str,
+        checkpoint_files: dict,
+        architectures: dict,
+        negative_prompt: str = "",
+        width: int = 512,
+        height: int = 512,
+        num_images: int = 1,
+        guidance_scale: float = 7.5,
+        num_inference_steps: int = 50,
+        random_seed: int = None,
+    ) -> dict[str, list[Image.Image]]:
         """
         Args:
             checkpoint_id: ID of the pre-trained model checkpoint to use.
@@ -66,20 +55,26 @@ class ImageGenNode(CustomNode):
             checkpoint_metadata = checkpoint_files.get(checkpoint_id, None)
             if checkpoint_metadata is None:
                 raise ValueError(f"No checkpoint file found for ID: {checkpoint_id}")
-            
-            components = load_models.from_file(checkpoint_metadata.file_path, registry=architectures)
+
+            components = load_models.from_file(
+                checkpoint_metadata.file_path, registry=architectures
+            )
 
             match checkpoint_metadata.category:
                 case "SD1":
                     pipe = self.create_sd1_pipe(components)
                 case "SDXL":
-                    sdxl_type = checkpoint_metadata.components["core_extension_1.vae"]["input_space"].lower()
+                    sdxl_type = checkpoint_metadata.components["core_extension_1.vae"][
+                        "input_space"
+                    ].lower()
                     pipe = self.create_sdxl_pipe(components, model_type=sdxl_type)
                 case "SD3":
                     pipe = self.create_sd3_pipe(components)
                 case _:
-                    raise ValueError(f"Unknown category: {checkpoint_metadata.category}")
-                
+                    raise ValueError(
+                        f"Unknown category: {checkpoint_metadata.category}"
+                    )
+
             # More efficient dtype
             try:
                 pipe.to(torch.bfloat16)
@@ -90,7 +85,11 @@ class ImageGenNode(CustomNode):
             pipe.enable_model_cpu_offload()
 
             # Run the pipeline
-            generator = torch.Generator(device="cpu").manual_seed(random_seed) if random_seed else None
+            generator = (
+                torch.Generator(device="cpu").manual_seed(random_seed)
+                if random_seed
+                else None
+            )
             images = pipe(
                 prompt=positive_prompt,
                 negative_prompt=negative_prompt,
@@ -99,7 +98,7 @@ class ImageGenNode(CustomNode):
                 num_images_per_prompt=num_images,
                 guidance_scale=guidance_scale,
                 num_inference_steps=num_inference_steps,
-                generator=generator
+                generator=generator,
             ).images
 
             del pipe
@@ -131,7 +130,9 @@ class ImageGenNode(CustomNode):
 
         return pipe
 
-    def create_sdxl_pipe(self, components: dict, model_type: str = None) -> StableDiffusionXLPipeline:
+    def create_sdxl_pipe(
+        self, components: dict, model_type: str = None
+    ) -> StableDiffusionXLPipeline:
         vae = components["core_extension_1.vae"].model
         unet = components["core_extension_1.sdxl_unet"].model
         text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
@@ -183,7 +184,9 @@ class ImageGenNode(CustomNode):
         )
         tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
 
-        scheduler_config = json.load(open("scheduler_config.json")) # Update path if necessary
+        scheduler_config = json.load(
+            open("scheduler_config.json")
+        )  # Update path if necessary
         scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
         pipe = StableDiffusion3Pipeline(
@@ -197,13 +200,13 @@ class ImageGenNode(CustomNode):
             transformer=unet,
             scheduler=scheduler,
         ).to(self.DEVICE)
-        
+
         return pipe
-    
+
     @staticmethod
     def get_spec():
         """Returns the node specification."""
-        spec_file = os.path.join(os.path.dirname(__file__), 'image_gen_node.json')
-        with open(spec_file, 'r', encoding='utf-8') as f:
+        spec_file = os.path.join(os.path.dirname(__file__), "image_gen_node.json")
+        with open(spec_file, "r", encoding="utf-8") as f:
             spec = json.load(f)
         return spec

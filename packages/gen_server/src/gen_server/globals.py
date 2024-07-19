@@ -7,6 +7,7 @@ from aiohttp import web
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from gen_server.paths import ensure_env_file
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
 
@@ -84,6 +85,16 @@ class RunCommandConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
+
+    def __init__(self, **data: Any):
+        workspace_path = (
+            data["workspace"]
+            if data.get("workspace_path") is not None
+            else DEFAULT_WORKSPACE_PATH
+        )
+
+        data["_env_file"] = _env_file = ensure_env_file(workspace_path)
+        super().__init__(**data)
 
     env_file: Optional[str] = Field(
         default=None,

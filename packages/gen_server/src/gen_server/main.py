@@ -9,18 +9,17 @@ from types import FrameType
 from typing import Optional
 
 from pydantic_settings import CliSettingsSource
-from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 from multiprocessing.managers import SyncManager
-from typing import cast
 
+from .paths import clean_temp_files
 from .config import init_config
 from .base_types.common import JobQueueItem
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .utils import load_extensions, find_checkpoint_files
-from .api import start_api_server, api_routes_validator, create_aiohttp_app
-from .utils import load_extensions, find_checkpoint_files, load_custom_node_specs
+from .api import start_api_server, api_routes_validator
+from .utils import load_custom_node_specs
 from .utils.paths import get_models_dir
 from .utils.file_handler import get_file_handler
 from .globals import (
@@ -36,7 +35,6 @@ from .globals import (
     RunCommandConfig,
     BuildWebCommandConfig,
 )
-from .node_definitions import produce_node_definitions_file
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import run_io_worker
 from .executor.gpu_worker import run_gpu_worker
@@ -76,7 +74,6 @@ def main():
         cozy_config = init_config(
             run_parser,
             parse_known_args_wrapper,
-            env_file=env_file,
             secrets_dir=secrets_dir,
         )
 
@@ -144,7 +141,7 @@ def run_app(cozy_config: RunCommandConfig):
     )
 
     start_time_custom_nodes = time.time()
-    
+
     update_custom_nodes(
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
@@ -165,13 +162,11 @@ def run_app(cozy_config: RunCommandConfig):
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
 
-
     # Load custom node specs and send them to the client
     start_time_custom_nodes_specs = time.time()
     custom_node_specs = load_custom_node_specs()
     with open(f"{cozy_config.workspace_path}/custom_node_specs.json", "w") as f:
         json.dump(custom_node_specs, f, indent=2)
-
 
     end_time = time.time()
     print(
@@ -203,34 +198,48 @@ def run_app(cozy_config: RunCommandConfig):
 
     try:
         manager = multiprocessing.Manager()
-        
+
         # Gen-tasks will be placed on this by the api-server, and consumed by the
         # gpu-worker.
         job_queue: SyncManager.Queue[JobQueueItem] = manager.Queue()
-        
+
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.
         tensor_queue = manager.Queue()
-        
+
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
         file_handler = get_file_handler()
         architectures = get_architectures()
-        
 
         # print(checkpoint_files)
 
         # Create a process pool for the workers
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
             futures = [
-                executor.submit(start_api_server, cozy_config, job_queue, checkpoint_files, api_endpoints),
-                executor.submit(run_gpu_worker, job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files, architectures),
-                executor.submit(run_io_worker, tensor_queue, file_handler)
+                executor.submit(
+                    start_api_server,
+                    cozy_config,
+                    job_queue,
+                    checkpoint_files,
+                    api_endpoints,
+                ),
+                executor.submit(
+                    run_gpu_worker,
+                    job_queue,
+                    tensor_queue,
+                    cozy_config,
+                    custom_nodes,
+                    checkpoint_files,
+                    architectures,
+                ),
+                executor.submit(run_io_worker, tensor_queue, file_handler),
             ]
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
                 print("Received shutdown signal. Terminating processes...")
+                clean_temp_files(cozy_config.workspace_path)
                 for future in futures:
                     future.cancel()
                 executor.shutdown(wait=False)
