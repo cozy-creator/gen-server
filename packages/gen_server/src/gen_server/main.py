@@ -32,6 +32,7 @@ from .globals import (
     update_widgets,
     update_checkpoint_files,
     get_checkpoint_files,
+    get_architectures,
     RunCommandConfig,
     BuildWebCommandConfig,
 )
@@ -215,12 +216,16 @@ def run_app(cozy_config: RunCommandConfig):
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
         file_handler = get_file_handler()
+        architectures = get_architectures()
+        
+
+        # print(checkpoint_files)
 
         # Create a process pool for the workers
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
             futures = [
                 executor.submit(start_api_server, cozy_config, job_queue, checkpoint_files, api_endpoints),
-                executor.submit(run_gpu_worker, job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files),
+                executor.submit(run_gpu_worker, job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files, architectures),
                 executor.submit(run_io_worker, tensor_queue, file_handler)
             ]
 

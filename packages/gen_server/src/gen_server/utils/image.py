@@ -24,7 +24,7 @@ def image_to_tensor(image: Union[str, Image.Image, bytes]):
     return pil_image_to_torch_bgr(pil_image)
 
 
-def save_image(image: Union[Image, bytes], path, format="PNG"):
+def save_image(image: Union[Image.Image, bytes], path, format="PNG"):
     if isinstance(image, bytes):
         image = Image.open(image)
     image.save(path, format)

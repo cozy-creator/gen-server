@@ -25,7 +25,7 @@ from transformers import (
     CLIPTextModelWithProjection,
     T5EncoderModel,
 )
-from gen_server.globals import _CHECKPOINT_FILES
+from gen_server.globals import get_checkpoint_files
 from gen_server.utils import load_models
 from PIL import Image
 import os
@@ -38,6 +38,8 @@ class ImageGenNode(CustomNode):
     def __call__(self, 
                  checkpoint_id: str,
                  positive_prompt: str,
+                 checkpoint_files: dict,
+                 architectures: dict,
                  negative_prompt: str = "",
                  width: int = 512, 
                  height: int = 512,
@@ -61,11 +63,11 @@ class ImageGenNode(CustomNode):
         """
 
         try:
-            checkpoint_metadata = _CHECKPOINT_FILES.get(checkpoint_id, None)
+            checkpoint_metadata = checkpoint_files.get(checkpoint_id, None)
             if checkpoint_metadata is None:
                 raise ValueError(f"No checkpoint file found for ID: {checkpoint_id}")
             
-            components = load_models.from_file(checkpoint_metadata.file_path)
+            components = load_models.from_file(checkpoint_metadata.file_path, registry=architectures)
 
             match checkpoint_metadata.category:
                 case "SD1":

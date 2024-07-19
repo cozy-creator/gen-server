@@ -25,7 +25,7 @@ class CheckpointMetadata:
             self,
             dict_factory=lambda fields: {
                 key: value for key, value in fields
-                if key not in ['file_path', 'date_modified']
+                if key not in ['date_modified']  # 'file_path', 
             }
         )
         

@@ -24,6 +24,7 @@ def run_gpu_worker(
     cozy_config: RunCommandConfig,
     custom_nodes: dict[str, Type[CustomNode]],
     checkpoint_files: dict[str, CheckpointMetadata],
+    architectures: dict
 ):
     logger = logging.getLogger(__name__)
 
@@ -41,14 +42,17 @@ def run_gpu_worker(
                 response_conn.close()
                 continue
 
+            
+
             try:
                 # Generate images in the current process
                 generate_images(
-                    **data,
+                    task_data = data,
                     tensor_queue=tensor_queue,
                     response_conn=response_conn,
                     custom_nodes=custom_nodes,
-                    checkpoint_files=checkpoint_files
+                    checkpoint_files=checkpoint_files,
+                    architectures=architectures,
                 )
             except Exception as e:
                 logger.error(f"Error in image generation: {str(e)}")
