@@ -3,10 +3,7 @@ from gen_server.base_types import CustomNode
 import sys
 import os
 
-# Add the parent directory of `depth_anything` to the sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..')))
-
-from depth_anything.depth_anything_v2.dpt import DepthAnythingV2
+from ..depth_anything.depth_anything_v2.dpt import DepthAnythingV2
 
 from controlnet_aux import MidasDetector
 import cv2

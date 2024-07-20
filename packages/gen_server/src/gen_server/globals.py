@@ -92,8 +92,10 @@ class RunCommandConfig(BaseSettings):
             if data.get("workspace_path") is not None
             else DEFAULT_WORKSPACE_PATH
         )
+        
+        print(f'Workspace path here: {workspace_path}')
 
-        data["_env_file"] = _env_file = ensure_env_file(workspace_path)
+        ensure_env_file(workspace_path)
         super().__init__(**data)
 
     env_file: Optional[str] = Field(

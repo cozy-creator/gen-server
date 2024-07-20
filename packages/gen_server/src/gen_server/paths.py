@@ -153,10 +153,8 @@ def check_model_in_path(model_id, model_path):
 
 def ensure_workspace_path(path: str):
     subdirs = [
-        "temp",
         "models",
-        ["assets", "input"],
-        ["assets", "output"],
+        ["assets", "temp"]
     ]
 
     path = os.path.expanduser(path)

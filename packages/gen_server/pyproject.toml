@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gen_server"
 description = "Generative-AI server for content production"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" }
 ]
@@ -36,8 +36,7 @@ dependencies = [
     "transformers>=4.25",
     "tqdm",
     "typing_extensions",
-    "uuid",
-    "waitress"
+    "uuid"
 ]
 
 [project.optional-dependencies]

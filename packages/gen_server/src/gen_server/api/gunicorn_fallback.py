@@ -3,7 +3,6 @@
 
 import asyncio
 import multiprocessing
-from waitress import serve
 from aiohttp.web import AppRunner, TCPSite
 from aiohttp.web_app import Application
 from typing import Optional

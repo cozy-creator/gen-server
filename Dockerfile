@@ -48,7 +48,11 @@ COPY --from=builder /app/web/dist /srv/www/cozy/dist
 
 COPY pyproject.toml ./pyproject.toml
 
-# Install runtime dependencies
+# Install PyTorch for CUDA 12.1
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
+    torch torchvision torchaudio
+
+# Install Linux runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libgl1-mesa-glx libglib2.0-0 \

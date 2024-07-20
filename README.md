@@ -69,20 +69,20 @@ None of our packages currently use any C-APIs, and hence do not need to be recom
 
 ### Docker Build
 
-Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-editor-0.0.1.tgz`. This will be used as a dependency when building the front-end. If you place the file somewhere else, be sure that the package.json dependency points to the right file-location, such as:
+Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-editor-0.0.1.tgz`. This will be used as a dependency when building the front-end. You can install it by running `yarn add file:cozy-graph-editor-0.0.1.tgz` in the `/web` directory, or wherever you placed it the file. In your package.json file you'll see a dependency like this:
 
 `"@cozy-creator/graph-editor": "./cozy-graph-editor-0.0.1.tgz",`
 
 Then in the root of this repo, run:
 
 ```sh
-docker build -t cozy-creator/gen-server:0.1.1 .
+docker build -t cozy-creator/gen-server:0.2.0 .
 ```
 
 ### Docker Run
 
 ```sh
-docker run --env-file=.env -e COZY_HOST=0.0.0.0 -p 8881:8881 -v ~/.cozy_creator:/workspace -e COZY_WORKSPACE_DIR=/workspace --gpus=all cozy-creator/gen-server:0.1.1
+docker run --env-file=.env.local -e COZY_HOST=0.0.0.0 -p 8881:8881 -v ~/.cozy_creator:/workspace -e COZY_WORKSPACE_DIR=/workspace --gpus=all cozy-creator/gen-server:0.2.0
 ```
 
 You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
