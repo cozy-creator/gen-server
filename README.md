@@ -9,6 +9,8 @@ This will generate a `.egg-info` folder. The code will be installed in editable 
 
 Repeat this for all packages you want to install. The other packages extend functionality of the gen-server by adding plugins to the current environment; on startup the gen-server will automatically load all compatible plugins in its environment.
 
+You'll also want to install PyTorch; the specific installation instructions vary depending upon your system; see here for details [here](https://pytorch.org/get-started/locally/). Be sure to use a CUDA installation if your system supports it.
+
 ### Running Gen-Server Locally
 
 Cozy Creator has the following sub-commands:

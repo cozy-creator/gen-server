@@ -1,5 +1,5 @@
-from typing import TypedDict, Any
-from abc import ABC
+from typing import TypedDict, Any, Type
+from abc import ABC, abstractmethod
 from .common import Language, Category
 
 
@@ -70,25 +70,22 @@ class CustomNode(ABC):
 
     description: dict[Language, str]
     """ Description, displayed in the client. Localized by language. """
-
-    @staticmethod
-    def update_interface(inputs: dict[str, Any]) -> NodeInterface:
-        """
-        Updates the node's interface based on the inputs.
-        """
-        ...
-
-    def __call__(self, *args, **kwargs) -> Any:
+    
+    @abstractmethod
+    def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """
         Runs the node.
         """
-        ...
+        pass
 
 
-def custom_node_validator(plugin) -> bool:
+def custom_node_validator(plugin: Any) -> bool:
     try:
         if isinstance(plugin, type):
             return issubclass(plugin, CustomNode)
-        return isinstance(plugin, CustomNode)
+        else:
+            return isinstance(plugin, CustomNode)
+        
     except TypeError:
         print(f"Invalid plugin type: {plugin}")
+        return False

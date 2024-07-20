@@ -39,10 +39,10 @@ def get_workers_count(config: RunCommandConfig) -> int:
 def start_api_server(
     config: RunCommandConfig,
     job_queue: multiprocessing.Queue,
-    checkpoint_files: dict[str, CheckpointMetadata] = None,
+    checkpoint_files: dict[str, CheckpointMetadata],
     extra_routes: Optional[dict[str, RouteDefinition]] = None
 ):
-    aiohttp_app = create_aiohttp_app(job_queue, checkpoint_files, extra_routes)
+    aiohttp_app = create_aiohttp_app(job_queue, config, checkpoint_files, extra_routes)
 
     options = {
         "bind": f"{config.host}:{config.port}",

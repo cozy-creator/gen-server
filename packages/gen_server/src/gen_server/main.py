@@ -201,7 +201,8 @@ def run_app(cozy_config: RunCommandConfig):
 
         # Gen-tasks will be placed on this by the api-server, and consumed by the
         # gpu-worker.
-        job_queue: SyncManager.Queue[JobQueueItem] = manager.Queue()
+        # Stores JobQueueItem
+        job_queue = manager.Queue()
 
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.

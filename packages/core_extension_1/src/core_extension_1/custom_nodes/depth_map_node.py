@@ -12,7 +12,6 @@ from controlnet_aux import MidasDetector
 import cv2
 from PIL import Image
 import numpy as np
-import os
 import json
 
 # Helper function 

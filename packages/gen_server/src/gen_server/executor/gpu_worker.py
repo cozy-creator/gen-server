@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def run_gpu_worker(
-    task_queue: SyncManager.Queue,
-    tensor_queue: SyncManager.Queue,
+    task_queue: queue.Queue,
+    tensor_queue: queue.Queue,
     cozy_config: RunCommandConfig,
     custom_nodes: dict[str, Type[CustomNode]],
     checkpoint_files: dict[str, CheckpointMetadata],
@@ -41,8 +41,6 @@ def run_gpu_worker(
                 response_conn.send(None)  # Signal error to API server
                 response_conn.close()
                 continue
-
-            
 
             try:
                 # Generate images in the current process

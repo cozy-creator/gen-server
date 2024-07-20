@@ -1,22 +1,26 @@
 import torch
-from gen_server.base_types import CustomNode
-from diffusers import (
-    StableDiffusionPipeline,
-    StableDiffusion3Pipeline,
-    DDIMScheduler,
-    FlowMatchEulerDiscreteScheduler,
-    StableDiffusionXLPipeline,
-    EulerDiscreteScheduler,
-    EDMDPMSolverMultistepScheduler,
-)
+
+
+from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
+from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
+from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
+from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
+from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
+from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
+
 from transformers import (
     CLIPTokenizer,
     T5TokenizerFast,
 )
-from gen_server.utils import load_models
+from typing import Optional
 from PIL import Image
 import os
 import json
+
+from gen_server.utils import load_models
+from gen_server.utils.image import aspect_ratio_to_dimensions
+from gen_server.base_types import CustomNode
 
 
 class ImageGenNode(CustomNode):
@@ -26,16 +30,13 @@ class ImageGenNode(CustomNode):
         self,
         checkpoint_id: str,
         positive_prompt: str,
-        checkpoint_files: dict,
-        architectures: dict,
         negative_prompt: str = "",
-        width: int = 512,
-        height: int = 512,
+        aspect_ratio: str = "1/1",
         num_images: int = 1,
-        guidance_scale: float = 7.5,
-        num_inference_steps: int = 50,
-        random_seed: int = None,
-    ) -> dict[str, list[Image.Image]]:
+        random_seed: Optional[int] = None,
+        checkpoint_files: dict = {},
+        architectures: dict = {},
+    ) -> dict[str, torch.Tensor]:
         """
         Args:
             checkpoint_id: ID of the pre-trained model checkpoint to use.
@@ -63,17 +64,31 @@ class ImageGenNode(CustomNode):
             match checkpoint_metadata.category:
                 case "SD1":
                     pipe = self.create_sd1_pipe(components)
+                    cfg = 7.0
+                    num_inference_steps = 25
+                    
                 case "SDXL":
                     sdxl_type = checkpoint_metadata.components["core_extension_1.vae"][
                         "input_space"
                     ].lower()
                     pipe = self.create_sdxl_pipe(components, model_type=sdxl_type)
+                    cfg = 7.0
+                    num_inference_steps = 20
+                    
                 case "SD3":
                     pipe = self.create_sd3_pipe(components)
+                    cfg = 7.0
+                    num_inference_steps = 28
+                    
                 case _:
                     raise ValueError(
                         f"Unknown category: {checkpoint_metadata.category}"
                     )
+                    
+            # Determine the width and height based on the aspect ratio and base model
+            width, height = aspect_ratio_to_dimensions(
+                aspect_ratio, checkpoint_metadata.category
+            )
 
             # More efficient dtype
             try:
@@ -90,19 +105,22 @@ class ImageGenNode(CustomNode):
                 if random_seed
                 else None
             )
-            images = pipe(
+            
+            tensor_images = pipe(
                 prompt=positive_prompt,
                 negative_prompt=negative_prompt,
                 width=width,
                 height=height,
                 num_images_per_prompt=num_images,
-                guidance_scale=guidance_scale,
+                guidance_scale=cfg,
                 num_inference_steps=num_inference_steps,
                 generator=generator,
+                output_type="pt",
             ).images
 
             del pipe
-            return {"images": images}
+            
+            return { "images": tensor_images }
 
         except Exception as e:
             raise ValueError(f"Error generating images: {e}")
@@ -131,7 +149,7 @@ class ImageGenNode(CustomNode):
         return pipe
 
     def create_sdxl_pipe(
-        self, components: dict, model_type: str = None
+        self, components: dict, model_type: Optional[str] = None
     ) -> StableDiffusionXLPipeline:
         vae = components["core_extension_1.vae"].model
         unet = components["core_extension_1.sdxl_unet"].model

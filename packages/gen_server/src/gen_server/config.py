@@ -18,6 +18,14 @@ def config_loaded() -> bool:
     return cozy_config is not None
 
 
+def set_config(config: RunCommandConfig):
+    """
+    Sets the global configuration object .
+    """
+    global cozy_config
+    cozy_config = config
+
+
 def get_config() -> RunCommandConfig:
     """
     Returns the global configuration object. This is only available if the config has been loaded, which happens at

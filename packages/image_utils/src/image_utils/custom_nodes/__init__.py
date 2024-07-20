@@ -132,7 +132,7 @@ def pil_to_tensor(image: Image) -> torch.Tensor:
     return tensor
 
 
-def tensor_to_pil(tensor: torch.Tensor) -> List[Image]:
+def tensor_to_pil(tensor: torch.Tensor) -> list[Image]:
     """
     Convert a batch of PyTorch tensors to a list of PIL Images.
 
@@ -140,7 +140,7 @@ def tensor_to_pil(tensor: torch.Tensor) -> List[Image]:
     - tensor: torch.Tensor - The tensor to convert. Assumes the tensor has a batch dimension.
 
     Returns:
-    - List[PIL.Image.Image]: The list of tensors as PIL images.
+    - list[PIL.Image.Image]: The list of tensors as PIL images.
     """
     transform = ToPILImage()
     images = [transform(t) for t in tensor]

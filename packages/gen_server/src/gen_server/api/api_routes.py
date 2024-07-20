@@ -15,9 +15,10 @@ from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
 )
-from ..globals import RouteDefinition, CheckpointMetadata
+from ..globals import RouteDefinition, CheckpointMetadata, RunCommandConfig
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
+from ..config import set_config
 
 # TO DO: get rid of this; use a more standard location
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,12 +28,15 @@ react_components = os.path.abspath(os.path.join(script_dir, "..", "react_compone
 # TO DO: eventually replace checkpoint_files with a database query instead
 def create_aiohttp_app(
     job_queue: multiprocessing.Queue,
+    config: RunCommandConfig,
     checkpoint_files: Optional[dict[str, CheckpointMetadata]] = None,
-    extra_routes: Optional[dict[str, RouteDefinition]] = None
+    extra_routes: Optional[dict[str, RouteDefinition]] = None,
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
     """
+    set_config(config) # initialize config in this process
+
     logger = logging.getLogger(__name__)
     
     app = web.Application(
@@ -86,16 +90,22 @@ def create_aiohttp_app(
             while True:
                 try:
                     # Use asyncio to make the blocking call non-blocking
-                    file_url = await asyncio.get_event_loop().run_in_executor(
+                    # Check if data is available
+                    has_data = await asyncio.get_event_loop().run_in_executor(
                         None, parent_conn.poll, 1  # 1 second timeout
                     )
 
-                    if file_url:
+                    if has_data:
+                        # Data is available, so let's receive it
+                        file_url = parent_conn.recv()
+                        
                         if file_url is None:  # Signal for completion
                             break
-                        await response.write(
-                            json.dumps({"output": file_url}).encode("utf-8") + b"\n"
-                        )
+                        else:  # We have a valid file URL
+                            await response.write(
+                                json.dumps({ "output": file_url }).encode("utf-8") + b"\n"
+                            )
+                            await response.drain()  # Ensure the data is sent immediately
                     
                     # Check if we've exceeded the total timeout
                     if asyncio.get_event_loop().time() - start_time > total_timeout:

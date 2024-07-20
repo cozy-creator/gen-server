@@ -17,7 +17,7 @@ def start_api_server(
     checkpoint_files: Optional[dict[str, CheckpointMetadata]] = None,
     extra_routes: Optional[dict[str, RouteDefinition]] = None
 ):
-    aiohttp_app = create_aiohttp_app(job_queue, checkpoint_files, extra_routes)
+    aiohttp_app = create_aiohttp_app(job_queue, config, checkpoint_files, extra_routes)
     
     async def run_app():
         runner = AppRunner(aiohttp_app)

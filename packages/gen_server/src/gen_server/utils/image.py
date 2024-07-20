@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from PIL import Image
 from gen_server.utils.load_models import from_file
+from torchvision.transforms import ToPILImage
 
 model_path = os.path.join(os.path.dirname(__file__), "models", "RealESRGAN_x8.pth")
 
@@ -90,10 +91,41 @@ def remove_background(model, image: torch.Tensor, device):
         return model(image)
 
 
-# TO DO: is this permutation correct?
-# TO DO: handle tensors with an alpha-channel maybe?
-def tensor_to_pil(tensor: torch.Tensor) -> Image.Image:
-    return Image.fromarray(tensor.byte().permute(1, 2, 0).cpu().numpy())
+def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
+    """
+    Convert a batch of PyTorch tensors to a list of PIL Images.
+
+    Parameters:
+    - tensor: torch.Tensor - The tensor to convert. Assumes the tensor has a batch dimension.
+
+    Returns:
+    - list[PIL.Image.Image]: The list of tensors as PIL images.
+    """
+    # Convert to fp16 and move to CPU
+    # ToPILImage Transform does not support bfloat16 or some other formats
+    tensor = tensor.to(dtype=torch.float16, device='cpu')
+    
+    transform = ToPILImage()
+    images = [transform(t) for t in tensor]
+    return images
+
+# def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
+#     """
+#     Expects tensor of shape [batch, dim, height, width]
+#     """
+#     # Ensure the tensor is on CPU and convert to uint8
+#     tensor = tensor.cpu().byte()
+    
+#     if tensor.dim() == 3:
+#         # Single image: CHW to HWC
+#         tensor = tensor.permute(1, 2, 0)
+#         return [Image.fromarray(tensor.numpy())]
+#     elif tensor.dim() == 4:
+#         # Batch of images: BCHW to BHWC
+#         tensor = tensor.permute(0, 2, 3, 1)
+#         return [Image.fromarray(img.numpy()) for img in tensor.unbind(0)]
+#     else:
+#         raise ValueError(f"Expected 3D or 4D tensor, got shape {tensor.shape}")
 
 
 def aspect_ratio_to_dimensions(

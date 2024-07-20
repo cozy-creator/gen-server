@@ -11,11 +11,13 @@ authors = [
 ]
 dependencies = [
     "accelerate",
+    "controlnet_aux",
     "diffusers",
     "gen_server",
     "groundingdino-py",
     "huggingface_hub",
     "image_utils",
+    "mediapipe",
     "numpy",
     "Pillow",
     "requests",

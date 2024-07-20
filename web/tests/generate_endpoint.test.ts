@@ -11,7 +11,7 @@ async function* generateImages() {
       positive_prompt:
          'beautiful anme woman, high quality, masterpiece',
       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 61,
+      random_seed: 69,
       aspect_ratio: '9/16'
    };
 

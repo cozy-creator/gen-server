@@ -16,7 +16,8 @@ class SaveImageNode(CustomNode):
                  images: Union[torch.Tensor, List[bytes]],
                  save_workflow_metadata: bool = True,
                  save_temp: bool = False,
-                 file_format: str = "webp") -> Dict[str, List[Dict[str, Any]]]:
+                 file_format: str = "webp"
+        ) -> dict[str, list[dict[str, Any]]]:
         """
         Args:
             images: A batch of image tensors or a list of byte data.
