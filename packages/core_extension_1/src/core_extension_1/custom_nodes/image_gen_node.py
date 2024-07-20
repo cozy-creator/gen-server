@@ -108,7 +108,7 @@ class ImageGenNode(CustomNode):
             
             tensor_images = pipe(
                 prompt=positive_prompt,
-                negative_prompt=negative_prompt,
+                # negative_prompt=negative_prompt,
                 width=width,
                 height=height,
                 num_images_per_prompt=num_images,
@@ -151,6 +151,7 @@ class ImageGenNode(CustomNode):
     def create_sdxl_pipe(
         self, components: dict, model_type: Optional[str] = None
     ) -> StableDiffusionXLPipeline:
+        print(components["core_extension_1.vae"])
         vae = components["core_extension_1.vae"].model
         unet = components["core_extension_1.sdxl_unet"].model
         text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
@@ -202,11 +203,12 @@ class ImageGenNode(CustomNode):
         )
         tokenizer_3 = T5TokenizerFast.from_pretrained("google/t5-v1_1-xxl")
 
-        scheduler_config = json.load(
-            open("scheduler_config.json")
-        )  # Update path if necessary
-        scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+        scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
+            "stabilityai/stable-diffusion-3-medium-diffusers", subfolder="scheduler"
+        )
+        # scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
+        print("Started SD3")
         pipe = StableDiffusion3Pipeline(
             vae=vae,
             text_encoder=text_encoder_1,
@@ -217,7 +219,9 @@ class ImageGenNode(CustomNode):
             tokenizer_3=tokenizer_3,
             transformer=unet,
             scheduler=scheduler,
-        ).to(self.DEVICE)
+        )
+
+        print("Done!")
 
         return pipe
 

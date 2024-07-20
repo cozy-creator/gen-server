@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModelWithProjection, CLIPTextConfig
 from diffusers.utils.import_utils import is_accelerate_available
@@ -10,6 +10,8 @@ import os
 import torch
 import logging
 from contextlib import nullcontext
+
+from gen_server.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
                     text_model_dict[diffusers_key] = text_encoder_state_dict[key]
 
         if is_accelerate_available():
+            print("Using accelerate")
             torch_dtype = next(text_encoder.parameters()).dtype
             unexpected_keys = load_model_dict_into_meta(
                 text_encoder, text_model_dict, dtype=torch_dtype
@@ -115,5 +118,5 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
             text_encoder.load_state_dict(text_model_dict)
             text_encoder.to(torch.float16)
 
-        text_encoder.to_empty(device=torch.device("cuda"))
+        text_encoder.to_empty(device=get_torch_device())
         # text_encoder.to("cuda")

@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import T5EncoderModel, T5Config
 from diffusers.utils.import_utils import is_accelerate_available
@@ -12,6 +12,8 @@ import re
 import torch
 import logging
 from contextlib import nullcontext
+
+from gen_server.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         text_state_dict = convert_sd3_t5_checkpoint_to_diffusers(text_dict)
 
         if is_accelerate_available():
+            print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(
                 text_encoder_3, text_state_dict, dtype=torch.float16
             )
@@ -113,4 +116,4 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
 
-        text_encoder_3.to("cuda")
+        # text_encoder_3.to("cuda")

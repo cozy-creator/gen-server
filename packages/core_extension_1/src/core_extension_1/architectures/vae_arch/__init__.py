@@ -3,7 +3,10 @@ import os
 from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 import json
 from typing import Optional, Any
-from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint, create_vae_diffusers_config_from_ldm
+from diffusers.loaders.single_file_utils import (
+    convert_ldm_vae_checkpoint,
+    create_vae_diffusers_config_from_ldm,
+)
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 import time
 import torch
@@ -11,6 +14,8 @@ from diffusers.utils.import_utils import is_accelerate_available
 from contextlib import nullcontext
 import logging
 import re
+
+from gen_server.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +33,8 @@ class VAEArch(Architecture[AutoencoderKL]):
     @staticmethod
     def _determine_type(metadata: dict[str, Any]) -> tuple[ComponentMetadata, str]:
         architecture = metadata.get("modelspec.architecture", "")
+        # print(f"metadata: {metadata}\n\n")
+        # print(f"architecture: {architecture}\n\n")
 
         if architecture == "stable-diffusion-v3-medium":
             result: ComponentMetadata = {
@@ -56,6 +63,7 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "play_config.json"
             )
+            print("In play")
         else:
             result: ComponentMetadata = {
                 "display_name": "SD1 VAE",
@@ -70,13 +78,15 @@ class VAEArch(Architecture[AutoencoderKL]):
 
     def __init__(self, metadata: dict[str, Any], **ignored: Any):
         result, config_path = self._determine_type(metadata)
+        # print(metadata)
+        # print(config_path)
         self._display_name = result["display_name"]
         self._input_space = result["input_space"]
         self._output_space = result["output_space"]
 
         with open(config_path, "r") as file:
             config = json.load(file)
-            
+
             # print(f"Metadata: {metadata}")
             ctx = init_empty_weights if is_accelerate_available() else nullcontext
             with ctx():
@@ -98,11 +108,16 @@ class VAEArch(Architecture[AutoencoderKL]):
 
         if all(key in state_dict for key in required_keys):
             component_metadata, _ = cls._determine_type(metadata)
+            # print(component_metadata)
+            print("Now in Detect")
+            # print(metadata)
             return component_metadata
 
         return None
 
-    def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None, **kwargs):
+    def load(
+        self, state_dict: StateDict, device: Optional[TorchDevice] = None, **kwargs
+    ):
         print("Loading SD VAE")
         start = time.time()
 
@@ -114,20 +129,25 @@ class VAEArch(Architecture[AutoencoderKL]):
             if key.startswith("first_stage_model.")
         }
 
-
         new_vae_state_dict = convert_ldm_vae_checkpoint(
             vae_state_dict, config=self._config
         )
+        # print(self._config)
 
         # print(new_vae_state_dict.keys())
 
         if is_accelerate_available():
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
+
             print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict)
             if vae._keys_to_ignore_on_load_unexpected is not None:
                 for pat in vae._keys_to_ignore_on_load_unexpected:
-                    unexpected_keys = [k for k in unexpected_keys if re.search(pat, k) is None]
+                    unexpected_keys = [
+                        k for k in unexpected_keys if re.search(pat, k) is None
+                    ]
+
+
 
             if len(unexpected_keys) > 0:
                 logger.warning(
@@ -136,9 +156,5 @@ class VAEArch(Architecture[AutoencoderKL]):
         else:
             vae.load_state_dict(new_vae_state_dict)
 
-        # if device is not None:
-        #     vae.to(device=device)
-
-        # vae.to("cuda")
 
         print(f"VAE state dict loaded in {time.time() - start} seconds")

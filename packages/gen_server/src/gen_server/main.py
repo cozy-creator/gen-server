@@ -226,7 +226,7 @@ def run_app(cozy_config: RunCommandConfig):
         file_handler = get_file_handler()
         architectures = get_architectures()
 
-        # print(checkpoint_files)
+        # print(architectures)
 
         # Create a process pool for the workers
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:

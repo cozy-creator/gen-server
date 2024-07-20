@@ -20,11 +20,12 @@ from torch.hub import download_url_to_file
 
 from gen_server.utils import load_state_dict_from_file
 from core_extension_1.architectures.briarmbg_arch import BriaRMBG
+from gen_server.utils.device import get_torch_device
 
 print(f"Pytorch version: {torch.__version__}")
 print(f"MPS Available: {torch.backends.mps.is_available()}")
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps")
+device = get_torch_device()
 models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
 
 # 'stablediffusionapi/realistic-vision-v51'
@@ -139,7 +140,7 @@ t2i_pipe = StableDiffusionPipeline(
     image_encoder=None,
 )
 
-mps_device = torch.device("mps")
+mps_device = torch.device(get_torch_device())
 
 t2i_pipe.enable_sequential_cpu_offload()
 # t2i_pipe.enable_attention_slicing()

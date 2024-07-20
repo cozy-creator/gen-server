@@ -7,7 +7,7 @@ from diffusers import UniPCMultistepScheduler
 import torch
 from typing import Union, List
 from gen_server.paths import get_model_path, check_model_in_path
-
+from gen_server.utils.device import get_torch_device
 
 MODEL_PATH = get_model_path("models")
 
@@ -54,7 +54,7 @@ class LoadPipeline:
                 model_path, controlnet=controlnet, torch_dtype=torch_dtype
             )
 
-        pipe = pipe.to("cuda")
+        pipe = pipe.to(get_torch_device())
         pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
         # pipe.enable_model_cpu_offload()
 
