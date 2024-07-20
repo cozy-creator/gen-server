@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from gen_server.config import get_config
 
-DEFAULT_DIST_PATH = Path('/srv/www/cozy/dist')
+DEFAULT_DIST_PATH = Path("/srv/www/cozy/dist")
+DEFAULT_WEB_DIR = Path("/srv/www/cozy/web")
 
 
 def is_running_in_docker() -> bool:
@@ -20,9 +21,24 @@ def get_web_root() -> Path:
     """
     Utility function to find the web root directory for the static file server
     """
-    dev_path = Path(__file__).parent.parent.parent.parent.parent.parent / 'web' / 'dist'
+    dev_path = Path(__file__).parent.parent.parent.parent.parent.parent / "web" / "dist"
     prod_path = DEFAULT_DIST_PATH
-    
+
+    if dev_path.exists():
+        return dev_path
+    elif prod_path.exists():
+        return prod_path
+    else:
+        raise FileNotFoundError("Neither primary nor secondary web root paths exist.")
+
+
+def get_web_dir() -> Path:
+    """
+    Utility function to find the web root directory for the static file server
+    """
+    dev_path = Path(__file__).parent.parent.parent.parent.parent.parent / "web"
+    prod_path = DEFAULT_WEB_DIR
+
     if dev_path.exists():
         return dev_path
     elif prod_path.exists():
@@ -38,7 +54,7 @@ def get_assets_dir() -> str:
     config = get_config()
     if config.assets_path:
         return config.assets_path
-    return os.path.join(config.workspace_path, 'assets')
+    return os.path.join(config.workspace_path, "assets")
 
 
 def get_models_dir() -> str:
@@ -48,7 +64,7 @@ def get_models_dir() -> str:
     config = get_config()
     if config.models_path:
         return config.models_path
-    return os.path.join(config.workspace_path, 'models')
+    return os.path.join(config.workspace_path, "models")
 
 
 def get_s3_public_url() -> str:

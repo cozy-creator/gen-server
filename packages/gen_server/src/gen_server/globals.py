@@ -16,6 +16,16 @@ DEFAULT_WORKSPACE_PATH = "~/.cozy-creator/"
 # Note: the default assets_path is [{workspace_path}/assets]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
+model_config = SettingsConfigDict(
+    case_sensitive=False,
+    cli_parse_args=True,
+    env_prefix="cozy_",
+    env_ignore_empty=True,
+    env_nested_delimiter="__",
+    env_file_encoding="utf-8",
+    extra="allow",
+)
+
 
 class FilesystemTypeEnum(str, Enum):
     LOCAL = "local"
@@ -85,6 +95,18 @@ class RunCommandConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
+
+    def __init__(self, **data: Any):
+        workspace_path = (
+            data["workspace"]
+            if data.get("workspace_path") is not None
+            else DEFAULT_WORKSPACE_PATH
+        )
+
+        print(f"Workspace path here: {workspace_path}")
+
+        ensure_env_file(workspace_path)
+        super().__init__(**data)
 
     env_file: Optional[str] = Field(
         default=None,
@@ -214,6 +236,36 @@ class BuildWebCommandConfig(BaseSettings):
     secrets_dir: Optional[str] = Field(
         default=None,
         description="Path to secrets directory",
+    )
+
+
+class InstallCommandConfig(BaseSettings):
+    """
+    Configuration for the `install` CLI command. Loaded by the pydantic-settings library
+    """
+
+    model_config = model_config
+
+    def __init__(self, **data: Any):
+        workspace_path = (
+            data["workspace"]
+            if data.get("workspace_path") is not None
+            else DEFAULT_WORKSPACE_PATH
+        )
+
+        print(f"Workspace path here: {workspace_path}")
+
+        ensure_env_file(workspace_path)
+        super().__init__(**data)
+
+    env_file: Optional[str] = Field(
+        default=None,
+        description="Path to .env file",
+    )
+
+    workspace_path: str = Field(
+        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
+        description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
     )
 
 

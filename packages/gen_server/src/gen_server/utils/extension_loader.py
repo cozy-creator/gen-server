@@ -13,12 +13,14 @@ else:
     from importlib.metadata import entry_points
 
 
-def load_custom_node_specs(custom_nodes: dict[str, type[CustomNode]]) -> dict[str, dict]:
+def load_custom_node_specs(
+    custom_nodes: dict[str, type[CustomNode]],
+) -> dict[str, dict]:
     custom_node_specs = {}
 
     for node_name, node_class in custom_nodes.items():
         try:
-            if hasattr(node_class, 'get_spec') and callable(node_class.get_spec):
+            if hasattr(node_class, "get_spec") and callable(node_class.get_spec):
                 spec = node_class.get_spec()
                 custom_node_specs[node_name] = spec
         except Exception as e:
@@ -28,6 +30,7 @@ def load_custom_node_specs(custom_nodes: dict[str, type[CustomNode]]) -> dict[st
 
 
 T = TypeVar("T")
+
 
 def load_extensions(
     entry_point_group: str, validator: Optional[Validator] = None
@@ -51,7 +54,6 @@ def load_extensions(
             continue  # Skip this entry point
         try:
             plugin = entry_point.load()
-            
 
             def _load_plugin_inner(plugin_name: str, plugin_item: T):
                 # Optionally validate the plugin, if a validator is provided

@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import argparse
 import sys
@@ -10,17 +11,17 @@ from typing import Optional
 
 from pydantic_settings import CliSettingsSource
 import multiprocessing
-from multiprocessing.managers import SyncManager
 
+from gen_server.node_definitions import produce_node_definitions_file
+from gen_server.utils.web import install_and_build_web_dir
 from .paths import clean_temp_files
 from .config import init_config
-from .base_types.common import JobQueueItem
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .utils import load_extensions, find_checkpoint_files
 from .api import start_api_server, api_routes_validator
 from .utils import load_custom_node_specs
-from .utils.paths import get_models_dir
+from .utils.paths import get_models_dir, get_web_dir
 from .utils.file_handler import get_file_handler
 from .globals import (
     get_api_endpoints,
@@ -34,6 +35,7 @@ from .globals import (
     get_architectures,
     RunCommandConfig,
     BuildWebCommandConfig,
+    InstallCommandConfig,
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import run_io_worker
@@ -41,6 +43,8 @@ from .executor.gpu_worker import run_gpu_worker
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
+
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -68,6 +72,9 @@ def main():
     # Add subcommands
     subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
     run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
+    install_parser = subparsers.add_parser(
+        "install", help="Install and prepare the Cozy environment"
+    )
     build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
 
     if subcommand == "run":
@@ -77,11 +84,6 @@ def main():
             secrets_dir=secrets_dir,
         )
 
-        # produce_node_definitions_file(
-        #     f"{cozy_config.workspace_path}/node_definitions.json"
-        # )
-
-        # print(json.dumps(cozy_config.model_dump(), indent=2, default=str))
         run_app(cozy_config)
 
     elif subcommand in ["build-web", "build_web"]:
@@ -96,6 +98,31 @@ def main():
         )
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
+    elif subcommand == "install":
+        config = InstallCommandConfig(
+            _env_file=env_file,
+            _cli_settings_source=CliSettingsSource(
+                InstallCommandConfig,
+                root_parser=install_parser,
+            ),
+        )
+
+        # Load custom node specs and save them to the workspace
+        custom_node_specs = load_custom_node_specs()
+        with open(f"{config.workspace_path}/custom_node_specs.json", "w") as f:
+            json.dump(custom_node_specs, f, indent=2)
+
+        # Produce the node definitions file
+        produce_node_definitions_file(f"{config.workspace_path}/node_definitions.json")
+
+        # Ensure the web directory exists
+        web_dir = get_web_dir()
+        if not os.path.exists(web_dir):
+            print(f"Web directory not found at {web_dir}")
+            sys.exit(1)
+
+        # Install and build the web directory
+        install_and_build_web_dir(web_dir)
 
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
