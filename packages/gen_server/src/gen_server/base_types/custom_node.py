@@ -71,6 +71,13 @@ class CustomNode(ABC):
     description: dict[Language, str]
     """ Description, displayed in the client. Localized by language. """
     
+    @staticmethod
+    def get_spec() -> dict[str, Any]:
+        """
+        Returns the custom node's specification, as a dictionary. Usually loaded from JSON.
+        """
+        return {}
+    
     @abstractmethod
     def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """

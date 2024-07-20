@@ -162,10 +162,22 @@ def run_app(cozy_config: RunCommandConfig):
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
 
-    # Load custom node specs and send them to the client
+    # Compile the custom nodes JSON spec, to be sent to clients when they first connect
     start_time_custom_nodes_specs = time.time()
-    custom_node_specs = load_custom_node_specs()
-    with open(f"{cozy_config.workspace_path}/custom_node_specs.json", "w") as f:
+    
+    custom_nodes = get_custom_nodes()
+    custom_node_specs = load_custom_node_specs(custom_nodes)
+    
+    # Ensure the directory exists and write the spec to it
+    os.makedirs(cozy_config.workspace_path, exist_ok=True)
+    
+    # TO DO: make sure the workspace path exists, also maybe put a .env.example in there too
+    
+    print(f"Cozy config workspace path: {cozy_config.workspace_path}")
+    #  ensure_env_file(workspace_path)
+
+    custom_node_specs_path = os.path.join(cozy_config.workspace_path, "custom_node_specs.json")
+    with open(custom_node_specs_path, "w") as f:
         json.dump(custom_node_specs, f, indent=2)
 
     end_time = time.time()

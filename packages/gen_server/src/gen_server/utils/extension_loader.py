@@ -5,42 +5,29 @@ import traceback
 from typing import TypeVar, Optional
 
 from gen_server.base_types.common import Validator
+from ..globals import CustomNode
 
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points
 else:
     from importlib.metadata import entry_points
 
-T = TypeVar("T")
 
-
-def load_custom_node_specs():
+def load_custom_node_specs(custom_nodes: dict[str, type[CustomNode]]) -> dict[str, dict]:
     custom_node_specs = {}
 
-    # Use importlib.metadata to find entry points for cozy_creator.custom_nodes
-    eps = entry_points()
-    if "cozy_creator.custom_nodes" in eps:
-        for ep in eps["cozy_creator.custom_nodes"]:
-            module_name, class_name = ep.value.split(":")
-            module = __import__(module_name, fromlist=[class_name])
-            if hasattr(module, class_name):
-                node_class = getattr(module, class_name)
-
-                # Create a namespace for each node using module and class names
-                namespace = f"{module_name.replace('.', '_')}.{class_name}"
-
-                try:
-                    spec = node_class.get_spec()
-
-                    # Namespace the ID to avoid clashes
-                    custom_node_specs[namespace] = spec
-                except AttributeError as e:
-                    logging.error(
-                        f"Failed to get spec for custom node {namespace}: {str(e)}"
-                    )
+    for node_name, node_class in custom_nodes.items():
+        try:
+            if hasattr(node_class, 'get_spec') and callable(node_class.get_spec):
+                spec = node_class.get_spec()
+                custom_node_specs[node_name] = spec
+        except Exception as e:
+            logging.error(f"Failed to get spec for custom node {node_name}: {str(e)}")
 
     return custom_node_specs
 
+
+T = TypeVar("T")
 
 def load_extensions(
     entry_point_group: str, validator: Optional[Validator] = None
@@ -66,7 +53,7 @@ def load_extensions(
             plugin = entry_point.load()
             
 
-            def _load_plugin_inner(plugin_name, plugin_item):
+            def _load_plugin_inner(plugin_name: str, plugin_item: T):
                 # Optionally validate the plugin, if a validator is provided
                 if validator is not None and not validator(plugin_item):
                     logging.error(f'Failed to validate plugin "{plugin_name}" type.')

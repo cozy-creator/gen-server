@@ -174,10 +174,11 @@ class SpandrelArchitectureAdapter(Architecture):
         pass
 
 
-def architecture_validator(plugin) -> bool:
+def architecture_validator(plugin: Any) -> bool:
     try:
         if isinstance(plugin, type):
             return issubclass(plugin, Architecture)
         return isinstance(plugin, Architecture)
     except TypeError:
         print(f"Invalid plugin type: {plugin}")
+        return False

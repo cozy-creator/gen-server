@@ -99,7 +99,7 @@ def build_architecture(
         @classmethod
         def detect(
             cls,
-            state_dict: Optional[StateDict] = None,
+            state_dict: StateDict,
             metadata: Optional[dict[str, Any]] = None,
         ) -> Optional[ComponentMetadata]:
             if arch_instance.detect(state_dict):
