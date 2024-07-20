@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import T5EncoderModel, T5Config
 from diffusers.utils.import_utils import is_accelerate_available
@@ -12,6 +12,8 @@ import re
 import torch
 import logging
 from contextlib import nullcontext
+
+from gen_server.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -113,4 +115,4 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
 
-        text_encoder_3.to("cuda")
+        text_encoder_3.to(get_torch_device())

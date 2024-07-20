@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.transforms.functional import normalize
 
+from gen_server.utils.device import get_torch_device
 from gen_server.utils.image import remove_background
 from gen_server.utils.load_models import from_file
 
@@ -51,12 +52,14 @@ def postprocess_image(result: torch.Tensor, im_size: list) -> np.ndarray:
 
 def rmbg(image, model_path):
     ns = "core_extension_1.isnet"
-    components = from_file(model_path, device="mps")
+    components = from_file(model_path, device=get_torch_device())
     component = components.get(ns)
     if component is None:
         raise TypeError(f"Component '{ns}' not found in model.")
 
-    (output) = remove_background(component.model, image.bfloat16(), device="mps")
+    (output) = remove_background(
+        component.model, image.bfloat16(), device=get_torch_device()
+    )
     return output[0][0]
 
 

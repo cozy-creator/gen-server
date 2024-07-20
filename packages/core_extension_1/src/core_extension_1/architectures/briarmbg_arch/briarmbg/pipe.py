@@ -8,11 +8,13 @@ from transformers import Pipeline
 from transformers.image_utils import load_image
 from PIL import Image
 
+from gen_server.utils.device import get_torch_device
+
 
 class RMBGPipe(Pipeline):
     def __init__(self, **kwargs):
         Pipeline.__init__(self, **kwargs)
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = get_torch_device()
         self.model.to(self.device)
         self.model.eval()
 
