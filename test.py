@@ -11,11 +11,18 @@ from diffusers import (
     UNet2DConditionModel,
 )
 
-from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint, convert_ldm_vae_checkpoint
+from diffusers.loaders.single_file_utils import (
+    convert_ldm_unet_checkpoint,
+    convert_ldm_vae_checkpoint,
+)
 from transformers import CLIPTextModel, CLIPTokenizer
 
+from gen_server.utils.device import get_torch_device
 
-def slice_pipeline_safetensors(safetensors_path: str, target_component: str) -> Optional[Dict[str, torch.Tensor]]:
+
+def slice_pipeline_safetensors(
+    safetensors_path: str, target_component: str
+) -> Optional[Dict[str, torch.Tensor]]:
     start_time = time.time()
     """
     Slices a pipeline safetensors file into component state dictionaries.
@@ -37,7 +44,10 @@ def slice_pipeline_safetensors(safetensors_path: str, target_component: str) -> 
     key_prefixes = {
         "unet": ["model.diffusion_model."],
         "vae": ["first_stage_model."],
-        "text_encoder": ["cond_stage_model.transformer.", "conditioner.embedders.0.transformer."],
+        "text_encoder": [
+            "cond_stage_model.transformer.",
+            "conditioner.embedders.0.transformer.",
+        ],
         "text_encoder_2": ["conditioner.embedders.1.model."],
     }
 
@@ -57,7 +67,9 @@ def slice_pipeline_safetensors(safetensors_path: str, target_component: str) -> 
     return component_state_dict if component_state_dict else None
 
 
-def load_unet(safetensors_file: str, config_file: str, device: str = "cpu") -> UNet2DConditionModel:
+def load_unet(
+    safetensors_file: str, config_file: str, device: str = "cpu"
+) -> UNet2DConditionModel:
     start_time = time.time()
     unet_state_dict = slice_pipeline_safetensors(safetensors_file, "unet")
     config = json.load(open(config_file))
@@ -74,12 +86,14 @@ def load_unet(safetensors_file: str, config_file: str, device: str = "cpu") -> U
     return unet
 
 
-def load_vae(safetensors_file: str, config_file: str, device: str = "cpu") -> AutoencoderKL:
+def load_vae(
+    safetensors_file: str, config_file: str, device: str = "cpu"
+) -> AutoencoderKL:
     start_time = time.time()
     vae_state_dict = slice_pipeline_safetensors(safetensors_file, "vae")
     config = json.load(open(config_file))
     new_vae_state_dict = convert_ldm_vae_checkpoint(vae_state_dict, config=config)
-    
+
     vae = AutoencoderKL.from_config(config)
     # vae = AutoencoderKL.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="vae")
     vae.load_state_dict(new_vae_state_dict)
@@ -89,11 +103,15 @@ def load_vae(safetensors_file: str, config_file: str, device: str = "cpu") -> Au
     return vae
 
 
-def load_text_encoder(safetensors_file: str, config_file: str, device: str = "cpu") -> CLIPTextModel:
+def load_text_encoder(
+    safetensors_file: str, config_file: str, device: str = "cpu"
+) -> CLIPTextModel:
     start_time = time.time()
-    text_encoder_state_dict = slice_pipeline_safetensors(safetensors_file, "text_encoder")
+    text_encoder_state_dict = slice_pipeline_safetensors(
+        safetensors_file, "text_encoder"
+    )
     config = json.load(open(config_file))
-    
+
     CLIPTextModel._from_config(config)
     text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
     text_encoder.load_state_dict(text_encoder_state_dict, strict=False)
@@ -104,22 +122,27 @@ def load_text_encoder(safetensors_file: str, config_file: str, device: str = "cp
 
 
 def main():
+    device = get_torch_device()
     overall_start_time = time.time()
     # Path to your pipeline safetensors file
     safetensors_file = "./models/meinamix.safetensors"
 
     start_time = time.time()
     # Load the individual components
-    unet = load_unet(safetensors_file, "unet_config.json", device="cuda")
-    vae = load_vae(safetensors_file, "vae_config.json", device="cuda")
-    text_encoder = load_text_encoder(safetensors_file, "text_encoder_config.json", device="cuda")
+    unet = load_unet(safetensors_file, "unet_config.json", device)
+    vae = load_vae(safetensors_file, "vae_config.json", device)
+    text_encoder = load_text_encoder(
+        safetensors_file, "text_encoder_config.json", device
+    )
     end_time = time.time()
     print(f"Loading individual components took {end_time - start_time:.2f} seconds")
 
     start_time = time.time()
     # Instantiate other required components
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-    scheduler = DDIMScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler")
+    scheduler = DDIMScheduler.from_pretrained(
+        "runwayml/stable-diffusion-v1-5", subfolder="scheduler"
+    )
     # safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     end_time = time.time()
     print(f"Instantiating other components took {end_time - start_time:.2f} seconds")
@@ -136,18 +159,25 @@ def main():
         feature_extractor=None,  # You can load this if you need the safety checker
     )
     end_time = time.time()
-    print(f"Creating the StableDiffusionPipeline took {end_time - start_time:.2f} seconds")
+    print(
+        f"Creating the StableDiffusionPipeline took {end_time - start_time:.2f} seconds"
+    )
 
     start_time = time.time()
     # Generate images!
     prompt = "Beautiful anime woman, masterpiece, detailed"
-    image = pipe(prompt, num_inference_steps=25, negative_prompt="poor quality, worst quality, text, watermark").images[0]
+    image = pipe(
+        prompt,
+        num_inference_steps=25,
+        negative_prompt="poor quality, worst quality, text, watermark",
+    ).images[0]
     image.save("generated_image.png")
     end_time = time.time()
     print(f"Generating the image took {end_time - start_time:.2f} seconds")
 
     overall_end_time = time.time()
     print(f"Overall time taken: {overall_end_time - overall_start_time:.2f} seconds")
+
 
 if __name__ == "__main__":
     main()

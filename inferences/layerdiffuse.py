@@ -32,7 +32,7 @@
 #     torch_dtype=torch.float16,
 # )
 #
-# pipeline.to("mps")
+# pipeline.to(get_torch_device()
 # # pipeline.enable_model_cpu_offload()
 #
 # print("sss")
@@ -49,7 +49,7 @@
 # images = pipeline(
 #     prompt=prompt,
 #     negative_prompt=negative_prompt,
-#     # generator=torch.Generator(device="mps").manual_seed(seed),
+#     # generator=torch.Generator(device=get_torch_device().manual_seed(seed),
 #     num_images_per_prompt=1,
 #     return_dict=False,
 #     torch_dtype=torch.float16,
@@ -68,7 +68,7 @@ from gen_server.utils import load_state_dict_from_file
 from core_extension_1.common.layerdiffuse.models import (
     TransparentVAEDecoder,
 )
-
+from gen_server.utils.device import get_torch_device
 
 models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
 
@@ -87,7 +87,7 @@ transparent_vae.set_transparent_decoder(
     )  # Ensure weights are loaded as float16
 )
 
-transparent_vae.to(device="mps", dtype=torch.float16)
+transparent_vae.to(device=get_torch_device(), dtype=torch.float16)
 
 print("here.... 1")
 # Load the Stable Diffusion XL pipeline
@@ -113,7 +113,7 @@ pipeline.load_lora_weights(
 
 
 print("here.... 3")
-pipeline.to(device="mps", dtype=torch.float16)
+pipeline.to(device=get_torch_device(), dtype=torch.float16)
 pipeline.enable_attention_slicing()
 
 print("here.... 4")

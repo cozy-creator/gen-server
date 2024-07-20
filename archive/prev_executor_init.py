@@ -1,19 +1,16 @@
-from concurrent.futures import Future, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
-import concurrent.futures
-from multiprocessing import process
 from multiprocessing.queues import Queue
 from multiprocessing.connection import Connection
 import queue
 import time
 import torch
-import asyncio
 import logging
-from typing import Optional, Tuple, List, Any, AsyncGenerator, Type
-from PIL import PngImagePlugin
-from PIL import Image
-from ..globals import RunCommandConfig, get_custom_nodes, get_checkpoint_files
-from ..utils.file_handler import get_file_handler, FileURL
+from typing import Optional, Tuple, List, Any, Type
+
+from gen_server.utils.device import get_torch_device
+from ..globals import RunCommandConfig, get_custom_nodes
+from ..utils.file_handler import get_file_handler
 from .io_worker import run_io_worker
 from ..globals import CheckpointMetadata, CustomNode
 import numpy as np
@@ -23,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # === Simulating the executor code ===
+
 
 # This is a fixed prebuilt workflow; it's a placeholder for now
 def generate_images(
@@ -65,7 +63,7 @@ def generate_images(
         components = load_checkpoint(
             checkpoint_metadata.file_path,
             output_keys=output_keys,
-            device="cuda",
+            device=get_torch_device(),
         )
 
         # components = load_checkpoint("SDXL VAE", "fp16")
@@ -214,7 +212,7 @@ def generate_images(
             if random_seed is not None
             else None,
         )
-        
+
         # TO DO: this is temporary until we fix the run_pipe output
         # Convert PIL images to torch tensors
         tensor_images = []
@@ -226,11 +224,11 @@ def generate_images(
             # Rearrange dimensions from (H, W, C) to (C, H, W)
             tensor_image = tensor_image.permute(2, 0, 1)
             tensor_images.append(tensor_image)
-        
+
         # Stack individual tensors into a single tensor
         tensor_images = torch.stack(tensor_images)
         del pipe
-    
+
         tensor_queue.put(pil_images)
 
     # loop = asyncio.get_event_loop()
@@ -378,6 +376,7 @@ def aspect_ratio_to_dimensions(
 # type alias for the queue item
 QueueItem = tuple[dict[str, Any], Connection]
 
+
 def run_worker(
     task_queue: Queue,
     executor: ProcessPoolExecutor,
@@ -402,7 +401,9 @@ def run_worker(
                 response_conn.close()
                 continue
 
-            io_process = run_gen_worker(data, response_conn, cozy_config, custom_nodes, checkpoint_files)
+            io_process = run_gen_worker(
+                data, response_conn, cozy_config, custom_nodes, checkpoint_files
+            )
             active_io_processes.append(io_process)
 
             # Clean up completed IO processes
@@ -415,7 +416,7 @@ def run_worker(
         except queue.Empty:
             # No new job, continue the loop
             continue
-            
+
         except Exception as e:
             logger.error(f"Unexpected error in worker: {str(e)}")
 
@@ -437,8 +438,7 @@ def run_gen_worker(
 
     # Start the IO worker process
     io_process = multiprocessing.Process(
-        target=run_io_worker,
-        args=(tensor_queue, response_conn, file_handler)
+        target=run_io_worker, args=(tensor_queue, response_conn, file_handler)
     )
     io_process.start()
 
@@ -448,7 +448,7 @@ def run_gen_worker(
             **data,
             tensor_queue=tensor_queue,
             custom_nodes=custom_nodes,
-            checkpoint_files=checkpoint_files
+            checkpoint_files=checkpoint_files,
         )
     except Exception as e:
         logger.error(f"Error in image generation: {str(e)}")

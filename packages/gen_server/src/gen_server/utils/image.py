@@ -4,6 +4,8 @@ from typing import Union
 import numpy as np
 import torch
 from PIL import Image
+
+from gen_server.utils.device import get_torch_device
 from gen_server.utils.load_models import from_file
 from torchvision.transforms import ToPILImage
 
@@ -61,14 +63,14 @@ def upscale_image(
     model_path: str,
     output_path: str,
 ):
-    components = from_file(model_path, device="mps")
+    components = from_file(model_path, get_torch_device())
     component = components.get(component_namespace)
     if component is None:
         raise TypeError(f"Component '{component_namespace}' not found in model.")
 
     input_tensor = image_to_tensor(image_path)
     with torch.no_grad():
-        output_tensor = component.model(input_tensor.to("mps"))
+        output_tensor = component.model(input_tensor.to(get_torch_device()))
 
         output_img = torch_bgr_to_pil_image(output_tensor)
         save_image(output_img, output_path)
@@ -103,11 +105,12 @@ def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
     """
     # Convert to fp16 and move to CPU
     # ToPILImage Transform does not support bfloat16 or some other formats
-    tensor = tensor.to(dtype=torch.float16, device='cpu')
-    
+    tensor = tensor.to(dtype=torch.float16, device="cpu")
+
     transform = ToPILImage()
     images = [transform(t) for t in tensor]
     return images
+
 
 # def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
 #     """
@@ -115,7 +118,7 @@ def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
 #     """
 #     # Ensure the tensor is on CPU and convert to uint8
 #     tensor = tensor.cpu().byte()
-    
+
 #     if tensor.dim() == 3:
 #         # Single image: CHW to HWC
 #         tensor = tensor.permute(1, 2, 0)

@@ -3,6 +3,7 @@ from diffusers import DiffusionPipeline
 
 from .registry import node_registry
 from ..state import RunnerState
+from ...utils.device import get_torch_device
 
 
 class CheckpointLoader(BaseNode):
@@ -14,7 +15,7 @@ class CheckpointLoader(BaseNode):
     def __call__(self, state: RunnerState):
         pipe = DiffusionPipeline.from_pretrained("")
         if pipe:
-            pipe.to("cuda")
+            pipe.to(get_torch_device())
 
         return {"pipe": pipe}
 
