@@ -7,7 +7,7 @@ from aiohttp import web
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from gen_server.paths import ensure_env_file
+from .utils.paths import is_running_in_docker
 from . import CustomNode
 from .base_types import Architecture, CheckpointMetadata
 
@@ -102,7 +102,7 @@ class RunCommandConfig(BaseSettings):
     )
 
     host: str = Field(
-        default="127.0.0.1",
+        default_factory=lambda: "0.0.0.0" if is_running_in_docker() else "localhost",
         description="Hostname or IP-address",
     )
 

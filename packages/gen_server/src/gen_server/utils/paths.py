@@ -5,6 +5,17 @@ from gen_server.config import get_config
 DEFAULT_DIST_PATH = Path('/srv/www/cozy/dist')
 
 
+def is_running_in_docker() -> bool:
+    """
+    Determines if our process is currently in a docker environment or not.
+    """
+    container_env = os.environ.get('container')
+    if container_env == 'docker':
+        return True
+    else:
+        return os.path.exists('/.dockerenv')
+
+
 def get_web_root() -> Path:
     """
     Utility function to find the web root directory for the static file server

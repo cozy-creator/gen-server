@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu12
     torch torchvision torchaudio
 
 # Install the gen_server package and its plugin-packages
-RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server && \
+RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
     pip install ./packages/image_utils && \
     pip install ./packages/core_extension_1
 

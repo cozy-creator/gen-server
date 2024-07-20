@@ -43,6 +43,7 @@ dependencies = [
 [project.optional-dependencies]
 performance = [
     "accelerate",
+    "triton",
     "xformers"
 ]
 
