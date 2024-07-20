@@ -3,7 +3,7 @@ from gen_server.base_types import CustomNode
 import sys
 import os
 
-from ..depth_anything.depth_anything_v2.dpt import DepthAnythingV2
+from .depth_anything.depth_anything_v2.dpt import DepthAnythingV2
 
 from controlnet_aux import MidasDetector
 import cv2
