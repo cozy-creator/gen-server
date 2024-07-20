@@ -81,7 +81,7 @@ docker build -t cozy-creator/gen-server:0.2.1 .
 
 ### Docker Run
 
-Note that in windows, we add the `MSYS_NO_PATHCONV=1` flag because Windows dcommand line doesn't know how to interpet paths. Note that in Docker, route paths in the container must be absolute, so ~/.cozy-creator won't work. This command below assumes the container is running as root:
+Note that in windows, we add the `MSYS_NO_PATHCONV=1` flag because Windows dcommand line doesn't know how to interpet paths. Note that in Docker, destination route paths must be absolute, so `~/.cozy-creator` won't work; you must use `/root/.cozy-creator` or whever your user's home directory is. This command below assumes the container is running as root user:
 
 ```sh
 MSYS_NO_PATHCONV=1 docker run \
@@ -104,6 +104,15 @@ docker run \
   -e COZY_AUX_MODELS_PATHS='["/models"]' \
   cozy-creator/gen-server:0.2.1
 ```
+
+### Hugging Face Hub Model Caching
+
+By default Cozy Creator stores models inside of `~/.cozy-creator/models`, but we also use Hugging Face Hub. If you have models downloaded from Hugging Face Hub by another program, we'll be able to load them in from your local filesystem when they're needed, and if they're not present we'll use Hugging Face Hub to download them.
+
+Hugging Face by default caches all models in `~/.cache/huggingface/hub`. You can change this default location by setting the environment variable `HF_HOME` to a new path. You can also set the environment variable flag `HF_HUB_OFFLINE=1` if you don't want to download models from the internet at all.
+
+See [here for more details.](https://huggingface.co/docs/transformers/main/en/installation#cache-setup)
+
 
 ### Gen-Server Spec
 
