@@ -7,7 +7,8 @@ name = "gen_server"
 description = "Generative-AI server for content production"
 version = "0.2.0"
 authors = [
-    { name = "Paul Fidika", email = "paul@fidika.com" }
+    { name = "Paul Fidika", email = "paul@fidika.com" },
+    { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" }
 ]
 
 dependencies = [

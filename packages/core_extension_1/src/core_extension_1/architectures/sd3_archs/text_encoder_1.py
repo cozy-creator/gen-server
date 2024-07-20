@@ -91,6 +91,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
                     text_model_dict[diffusers_key] = text_encoder_state_dict[key]
 
         if is_accelerate_available():
+            print("Using accelerate")
             torch_dtype = next(text_encoder.parameters()).dtype
             unexpected_keys = load_model_dict_into_meta(
                 text_encoder, text_model_dict, dtype=torch_dtype

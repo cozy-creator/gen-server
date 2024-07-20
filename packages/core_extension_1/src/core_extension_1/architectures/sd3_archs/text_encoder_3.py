@@ -95,6 +95,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         text_state_dict = convert_sd3_t5_checkpoint_to_diffusers(text_dict)
 
         if is_accelerate_available():
+            print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(
                 text_encoder_3, text_state_dict, dtype=torch.float16
             )
@@ -113,4 +114,4 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             text_encoder_3.load_state_dict(text_state_dict)
             text_encoder_3.to(torch.float16)
 
-        text_encoder_3.to("cuda")
+        # text_encoder_3.to("cuda")

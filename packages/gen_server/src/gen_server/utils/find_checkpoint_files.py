@@ -81,6 +81,8 @@ def find_checkpoint_files(models_paths: List[str]) -> dict[str, CheckpointMetada
                     )
                     continue
 
+        # print(checkpoint_metadata)
+
     return checkpoint_metadata
 
 

@@ -30,6 +30,7 @@ def from_file(
     device: Optional[TorchDevice] = None,
     registry: dict[str, Type[Architecture]] = ARCHITECTURES,
 ) -> dict[str, Architecture]:
+    # print(registry)
     """
     Loads a model from a file path. It detects the architecture, instantiates the
     architecture, and loads the state dict into the PyTorch class.
@@ -38,9 +39,10 @@ def from_file(
     Returns an empty dictionary if no supported model architecture is found.
     """
     state_dict = load_state_dict_from_file(path, device=device)
-    # metadata = read_safetensors_metadata(path)
+    metadata = read_safetensors_metadata(path)
+    # print(path)
 
-    return from_state_dict(state_dict, {}, device, registry)
+    return from_state_dict(state_dict, metadata, device, registry)
 
 
 def from_state_dict(
@@ -79,12 +81,20 @@ def components_from_state_dict(
     """
     components: dict[str, Architecture] = {}
 
+    # print(metadata)
+
+
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
+            # print("Now in load model")
+            # print(metadata)
+            # print(architecture)
+            # print("Done above")
             checkpoint_metadata = architecture.detect(
                 state_dict=state_dict, metadata=metadata
             )
-
+            # print(checkpoint_metadata)
+            # print("Done in load model")
             # detect_signature = inspect.signature(architecture.detect)
             # if 'state_dict' in detect_signature.parameters and 'metadata' in detect_signature.parameters:
             #     checkpoint_metadata = architecture.detect(state_dict=state_dict, metadata=metadata)
@@ -98,7 +108,7 @@ def components_from_state_dict(
             checkpoint_metadata = None
 
         if checkpoint_metadata is not None:
-            model = architecture(metadata=checkpoint_metadata)
+            model = architecture(metadata=metadata)
             components.update({arch_id: model})
 
     return components
