@@ -39,8 +39,11 @@ def install_and_build_web_dir(directory):
         print("'\nSuccessfully built web assets... \n")
 
     except FileNotFoundError:
-        logger.error("npm is not installed")
+        print("npm is not installed")
+        sys.exit(1)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Command '{e.cmd}' failed with code {e.returncode}.")
+        print(f"Command '{e.cmd}' failed with code {e.returncode}.")
+        sys.exit(1)
     except Exception as e:
-        logger.error(f"An error occurred while running npm commands: {e}")
+        print(f"An error occurred while running npm commands: {e}")
+        sys.exit(1)

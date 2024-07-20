@@ -112,9 +112,6 @@ def main():
         with open(f"{config.workspace_path}/custom_node_specs.json", "w") as f:
             json.dump(custom_node_specs, f, indent=2)
 
-        # Produce the node definitions file
-        produce_node_definitions_file(f"{config.workspace_path}/node_definitions.json")
-
         # Ensure the web directory exists
         web_dir = get_web_dir()
         if not os.path.exists(web_dir):
