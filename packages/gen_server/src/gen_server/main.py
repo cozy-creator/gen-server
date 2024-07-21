@@ -108,11 +108,6 @@ def main():
             ),
         )
 
-        # Load custom node specs and save them to the workspace
-        custom_node_specs = load_custom_node_specs(get_custom_nodes())
-        with open(f"{config.workspace_path}/custom_node_specs.json", "w") as f:
-            json.dump(custom_node_specs, f, indent=2)
-
         # Ensure the web directory exists
         web_dir = get_web_dir()
         if not os.path.exists(web_dir):
@@ -199,12 +194,6 @@ def run_app(cozy_config: RunCommandConfig):
     print(f"Cozy config workspace path: {cozy_config.workspace_path}")
     ensure_workspace_path(cozy_config.workspace_path)
 
-    custom_node_specs_path = os.path.join(
-        cozy_config.workspace_path, "custom_node_specs.json"
-    )
-    with open(custom_node_specs_path, "w") as f:
-        json.dump(custom_node_specs, f, indent=2)
-
     end_time = time.time()
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time_custom_nodes_specs:.2f} seconds"
@@ -245,13 +234,14 @@ def run_app(cozy_config: RunCommandConfig):
         # files into the io-worker process.
         tensor_queue = manager.Queue()
 
+        # Load custom node specs and save them to the workspace
+
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
         file_handler = get_file_handler()
         architectures = get_architectures()
-
-        # print(architectures)
+        node_specs = load_custom_node_specs(custom_nodes)
 
         # Create a process pool for the workers
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
@@ -262,6 +252,7 @@ def run_app(cozy_config: RunCommandConfig):
                     job_queue,
                     checkpoint_files,
                     api_endpoints,
+                    node_specs,
                 ),
                 executor.submit(
                     run_gpu_worker,
@@ -271,6 +262,7 @@ def run_app(cozy_config: RunCommandConfig):
                     custom_nodes,
                     checkpoint_files,
                     architectures,
+                    node_specs,
                 ),
                 executor.submit(run_io_worker, tensor_queue, file_handler),
             ]

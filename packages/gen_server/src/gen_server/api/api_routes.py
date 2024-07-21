@@ -1,12 +1,9 @@
 import os
-from concurrent.futures import ProcessPoolExecutor
 import json
 import multiprocessing
-from queue import Queue
-from typing import List, Tuple, Dict, Optional, Any, Iterable
+from typing import Tuple, Optional, Any, Iterable
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
-import aiohttp_cors
 import asyncio
 import logging
 import blake3
@@ -17,6 +14,7 @@ from ..utils.file_handler import (
 )
 from ..globals import RouteDefinition, CheckpointMetadata
 from ..base_types.pydantic_models import RunCommandConfig
+
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
 from ..config import set_config
@@ -32,14 +30,15 @@ def create_aiohttp_app(
     config: RunCommandConfig,
     checkpoint_files: Optional[dict[str, CheckpointMetadata]] = None,
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
+    _node_specs: Optional[dict[str, Any]] = None,
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
     """
-    set_config(config) # initialize config in this process
+    set_config(config)  # initialize config in this process
 
     logger = logging.getLogger(__name__)
-    
+
     app = web.Application(
         middlewares=[
             cors_middleware(allow_all=True)  # Enable CORS for all routes
@@ -65,7 +64,7 @@ def create_aiohttp_app(
         """
         Submits generation requests from the user to the queue and streams the results.
         """
-        
+
         response = web.StreamResponse(
             status=200, reason="OK", headers={"Content-Type": "application/json"}
         )
@@ -74,7 +73,7 @@ def create_aiohttp_app(
         try:
             # TO DO: validate these types using something like pydantic
             data = await request.json()
-            
+
             # Print out a message about the data received
             logger.info(f"Received generation request with data: {data}")
 
@@ -93,21 +92,25 @@ def create_aiohttp_app(
                     # Use asyncio to make the blocking call non-blocking
                     # Check if data is available
                     has_data = await asyncio.get_event_loop().run_in_executor(
-                        None, parent_conn.poll, 1  # 1 second timeout
+                        None,
+                        parent_conn.poll,
+                        1,  # 1 second timeout
                     )
 
                     if has_data:
                         # Data is available, so let's receive it
                         file_url = parent_conn.recv()
-                        
+
                         if file_url is None:  # Signal for completion
                             break
                         else:  # We have a valid file URL
                             await response.write(
-                                json.dumps({ "output": file_url }).encode("utf-8") + b"\n"
+                                json.dumps({"output": file_url}).encode("utf-8") + b"\n"
                             )
-                            await response.drain()  # Ensure the data is sent immediately
-                    
+                            await (
+                                response.drain()
+                            )  # Ensure the data is sent immediately
+
                     # Check if we've exceeded the total timeout
                     if asyncio.get_event_loop().time() - start_time > total_timeout:
                         raise TimeoutError("Operation timed out")
@@ -122,18 +125,19 @@ def create_aiohttp_app(
 
         except TimeoutError as e:
             logger.error(f"Generation timed out: {str(e)}")
-            await response.write(json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n")
+            await response.write(
+                json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+            )
         except Exception as e:
             logger.error(f"Error in generation: {str(e)}")
             await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
         finally:
-            if 'parent_conn' in locals():
+            if "parent_conn" in locals():
                 parent_conn.close()
 
         await response.write_eof()
-        
-        return response
 
+        return response
 
     # This does inference using an arbitrary hugging face repo
     # @routes.post("/generate-from-repo")
@@ -171,7 +175,6 @@ def create_aiohttp_app(
     #     await response.write_eof()
 
     #     return response
-
 
     @routes.post("/upload")
     async def handle_upload(request: web.Request) -> web.Response:
@@ -221,7 +224,6 @@ def create_aiohttp_app(
             print(f"Error uploading file: {e}")
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
-
     # TO DO: replace this with a database, so that the client can query for available assets
     @routes.get("/media")
     async def list_files(_request: web.Request) -> web.Response:
@@ -232,7 +234,6 @@ def create_aiohttp_app(
             return web.json_response({"success": True, "files": files}, status=200)
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
-
 
     @routes.get("/react-components")
     async def get_react_components(_req: web.Request) -> web.Response:
@@ -249,8 +250,9 @@ def create_aiohttp_app(
                 # Store the file name and content in the dictionary
                 components[filename.replace(".js", "")] = content.strip()
 
-        return web.Response(text=json.dumps(components), content_type="application/json")
-
+        return web.Response(
+            text=json.dumps(components), content_type="application/json"
+        )
 
     @routes.get("/{filename:.*}")
     async def serve_file(request: web.Request) -> web.Response:
@@ -302,7 +304,7 @@ def create_aiohttp_app(
 
     # Store a reference to the queue in the aiohttp-application state
     # app['job_queue'] = queue
-    
+
     return app
 
     # runner = web.AppRunner(app)

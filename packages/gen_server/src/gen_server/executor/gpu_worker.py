@@ -1,19 +1,14 @@
-import concurrent.futures
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing.managers import SyncManager
-from multiprocessing import Queue, Process, Manager
-from multiprocessing.connection import Connection
-import multiprocessing
+from platform import node
 import queue
-from typing import Type, Any
+from typing import Optional, Type, Any
+
 
 from ..base_types.pydantic_models import RunCommandConfig
-from ..utils.file_handler import get_file_handler
 from ..globals import CustomNode, CheckpointMetadata
-from ..base_types.common import JobQueueItem
 from .workflows import generate_images
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -24,7 +19,8 @@ def run_gpu_worker(
     cozy_config: RunCommandConfig,
     custom_nodes: dict[str, Type[CustomNode]],
     checkpoint_files: dict[str, CheckpointMetadata],
-    architectures: dict
+    architectures: dict,
+    _node_specs: Optional[dict[str, Any]] = None,
 ):
     logger = logging.getLogger(__name__)
 
@@ -45,7 +41,7 @@ def run_gpu_worker(
             try:
                 # Generate images in the current process
                 generate_images(
-                    task_data = data,
+                    task_data=data,
                     tensor_queue=tensor_queue,
                     response_conn=response_conn,
                     custom_nodes=custom_nodes,
@@ -64,12 +60,11 @@ def run_gpu_worker(
         except queue.Empty:
             # No new job, continue the loop
             continue
-            
+
         except Exception as e:
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
 
     logger.info("GPU-worker shut down complete")
-
 
 
 # async def run_worker(request_queue: multiprocessing.Queue):

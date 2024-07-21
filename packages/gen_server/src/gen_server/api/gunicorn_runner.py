@@ -1,4 +1,3 @@
-import os
 import multiprocessing
 import aiohttp.web
 from typing import Optional, Any
@@ -19,11 +18,11 @@ class Application(BaseApplication):
         if self.cfg is not None:
             for key, value in self.options.items():
                 if (
-                    hasattr(self.cfg, 'settings')
+                    hasattr(self.cfg, "settings")
                     and key in self.cfg.settings
                     and value is not None
                 ):
-                    if hasattr(self.cfg, 'set'):
+                    if hasattr(self.cfg, "set"):
                         self.cfg.set(key.lower(), value)
 
     def load(self):
@@ -31,7 +30,7 @@ class Application(BaseApplication):
 
 
 def get_workers_count(config: RunCommandConfig) -> int:
-    if (config.environment == "prod"):
+    if config.environment == "prod":
         return min((multiprocessing.cpu_count() * 2), 12)
     else:
         return 2
@@ -41,18 +40,23 @@ def start_api_server(
     config: RunCommandConfig,
     job_queue: multiprocessing.Queue,
     checkpoint_files: dict[str, CheckpointMetadata],
-    extra_routes: Optional[dict[str, RouteDefinition]] = None
+    extra_routes: Optional[dict[str, RouteDefinition]] = None,
+    node_specs: Optional[dict[str, Any]] = None,
 ):
-    aiohttp_app = create_aiohttp_app(job_queue, config, checkpoint_files, extra_routes)
+    aiohttp_app = create_aiohttp_app(
+        job_queue,
+        config,
+        checkpoint_files,
+        extra_routes,
+        node_specs,
+    )
 
     options = {
         "bind": f"{config.host}:{config.port}",
         "workers": get_workers_count(config),
         "worker_class": "aiohttp.GunicornWebWorker",
     }
-    
+
     # Use gunicorn process manager as a wrapper for spawning aiohttp processes
     application = Application(aiohttp_app, options)
     application.run()
-    
-
