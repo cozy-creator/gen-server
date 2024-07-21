@@ -1,6 +1,8 @@
 import os
 import shutil
 
+from gen_server.templates.env import ENV_TEMPLATE
+
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 folders = {
@@ -152,10 +154,7 @@ def check_model_in_path(model_id, model_path):
 
 
 def ensure_workspace_path(path: str):
-    subdirs = [
-        "models",
-        ["assets", "temp"]
-    ]
+    subdirs = ["models", ["assets", "temp"]]
 
     path = os.path.expanduser(path)
     if not os.path.exists(path):
@@ -170,20 +169,17 @@ def ensure_workspace_path(path: str):
         if not os.path.exists(subdir_path):
             os.makedirs(subdir_path, exist_ok=True)
 
+    # We also ensure the .env file exists in the workspace
+    ensure_env_file(path)
+
 
 def ensure_env_file(workspace_path: str):
-    ensure_workspace_path(workspace_path)
     try:
         env_path = os.path.expanduser(os.path.join(workspace_path, ".env"))
         if not os.path.exists(env_path):
-            # Path to the .env.example file in the project root
-            example_path = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "..", "..", "..", "..", ".env.example"
-                )
-            )
+            with open(env_path, "w") as f:
+                f.write(ENV_TEMPLATE)
 
-            shutil.copyfile(example_path, env_path)
     except Exception as e:
         print(f"Error while creating initializing env file: {str(e)}")
 

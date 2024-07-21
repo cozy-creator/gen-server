@@ -12,9 +12,8 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
-from gen_server.node_definitions import produce_node_definitions_file
 from gen_server.utils.web import install_and_build_web_dir
-from .paths import clean_temp_files
+from .paths import clean_temp_files, ensure_workspace_path
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
@@ -197,10 +196,8 @@ def run_app(cozy_config: RunCommandConfig):
     # Ensure the directory exists and write the spec to it
     os.makedirs(cozy_config.workspace_path, exist_ok=True)
 
-    # TO DO: make sure the workspace path exists, also maybe put a .env.example in there too
-
     print(f"Cozy config workspace path: {cozy_config.workspace_path}")
-    #  ensure_env_file(workspace_path)
+    ensure_workspace_path(cozy_config.workspace_path)
 
     custom_node_specs_path = os.path.join(
         cozy_config.workspace_path, "custom_node_specs.json"
