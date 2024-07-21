@@ -220,3 +220,29 @@ class BuildWebCommandConfig(BaseSettings):
         default=None,
         description="Path to secrets directory",
     )
+
+
+class InstallCommandConfig(BaseSettings):
+    """
+    Configuration for the `install` CLI command. Loaded by the pydantic-settings library
+    """
+
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        cli_parse_args=True,
+        env_prefix="cozy_",
+        env_ignore_empty=True,
+        env_nested_delimiter="__",
+        env_file_encoding="utf-8",
+        extra="allow",
+    )
+
+    env_file: Optional[str] = Field(
+        default=None,
+        description="Path to .env file",
+    )
+
+    workspace_path: str = Field(
+        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
+        description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
+    )
