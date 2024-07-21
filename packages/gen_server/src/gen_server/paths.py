@@ -169,13 +169,13 @@ def ensure_workspace_path(path: str):
         if not os.path.exists(subdir_path):
             os.makedirs(subdir_path, exist_ok=True)
 
-    # We also ensure the .env file exists in the workspace
-    ensure_env_file(path)
+    # We also ensure the .env.example file exists in the workspace
+    ensure_env_example_file(path)
 
 
-def ensure_env_file(workspace_path: str):
+def ensure_env_example_file(workspace_path: str):
     try:
-        env_path = os.path.expanduser(os.path.join(workspace_path, ".env"))
+        env_path = os.path.expanduser(os.path.join(workspace_path, ".env.example"))
         if not os.path.exists(env_path):
             with open(env_path, "w") as f:
                 f.write(ENV_TEMPLATE)
