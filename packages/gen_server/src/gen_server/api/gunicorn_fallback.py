@@ -6,7 +6,8 @@ import multiprocessing
 from aiohttp.web import AppRunner, TCPSite
 from aiohttp.web_app import Application
 from typing import Optional
-from ..globals import RunCommandConfig, RouteDefinition, CheckpointMetadata
+from ..globals import RouteDefinition, CheckpointMetadata
+from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
 
 

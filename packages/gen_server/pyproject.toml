@@ -54,6 +54,7 @@ cozy-creator = "gen_server.main:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["gen_server*"]
+exclude = ["tests", "tests.*"]
 namespaces = false
 
 [tool.setuptools.package-data]

@@ -15,7 +15,8 @@ from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
 )
-from ..globals import RouteDefinition, CheckpointMetadata, RunCommandConfig
+from ..globals import RouteDefinition, CheckpointMetadata
+from ..base_types.pydantic_models import RunCommandConfig
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
 from ..config import set_config
@@ -293,10 +294,11 @@ def create_aiohttp_app(
     app.add_routes(routes)
 
     # Register all API endpoints added by extensions
-    for _name, api_routes in extra_routes.items():
-        # TO DO: consider adding prefixes to the routes based on extension-name?
-        # How can we overwrite built-in routes
-        app.router.add_routes(api_routes)
+    if extra_routes is not None:
+        for _name, api_routes in extra_routes.items():
+            # TO DO: consider adding prefixes to the routes based on extension-name?
+            # How can we overwrite built-in routes
+            app.router.add_routes(api_routes)
 
     # Store a reference to the queue in the aiohttp-application state
     # app['job_queue'] = queue

@@ -31,10 +31,9 @@ from .globals import (
     update_widgets,
     update_checkpoint_files,
     get_checkpoint_files,
-    get_architectures,
-    RunCommandConfig,
-    BuildWebCommandConfig,
+    get_architectures
 )
+from .base_types.pydantic_models import RunCommandConfig, BuildWebCommandConfig
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import run_io_worker
 from .executor.gpu_worker import run_gpu_worker

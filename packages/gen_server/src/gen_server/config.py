@@ -1,8 +1,10 @@
 import os
-from pydantic_settings import CliSettingsSource
-from .globals import RunCommandConfig, FilesystemTypeEnum, DEFAULT_WORKSPACE_PATH
 import argparse
 from typing import Optional, List, Callable, Union
+from pydantic_settings import CliSettingsSource
+
+from .base_types.pydantic_models import RunCommandConfig, FilesystemTypeEnum, DEFAULT_WORKSPACE_PATH
+
 
 cozy_config: Optional[RunCommandConfig] = None
 """

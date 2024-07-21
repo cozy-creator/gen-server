@@ -5,7 +5,7 @@ import traceback
 from typing import TypeVar, Optional
 
 from gen_server.base_types.common import Validator
-from ..globals import CustomNode
+from ..base_types import CustomNode
 
 if sys.version_info < (3, 10):
     from importlib_metadata import entry_points

@@ -4,7 +4,8 @@ import aiohttp.web
 from typing import Optional, Any
 from gunicorn.app.base import BaseApplication
 
-from ..globals import RunCommandConfig, RouteDefinition, CheckpointMetadata
+from ..globals import RouteDefinition, CheckpointMetadata
+from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
 
 

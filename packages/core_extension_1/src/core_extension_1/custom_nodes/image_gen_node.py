@@ -96,8 +96,12 @@ class ImageGenNode(CustomNode):
             except:
                 pass
 
-            # Enable CPU offloading
+            # Optional Efficiency gains.
+            # Enable_xformers_memory_efficient_attention can save memory usage and increase inference speed.
+            # enable_model_cpu_offload and enable_vae_tiling can save memory usage.
+            pipe.enable_xformers_memory_efficient_attention()
             pipe.enable_model_cpu_offload()
+            pipe.enable_vae_tiling()
 
             # Run the pipeline
             generator = (

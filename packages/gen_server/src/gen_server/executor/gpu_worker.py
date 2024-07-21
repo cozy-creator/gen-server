@@ -7,7 +7,7 @@ import multiprocessing
 import queue
 from typing import Type, Any
 
-from ..config import RunCommandConfig
+from ..base_types.pydantic_models import RunCommandConfig
 from ..utils.file_handler import get_file_handler
 from ..globals import CustomNode, CheckpointMetadata
 from ..base_types.common import JobQueueItem

@@ -2,6 +2,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import torch
+import struct
+import json
 from typing import Type, Optional, Any
 from safetensors.torch import load_file as safetensors_load_file
 from spandrel import canonicalize_state_dict
@@ -10,14 +12,8 @@ from spandrel.__helpers.unpickler import (
 )  # probably shouldn't import from private modules...
 
 from ..base_types import Architecture, StateDict, TorchDevice, ComponentMetadata
-from ..globals import get_architectures
-
-import struct
-import json
 
 METADATA_HEADER_SIZE = 8
-
-ARCHITECTURES = get_architectures()
 
 
 # TO DO: make this more efficient; we don't want to have to evaluate EVERY architecture
@@ -28,9 +24,8 @@ ARCHITECTURES = get_architectures()
 def from_file(
     path: str | Path,
     device: Optional[TorchDevice] = None,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
+    registry: dict[str, Type[Architecture]] = None,
 ) -> dict[str, Architecture]:
-    # print(registry)
     """
     Loads a model from a file path. It detects the architecture, instantiates the
     architecture, and loads the state dict into the PyTorch class.
@@ -40,7 +35,6 @@ def from_file(
     """
     state_dict = load_state_dict_from_file(path, device=device)
     metadata = read_safetensors_metadata(path)
-    # print(path)
 
     return from_state_dict(state_dict, metadata, device, registry)
 
@@ -49,7 +43,7 @@ def from_state_dict(
     state_dict: StateDict,
     metadata: dict[str, Any] = {},
     device: Optional[TorchDevice] = None,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
+    registry: dict[str, Type[Architecture]] = None,
 ) -> dict[str, Architecture]:
     """
     Load a model from the given state dict.
@@ -66,23 +60,23 @@ def from_state_dict(
         except Exception as e:
             print(e)
 
-
     return components
 
 
 def components_from_state_dict(
     state_dict: StateDict,
     metadata: dict,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
+    registry: dict[str, Type[Architecture]] = None,
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load the state-dict into
     memory however; it only calls the Architecture's constructor to return a class instance.
     """
     components: dict[str, Architecture] = {}
-
-    # print(metadata)
-
+    
+    if (registry == None):
+        from ..globals import _ARCHITECTURES
+        registry = _ARCHITECTURES
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
@@ -206,7 +200,7 @@ def read_safetensors_metadata(file_path: str | Path) -> dict[str, Any]:
 def find_component_models(
     state_dict: StateDict,
     metadata: Optional[dict] = None,
-    registry: dict[str, Type[Architecture]] = ARCHITECTURES,
+    registry: dict[str, Type[Architecture]] = None,
 ) -> dict[str, ComponentMetadata]:
     """
     Detect all models present inside of a state dict, and return a dict. The keys of
@@ -215,6 +209,10 @@ def find_component_models(
     if it were instantiated using this same state-dict + metadata.
     """
     components: dict[str, ComponentMetadata] = {}
+    
+    if (registry == None):
+        from ..globals import _ARCHITECTURES
+        registry = _ARCHITECTURES
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
         try:
