@@ -3,13 +3,13 @@ import { describe, it, expect } from 'vitest';
 async function* generateImages() {
    const requestBody = {
       models: {
-         break_domain_xl_v05g: 1,
-         citron_anime_treasure_v10: 2,
-         dark_sushi_25d_v40: 2,
+         break_domain_xl_v05g: 4,
+         citron_anime_treasure_v10: 4,
+         dark_sushi_25d_v40: 4,
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
-      positive_prompt:
-         'beautiful anme woman, high quality, masterpiece',
+      positive_prompt: 'woman with red hair on a spaceship, full body shot, ' +
+         'beautiful, high quality, hyper-realism, digital art',
       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
       random_seed: 69,
       aspect_ratio: '9/16'

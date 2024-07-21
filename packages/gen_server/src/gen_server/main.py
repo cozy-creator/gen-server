@@ -98,15 +98,15 @@ def main():
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
     elif subcommand == "install":
         config = InstallCommandConfig(
-            _env_file=env_file,
-            _cli_settings_source=CliSettingsSource(
+            _env_file=env_file, # type: ignore
+            _cli_settings_source=CliSettingsSource( # type: ignore
                 InstallCommandConfig,
                 root_parser=install_parser,
             ),
         )
 
         # Load custom node specs and save them to the workspace
-        custom_node_specs = load_custom_node_specs()
+        custom_node_specs = load_custom_node_specs(get_custom_nodes())
         with open(f"{config.workspace_path}/custom_node_specs.json", "w") as f:
             json.dump(custom_node_specs, f, indent=2)
 
