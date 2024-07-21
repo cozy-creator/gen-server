@@ -2,13 +2,11 @@ from platform import node
 import queue
 from typing import Optional, Type, Any
 
-
 from ..base_types.pydantic_models import RunCommandConfig
 from ..globals import CustomNode, CheckpointMetadata
 from .workflows import generate_images
 
 import logging
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -20,9 +18,11 @@ def run_gpu_worker(
     custom_nodes: dict[str, Type[CustomNode]],
     checkpoint_files: dict[str, CheckpointMetadata],
     architectures: dict,
-    _node_specs: Optional[dict[str, Any]] = None,
 ):
     logger = logging.getLogger(__name__)
+    
+    logger.info('startup up gpu worker (log)')
+    print('startup up gpu worker (print)', flush=True)
 
     while True:
         try:

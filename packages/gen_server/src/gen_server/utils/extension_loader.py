@@ -31,7 +31,6 @@ def load_custom_node_specs(
 
 T = TypeVar("T")
 
-
 def load_extensions(
     entry_point_group: str, validator: Optional[Validator] = None
 ) -> dict[str, T]:

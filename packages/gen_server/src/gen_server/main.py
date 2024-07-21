@@ -45,6 +45,12 @@ import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
 
+# Configure the root logger
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum level to INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 
@@ -100,7 +106,7 @@ def main():
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
     elif subcommand == "install":
-        config = InstallCommandConfig(
+        _config = InstallCommandConfig(
             _env_file=env_file,  # type: ignore
             _cli_settings_source=CliSettingsSource(  # type: ignore
                 InstallCommandConfig,
@@ -182,22 +188,9 @@ def run_app(cozy_config: RunCommandConfig):
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
 
-    # Compile the custom nodes JSON spec, to be sent to clients when they first connect
-    start_time_custom_nodes_specs = time.time()
-
-    custom_nodes = get_custom_nodes()
-    custom_node_specs = load_custom_node_specs(custom_nodes)
-
-    # Ensure the directory exists and write the spec to it
-    os.makedirs(cozy_config.workspace_path, exist_ok=True)
-
+    # Ensure our workspace directory exists and place an example .env in it
     print(f"Cozy config workspace path: {cozy_config.workspace_path}")
     ensure_workspace_path(cozy_config.workspace_path)
-
-    end_time = time.time()
-    print(
-        f"Time taken to load extensions and compile registries: {end_time - start_time_custom_nodes_specs:.2f} seconds"
-    )
 
     # debug
     print("Number of checkpoint files:", len(get_checkpoint_files()))
@@ -233,9 +226,10 @@ def run_app(cozy_config: RunCommandConfig):
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.
         tensor_queue = manager.Queue()
-
-        # Load custom node specs and save them to the workspace
-
+        
+        # shutdown_event = manager.Event()
+        
+        # Get global variables that we need to pass to sub-processes
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
@@ -248,11 +242,11 @@ def run_app(cozy_config: RunCommandConfig):
             futures = [
                 executor.submit(
                     start_api_server,
-                    cozy_config,
                     job_queue,
+                    cozy_config,
                     checkpoint_files,
-                    api_endpoints,
                     node_specs,
+                    api_endpoints
                 ),
                 executor.submit(
                     run_gpu_worker,
@@ -261,8 +255,7 @@ def run_app(cozy_config: RunCommandConfig):
                     cozy_config,
                     custom_nodes,
                     checkpoint_files,
-                    architectures,
-                    node_specs,
+                    architectures
                 ),
                 executor.submit(run_io_worker, tensor_queue, file_handler),
             ]
@@ -270,13 +263,16 @@ def run_app(cozy_config: RunCommandConfig):
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
                 print("Received shutdown signal. Terminating processes...")
                 clean_temp_files(cozy_config.workspace_path)
-                for future in futures:
-                    future.cancel()
-                executor.shutdown(wait=False)
+                # for future in futures:
+                #     future.cancel()
+                # shutdown_event.set()
+                executor.shutdown(wait=False, cancel_futures=True)
                 sys.exit(0)
 
             signal.signal(signal.SIGINT, signal_handler)
             signal.signal(signal.SIGTERM, signal_handler)
+            
+            print('server has fully started', flush=True)
 
             # Wait for futures to complete (which they won't, unless cancelled)
             concurrent.futures.wait(futures)

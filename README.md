@@ -76,7 +76,7 @@ Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-ed
 Then in the root of this repo, run:
 
 ```sh
-docker build -t cozy-creator/gen-server:0.2.1 .
+docker build -t cozy-creator/gen-server:0.2.2 .
 ```
 
 ### Docker Run
@@ -90,7 +90,7 @@ MSYS_NO_PATHCONV=1 docker run \
   -v ~/.cozy-creator:/root/.cozy-creator \
   -v ~/.cache/huggingface/hub:/root/.cache/huggingface/hub \
   --gpus=all \
-  cozy-creator/gen-server:0.2.1
+  cozy-creator/gen-server:0.2.2
 ```
 
 You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
@@ -102,7 +102,7 @@ docker run \
   -e COZY_PORT=9000 \
   -v "C:/git/ComfyUI/models":/models \
   -e COZY_AUX_MODELS_PATHS='["/models"]' \
-  cozy-creator/gen-server:0.2.1
+  cozy-creator/gen-server:0.2.2
 ```
 
 ### Hugging Face Hub Model Caching

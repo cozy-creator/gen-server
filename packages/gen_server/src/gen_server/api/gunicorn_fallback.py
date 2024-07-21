@@ -5,19 +5,26 @@ import asyncio
 import multiprocessing
 from aiohttp.web import AppRunner, TCPSite
 from aiohttp.web_app import Application
-from typing import Optional
+from typing import Optional, Any
 from ..globals import RouteDefinition, CheckpointMetadata
 from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
 
 
 def start_api_server(
-    config: RunCommandConfig,
     job_queue: multiprocessing.Queue,
-    checkpoint_files: Optional[dict[str, CheckpointMetadata]] = None,
+    config: RunCommandConfig,
+    checkpoint_files: dict[str, CheckpointMetadata],
+    node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None
 ):
-    aiohttp_app = create_aiohttp_app(job_queue, config, checkpoint_files, extra_routes)
+    aiohttp_app = create_aiohttp_app(
+        job_queue,
+        config,
+        checkpoint_files,
+        node_defs,
+        extra_routes
+    )
     
     async def run_app():
         runner = AppRunner(aiohttp_app)

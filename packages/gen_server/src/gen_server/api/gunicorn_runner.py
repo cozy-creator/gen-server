@@ -37,18 +37,18 @@ def get_workers_count(config: RunCommandConfig) -> int:
 
 
 def start_api_server(
-    config: RunCommandConfig,
     job_queue: multiprocessing.Queue,
+    config: RunCommandConfig,
     checkpoint_files: dict[str, CheckpointMetadata],
+    node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
-    node_specs: Optional[dict[str, Any]] = None,
 ):
     aiohttp_app = create_aiohttp_app(
         job_queue,
         config,
         checkpoint_files,
+        node_defs,
         extra_routes,
-        node_specs,
     )
 
     options = {

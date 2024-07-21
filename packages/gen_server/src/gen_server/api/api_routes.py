@@ -28,9 +28,9 @@ react_components = os.path.abspath(os.path.join(script_dir, "..", "react_compone
 def create_aiohttp_app(
     job_queue: multiprocessing.Queue,
     config: RunCommandConfig,
-    checkpoint_files: Optional[dict[str, CheckpointMetadata]] = None,
+    checkpoint_files: dict[str, CheckpointMetadata],
+    node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
-    _node_specs: Optional[dict[str, Any]] = None,
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
@@ -58,12 +58,20 @@ def create_aiohttp_app(
         return web.Response(
             text=json.dumps(serialized_checkpoints), content_type="application/json"
         )
+    
+    @routes.get('/node-defs')
+    async def get_node_defs(_req: web.Request) -> web.Response:
+        return web.Response(
+            text=json.dumps(node_defs), content_type="application/json"
+        )
 
     @routes.post("/generate")
     async def handle_generate(request: web.Request) -> web.StreamResponse:
         """
         Submits generation requests from the user to the queue and streams the results.
         """
+        
+        logger.info("Received a generation request (log)")
 
         response = web.StreamResponse(
             status=200, reason="OK", headers={"Content-Type": "application/json"}

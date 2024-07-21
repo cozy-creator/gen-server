@@ -36,12 +36,11 @@ RUN apt-get update && \
 
 # Install PyTorch for CUDA 12.1
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
-    torch torchvision torchaudio
+    torch torchvision torchaudio xformers
 
 # Install the gen_server package and its plugin-packages
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
     pip install ./packages/image_utils && \
     pip install ./packages/core_extension_1
-
 
 CMD ["cozy", "run"]

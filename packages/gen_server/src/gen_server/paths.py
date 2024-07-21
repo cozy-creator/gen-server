@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from gen_server.templates.env import ENV_TEMPLATE
+from .templates.env import ENV_TEMPLATE
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,7 +19,7 @@ folders = {
 }
 
 
-def get_folder_path(folder_name):
+def get_folder_path(folder_name: str) -> str:
     """
     Returns the path for the given folder name.
     Creates the folder if it doesn't exist.
@@ -34,8 +34,10 @@ def get_folder_path(folder_name):
     return folder_path
 
 
-def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height=0):
-    def map_filename(filename):
+def get_save_image_path(
+    filename_prefix: str, output_dir: str, image_width: int = 0, image_height: int = 0
+) -> tuple[str, str, int, str, str]:
+    def map_filename(filename: str) -> tuple[int, str]:
         prefix_len = len(os.path.basename(filename_prefix))
         prefix = filename[: prefix_len + 1]
         try:
@@ -44,7 +46,7 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
             digits = 0
         return (digits, prefix)
 
-    def compute_vars(input, image_width, image_height):
+    def compute_vars(input: str, image_width: int, image_height: int) -> str:
         input = input.replace("%width%", str(image_width))
         input = input.replace("%height%", str(image_height))
         return input
@@ -90,7 +92,7 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
     return full_output_folder, filename, counter, subfolder, filename_prefix
 
 
-def get_model_path(folder_name):
+def get_model_path(folder_name: str) -> str:
     """
     Returns the path for the given folder name.
     Creates the folder if it doesn't exist.
@@ -105,7 +107,7 @@ def get_model_path(folder_name):
     return folder_path
 
 
-def annotated_filepath(name):
+def annotated_filepath(name: str) -> tuple[str, str | None]:
     if name.endswith("[output]"):
         base_dir = get_folder_path("output")
         name = name[:-9]
@@ -121,7 +123,7 @@ def annotated_filepath(name):
     return name, base_dir
 
 
-def get_annotated_filepath(name, default_dir=None):
+def get_annotated_filepath(name: str, default_dir: str | None = None) -> str | tuple[str, str]:
     name, base_dir = annotated_filepath(name)
 
     if base_dir is None:
@@ -133,7 +135,7 @@ def get_annotated_filepath(name, default_dir=None):
     return os.path.join(base_dir, name)
 
 
-def exists_annotated_filepath(name):
+def exists_annotated_filepath(name: str) -> bool:
     name, base_dir = annotated_filepath(name)
 
     if base_dir is None:
@@ -143,7 +145,7 @@ def exists_annotated_filepath(name):
     return os.path.exists(filepath)
 
 
-def check_model_in_path(model_id, model_path):
+def check_model_in_path(model_id: str, model_path: str) -> str | None:
     if model_id.endswith(".safetensors") or model_id.endswith(".ckpt"):
         if os.path.exists(os.path.join(model_path, model_id)):
             return os.path.join(model_path, model_id)
@@ -159,6 +161,7 @@ def ensure_workspace_path(path: str):
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
+        write_env_example_file(path) # we only write this the first time the dir is created
 
     for subdir in subdirs:
         if isinstance(subdir, list):
@@ -169,11 +172,8 @@ def ensure_workspace_path(path: str):
         if not os.path.exists(subdir_path):
             os.makedirs(subdir_path, exist_ok=True)
 
-    # We also ensure the .env.example file exists in the workspace
-    ensure_env_example_file(path)
 
-
-def ensure_env_example_file(workspace_path: str):
+def write_env_example_file(workspace_path: str):
     try:
         env_path = os.path.expanduser(os.path.join(workspace_path, ".env.example"))
         if not os.path.exists(env_path):
