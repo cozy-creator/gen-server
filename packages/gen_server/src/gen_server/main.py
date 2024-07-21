@@ -32,9 +32,13 @@ from .globals import (
     update_widgets,
     update_checkpoint_files,
     get_checkpoint_files,
-    get_architectures
+    get_architectures,
 )
-from .base_types.pydantic_models import RunCommandConfig, BuildWebCommandConfig, InstallCommandConfig
+from .base_types.pydantic_models import (
+    RunCommandConfig,
+    BuildWebCommandConfig,
+    InstallCommandConfig,
+)
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import run_io_worker
 from .executor.gpu_worker import run_gpu_worker
@@ -98,8 +102,8 @@ def main():
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
     elif subcommand == "install":
         config = InstallCommandConfig(
-            _env_file=env_file, # type: ignore
-            _cli_settings_source=CliSettingsSource( # type: ignore
+            _env_file=env_file,  # type: ignore
+            _cli_settings_source=CliSettingsSource(  # type: ignore
                 InstallCommandConfig,
                 root_parser=install_parser,
             ),
@@ -186,19 +190,21 @@ def run_app(cozy_config: RunCommandConfig):
 
     # Compile the custom nodes JSON spec, to be sent to clients when they first connect
     start_time_custom_nodes_specs = time.time()
-    
+
     custom_nodes = get_custom_nodes()
     custom_node_specs = load_custom_node_specs(custom_nodes)
-    
+
     # Ensure the directory exists and write the spec to it
     os.makedirs(cozy_config.workspace_path, exist_ok=True)
-    
+
     # TO DO: make sure the workspace path exists, also maybe put a .env.example in there too
-    
+
     print(f"Cozy config workspace path: {cozy_config.workspace_path}")
     #  ensure_env_file(workspace_path)
 
-    custom_node_specs_path = os.path.join(cozy_config.workspace_path, "custom_node_specs.json")
+    custom_node_specs_path = os.path.join(
+        cozy_config.workspace_path, "custom_node_specs.json"
+    )
     with open(custom_node_specs_path, "w") as f:
         json.dump(custom_node_specs, f, indent=2)
 

@@ -64,15 +64,12 @@ def load_extensions(
                 # print(f"Loading plugin {plugin_name}")
                 plugins[plugin_name] = plugin_item
 
-            if isinstance(plugin, list):
-                if any(isinstance(item, object) for item in plugin):
-                    _load_plugin_inner(scoped_name, plugin)
+                # Spandrel architectures are a special case where the plugin is a list of classes
 
+            if scoped_name == "core_extension_1.spandrel_architectures":
                 for item in plugin:
-                    if not isinstance(item, object):
-                        name = f"{scoped_name}:{item.__name__}"
-                        _load_plugin_inner(name, item)
-
+                    name = f"{scoped_name}:{item.__name__}"
+                    _load_plugin_inner(name, item)
             else:
                 _load_plugin_inner(scoped_name, plugin)
 

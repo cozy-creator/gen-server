@@ -1,15 +1,17 @@
 import torch
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar, Optional, TypedDict, Generic
+from typing import Any, Iterable, TypeVar, Optional, TypedDict, Generic
 from spandrel import Architecture as SpandrelArchitecture, ImageModelDescriptor
 from .common import StateDict, TorchDevice
 
 T = TypeVar("T", bound=torch.nn.Module, covariant=True)
 
+
 class ComponentMetadata(TypedDict):
     display_name: str
     input_space: str
     output_space: str
+
 
 # TO DO: in the future, maybe we can compare sets of keys, rather than use
 # a detect method? That might be more optimized.
@@ -176,9 +178,7 @@ class SpandrelArchitectureAdapter(Architecture):
 
 def architecture_validator(plugin: Any) -> bool:
     try:
-        if isinstance(plugin, type):
-            return issubclass(plugin, Architecture)
-        return isinstance(plugin, Architecture)
+        return issubclass(plugin, Architecture)
     except TypeError:
         print(f"Invalid plugin type: {plugin}")
         return False
