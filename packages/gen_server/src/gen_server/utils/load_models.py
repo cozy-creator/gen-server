@@ -66,16 +66,17 @@ def from_state_dict(
 def components_from_state_dict(
     state_dict: StateDict,
     metadata: dict,
-    registry: dict[str, Type[Architecture]] = None,
+    registry: Optional[dict[str, Type[Architecture]]] = None,
 ) -> dict[str, Architecture]:
     """
     Detect all models present inside of a state dict; does not load the state-dict into
     memory however; it only calls the Architecture's constructor to return a class instance.
     """
     components: dict[str, Architecture] = {}
-    
-    if (registry == None):
+
+    if registry is None:
         from ..globals import _ARCHITECTURES
+
         registry = _ARCHITECTURES
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures
@@ -209,9 +210,10 @@ def find_component_models(
     if it were instantiated using this same state-dict + metadata.
     """
     components: dict[str, ComponentMetadata] = {}
-    
-    if (registry == None):
+
+    if registry == None:
         from ..globals import _ARCHITECTURES
+
         registry = _ARCHITECTURES
 
     for arch_id, architecture in registry.items():  # Iterate through all architectures

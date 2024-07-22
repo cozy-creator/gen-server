@@ -3,6 +3,8 @@ from .find_checkpoint_files import find_checkpoint_files
 from . import load_models
 from .load_models import load_state_dict_from_file, components_from_state_dict
 from .file_handler import get_file_handler
+from .utils import flatten_architectures
+
 
 __all__ = [
     "components_from_state_dict",
@@ -11,5 +13,6 @@ __all__ = [
     "load_models",
     "load_state_dict_from_file",
     "get_file_handler",
-    "load_custom_node_specs"
+    "load_custom_node_specs",
+    "flatten_architectures",
 ]
