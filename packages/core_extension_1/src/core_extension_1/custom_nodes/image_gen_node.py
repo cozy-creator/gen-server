@@ -155,7 +155,6 @@ class ImageGenNode(CustomNode):
     def create_sdxl_pipe(
         self, components: dict, model_type: Optional[str] = None
     ) -> StableDiffusionXLPipeline:
-        print(components["core_extension_1.vae"])
         vae = components["core_extension_1.vae"].model
         unet = components["core_extension_1.sdxl_unet"].model
         text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
