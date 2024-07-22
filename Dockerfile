@@ -19,6 +19,8 @@ WORKDIR /app
 
 # Configure apt-get to automatically use noninteractive settings
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+# ENV PYTHONDONTWRITEBYTECODE=1
 
 # Install Linux build and runtime dependencies
 RUN apt-get update && \

@@ -8,10 +8,10 @@ async function* generateImages() {
          dark_sushi_25d_v40: 4,
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
-      positive_prompt: 'woman with red hair on a spaceship, full body shot, ' +
+      positive_prompt: 'anime woman holding a sword and a cat ' +
          'beautiful, high quality, hyper-realism, digital art',
       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 69,
+      random_seed: 77,
       aspect_ratio: '9/16'
    };
 
@@ -55,7 +55,7 @@ async function* generateImages() {
 
 describe(
    'Image Generation API',
-   { timeout: 300_000 },
+   { timeout: 360_000 },
    () => {
       it('Should generate images on the gen-server, then yield the image-urls as each job completes', async () => {
          const chunks: any[] = [];

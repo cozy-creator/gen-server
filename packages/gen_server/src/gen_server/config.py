@@ -47,6 +47,7 @@ ParseArgsMethod = Callable[
 def init_config(
     run_parser: argparse.ArgumentParser,
     parse_args_method: ParseArgsMethod,
+    env_file: Optional[str] = None,
     secrets_dir: Optional[str] = "/run/secrets",
 ) -> RunCommandConfig:
     """
@@ -65,6 +66,7 @@ def init_config(
     # This updates the configuration globally
     global cozy_config
     cozy_config = RunCommandConfig(
+        _env_file=env_file,  # type: ignore
         _secrets_dir=secrets_dir,  # type: ignore
         _cli_settings_source=cli_settings(args=True),  # type: ignore
     )

@@ -1,4 +1,5 @@
 import sys
+import os
 import argparse
 from typing import Optional, List
 
@@ -16,7 +17,11 @@ def find_arg_value(arg_name: str) -> Optional[str]:
             return arg.split("=", 1)[1]
         elif arg == arg_name and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
-    return None
+    
+    # If not found in command line arguments, check environment variables
+    env_var_name = f"COZY_{arg_name.upper()}"
+    
+    return os.environ.get(env_var_name)
 
 
 def parse_known_args_wrapper(

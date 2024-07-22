@@ -108,17 +108,13 @@ class VAEArch(Architecture[AutoencoderKL]):
 
         if all(key in state_dict for key in required_keys):
             component_metadata, _ = cls._determine_type(metadata)
-            # print(component_metadata)
-            print("Now in Detect")
-            # print(metadata)
             return component_metadata
 
         return None
 
     def load(
-        self, state_dict: StateDict, device: Optional[TorchDevice] = None, **kwargs
+        self, state_dict: StateDict, device: Optional[TorchDevice] = None, **kwargs: Any
     ):
-        print("Loading SD VAE")
         start = time.time()
 
         vae = self._model

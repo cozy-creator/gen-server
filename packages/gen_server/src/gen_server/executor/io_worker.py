@@ -6,8 +6,9 @@ import queue
 from PIL import Image, PngImagePlugin
 import torch
 from multiprocessing.connection import Connection
+from ..base_types.pydantic_models import RunCommandConfig
 
-from ..utils.file_handler import FileHandler
+from ..utils.file_handler import FileHandler, get_file_handler
 from ..utils.image import tensor_to_pil
 
 logger = logging.getLogger(__name__)
@@ -15,16 +16,19 @@ logger = logging.getLogger(__name__)
 
 def run_io_worker(
     tensor_queue: queue.Queue,
-    file_handler: FileHandler
+    cozy_config: RunCommandConfig
 ):
-    asyncio.run(start_io_worker(tensor_queue, file_handler))
+    asyncio.run(start_io_worker(tensor_queue, cozy_config))
 
 
 async def start_io_worker(
     tensor_queue: queue.Queue,
-    file_handler: FileHandler
+    cozy_config: RunCommandConfig
 ):
+    file_handler = get_file_handler(cozy_config)
     processing_tasks = set()
+    
+    print("IO worker started", flush=True)
     
     while True:
         try:

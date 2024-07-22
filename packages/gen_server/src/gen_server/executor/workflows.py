@@ -64,6 +64,9 @@ def generate_images(
                 # tensor_images = torch.stack(tensor_batch)
                 
                 tensor_images = tensor_images.to("cpu")
+                # TO DO: could this problematic if the gpu-worker terminates as this tensor is
+                # still in use?
+                tensor_images.share_memory_()
                 tensor_queue.put((tensor_images, response_conn))
                 
                 print('Placed generation result on queue')

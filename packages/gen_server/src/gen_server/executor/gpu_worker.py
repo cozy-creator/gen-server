@@ -21,8 +21,7 @@ def run_gpu_worker(
 ):
     logger = logging.getLogger(__name__)
     
-    logger.info('startup up gpu worker (log)')
-    print('startup up gpu worker (print)', flush=True)
+    print('GPU worker started', flush=True)
 
     while True:
         try:

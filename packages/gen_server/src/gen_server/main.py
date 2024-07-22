@@ -5,7 +5,10 @@ import argparse
 import sys
 import os
 import platform
+import traceback
 import concurrent.futures
+from concurrent.futures import Future, ProcessPoolExecutor
+from typing import Any, Callable
 import signal
 from types import FrameType
 from typing import Optional
@@ -61,20 +64,26 @@ def main():
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
-
+    
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # If no .env file is specified, try to find one in the current working directory
+    # If no .env file is specified, try to find one in the workspace path
     if env_file is None:
-        if os.path.exists(".env"):
-            env_file = ".env"
-        elif os.path.exists(".env.local"):
-            env_file = ".env.local"
+        workspace_path = (
+            find_arg_value("--workspace_path")
+            or find_arg_value("--workspace-path")
+            or os.path.expanduser("~/.cozy-creator")
+        )
+        if os.path.exists(os.path.join(workspace_path, ".env")):
+            env_file = os.path.join(workspace_path, ".env")
+        elif os.path.exists(os.path.join(workspace_path, ".env.local")):
+            env_file = os.path.join(workspace_path, ".env.local")
 
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")
         or "/run/secrets"
     )
+    
     subcommand = find_subcommand()
 
     # Add subcommands
@@ -89,6 +98,7 @@ def main():
         cozy_config = init_config(
             run_parser,
             parse_known_args_wrapper,
+            env_file=env_file,
             secrets_dir=secrets_dir,
         )
 
@@ -189,9 +199,10 @@ def run_app(cozy_config: RunCommandConfig):
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
 
-    # Ensure our workspace directory exists and place an example .env in it
-    print(f"Cozy config workspace path: {cozy_config.workspace_path}")
+    # Ensure our workspace directory and its subdirectories exist. Add a .env.example if needed
     ensure_workspace_path(cozy_config.workspace_path)
+    
+    print('Cozy config:', cozy_config)
 
     # debug
     print("Number of checkpoint files:", len(get_checkpoint_files()))
@@ -234,41 +245,26 @@ def run_app(cozy_config: RunCommandConfig):
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
-        file_handler = get_file_handler()
         architectures = get_architectures()
         node_specs = load_custom_node_specs(custom_nodes)
         
-        # For processes that should use 'spawn'
-        spawn_context = multiprocessing.get_context('spawn')
-
-        # For processes that should use 'fork' (on systems that support it)
-        if platform.system() != 'Windows':
-            fork_context = multiprocessing.get_context('fork')
-        else:
-            fork_context = spawn_context  # Fallback to 'spawn' on Windows
+        print(f'filesystem type: {cozy_config.filesystem_type}')
 
         # Create a process pool for the workers
-        with concurrent.futures.ProcessPoolExecutor(max_workers=3, mp_context=spawn_context) as spawn_executor, \
-            concurrent.futures.ProcessPoolExecutor(max_workers=3, mp_context=fork_context) as fork_executor:
+        # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not
+        # support forking.
+        with ProcessPoolExecutor(
+            max_workers=3, mp_context=multiprocessing.get_context('spawn')
+        ) as executor:
             futures = [
-                fork_executor.submit(
-                    start_api_server,
-                    job_queue,
-                    cozy_config,
-                    checkpoint_files,
-                    node_specs,
-                    api_endpoints
-                ),
-                spawn_executor.submit(
-                    run_gpu_worker,
-                    job_queue,
-                    tensor_queue,
-                    cozy_config,
-                    custom_nodes,
-                    checkpoint_files,
-                    architectures
-                ),
-                fork_executor.submit(run_io_worker, tensor_queue, file_handler),
+                named_future(executor, 'api_worker', start_api_server,
+                             job_queue, cozy_config, checkpoint_files, node_specs, api_endpoints),
+                
+                named_future(executor, 'gpu_worker', run_gpu_worker,
+                             job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files, architectures),
+                
+                named_future(executor, 'io_worker', run_io_worker,
+                             tensor_queue, cozy_config),
             ]
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
@@ -283,10 +279,18 @@ def run_app(cozy_config: RunCommandConfig):
             signal.signal(signal.SIGINT, signal_handler)
             signal.signal(signal.SIGTERM, signal_handler)
             
-            print('server has fully started', flush=True)
+            # Print exceptions from futures
+            for future in futures:
+                future.add_done_callback(
+                    lambda f: print(f"Error in {f.__dict__['name']}: {f.exception()}") if f.exception() else None
+                )
+                
+            # print('All worker processes started successfully', flush=True)
 
             # Wait for futures to complete (which they won't, unless cancelled)
-            concurrent.futures.wait(futures)
+            _done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.ALL_COMPLETED)
+            for future in not_done:
+                future.cancel()
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Exiting gracefully...")
@@ -294,6 +298,17 @@ def run_app(cozy_config: RunCommandConfig):
         print(f"An error occurred: {e}")
     finally:
         print("Cleaning up resources...")
+
+
+def named_future(
+    executor: ProcessPoolExecutor, name: str, func: Callable, *args: Any, **kwargs: Any
+) -> Future:
+    """
+    Assign each future a semantic name for error-logging 
+    """
+    future = executor.submit(func, *args, **kwargs)
+    future.__dict__['name'] = name
+    return future
 
 
 if __name__ == "__main__":
