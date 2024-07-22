@@ -20,12 +20,6 @@ WORKDIR /app
 # Configure apt-get to automatically use noninteractive settings
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Move files over from the web-build stage
-COPY --from=builder /app/web/dist /srv/www/cozy/dist
-
-COPY packages/ ./packages
-COPY pyproject.toml ./pyproject.toml
-
 # Install Linux build and runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -37,6 +31,12 @@ RUN apt-get update && \
 # Install PyTorch for CUDA 12.1
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio xformers
+
+# Move files over from the web-build stage
+COPY --from=builder /app/web/dist /srv/www/cozy/dist
+
+COPY packages/ ./packages
+COPY pyproject.toml ./pyproject.toml
 
 # Install the gen_server package and its plugin-packages
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
