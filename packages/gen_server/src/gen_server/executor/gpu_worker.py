@@ -7,6 +7,7 @@ from ..globals import CustomNode, CheckpointMetadata
 from .workflows import generate_images
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,9 @@ def run_gpu_worker(
     architectures: dict,
 ):
     logger = logging.getLogger(__name__)
-    
-    logger.info('startup up gpu worker (log)')
-    print('startup up gpu worker (print)', flush=True)
+
+    logger.info("startup up gpu worker (log)")
+    print("startup up gpu worker (print)", flush=True)
 
     while True:
         try:

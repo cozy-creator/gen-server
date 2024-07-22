@@ -1,5 +1,4 @@
-from typing import Any, Optional, Type
-
+from typing import Any, Optional
 from spandrel import Architecture as SpandrelArchitecture
 from spandrel.architectures.ESRGAN import ESRGANArch
 from spandrel.architectures.CRAFT import CRAFTArch
@@ -42,78 +41,464 @@ from gen_server.base_types.architecture import (
     ComponentMetadata,
 )
 
-architectures = []
-_spandrel_architectures = [
-    ESRGANArch,
-    CRAFTArch,
-    CompactArch,
-    DnCNNArch,
-    OmniSRArch,
-    ATDArch,
-    DATArch,
-    DCTLSAArch,
-    DITNArch,
-    DRCTArch,
-    DRUNetArch,
-    FBCNNArch,
-    GFPGANArch,
-    FFTformerArch,
-    HATArch,
-    IPTArch,
-    KBNetArch,
-    LaMaArch,
-    MixDehazeNetArch,
-    MMRealSRArch,
-    UformerArch,
-    SwinIRArch,
-    Swin2SRArch,
-    SPANArch,
-    SwiftSRGANArch,
-    SCUNetArch,
-    SAFMNBCIEArch,
-    RGTArch,
-    RestoreFormerArch,
-    RealCUGANArch,
-    PLKSRArch,
-    NAFNetArch,
-    SAFMNArch,
-    GFPGANArch,
-    FBCNNArch,
-    GRLArch,
-]
+
+_arch_instances = {
+    "ESRGANArch": ESRGANArch(),
+    "CRAFTArch": CRAFTArch(),
+    "CompactArch": CompactArch(),
+    "DnCNNArch": DnCNNArch(),
+    "OmniSRArch": OmniSRArch(),
+    "ATDArch": ATDArch(),
+    "DATArch": DATArch(),
+    "DCTLSAArch": DCTLSAArch(),
+    "DITNArch": DITNArch(),
+    "DRCTArch": DRCTArch(),
+    "DRUNetArch": DRUNetArch(),
+    "GRLArch": GRLArch(),
+    "FBCNNArch": FBCNNArch(),
+    "GFPGANArch": GFPGANArch(),
+    "FFTformerArch": FFTformerArch(),
+    "HATArch": HATArch(),
+    "IPTArch": IPTArch(),
+    "KBNetArch": KBNetArch(),
+    "LaMaArch": LaMaArch(),
+    "MixDehazeNetArch": MixDehazeNetArch(),
+    "MMRealSRArch": MMRealSRArch(),
+    "UformerArch": UformerArch(),
+    "SwinIRArch": SwinIRArch(),
+    "Swin2SRArch": Swin2SRArch(),
+    "SPANArch": SPANArch(),
+    "SwiftSRGANArch": SwiftSRGANArch(),
+    "SCUNetArch": SCUNetArch(),
+    "SAFMNBCIEArch": SAFMNBCIEArch(),
+    "RGTArch": RGTArch(),
+    "RestoreFormerArch": RestoreFormerArch(),
+    "RealCUGANArch": RealCUGANArch(),
+    "PLKSRArch": PLKSRArch(),
+    "NAFNetArch": NAFNetArch(),
+    "SAFMNArch": SAFMNArch(),
+}
 
 
-def build_architecture(
-    architecture: Type[SpandrelArchitecture],
-) -> Type[SpandrelArchitectureAdapter]:
-    arch_instance = architecture()
-    if not isinstance(arch_instance, SpandrelArchitecture):
-        raise ValueError(
-            f"Architecture must be an instance of SpandrelArchitecture, got {type(architecture).__name__}"
+def detect_architecture(instance, state_dict: StateDict) -> Optional[ComponentMetadata]:
+    return (
+        ComponentMetadata(
+            input_space=instance.id,
+            output_space=instance.id,
+            display_name=instance.name,
         )
-
-    class DynamicArchitecture(SpandrelArchitectureAdapter):
-        def __init__(self):
-            super().__init__(arch_instance)
-
-        @classmethod
-        def detect(
-            cls,
-            state_dict: StateDict,
-            metadata: Optional[dict[str, Any]] = None,
-        ) -> Optional[ComponentMetadata]:
-            if arch_instance.detect(state_dict):
-                return ComponentMetadata(
-                    display_name=arch_instance.name,
-                    input_space=arch_instance.id,
-                    output_space=arch_instance.id,
-                )
-            return None
-
-    DynamicArchitecture.__name__ = architecture.__name__
-    DynamicArchitecture.__qualname__ = architecture.__qualname__
-    return DynamicArchitecture
+        if instance.detect(state_dict)
+        else None
+    )
 
 
-for _architecture in _spandrel_architectures:
-    architectures.append(build_architecture(_architecture))
+class ESRGANArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["ESRGANArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["ESRGANArch"], state_dict)
+
+
+class CRAFTArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["CRAFTArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["CRAFTArch"], state_dict)
+
+
+class CompactArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["CompactArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["CompactArch"], state_dict)
+
+
+class DnCNNArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DnCNNArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DnCNNArch"], state_dict)
+
+
+class OmniSRArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["OmniSRArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["OmniSRArch"], state_dict)
+
+
+class ATDArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["ATDArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["ATDArch"], state_dict)
+
+
+class DATArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DATArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DATArch"], state_dict)
+
+
+class DCTLSAArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DCTLSAArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DCTLSAArch"], state_dict)
+
+
+class DITNArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DITNArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DITNArch"], state_dict)
+
+
+class DRCTArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DRCTArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DRCTArch"], state_dict)
+
+
+class DRUNetArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["DRUNetArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["DRUNetArch"], state_dict)
+
+
+class GRLArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["GRLArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["GRLArch"], state_dict)
+
+
+class FBCNNArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["FBCNNArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["FBCNNArch"], state_dict)
+
+
+class GFPGANArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["GFPGANArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["GFPGANArch"], state_dict)
+
+
+class FFTformerArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["FFTformerArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["FFTformerArch"], state_dict)
+
+
+class HATArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["HATArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["HATArch"], state_dict)
+
+
+class IPTArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["IPTArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["IPTArch"], state_dict)
+
+
+class KBNetArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["KBNetArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["KBNetArch"], state_dict)
+
+
+class LaMaArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["LaMaArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["LaMaArch"], state_dict)
+
+
+class MixDehazeNetArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["MixDehazeNetArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["MixDehazeNetArch"], state_dict)
+
+
+class MMRealSRArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["MMRealSRArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["MMRealSRArch"], state_dict)
+
+
+class UformerArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["UformerArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["UformerArch"], state_dict)
+
+
+class SwinIRArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SwinIRArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SwinIRArch"], state_dict)
+
+
+class Swin2SRArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["Swin2SRArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["Swin2SRArch"], state_dict)
+
+
+class SPANArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SPANArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SPANArch"], state_dict)
+
+
+class SwiftSRGANArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SwiftSRGANArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SwiftSRGANArch"], state_dict)
+
+
+class SCUNetArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SCUNetArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SCUNetArch"], state_dict)
+
+
+class SAFMNBCIEArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SAFMNBCIEArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SAFMNBCIEArch"], state_dict)
+
+
+class RGTArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["RGTArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["RGTArch"], state_dict)
+
+
+class RestoreFormerArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["RestoreFormerArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["RestoreFormerArch"], state_dict)
+
+
+class RealCUGANArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["RealCUGANArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["RealCUGANArch"], state_dict)
+
+
+class PLKSRArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["PLKSRArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["PLKSRArch"], state_dict)
+
+
+class NAFNetArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["NAFNetArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["NAFNetArch"], state_dict)
+
+
+class SAFMNArchitecture(SpandrelArchitectureAdapter):
+    def __init__(self):
+        super().__init__(_arch_instances["SAFMNArch"])
+
+    @classmethod
+    def detect(
+        cls, state_dict: StateDict, **ignore: Any
+    ) -> Optional[ComponentMetadata]:
+        return detect_architecture(_arch_instances["SAFMNArch"], state_dict)
+
+
+architectures = [
+    ESRGANArchitecture,
+    CRAFTArchitecture,
+    CompactArchitecture,
+    DnCNNArchitecture,
+    OmniSRArchitecture,
+    ATDArchitecture,
+    DATArchitecture,
+    DCTLSAArchitecture,
+    DITNArchitecture,
+    DRCTArchitecture,
+    DRUNetArchitecture,
+    GRLArchitecture,
+    FBCNNArchitecture,
+    GFPGANArchitecture,
+    FFTformerArchitecture,
+    HATArchitecture,
+    IPTArchitecture,
+    KBNetArchitecture,
+    LaMaArchitecture,
+    MixDehazeNetArchitecture,
+    MMRealSRArchitecture,
+    UformerArchitecture,
+    SwinIRArchitecture,
+    Swin2SRArchitecture,
+    SPANArchitecture,
+    SwiftSRGANArchitecture,
+    SCUNetArchitecture,
+    SAFMNBCIEArchitecture,
+    RGTArchitecture,
+    RestoreFormerArchitecture,
+    RealCUGANArchitecture,
+    PLKSRArchitecture,
+    NAFNetArchitecture,
+    SAFMNArchitecture,
+]

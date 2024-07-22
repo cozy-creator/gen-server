@@ -1,5 +1,6 @@
 import json
 import logging
+import pprint
 import time
 import argparse
 import sys
@@ -8,7 +9,7 @@ import platform
 import concurrent.futures
 import signal
 from types import FrameType
-from typing import Optional
+from typing import Iterable, Optional
 
 from pydantic_settings import CliSettingsSource
 import multiprocessing
@@ -18,7 +19,7 @@ from .paths import clean_temp_files, ensure_workspace_path
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-from .utils import load_extensions, find_checkpoint_files
+from .utils import load_extensions, find_checkpoint_files, flatten_architectures
 from .api import start_api_server, api_routes_validator
 from .utils import load_custom_node_specs
 from .utils.paths import get_models_dir, get_web_dir
@@ -49,8 +50,8 @@ warnings.filterwarnings("ignore", module="pydantic_settings")
 # Configure the root logger
 logging.basicConfig(
     level=logging.INFO,  # Set the minimum level to INFO
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,12 @@ def run_app(cozy_config: RunCommandConfig):
     # compile architecture registry
     start_time_architectures = time.time()
     update_architectures(
-        load_extensions("cozy_creator.architectures", validator=architecture_validator)
+        flatten_architectures(
+            load_extensions(
+                "cozy_creator.architectures",
+                validator=architecture_validator,
+            )
+        )
     )
 
     print(
@@ -227,9 +233,9 @@ def run_app(cozy_config: RunCommandConfig):
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.
         tensor_queue = manager.Queue()
-        
+
         # shutdown_event = manager.Event()
-        
+
         # Get global variables that we need to pass to sub-processes
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
@@ -257,7 +263,7 @@ def run_app(cozy_config: RunCommandConfig):
                     cozy_config,
                     checkpoint_files,
                     node_specs,
-                    api_endpoints
+                    api_endpoints,
                 ),
                 spawn_executor.submit(
                     run_gpu_worker,
@@ -266,7 +272,7 @@ def run_app(cozy_config: RunCommandConfig):
                     cozy_config,
                     custom_nodes,
                     checkpoint_files,
-                    architectures
+                    architectures,
                 ),
                 fork_executor.submit(run_io_worker, tensor_queue, file_handler),
             ]
@@ -282,8 +288,8 @@ def run_app(cozy_config: RunCommandConfig):
 
             signal.signal(signal.SIGINT, signal_handler)
             signal.signal(signal.SIGTERM, signal_handler)
-            
-            print('server has fully started', flush=True)
+
+            print("server has fully started", flush=True)
 
             # Wait for futures to complete (which they won't, unless cancelled)
             concurrent.futures.wait(futures)
