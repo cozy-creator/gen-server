@@ -51,7 +51,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
         self._output_space = "SDXL"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         required_keys = {
@@ -93,7 +93,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
         if is_accelerate_available():
             torch_dtype = next(text_encoder.parameters()).dtype
             unexpected_keys = load_model_dict_into_meta(
-                text_encoder, text_model_dict, dtype=torch_dtype
+                text_encoder, text_model_dict, dtype=torch.float16
             )
             if text_encoder._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_encoder._keys_to_ignore_on_load_unexpected:

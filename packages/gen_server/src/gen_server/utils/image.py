@@ -148,7 +148,7 @@ def aspect_ratio_to_dimensions(
         raise ValueError(f"Unsupported aspect ratio: {aspect_ratio}")
 
     size = (
-        "large" if (model_category == "SDXL" or model_category == "SD3") else "default"
+        "large" if (model_category == "SDXL" or model_category == "SD3" or model_category == "AuraFlow") else "default"
     )
 
     return aspect_ratio_map[aspect_ratio][size]

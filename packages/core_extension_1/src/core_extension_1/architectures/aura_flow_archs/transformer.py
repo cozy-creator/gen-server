@@ -2,12 +2,12 @@ import json
 import time
 from typing import Optional, Any
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
-from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
-from diffusers.loaders.single_file_utils import (
-    convert_sd3_transformer_checkpoint_to_diffusers,
-)
+from diffusers import AuraFlowTransformer2DModel
+
 from diffusers.utils.import_utils import is_accelerate_available
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
+
+from .aura_flow_conversions import convert_auraflow_transformer_checkpoint_to_diffusers
 import torch
 import logging
 import re
@@ -17,7 +17,7 @@ from contextlib import nullcontext
 logger = logging.getLogger(__name__)
 
 config_path = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "config_unet.json"
+    os.path.dirname(os.path.abspath(__file__)), "aura_transformer_config.json"
 )
 
 
@@ -25,9 +25,11 @@ if is_accelerate_available():
     from accelerate import init_empty_weights
 
 
-class SD3UNet(Architecture[SD3Transformer2DModel]):
+
+
+class AuraFlowTransformer(Architecture[AuraFlowTransformer2DModel]):
     """
-    Architecture definition for the SD3 U-Net model.
+    Architecture definition for the AuraFlow Transformer model.
     """
 
     def __init__(self, **ignored: Any):
@@ -36,32 +38,31 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
             config = json.load(file)
         ctx = init_empty_weights if is_accelerate_available() else nullcontext
         with ctx():
-            model = SD3Transformer2DModel(**config)
+            model = AuraFlowTransformer2DModel(**config)
 
         self._model = model
         self._config = config
 
-        self._display_name = "SD3 U-Net"
-        self._input_space = "SD3"
-        self._output_space = "SD3"
+        self._display_name = "AuraFlow Transformer"
+        self._input_space = "AuraFlow"
+        self._output_space = "AuraFlow"
 
     @classmethod
     def detect( # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
-        Detects whether the given state dictionary matches the SD3 U-Net architecture.
+        Detects whether the given state dictionary matches the AuraFlow Transformer architecture.
         """
         required_keys = {
-            "model.diffusion_model.joint_blocks.0.context_block.attn.proj.bias",
-            "model.diffusion_model.joint_blocks.0.context_block.attn.proj.weight",
+            "model.double_layers.0.attn.w1k.weight",
         }
 
         return (
             ComponentMetadata(
-                display_name="SD3 U-Net",
-                input_space="SD3",
-                output_space="SD3",
+                display_name="AuraFlow Transformer",
+                input_space="AuraFlow",
+                output_space="AuraFlow",
             )
             if all(key in state_dict for key in required_keys)
             else None
@@ -69,19 +70,20 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
 
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         """
-        Loads the SD3 U-Net model from the given state dictionary.
+        Loads the AuraFlow Transformer model from the given state dictionary.
         """
-        print("Loading SD3 U-Net")
+        print("Loading AuraFlow Transformer")
         start = time.time()
 
-        unet = self.model
+        unet = self._model
         unet_state_dict = {
             key: state_dict[key]
             for key in state_dict
-            if key.startswith("model.diffusion_model.")
+            if key.startswith("model")
         }
-        new_unet_state_dict = convert_sd3_transformer_checkpoint_to_diffusers(
-            unet_state_dict, config=self.config
+
+        new_unet_state_dict = convert_auraflow_transformer_checkpoint_to_diffusers(
+            unet_state_dict, config=self._config
         )
 
         if is_accelerate_available():
@@ -104,4 +106,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
             unet.to(torch.float16)
 
 
-        print(f"UNet loaded in {time.time() - start:.2f} seconds")
+        print(f"AuraFlow Transformer loaded in {time.time() - start:.2f} seconds")
+
+
+
