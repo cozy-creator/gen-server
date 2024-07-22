@@ -1,9 +1,10 @@
 import io
 import os
-import time
 import asyncio
+import shutil
+
 import aiofiles
-from typing import Union, Optional, TypedDict, AsyncGenerator, Any, Generator
+from typing import Union, Optional, TypedDict, AsyncGenerator, Any
 import logging
 import aioboto3
 import blake3
@@ -58,23 +59,28 @@ class FileHandler(ABC):
 
             # Store in dictionary
             image_dict[img_hash] = img_bytes
-        
+
         tasks = [
             self.upload_file(
                 file_content=image,
                 file_extension="png",
                 file_basename=name,
                 is_temp=is_temp,
-            ) for name, image in image_dict.items()
+            )
+            for name, image in image_dict.items()
         ]
-        
-        print(f'Created {len(tasks)} tasks in upload_png_files')
-        
+
+        print(f"Created {len(tasks)} tasks in upload_png_files")
+
         for completed_task in asyncio.as_completed(tasks):
             result = await completed_task
             yield result
-        
-        print('finished uploading')
+
+        print("finished uploading")
+
+    @abstractmethod
+    def delete_folder(self, folder: str) -> None:
+        pass
 
     @abstractmethod
     async def list_files(self) -> list[str]:
@@ -106,22 +112,52 @@ class LocalFileHandler(FileHandler):
     ) -> FileURL:
         if file_basename is None:
             file_basename = blake3.blake3(file_content).hexdigest()
-            
+
         filename = f"{file_basename}.{file_extension}"
         base_path = (
             os.path.join(self.assets_path, "temp") if is_temp else self.assets_path
         )
         filepath = os.path.join(base_path, filename)
-        
+
         async with aiofiles.open(filepath, "wb") as f:
             await f.write(file_content)
 
-        return { 
+        return {
             "url": f"{self.server_url}/media/{filename}",
             "is_temp": is_temp,
         }
 
     async def list_files(self) -> list[str]:
+        for completed_task in asyncio.as_completed(tasks):
+            url = await completed_task
+            yield {"url": url, "is_temp": is_temp}
+
+    def delete_folder(self, folder: str):
+        folder_path = os.path.join(self.assets_path, folder)
+        if not os.path.exists(folder_path):
+            return
+
+        def _delete_files(files: list[str]):
+            for file in files:
+                file_path = os.path.join(folder_path, file)
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Error while deleting {file_path}: {str(e)}")
+
+        def _delete_dirs(dirs: list[str]):
+            for dir in dirs:
+                dir_path = os.path.join(folder_path, dir)
+                try:
+                    shutil.rmtree(dir_path)
+                except Exception as e:
+                    print(f"Error while deleting {dir_path}: {str(e)}")
+
+        for _, dirs, files in os.walk(folder_path, topdown=False):
+            _delete_dirs(dirs)
+            _delete_files(files)
+
+    def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -171,7 +207,7 @@ class S3FileHandler(FileHandler):
     ) -> FileURL:
         if file_basename is None:
             file_basename = blake3.blake3(file_content).hexdigest()
-        
+
         folder_prefix = f"{self.config.s3.folder}/" if self.config.s3.folder else ""
         temp_prefix = "temp/" if is_temp else ""
         key = f"{folder_prefix}{temp_prefix}{file_basename}.{file_extension}"
@@ -189,12 +225,101 @@ class S3FileHandler(FileHandler):
             logger.error(f"Failed to upload file {key}: {e}")
             raise
 
-        return { 
+        return {
             "url": f"{get_s3_public_url()}/{key}",
             "is_temp": is_temp,
         }
 
     async def list_files(self) -> list[str]:
+        for completed_task in asyncio.as_completed(tasks):
+            url = await completed_task
+            print("url", url)
+            yield {"url": url, "is_temp": is_temp}
+
+    def apply_temp_config(self, **kwargs):
+        """
+        Applies a temporary configuration to the bucket, such as setting an expiration rule for temporary files.
+
+        Parameters:
+        - id (str): The ID of the rule.
+        - days (int): The number of days before the files expire.
+        - date (str): The date when the files expire.
+        """
+
+        expiration = {}
+        if kwargs.get("days") is not None:
+            expiration["Days"] = kwargs.get("days")
+        elif kwargs.get("date") is not None:
+            expiration["Date"] = kwargs.get("date")
+        else:
+            raise ValueError("Invalid expiration configuration")
+
+        try:
+            lifecycle_configuration = {
+                "Rules": [
+                    {
+                        "ID": kwargs["id"]
+                        if kwargs.get("id")
+                        else "TempFilesExpirationRule",
+                        "Prefix": "/temp",
+                        "Status": "Enabled",
+                        "Expiration": expiration,
+                    }
+                ]
+            }
+
+            # Apply the lifecycle configuration to the bucket
+            self.put_bucket_lifecycle_configuration(
+                Bucket=self.config.bucket_name,
+                LifecycleConfiguration=lifecycle_configuration,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to upload file apply temp config: {e}")
+            raise
+
+    def delete_folder(self, folder: str):
+        """
+        Delete all objects within a folder in an S3 bucket.
+
+        Parameters:
+        - folder (str): The folder to delete.
+        """
+
+        def _delete_objects_in_chunks(objects):
+            chunk_size = 1000  # S3 allows up to 1000 objects per delete request
+            for i in range(0, len(objects), chunk_size):
+                chunk = objects[i : i + chunk_size]
+                self.client.delete_objects(
+                    Bucket=self.config.bucket,
+                    Delete={"Objects": chunk},
+                )
+
+        try:
+            continuation_token = None
+            folder = f"/{folder}" if not folder.startswith("/") else folder
+
+            while True:
+                list_params = {"Bucket": self.config.bucket_name, "Prefix": folder}
+                if continuation_token:
+                    list_params["ContinuationToken"] = continuation_token
+
+                response = self.client.list_objects_v2(**list_params)
+
+                if "Contents" in response:
+                    objects_to_delete = [
+                        {"Key": obj["Key"]} for obj in response["Contents"]
+                    ]
+                    _delete_objects_in_chunks(objects_to_delete)
+
+                if response.get("IsTruncated"):
+                    continuation_token = response.get("NextContinuationToken")
+                else:
+                    break
+        except Exception as e:
+            print(f"Failed to delete folder: {e}")
+
+    def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -231,7 +356,7 @@ def get_file_handler(config: Optional[RunCommandConfig] = None) -> FileHandler:
 
     if _file_handler_cache is not None:
         return _file_handler_cache
-    
+
     if config is None:
         config = get_config()
 
