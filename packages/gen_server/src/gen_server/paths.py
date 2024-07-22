@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from .templates.env import ENV_TEMPLATE
+from .static import ENV_TEMPLATE
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 

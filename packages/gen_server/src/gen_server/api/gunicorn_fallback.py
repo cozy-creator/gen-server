@@ -32,7 +32,7 @@ def start_api_server(
         site = TCPSite(runner, config.host, config.port)
         await site.start()
         
-        print(f"Serving on http://{config.host}:{config.port}")
+        print(f"Serving on http://{config.host}:{config.port}", flush=True)
         
         # This will keep the server running
         await asyncio.Event().wait()

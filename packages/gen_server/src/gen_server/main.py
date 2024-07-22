@@ -4,6 +4,7 @@ import time
 import argparse
 import sys
 import os
+import platform
 import concurrent.futures
 import signal
 from types import FrameType
@@ -236,11 +237,21 @@ def run_app(cozy_config: RunCommandConfig):
         file_handler = get_file_handler()
         architectures = get_architectures()
         node_specs = load_custom_node_specs(custom_nodes)
+        
+        # For processes that should use 'spawn'
+        spawn_context = multiprocessing.get_context('spawn')
+
+        # For processes that should use 'fork' (on systems that support it)
+        if platform.system() != 'Windows':
+            fork_context = multiprocessing.get_context('fork')
+        else:
+            fork_context = spawn_context  # Fallback to 'spawn' on Windows
 
         # Create a process pool for the workers
-        with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=3, mp_context=spawn_context) as spawn_executor, \
+            concurrent.futures.ProcessPoolExecutor(max_workers=3, mp_context=fork_context) as fork_executor:
             futures = [
-                executor.submit(
+                fork_executor.submit(
                     start_api_server,
                     job_queue,
                     cozy_config,
@@ -248,7 +259,7 @@ def run_app(cozy_config: RunCommandConfig):
                     node_specs,
                     api_endpoints
                 ),
-                executor.submit(
+                spawn_executor.submit(
                     run_gpu_worker,
                     job_queue,
                     tensor_queue,
@@ -257,7 +268,7 @@ def run_app(cozy_config: RunCommandConfig):
                     checkpoint_files,
                     architectures
                 ),
-                executor.submit(run_io_worker, tensor_queue, file_handler),
+                fork_executor.submit(run_io_worker, tensor_queue, file_handler),
             ]
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:

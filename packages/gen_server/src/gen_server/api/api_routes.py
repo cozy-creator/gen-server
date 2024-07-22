@@ -36,7 +36,12 @@ def create_aiohttp_app(
     Starts the web server with API endpoints from extensions
     """
     set_config(config)  # initialize config in this process
-
+    
+    logging.basicConfig(
+        level=logging.INFO,  # Set the minimum level to INFO
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
     logger = logging.getLogger(__name__)
 
     app = web.Application(
@@ -70,8 +75,6 @@ def create_aiohttp_app(
         """
         Submits generation requests from the user to the queue and streams the results.
         """
-        
-        logger.info("Received a generation request (log)")
 
         response = web.StreamResponse(
             status=200, reason="OK", headers={"Content-Type": "application/json"}
@@ -82,14 +85,13 @@ def create_aiohttp_app(
             # TO DO: validate these types using something like pydantic
             data = await request.json()
 
-            # Print out a message about the data received
-            logger.info(f"Received generation request with data: {data}")
-
             # Create a pair of connections for inter-process communication
             parent_conn, child_conn = multiprocessing.Pipe()
 
             # Submit the job to the queue
             job_queue.put((data, child_conn))
+            
+            print(f'job queue put {data}', flush=True)
 
             # Set a timeout for the entire operation
             total_timeout = 300  # 5 minutes, adjust as needed
