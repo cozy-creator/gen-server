@@ -1,17 +1,27 @@
 import torch
 
-
-from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
-from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
-from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
-from diffusers.schedulers.scheduling_ddim import DDIMScheduler
-from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
-from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
-from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
+from diffusers import (
+    StableDiffusionPipeline, 
+    AuraFlowPipeline, 
+    StableDiffusion3Pipeline,
+    StableDiffusionXLPipeline, 
+    FlowMatchEulerDiscreteScheduler,
+    DDIMScheduler,
+    EulerDiscreteScheduler,
+    EDMDPMSolverMultistepScheduler
+)
+# from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
+# from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
+# from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
+# from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+# from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
+# from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
+# from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
 
 from transformers import (
     CLIPTokenizer,
     T5TokenizerFast,
+    LlamaTokenizerFast
 )
 from typing import Optional
 from PIL import Image
@@ -79,6 +89,10 @@ class ImageGenNode(CustomNode):
                     pipe = self.create_sd3_pipe(components)
                     cfg = 7.0
                     num_inference_steps = 28
+                case "AuraFlow":
+                    pipe = self.create_auraflow_pipe(components)
+                    cfg = 3.5
+                    num_inference_steps = 20
                     
                 case _:
                     raise ValueError(
@@ -99,20 +113,32 @@ class ImageGenNode(CustomNode):
             # Optional Efficiency gains.
             # Enable_xformers_memory_efficient_attention can save memory usage and increase inference speed.
             # enable_model_cpu_offload and enable_vae_tiling can save memory usage.
-            pipe.enable_xformers_memory_efficient_attention()
+
+
+            if not checkpoint_metadata.category == "AuraFlow":
+                try:
+                    pipe.enable_vae_tiling()
+                    print("VAE Tiled")
+                    pipe.enable_xformers_memory_efficient_attention()
+                    print("Memory Efficient Attention")
+                except Exception as e:
+                    print(f"Error: {e}")
+
             pipe.enable_model_cpu_offload()
-            pipe.enable_vae_tiling()
+            print("Done offloading")
+    
+
 
             # Run the pipeline
             generator = (
-                torch.Generator(device="cpu").manual_seed(random_seed)
+                torch.Generator().manual_seed(random_seed)
                 if random_seed
                 else None
             )
             
             tensor_images = pipe(
                 prompt=positive_prompt,
-                # negative_prompt=negative_prompt,
+                negative_prompt=negative_prompt,
                 width=width,
                 height=height,
                 num_images_per_prompt=num_images,
@@ -121,6 +147,19 @@ class ImageGenNode(CustomNode):
                 generator=generator,
                 output_type="pt",
             ).images
+
+            print("I'm done")
+
+        #     image = pipe(
+        #     prompt="A person with green hair standing at the left side of the screen, a man with blue hair at the centre and a baby with red hair at the right playing with a toy. There is a yellow UFO looming over them.",
+        #     height=1024,
+        #     width=1024,
+        #     num_images_per_prompt=1,
+        #     num_inference_steps=20, 
+        #     generator=torch.Generator().manual_seed(234),
+        #     guidance_scale=3.5,
+        #     output_type="pt"
+        # ).images
 
             del pipe
             
@@ -155,7 +194,6 @@ class ImageGenNode(CustomNode):
     def create_sdxl_pipe(
         self, components: dict, model_type: Optional[str] = None
     ) -> StableDiffusionXLPipeline:
-        print(components["core_extension_1.vae"])
         vae = components["core_extension_1.vae"].model
         unet = components["core_extension_1.sdxl_unet"].model
         text_encoder_1 = components["core_extension_1.sdxl_text_encoder_1"].model
@@ -226,6 +264,25 @@ class ImageGenNode(CustomNode):
         )
 
         print("Done!")
+
+        return pipe
+    
+    def create_auraflow_pipe(self, components: dict) -> AuraFlowPipeline:
+        vae = components["core_extension_1.auraflow_vae"].model
+        transformer = components["core_extension_1.auraflow_transformer"].model
+        text_encoder = components["core_extension_1.auraflow_text_encoder"].model
+
+        # Load scheduler and Tokenizer
+        scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained("fal/AuraFlow", subfolder="scheduler")
+        tokenizer = LlamaTokenizerFast.from_pretrained("fal/AuraFlow", subfolder="tokenizer")
+
+        pipe = AuraFlowPipeline(
+            vae=vae,
+            text_encoder=text_encoder,
+            tokenizer=tokenizer,
+            transformer=transformer,
+            scheduler=scheduler,
+        )
 
         return pipe
 

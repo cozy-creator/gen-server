@@ -1,4 +1,4 @@
-from typing import Type, Optional, Any, Iterable, Union
+from typing import Type, Any, Iterable, Union
 from aiohttp import web
 
 from . import CustomNode

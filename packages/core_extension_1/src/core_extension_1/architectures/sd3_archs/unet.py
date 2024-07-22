@@ -46,7 +46,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """

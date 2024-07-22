@@ -3,8 +3,7 @@ from gen_server.base_types import CustomNode
 import sys
 import os
 
-from .depth_anything.depth_anything_v2.dpt import DepthAnythingV2
-
+from transformers import pipeline
 from controlnet_aux import MidasDetector
 import cv2
 from PIL import Image
@@ -47,17 +46,7 @@ class DepthMapNode(CustomNode):
                 depth_map = self.midas_detector(image)
             elif model_type.lower() == "depth_anything_v2":
                 if self.depth_anything_model is None:
-                    model_configs = {
-                        'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
-                        'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
-                        'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
-                        'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
-                    }
-                    encoder = 'vitl'
-                    self.depth_anything_model = DepthAnythingV2(**model_configs[encoder])
-                    self.depth_anything_model.load_state_dict(torch.load(f'models/depth_anything_v2_vitl.pth', map_location='cpu'))
-                    self.depth_anything_model = self.depth_anything_model.to(self.DEVICE).eval()
-                depth_map = self.extract_depth_map_depth_anything(image)
+                    depth_map = self.extract_depth_map_depth_anything(image)
             else:
                 raise ValueError("Invalid model_type. Choose either 'midas' or 'depth_anything_v2'.")
             
@@ -68,15 +57,13 @@ class DepthMapNode(CustomNode):
 
     def extract_depth_map_depth_anything(self, image: Image.Image) -> Image.Image:
         """Extracts and processes the depth map using Depth Anything."""
-        raw_img = pil_to_cv2(image)
-        depth = self.depth_anything_model.infer_image(raw_img)
-        depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX)
-        depth_norm = np.uint8(depth_norm)
-        depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
-        cv2.imwrite('depth_map.png', depth_norm)
-        depth_colormap_rgb = cv2.cvtColor(depth_colormap, cv2.COLOR_BGR2RGB)
-        depth_colormap_pil = Image.fromarray(depth_colormap_rgb)
-        return depth_colormap_pil 
+        # load pipe
+        pipe = pipeline(task="depth-estimation", model="depth-anything/Depth-Anything-V2-Large-hf")
+
+        # inference
+        depth = pipe(image)["depth"]
+
+        return depth
     
     @staticmethod
     def get_spec():

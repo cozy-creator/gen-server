@@ -7,6 +7,7 @@ from ..globals import CustomNode, CheckpointMetadata
 from .workflows import generate_images
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

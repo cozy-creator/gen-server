@@ -43,7 +43,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         self._output_space = "SDXL"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -83,7 +83,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict)
+            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict, dtype=torch.float16)
             if unet._keys_to_ignore_on_load_unexpected is not None:
                 for pat in unet._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [

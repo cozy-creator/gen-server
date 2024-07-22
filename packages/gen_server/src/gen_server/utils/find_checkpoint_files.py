@@ -89,7 +89,7 @@ def find_checkpoint_files(models_paths: List[str]) -> dict[str, CheckpointMetada
 # TO DO: this is kind of a dumb way to go about this; see if we can come up
 # with something more general
 def determine_category(components: Dict[str, ComponentMetadata]) -> str:
-    output_space_counts = {"SD1": 0, "SDXL": 0, "SD3": 0}
+    output_space_counts = {"SD1": 0, "SDXL": 0, "SD3": 0, "AuraFlow": 0}
 
     for component in components.values():
         if component["output_space"] == "SD1":
@@ -98,6 +98,8 @@ def determine_category(components: Dict[str, ComponentMetadata]) -> str:
             output_space_counts["SDXL"] += 1
         elif component["output_space"] == "SD3":
             output_space_counts["SD3"] += 1
+        elif component["output_space"] == "AuraFlow":
+            output_space_counts["AuraFlow"] += 1
 
     max_category = max(output_space_counts.items(), key=lambda x: x[1])
     return max_category[0] if max_category[1] > 0 else "Unknown"

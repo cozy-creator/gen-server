@@ -143,8 +143,6 @@ class VAEArch(Architecture[AutoencoderKL]):
                         k for k in unexpected_keys if re.search(pat, k) is None
                     ]
 
-
-
             if len(unexpected_keys) > 0:
                 logger.warning(
                     f"Some weights of the model checkpoint were not used when initializing {vae.__name__}: \n {[', '.join(unexpected_keys)]}"
