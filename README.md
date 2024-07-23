@@ -42,9 +42,9 @@ cozy run s3='{"endpoint_url": "https://nyc3.digitaloceanspaces.com", "access_key
 
 ### Using Environment Variables
 
-Environment variables must have the `COZY` prefix added in order to prevent collisions with other environment variables. For example `export COZY_PORT=9000` will work.
+Environment variables must have the `COZY_` prefix added in order to prevent collisions with other environment variables. For example `export COZY_PORT=9000` will work.
 
-See our .env.example file for all available environment variables. By default, when you run `cozy` it will attempt to load the `.env` file in your current working directory. If the .env file can be found elsewhere, you can specify its location using the `--env-file` flag; 
+See our .env.example file for all available environment variables. By default, when you run `cozy run` without the `--env-file` flag,it will attempt to load the `.env` file in the workspace path (which may also be specified or could be default). You can specify its location using the `--env-file` flag; 
 
 ```sh
 cozy run --env-file="~/.cozy-creator/.env"
@@ -109,7 +109,7 @@ MSYS_NO_PATHCONV=1 docker run \
   cozy-creator/gen-server:0.2.2
 ```
 
-You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
+You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. When you specify an .env-file in Docker's run command, Docker inserts them as environment variables into the container, meaning all of the keys inside of your `.env` file should be prefixed with `COZY_` to have them work as expected. Some other flag-usage examples:
 
 ```sh
 docker run \

@@ -40,6 +40,9 @@ COPY --from=builder /app/web/dist /srv/www/cozy/dist
 COPY packages/ ./packages
 COPY pyproject.toml ./pyproject.toml
 
+# Install the latest unreleased version of Diffusers
+RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
+
 # Install the gen_server package and its plugin-packages
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
     pip install ./packages/image_utils && \

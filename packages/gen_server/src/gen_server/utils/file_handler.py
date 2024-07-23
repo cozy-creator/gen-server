@@ -3,9 +3,9 @@ import os
 import time
 import asyncio
 import aiofiles
-from typing import Union, Optional, TypedDict, AsyncGenerator, Any
+from typing import Union, Optional, TypedDict, AsyncGenerator, Any, Generator
 import logging
-from boto3.session import Session
+import aioboto3
 import blake3
 from PIL import Image, PngImagePlugin
 from abc import ABC, abstractmethod
@@ -24,12 +24,13 @@ class FileURL(TypedDict):
 
 class FileHandler(ABC):
     @abstractmethod
-    def upload_files(
+    async def upload_file(
         self,
-        content: list[bytes] | dict[str, bytes],
+        file_content: bytes,
         file_extension: str,
+        file_basename: str | None = None,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileURL, None]:
+    ) -> FileURL:
         pass
 
     async def upload_png_files(
@@ -40,9 +41,9 @@ class FileHandler(ABC):
     ) -> AsyncGenerator[FileURL, None]:
         """
         This is a convenient method for uploading PNG files, which is a common use-case.
-        It wraps the built-in `upload_files` method.
+        It wraps the built-in `upload_file` method.
         """
-        image_dict = {}
+        image_dict: dict[str, bytes] = {}
 
         for img in images:
             # Convert image to bytes without metadata and compute Blake3 hash
@@ -57,23 +58,31 @@ class FileHandler(ABC):
 
             # Store in dictionary
             image_dict[img_hash] = img_bytes
-
-        results = self.upload_files(
-            content=image_dict,
-            file_extension="png",
-            is_temp=is_temp,
-        )
-
-        async for result in results:
-            print("result", result)
+        
+        tasks = [
+            asyncio.create_task(self.upload_file(
+                file_content=image,
+                file_extension="png",
+                file_basename=name,
+                is_temp=is_temp,
+            ) for name, image in image_dict.items())
+        ]
+        
+        print('created tasks in upload_png_files')
+        
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            print('yielding result result', result)
             yield result
+        
+        print('FINSIHED UPLOADING')
 
     @abstractmethod
-    def list_files(self) -> list[str]:
+    async def list_files(self) -> list[str]:
         pass
 
     @abstractmethod
-    def download_file(self, filename: str) -> Union[bytes, None]:
+    async def download_file(self, filename: str) -> Union[bytes, None]:
         pass
 
 
@@ -86,42 +95,34 @@ class LocalFileHandler(FileHandler):
         )
 
         self.assets_path = get_assets_dir()
-
-    async def upload_files(
-        self,
-        content: list[bytes] | dict[str, bytes],
-        file_extension: str,
-        is_temp: bool = False,
-    ) -> AsyncGenerator[FileURL, None]:
         if not os.path.exists(self.assets_path):
             os.makedirs(self.assets_path)
 
-        if isinstance(content, list):
-            content_dict = {blake3.blake3(item).hexdigest(): item for item in content}
-        else:
-            content_dict = content
+    async def upload_file(
+        self,
+        file_content: bytes,
+        file_extension: str,
+        file_basename: str | None = None,
+        is_temp: bool = False,
+    ) -> FileURL:
+        if file_basename is None:
+            file_basename = blake3.blake3(file_content).hexdigest()
+            
+        filename = f"{file_basename}.{file_extension}"
+        base_path = (
+            os.path.join(self.assets_path, "temp") if is_temp else self.assets_path
+        )
+        filepath = os.path.join(base_path, filename)
+        
+        async with aiofiles.open(filepath, "wb") as f:
+            await f.write(file_content)
 
-        async def _upload_file(basename: str, file_content: bytes) -> str:
-            filename = f"{basename}.{file_extension}"
-            base_path = (
-                os.path.join(self.assets_path, "temp") if is_temp else self.assets_path
-            )
-            filepath = os.path.join(base_path, filename)
-            async with aiofiles.open(filepath, "wb") as f:
-                await f.write(file_content)
-
-            return f"{self.server_url}/media/{filename}"
-
-        tasks = {
-            asyncio.create_task(_upload_file(basename, file_content)): basename
-            for basename, file_content in content_dict.items()
+        return { 
+            "url": f"{self.server_url}/media/{filename}",
+            "is_temp": is_temp,
         }
 
-        for completed_task in asyncio.as_completed(tasks):
-            url = await completed_task
-            yield {"url": url, "is_temp": is_temp}
-
-    def list_files(self) -> list[str]:
+    async def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -134,14 +135,14 @@ class LocalFileHandler(FileHandler):
 
         return [_make_url(file) for file in os.listdir(self.assets_path)]
 
-    def download_file(self, filename: str) -> Union[bytes, None]:
+    async def download_file(self, filename: str) -> Union[bytes, None]:
         full_filepath = os.path.join(self.assets_path, filename)
 
         if not os.path.exists(full_filepath):
             return None
 
-        with open(full_filepath, mode="rb") as f:
-            return f.read()
+        async with aiofiles.open(full_filepath, mode="rb") as f:
+            return await f.read()
 
 
 class S3FileHandler(FileHandler):
@@ -151,75 +152,71 @@ class S3FileHandler(FileHandler):
 
         self.config = config.s3
 
-        session = Session()
-        self.client = session.client(
-            config.filesystem_type,
-            region_name=config.s3.region_name,
-            endpoint_url=config.s3.endpoint_url,
-            aws_access_key_id=config.s3.access_key,
-            aws_secret_access_key=config.s3.secret_key,
+        self.session = aioboto3.Session()
+
+    async def _get_client(self):
+        return self.session.client(
+            self.config.filesystem_type,
+            region_name=self.config.s3.region_name,
+            endpoint_url=self.config.s3.endpoint_url,
+            aws_access_key_id=self.config.s3.access_key,
+            aws_secret_access_key=self.config.s3.secret_key,
         )
 
-    async def upload_files(
+    async def upload_file(
         self,
-        content: list[bytes] | dict[str, bytes],
+        file_content: bytes,
         file_extension: str,
+        file_basename: str | None = None,
         is_temp: bool = False,
-    ) -> AsyncGenerator[FileURL, None]:
-        if isinstance(content, list):
-            content_dict = {blake3.blake3(item).hexdigest(): item for item in content}
-        else:
-            content_dict = content
+    ) -> FileURL:
+        if file_basename is None:
+            file_basename = blake3.blake3(file_content).hexdigest()
+        
+        folder_prefix = f"{self.config.folder}/" if self.config.folder else ""
+        temp_prefix = "temp/" if is_temp else ""
+        key = f"{folder_prefix}{temp_prefix}{file_basename}.{file_extension}"
 
-        async def _upload_file(basename: str, file_content: bytes) -> str:
-            folder_prefix = f"{self.config.folder}/" if self.config.folder else ""
-            temp_prefix = "temp/" if is_temp else ""
-            key = f"{folder_prefix}{temp_prefix}{basename}.{file_extension}"
-
-            try:
-                self.client.put_object(
+        try:
+            async with await self._get_client() as client:
+                await client.put_object(
                     Bucket=self.config.bucket_name,
                     Key=key,
                     Body=file_content,
                     ACL="public-read",
                 )
 
-            except Exception as e:
-                logger.error(f"Failed to upload file {key}: {e}")
-                raise
+        except Exception as e:
+            logger.error(f"Failed to upload file {key}: {e}")
+            raise
 
-            return f"{get_s3_public_url()}/{key}"
+        return { 
+            "url": f"{get_s3_public_url()}/{key}",
+            "is_temp": is_temp,
+        }
 
-        tasks = [
-            asyncio.create_task(_upload_file(basename, file_content))
-            for basename, file_content in content_dict.items()
-        ]
-
-        for completed_task in asyncio.as_completed(tasks):
-            url = await completed_task
-            print("url", url)
-            yield {"url": url, "is_temp": is_temp}
-
-    def list_files(self) -> list[str]:
+    async def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
 
-        response = self.client.list_objects_v2(
-            Bucket=self.config.bucket_name,
-            Prefix=self.config.folder,
-        )
+        async with await self._get_client() as client:
+            response = await client.list_objects_v2(
+                Bucket=self.config.bucket_name,
+                Prefix=self.config.folder,
+            )
 
         def _make_url(obj: dict[str, Any]) -> str:
             return f"{self.config.endpoint_url}/{obj['Key']}"
 
-        return [_make_url(url) for url in response.get("Contents", [])]
+        return [_make_url(obj) for obj in response.get("Contents", [])]
 
-    def download_file(self, filename: str) -> Union[bytes, None]:
+    async def download_file(self, filename: str) -> Union[bytes, None]:
         key = f"{self.config.folder}/{filename}"
 
         bytesio = io.BytesIO()
-        self.client.download_fileobj(self.config.bucket_name, key, bytesio)
+        async with await self._get_client() as client:
+            await client.download_fileobj(self.config.bucket_name, key, bytesio)
         return bytesio.getvalue()
 
 

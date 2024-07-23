@@ -253,8 +253,6 @@ def run_app(cozy_config: RunCommandConfig):
         custom_nodes = get_custom_nodes()
         architectures = get_architectures()
         node_specs = load_custom_node_specs(custom_nodes)
-        
-        print(f'filesystem type: {cozy_config.filesystem_type}')
 
         # Create a process pool for the workers
         # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not

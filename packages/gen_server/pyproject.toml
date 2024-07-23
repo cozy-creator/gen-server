@@ -12,12 +12,12 @@ authors = [
 ]
 
 dependencies = [
+    "aioboto3",
     "aiofiles",
     "aiohttp",
     "aiohttp_cors",
     "aiohttp_middlewares",
     "blake3",
-    "boto3",
     "diffusers>=0.29",
     "einops",
     "grpcio",
