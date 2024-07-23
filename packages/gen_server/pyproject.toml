@@ -16,6 +16,7 @@ dependencies = [
     "aiofiles",
     "aiohttp",
     "aiohttp_cors",
+    "aioshutil",
     "aiohttp_middlewares",
     "blake3",
     "diffusers>=0.29",
