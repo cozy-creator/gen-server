@@ -79,7 +79,6 @@ def load_extensions(
             traceback.print_exc()
             logging.error(f"Failed to load plugin {scoped_name}: {str(error)}")
 
-    pprint(plugins, indent=3)
     return plugins
 
 
