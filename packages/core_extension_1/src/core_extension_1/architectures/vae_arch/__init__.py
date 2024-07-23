@@ -140,7 +140,7 @@ class VAEArch(Architecture[AutoencoderKL]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict)
+            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict, dtype=torch.float16)
             if vae._keys_to_ignore_on_load_unexpected is not None:
                 for pat in vae._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [

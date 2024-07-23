@@ -122,6 +122,8 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
             text_model=text_model, checkpoint=text_encoder_state_dict, prefix=prefix
         )
 
+        print(text_model_dict.keys())
+
         if is_accelerate_available():
             print("Using accelerate")
             # torch_dtype = next(text_model.parameters()).dtype
