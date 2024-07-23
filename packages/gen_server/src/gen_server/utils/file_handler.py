@@ -60,23 +60,21 @@ class FileHandler(ABC):
             image_dict[img_hash] = img_bytes
         
         tasks = [
-            asyncio.create_task(self.upload_file(
+            self.upload_file(
                 file_content=image,
                 file_extension="png",
                 file_basename=name,
                 is_temp=is_temp,
-            ) for name, image in image_dict.items())
+            ) for name, image in image_dict.items()
         ]
         
         print(f'Created {len(tasks)} tasks in upload_png_files')
         
         for completed_task in asyncio.as_completed(tasks):
-            print(f'the completed task: {completed_task}')
-            result = await completed_task.result()
-            print('yielding result result', result)
+            result = await completed_task
             yield result
         
-        print('FINSIHED UPLOADING')
+        print('finished uploading')
 
     @abstractmethod
     async def list_files(self) -> list[str]:
@@ -151,7 +149,7 @@ class S3FileHandler(FileHandler):
         if config.s3 is None:
             raise ValueError("S3 configuration is required")
 
-        self.config = config.s3
+        self.config = config
 
         self.session = aioboto3.Session()
 
@@ -174,14 +172,14 @@ class S3FileHandler(FileHandler):
         if file_basename is None:
             file_basename = blake3.blake3(file_content).hexdigest()
         
-        folder_prefix = f"{self.config.folder}/" if self.config.folder else ""
+        folder_prefix = f"{self.config.s3.folder}/" if self.config.s3.folder else ""
         temp_prefix = "temp/" if is_temp else ""
         key = f"{folder_prefix}{temp_prefix}{file_basename}.{file_extension}"
 
         try:
             async with await self._get_client() as client:
                 await client.put_object(
-                    Bucket=self.config.bucket_name,
+                    Bucket=self.config.s3.bucket_name,
                     Key=key,
                     Body=file_content,
                     ACL="public-read",
@@ -203,21 +201,21 @@ class S3FileHandler(FileHandler):
 
         async with await self._get_client() as client:
             response = await client.list_objects_v2(
-                Bucket=self.config.bucket_name,
-                Prefix=self.config.folder,
+                Bucket=self.config.s3.bucket_name,
+                Prefix=self.config.s3.folder,
             )
 
         def _make_url(obj: dict[str, Any]) -> str:
-            return f"{self.config.endpoint_url}/{obj['Key']}"
+            return f"{self.config.s3.endpoint_url}/{obj['Key']}"
 
         return [_make_url(obj) for obj in response.get("Contents", [])]
 
     async def download_file(self, filename: str) -> Union[bytes, None]:
-        key = f"{self.config.folder}/{filename}"
+        key = f"{self.config.s3.folder}/{filename}"
 
         bytesio = io.BytesIO()
         async with await self._get_client() as client:
-            await client.download_fileobj(self.config.bucket_name, key, bytesio)
+            await client.download_fileobj(self.config.s3.bucket_name, key, bytesio)
         return bytesio.getvalue()
 
 

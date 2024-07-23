@@ -72,5 +72,4 @@ async def upload_batch(
     async for file_url in file_handler.upload_png_files(pil_images, metadata):
         print(f"File uploaded successfully. URL: {file_url}")
         response_conn.send(file_url)
-        print("File URL sent to response connection")
     
