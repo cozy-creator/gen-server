@@ -79,7 +79,7 @@ class FileHandler(ABC):
         print("finished uploading")
 
     @abstractmethod
-    def delete_folder(self, folder: str) -> None:
+    async def delete_files(self, folder_name: str) -> None:
         pass
 
     @abstractmethod
@@ -127,13 +127,8 @@ class LocalFileHandler(FileHandler):
             "is_temp": is_temp,
         }
 
-    async def list_files(self) -> list[str]:
-        for completed_task in asyncio.as_completed(tasks):
-            url = await completed_task
-            yield {"url": url, "is_temp": is_temp}
-
-    def delete_folder(self, folder: str):
-        folder_path = os.path.join(self.assets_path, folder)
+    async def delete_files(self, folder_name: str):
+        folder_path = os.path.join(self.assets_path, folder_name)
         if not os.path.exists(folder_path):
             return
 
@@ -157,7 +152,7 @@ class LocalFileHandler(FileHandler):
             _delete_dirs(dirs)
             _delete_files(files)
 
-    def list_files(self) -> list[str]:
+    async def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """
@@ -230,13 +225,7 @@ class S3FileHandler(FileHandler):
             "is_temp": is_temp,
         }
 
-    async def list_files(self) -> list[str]:
-        for completed_task in asyncio.as_completed(tasks):
-            url = await completed_task
-            print("url", url)
-            yield {"url": url, "is_temp": is_temp}
-
-    def apply_temp_config(self, **kwargs):
+    async def apply_temp_config(self, **kwargs):
         """
         Applies a temporary configuration to the bucket, such as setting an expiration rule for temporary files.
 
@@ -255,6 +244,7 @@ class S3FileHandler(FileHandler):
             raise ValueError("Invalid expiration configuration")
 
         try:
+            client = await self._get_client()
             lifecycle_configuration = {
                 "Rules": [
                     {
@@ -269,7 +259,7 @@ class S3FileHandler(FileHandler):
             }
 
             # Apply the lifecycle configuration to the bucket
-            self.put_bucket_lifecycle_configuration(
+            await client.put_bucket_lifecycle_configuration(
                 Bucket=self.config.bucket_name,
                 LifecycleConfiguration=lifecycle_configuration,
             )
@@ -278,7 +268,7 @@ class S3FileHandler(FileHandler):
             logger.error(f"Failed to upload file apply temp config: {e}")
             raise
 
-    def delete_folder(self, folder: str):
+    async def delete_files(self, folder_name: str):
         """
         Delete all objects within a folder in an S3 bucket.
 
@@ -286,31 +276,35 @@ class S3FileHandler(FileHandler):
         - folder (str): The folder to delete.
         """
 
-        def _delete_objects_in_chunks(objects):
+        client = await self._get_client()
+
+        async def _delete_objects_in_chunks(objects):
             chunk_size = 1000  # S3 allows up to 1000 objects per delete request
             for i in range(0, len(objects), chunk_size):
                 chunk = objects[i : i + chunk_size]
-                self.client.delete_objects(
+                await client.delete_objects(
                     Bucket=self.config.bucket,
                     Delete={"Objects": chunk},
                 )
 
         try:
             continuation_token = None
-            folder = f"/{folder}" if not folder.startswith("/") else folder
+            folder = (
+                f"/{folder_name}" if not folder_name.startswith("/") else folder_name
+            )
 
             while True:
                 list_params = {"Bucket": self.config.bucket_name, "Prefix": folder}
                 if continuation_token:
                     list_params["ContinuationToken"] = continuation_token
 
-                response = self.client.list_objects_v2(**list_params)
+                response = await client.list_objects_v2(**list_params)
 
                 if "Contents" in response:
                     objects_to_delete = [
                         {"Key": obj["Key"]} for obj in response["Contents"]
                     ]
-                    _delete_objects_in_chunks(objects_to_delete)
+                    await _delete_objects_in_chunks(objects_to_delete)
 
                 if response.get("IsTruncated"):
                     continuation_token = response.get("NextContinuationToken")
@@ -319,7 +313,7 @@ class S3FileHandler(FileHandler):
         except Exception as e:
             print(f"Failed to delete folder: {e}")
 
-    def list_files(self) -> list[str]:
+    async def list_files(self) -> list[str]:
         """
         Lists all uploaded files.
         """

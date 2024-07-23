@@ -15,6 +15,7 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
+from gen_server.utils.file_handler import LocalFileHandler
 from gen_server.utils.web import install_and_build_web_dir
 from .paths import ensure_workspace_path
 from .config import init_config
@@ -22,7 +23,7 @@ from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
 from .utils import load_extensions, find_checkpoint_files, flatten_architectures
 from .api import start_api_server, api_routes_validator
-from .utils import load_custom_node_specs
+from .utils import load_custom_node_specs, get_file_handler
 from .utils.paths import get_models_dir, get_web_dir
 from .globals import (
     get_api_endpoints,
@@ -290,7 +291,11 @@ def run_app(cozy_config: RunCommandConfig):
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
                 print("Received shutdown signal. Terminating processes...")
-                get_file_handler().delete_folder("temp")
+
+                # We only delete temp files if we are running locally
+                file_handler = get_file_handler()
+                if isinstance(file_handler, LocalFileHandler):
+                    file_handler.delete_files(folder_name="temp")
 
                 # for future in futures:
                 #     future.cancel()
