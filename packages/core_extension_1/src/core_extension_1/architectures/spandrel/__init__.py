@@ -1,5 +1,4 @@
 from typing import Any, Optional
-from spandrel import Architecture as SpandrelArchitecture
 from spandrel.architectures.ESRGAN import ESRGANArch
 from spandrel.architectures.CRAFT import CRAFTArch
 from spandrel.architectures.Compact import CompactArch

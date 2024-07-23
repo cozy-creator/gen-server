@@ -211,7 +211,7 @@ def find_component_models(
     """
     components: dict[str, ComponentMetadata] = {}
 
-    if registry == None:
+    if registry is None:
         from ..globals import _ARCHITECTURES
 
         registry = _ARCHITECTURES

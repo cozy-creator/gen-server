@@ -42,9 +42,9 @@ cozy run s3='{"endpoint_url": "https://nyc3.digitaloceanspaces.com", "access_key
 
 ### Using Environment Variables
 
-Environment variables must have the `COZY` prefix added in order to prevent collisions with other environment variables. For example `export COZY_PORT=9000` will work.
+Environment variables must have the `COZY_` prefix added in order to prevent collisions with other environment variables. For example `export COZY_PORT=9000` will work.
 
-See our .env.example file for all available environment variables. By default, when you run `cozy` it will attempt to load the `.env` file in your current working directory. If the .env file can be found elsewhere, you can specify its location using the `--env-file` flag; 
+See our .env.example file for all available environment variables. By default, when you run `cozy run` without the `--env-file` flag,it will attempt to load the `.env` file in the workspace path (which may also be specified or could be default). You can specify its location using the `--env-file` flag; 
 
 ```sh
 cozy run --env-file="~/.cozy-creator/.env"
@@ -81,19 +81,35 @@ docker build -t cozy-creator/gen-server:0.2.2 .
 
 ### Docker Run
 
-Note that in windows, we add the `MSYS_NO_PATHCONV=1` flag because Windows dcommand line doesn't know how to interpet paths. Note that in Docker, destination route paths must be absolute, so `~/.cozy-creator` won't work; you must use `/root/.cozy-creator` or whever your user's home directory is. This command below assumes the container is running as root user:
+Note that in windows, we add the `MSYS_NO_PATHCONV=1` flag because Windows dcommand line doesn't know how to interpet paths. Note that in Docker, destination route paths must be absolute, so `~/.cozy-creator` won't work; you must use `/root/.cozy-creator` or whever your user's home directory is. This command below assumes the user is inside of the container is running as root:
 
+WSL2 version:
+
+```sh
+docker run \
+  --env-file=/root/.cozy-creator/.env.local \
+  -p 8881:8881 \
+  -v /root/.cozy-creator:/root/.cozy-creator \
+  -v /root/.cache/huggingface:/root/.cache/huggingface \
+  --gpus=all \
+  cozy-creator/gen-server:0.2.2
+```
+
+Windows version:
+By default, docker runs in WSL2, and WSL2 is extremely slow at reading from the windows filesystem. Meaning that when you mount a windows directory into the docker container, the load-time for SDXL's 5.1GB Unet goes from 12 seconds -> 90 seconds.
+
+To fix this, you can access your WSL installation by typing in `\\wsl$` into the windows file explorer, and then navigating to your Linux installation (probably Ubuntu). Then in the root directory of your Ubuntu installation, place your models inside of /root/.cozy-creator/models, and then load from there. Your docker container will load models directly from your Linux filesystem, bypassing Windows and speeding up the process.
 ```sh
 MSYS_NO_PATHCONV=1 docker run \
   --env-file=.env.local \
   -p 8881:8881 \
   -v ~/.cozy-creator:/root/.cozy-creator \
-  -v ~/.cache/huggingface/hub:/root/.cache/huggingface/hub \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
   --gpus=all \
   cozy-creator/gen-server:0.2.2
 ```
 
-You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. Some other flag-usage examples:
+You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. When you specify an .env-file in Docker's run command, Docker inserts them as environment variables into the container, meaning all of the keys inside of your `.env` file should be prefixed with `COZY_` to have them work as expected. Some other flag-usage examples:
 
 ```sh
 docker run \

@@ -19,6 +19,8 @@ WORKDIR /app
 
 # Configure apt-get to automatically use noninteractive settings
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+# ENV PYTHONDONTWRITEBYTECODE=1
 
 # Install Linux build and runtime dependencies
 RUN apt-get update && \
@@ -37,6 +39,9 @@ COPY --from=builder /app/web/dist /srv/www/cozy/dist
 
 COPY packages/ ./packages
 COPY pyproject.toml ./pyproject.toml
+
+# Install the latest unreleased version of Diffusers
+RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 
 # Install the gen_server package and its plugin-packages
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \

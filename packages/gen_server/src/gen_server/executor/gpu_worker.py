@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def run_gpu_worker(
+def start_gpu_worker(
     task_queue: queue.Queue,
     tensor_queue: queue.Queue,
     cozy_config: RunCommandConfig,
@@ -21,9 +21,8 @@ def run_gpu_worker(
     architectures: dict,
 ):
     logger = logging.getLogger(__name__)
-
-    logger.info("startup up gpu worker (log)")
-    print("startup up gpu worker (print)", flush=True)
+    
+    print('GPU worker started', flush=True)
 
     while True:
         try:

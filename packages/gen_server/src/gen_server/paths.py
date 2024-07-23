@@ -1,5 +1,4 @@
 import os
-import shutil
 
 from .static import ENV_TEMPLATE
 
@@ -123,7 +122,9 @@ def annotated_filepath(name: str) -> tuple[str, str | None]:
     return name, base_dir
 
 
-def get_annotated_filepath(name: str, default_dir: str | None = None) -> str | tuple[str, str]:
+def get_annotated_filepath(
+    name: str, default_dir: str | None = None
+) -> str | tuple[str, str]:
     name, base_dir = annotated_filepath(name)
 
     if base_dir is None:
@@ -161,7 +162,9 @@ def ensure_workspace_path(path: str):
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
-        write_env_example_file(path) # we only write this the first time the dir is created
+        write_env_example_file(
+            path
+        )  # we only write this the first time the dir is created
 
     for subdir in subdirs:
         if isinstance(subdir, list):
@@ -182,29 +185,3 @@ def write_env_example_file(workspace_path: str):
 
     except Exception as e:
         print(f"Error while creating initializing env file: {str(e)}")
-
-
-def clean_temp_files(workspace_path: str):
-    temp_path = os.path.join(workspace_path, "temp")
-    if not os.path.exists(temp_path):
-        return
-
-    def _clean_files(files: list[str]):
-        for file in files:
-            file_path = os.path.join(temp_path, file)
-            try:
-                os.remove(file_path)
-            except Exception as e:
-                print(f"Error while deleting {file_path}: {str(e)}")
-
-    def _clean_dirs(dirs: list[str]):
-        for dir in dirs:
-            dir_path = os.path.join(temp_path, dir)
-            try:
-                shutil.rmtree(dir_path)
-            except Exception as e:
-                print(f"Error while deleting {dir_path}: {str(e)}")
-
-    for _, dirs, files in os.walk(temp_path, topdown=False):
-        _clean_dirs(dirs)
-        _clean_files(files)

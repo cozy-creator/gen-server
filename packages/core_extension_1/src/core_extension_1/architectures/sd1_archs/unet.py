@@ -49,7 +49,6 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         )
 
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
-        print("Loading SD1.5 UNet")
         start = time.time()
 
         unet = self.model

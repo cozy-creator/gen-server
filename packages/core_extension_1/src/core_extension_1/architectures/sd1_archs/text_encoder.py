@@ -54,7 +54,6 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
         )
 
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
-        print("Loading SD1.5 TextEncoder")
         start = time.time()
 
         text_encoder = self.model
