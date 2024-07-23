@@ -270,26 +270,25 @@ class S3FileHandler(FileHandler):
             raise ValueError("Invalid expiration configuration")
 
         try:
-            client = await self._get_client()
-            lifecycle_configuration = {
-                "Rules": [
-                    {
-                        "ID": kwargs["id"]
-                        if kwargs.get("id")
-                        else "TempFilesExpirationRule",
-                        "Prefix": "/temp",
-                        "Status": "Enabled",
-                        "Expiration": expiration,
-                    }
-                ]
-            }
+            async with await self._get_client() as client:
+                lifecycle_configuration = {
+                    "Rules": [
+                        {
+                            "ID": kwargs["id"]
+                            if kwargs.get("id")
+                            else "TempFilesExpirationRule",
+                            "Prefix": "/temp",
+                            "Status": "Enabled",
+                            "Expiration": expiration,
+                        }
+                    ]
+                }
 
-            # Apply the lifecycle configuration to the bucket
-            await client.put_bucket_lifecycle_configuration(
-                Bucket=self.config.bucket_name,
-                LifecycleConfiguration=lifecycle_configuration,
-            )
-
+                # Apply the lifecycle configuration to the bucket
+                await client.put_bucket_lifecycle_configuration(
+                    Bucket=self.config.s3.bucket_name,
+                    LifecycleConfiguration=lifecycle_configuration,
+                )
         except Exception as e:
             logger.error(f"Failed to upload file apply temp config: {e}")
             raise

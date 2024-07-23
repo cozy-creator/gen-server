@@ -68,10 +68,3 @@ def get_s3_public_url() -> str:
         return config.s3.endpoint_url
     else:
         raise ValueError("No S3 public URL or endpoint URL found in the configuration")
-
-
-def should_expand(path: str) -> bool:
-    """
-    Helper function; used to determine if a path should be expanded.
-    """
-    return path.startswith("~") or path.startswith("/")
