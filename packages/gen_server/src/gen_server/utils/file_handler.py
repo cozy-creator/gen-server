@@ -297,7 +297,7 @@ class S3FileHandler(FileHandler):
     async def delete_files(
         self,
         folder_name: Optional[str] = None,
-        file_names: Optional[list[str]] = None,
+        file_names: list[str] = [],
     ):
         """
         Delete all objects within a folder in an S3 bucket.
@@ -307,11 +307,9 @@ class S3FileHandler(FileHandler):
         - file_names (Optional[list[str]]): A list of file names to delete.
         """
 
-        if folder_name is None and file_names is None:
-            raise ValueError("Either folder_name or file_names must be provided")
+        if len(file_names) == 0:
+            raise ValueError("Provide a list of file names to delete")
 
-        print(f"Deleting files in {folder_name}")
-        print(f"Files: {file_names}")
         async with await self._get_client() as client:
 
             async def _delete_objects_in_chunks(objects):
@@ -324,42 +322,17 @@ class S3FileHandler(FileHandler):
                     )
 
             try:
-                continuation_token = None
-                folder_name = (
-                    f"{folder_name}/"
-                    if folder_name is not None and folder_name.endswith("/")
-                    else folder_name
-                )
+                if folder_name:
+                    folder_name = folder_name.strip("/")
 
-                if file_names is not None:
-                    objects_to_delete = [
-                        {"Key": f"{folder_name}/{name}" if folder_name else name}
-                        for name in file_names
-                    ]
+                objects_to_delete = [
+                    {"Key": f"{folder_name}/{name}" if folder_name else name}
+                    for name in file_names
+                ]
 
-                    print(f"Deleting {(objects_to_delete)} files")
-                    await _delete_objects_in_chunks(objects_to_delete)
-                else:
-                    while True:
-                        list_params = {
-                            "Bucket": self.config.s3.bucket_name,
-                            "Prefix": folder_name,
-                        }
-                        if continuation_token:
-                            list_params["ContinuationToken"] = continuation_token
+                print(f"Deleting {len(objects_to_delete)} files")
+                await _delete_objects_in_chunks(objects_to_delete)
 
-                        response = await client.list_objects_v2(**list_params)
-
-                        if "Contents" in response:
-                            objects_to_delete = [
-                                {"Key": obj["Key"]} for obj in response["Contents"]
-                            ]
-                            await _delete_objects_in_chunks(objects_to_delete)
-
-                        if response.get("IsTruncated"):
-                            continuation_token = response.get("NextContinuationToken")
-                        else:
-                            break
             except Exception as e:
                 print(f"Failed to delete files: {e}")
 
