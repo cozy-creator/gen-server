@@ -68,10 +68,11 @@ class FileHandler(ABC):
             ) for name, image in image_dict.items())
         ]
         
-        print('created tasks in upload_png_files')
+        print(f'Created {len(tasks)} tasks in upload_png_files')
         
-        for task in asyncio.as_completed(tasks):
-            result = await task
+        for completed_task in asyncio.as_completed(tasks):
+            print(f'the completed task: {completed_task}')
+            result = await completed_task.result()
             print('yielding result result', result)
             yield result
         

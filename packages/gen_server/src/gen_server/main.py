@@ -9,6 +9,7 @@ import platform
 import traceback
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
+import asyncio 
 from typing import Any, Callable
 import signal
 from types import FrameType
@@ -26,7 +27,6 @@ from .utils import load_extensions, find_checkpoint_files, flatten_architectures
 from .api import start_api_server, api_routes_validator
 from .utils import load_custom_node_specs
 from .utils.paths import get_models_dir, get_web_dir
-from .utils.file_handler import get_file_handler
 from .globals import (
     get_api_endpoints,
     get_custom_nodes,
@@ -44,8 +44,8 @@ from .base_types.pydantic_models import (
     InstallCommandConfig,
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
-from .executor.io_worker import run_io_worker
-from .executor.gpu_worker import run_gpu_worker
+from .executor.io_worker import start_io_worker
+from .executor.gpu_worker import start_gpu_worker
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
@@ -264,10 +264,10 @@ def run_app(cozy_config: RunCommandConfig):
                 named_future(executor, 'api_worker', start_api_server,
                              job_queue, cozy_config, checkpoint_files, node_specs, api_endpoints),
                 
-                named_future(executor, 'gpu_worker', run_gpu_worker,
+                named_future(executor, 'gpu_worker', start_gpu_worker,
                              job_queue, tensor_queue, cozy_config, custom_nodes, checkpoint_files, architectures),
                 
-                named_future(executor, 'io_worker', run_io_worker,
+                named_future(executor, 'io_worker', asyncio.run(start_io_worker(tensor_queue, cozy_config)),
                              tensor_queue, cozy_config),
             ]
 

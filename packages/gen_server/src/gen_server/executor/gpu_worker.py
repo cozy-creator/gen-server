@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def run_gpu_worker(
+def start_gpu_worker(
     task_queue: queue.Queue,
     tensor_queue: queue.Queue,
     cozy_config: RunCommandConfig,

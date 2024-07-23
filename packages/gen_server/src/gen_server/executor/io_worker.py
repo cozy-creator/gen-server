@@ -14,12 +14,6 @@ from ..utils.image import tensor_to_pil
 logger = logging.getLogger(__name__)
 
 
-def run_io_worker(
-    tensor_queue: queue.Queue,
-    cozy_config: RunCommandConfig
-):
-    asyncio.run(start_io_worker(tensor_queue, cozy_config))
-
 
 async def start_io_worker(
     tensor_queue: queue.Queue,
@@ -32,9 +26,13 @@ async def start_io_worker(
     while True:
         try:
             try:
-                # print("Attempting to get a new batch from the queue")
+                # Unfortunately the inter-process communication queue is not async
+                # this is a blocking call
                 tensor_batch, response_conn = tensor_queue.get(timeout=1)  # Wait for up to 1 second
-
+                
+                # Use asyncio.to_thread to run the blocking queue.get in a separate thread
+                # tensor_batch, response_conn = await asyncio.to_thread(tensor_queue.get, timeout=1)
+                
                 if tensor_batch is None:
                     print("Received None tensor_batch, signaling end of processing")
                     # GPU worker is done with this connection
@@ -42,17 +40,18 @@ async def start_io_worker(
                     continue
                 
                 print(f"Received new batch. Tensor shape: {tensor_batch.shape}")
-                # Start processing the new batch
-                asyncio.create_task(upload_batch(file_handler, tensor_batch, response_conn))
-                print(f"Started new task.")
-                await asyncio.sleep(0) # Yield control to allow other tasks to run
+
+                await upload_batch(file_handler, tensor_batch, response_conn)
+                tensor_queue.task_done()
+
+                await asyncio.sleep(0) # Yield control to other async tasks
             
             except Empty:
+                await asyncio.sleep(0) # Yield control to other async tasks
                 pass # No new job, continue with ongoing tasks
         
         except Exception as e:
             logger.error(f"Unexpected error in io-worker: {str(e)}")
-            print(f"Unexpected error occurred in io-worker: {str(e)}")
     
     # Do we need to wait for all remaining tasks to complete before shutting down?
     logger.info("IO-worker shut down complete")
@@ -74,3 +73,4 @@ async def upload_batch(
         print(f"File uploaded successfully. URL: {file_url}")
         response_conn.send(file_url)
         print("File URL sent to response connection")
+    

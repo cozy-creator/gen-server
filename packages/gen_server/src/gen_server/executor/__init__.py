@@ -13,7 +13,6 @@ from PIL import PngImagePlugin
 from PIL import Image
 from ..globals import get_custom_nodes, get_checkpoint_files
 from ..utils.file_handler import get_file_handler, FileURL
-from .io_worker import run_io_worker
 from ..globals import CheckpointMetadata, CustomNode
 import numpy as np
 
