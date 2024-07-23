@@ -21,7 +21,7 @@ from .paths import ensure_workspace_path
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
-from .utils import load_extensions, find_checkpoint_files, flatten_architectures
+from .utils import load_extensions, find_checkpoint_files
 from .api import start_api_server, api_routes_validator
 from .utils import load_custom_node_specs, get_file_handler
 from .utils.paths import get_models_dir, get_web_dir
@@ -169,12 +169,7 @@ def run_app(cozy_config: RunCommandConfig):
     # compile architecture registry
     start_time_architectures = time.time()
     update_architectures(
-        flatten_architectures(
-            load_extensions(
-                "cozy_creator.architectures",
-                validator=architecture_validator,
-            )
-        )
+        load_extensions("cozy_creator.architectures", validator=architecture_validator)
     )
 
     print(

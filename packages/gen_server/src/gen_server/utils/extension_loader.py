@@ -2,9 +2,11 @@
 import sys
 import logging
 import traceback
+from pprint import pprint
 from typing import TypeVar, Optional
 
 from gen_server.base_types.common import Validator
+from .utils import to_snake_case
 from ..base_types import CustomNode
 
 if sys.version_info < (3, 10):
@@ -53,7 +55,6 @@ def load_extensions(
             )
             continue  # Skip this entry point
         try:
-            plugin = entry_point.load()
 
             def _load_plugin_inner(plugin_name: str, plugin_item: T):
                 # Optionally validate the plugin, if a validator is provided
@@ -64,11 +65,21 @@ def load_extensions(
                 # print(f"Loading plugin {plugin_name}")
                 plugins[plugin_name] = plugin_item
 
-            _load_plugin_inner(scoped_name, plugin)
+            plugin = entry_point.load()
+
+            if isinstance(plugin, list) and all(
+                isinstance(item, type) for item in plugin
+            ):
+                for item in plugin:
+                    scoped_item_name = f"{scoped_name}.{to_snake_case( item.__name__)}"
+                    _load_plugin_inner(scoped_item_name, item)
+            else:
+                _load_plugin_inner(scoped_name, plugin)
         except Exception as error:
             traceback.print_exc()
             logging.error(f"Failed to load plugin {scoped_name}: {str(error)}")
 
+    pprint(plugins, indent=3)
     return plugins
 
 
