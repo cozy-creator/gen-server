@@ -5,8 +5,8 @@ const api_endpoint = process.env.API_ENDPOINT || 'http://localhost:8881';
 async function* generateImages() {
    const requestBody = {
       models: {
-         // majic_mix: 4,
-         pony_diffusion_v6: 4,
+         majic_mix: 4,
+         // pony_diffusion_v6: 4,
          // citron_anime_treasure_v10: 4,
          // dark_sushi_25d_v40: 4,
          // break_domain_xl_v05g: 4,

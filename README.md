@@ -76,7 +76,7 @@ Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-ed
 Then in the root of this repo, run:
 
 ```sh
-docker build -t cozycreator/gen-server:0.2.2 .
+docker build -t cozycreator/gen-server:0.2.4 .
 ```
 
 ### Docker Run
@@ -88,11 +88,11 @@ WSL2 version:
 ```sh
 docker run \
   --env-file=/root/.cozy-creator/.env.local \
-  -p 8881:8881 \
+  -p 8881:8881 -p 8888:8888 \
   -v /root/.cozy-creator:/root/.cozy-creator \
   -v /root/.cache/huggingface:/root/.cache/huggingface \
   --gpus=all \
-  cozycreator/gen-server:0.2.2
+  cozycreator/gen-server:0.2.4
 ```
 
 Windows version:
@@ -106,7 +106,7 @@ MSYS_NO_PATHCONV=1 docker run \
   -v ~/.cozy-creator:/root/.cozy-creator \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   --gpus=all \
-  cozycreator/gen-server:0.2.2
+  cozycreator/gen-server:0.2.4
 ```
 
 You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. When you specify an .env-file in Docker's run command, Docker inserts them as environment variables into the container, meaning all of the keys inside of your `.env` file should be prefixed with `COZY_` to have them work as expected. Some other flag-usage examples:

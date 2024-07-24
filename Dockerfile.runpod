@@ -31,13 +31,6 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install JupyterLab
-RUN pip install --no-cache-dir jupyterlab
-COPY scripts/start.sh .
-RUN chmod +x start.sh
-RUN mkdir -p /root/.local/share/jupyter/runtime && \
-    chmod 777 /root/.local/share/jupyter/runtime
-
 # Install PyTorch for CUDA 12.1
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio xformers
@@ -55,6 +48,13 @@ RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
     pip install ./packages/image_utils && \
     pip install ./packages/core_extension_1
+
+# Install Jupyter Lab
+RUN pip install --no-cache-dir jupyterlab
+COPY scripts/start.sh .
+RUN chmod +x start.sh
+RUN mkdir -p /root/.local/share/jupyter/runtime && \
+    chmod 777 /root/.local/share/jupyter/runtime
 
 # ENTRYPOINT ["./start.sh"]
 
