@@ -1,20 +1,8 @@
-from concurrent.futures import Future, ProcessPoolExecutor
-import multiprocessing
-import concurrent.futures
-from multiprocessing import process
-from multiprocessing import Manager
-from multiprocessing.connection import Connection
 import time
+from gen_server.globals import get_custom_nodes
 import torch
-import asyncio
 import logging
-from typing import Optional, Tuple, List, Any, AsyncGenerator, Type, Dict
-from PIL import PngImagePlugin
-from PIL import Image
-from ..globals import get_custom_nodes, get_checkpoint_files
-from ..utils.file_handler import get_file_handler, FileURL
-from ..globals import CheckpointMetadata, CustomNode
-import numpy as np
+from typing import Optional, Tuple, List, Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,4 +53,3 @@ async def generate_images_from_repo(
     yield urls
 
     print(f"Image generated in {time.time() - start} seconds")
-

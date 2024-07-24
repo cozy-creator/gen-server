@@ -1,9 +1,15 @@
 import multiprocessing
 import aiohttp.web
 from typing import Optional, Any
+from gen_server.config import get_server_url, set_config
 from gunicorn.app.base import BaseApplication
 
-from ..globals import RouteDefinition, CheckpointMetadata
+from ..globals import (
+    RouteDefinition,
+    CheckpointMetadata,
+    update_api_endpoints,
+    update_checkpoint_files,
+)
 from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
 
@@ -43,13 +49,11 @@ def start_api_server(
     node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
 ):
-    aiohttp_app = create_aiohttp_app(
-        job_queue,
-        config,
-        checkpoint_files,
-        node_defs,
-        extra_routes,
-    )
+    set_config(config)
+    update_api_endpoints(extra_routes)
+    update_checkpoint_files(checkpoint_files)
+
+    aiohttp_app = create_aiohttp_app(job_queue, node_defs)
 
     options = {
         "bind": f"{config.host}:{config.port}",
@@ -58,5 +62,6 @@ def start_api_server(
     }
 
     # Use gunicorn process manager as a wrapper for spawning aiohttp processes
+    print(f"Server is running at {get_server_url()}")
     application = Application(aiohttp_app, options)
     application.run()
