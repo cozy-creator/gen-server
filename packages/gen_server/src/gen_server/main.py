@@ -253,7 +253,8 @@ def run_app(cozy_config: RunCommandConfig):
         # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not
         # support forking.
         with ProcessPoolExecutor(
-            max_workers=4, mp_context=multiprocessing.get_context("spawn")
+            max_workers=3,
+            mp_context=multiprocessing.get_context("spawn"),
         ) as executor:
             futures = [
                 named_future(

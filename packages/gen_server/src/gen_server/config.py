@@ -3,7 +3,11 @@ import argparse
 from typing import Optional, List, Callable, Union
 from pydantic_settings import CliSettingsSource
 
-from .base_types.pydantic_models import RunCommandConfig, FilesystemTypeEnum, DEFAULT_WORKSPACE_PATH
+from .base_types.pydantic_models import (
+    RunCommandConfig,
+    FilesystemTypeEnum,
+    DEFAULT_WORKSPACE_PATH,
+)
 
 
 cozy_config: Optional[RunCommandConfig] = None
@@ -126,3 +130,14 @@ def get_runpod_url(port: Union[str, int], token: Optional[str] = None) -> str:
     if token is not None:
         return f"{url}?token={token}"
     return url
+
+
+def get_server_url():
+    """
+    Returns the URL of the server.
+    """
+
+    config = get_config()
+    if is_runpod_available():
+        return get_runpod_url(config.port)
+    return f"http://{config.host}:{config.port}"

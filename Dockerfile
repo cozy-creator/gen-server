@@ -14,6 +14,7 @@ RUN cd ./web && \
 
 # Stage 2: production
 FROM python:3.11.9-slim
+# FROM nvidia/cuda:12.1.0-base-ubuntu22.04 as runtime
 
 WORKDIR /app
 
@@ -29,6 +30,14 @@ RUN apt-get update && \
     libgl1-mesa-glx libglib2.0-0 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+COPY scripts/start.sh .
+RUN chmod +x start.sh
+
+# Install JupyterLab
+RUN pip install --no-cache-dir jupyterlab
+RUN mkdir -p /root/.local/share/jupyter/runtime && \
+    chmod 777 /root/.local/share/jupyter/runtime
 
 # Install PyTorch for CUDA 12.1
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
@@ -48,4 +57,5 @@ RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance
     pip install ./packages/image_utils && \
     pip install ./packages/core_extension_1
 
-CMD ["cozy", "run"]
+
+CMD ["./start.sh"]

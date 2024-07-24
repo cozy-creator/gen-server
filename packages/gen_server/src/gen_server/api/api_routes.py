@@ -1,7 +1,7 @@
 import os
 import json
 import multiprocessing
-from typing import Tuple, Optional, Any, Iterable
+from typing import Tuple, Any, Iterable
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
 import asyncio
@@ -12,12 +12,13 @@ from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
 )
-from ..globals import RouteDefinition, CheckpointMetadata
-from ..base_types.pydantic_models import RunCommandConfig
+from ..globals import (
+    get_api_endpoints,
+    get_checkpoint_files,
+)
 
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
-from ..config import set_config
 
 # TO DO: get rid of this; use a more standard location
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -26,21 +27,16 @@ react_components = os.path.abspath(os.path.join(script_dir, "..", "react_compone
 
 # TO DO: eventually replace checkpoint_files with a database query instead
 def create_aiohttp_app(
-    job_queue: multiprocessing.Queue,
-    config: RunCommandConfig,
-    checkpoint_files: dict[str, CheckpointMetadata],
-    node_defs: dict[str, Any],
-    extra_routes: Optional[dict[str, RouteDefinition]] = None,
+    job_queue: multiprocessing.Queue, node_defs: dict[str, Any]
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
     """
-    set_config(config)  # initialize config in this process
-    
+
     logging.basicConfig(
         level=logging.INFO,  # Set the minimum level to INFO
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     logger = logging.getLogger(__name__)
 
@@ -54,6 +50,7 @@ def create_aiohttp_app(
 
     @routes.get("/checkpoints")
     async def get_checkpoints(_req: web.Request) -> web.Response:
+        checkpoint_files = get_checkpoint_files()
         serialized_checkpoints = {
             key: value.serialize() for key, value in checkpoint_files.items()
         }
@@ -63,12 +60,10 @@ def create_aiohttp_app(
         return web.Response(
             text=json.dumps(serialized_checkpoints), content_type="application/json"
         )
-    
-    @routes.get('/node-defs')
+
+    @routes.get("/node-defs")
     async def get_node_defs(_req: web.Request) -> web.Response:
-        return web.Response(
-            text=json.dumps(node_defs), content_type="application/json"
-        )
+        return web.Response(text=json.dumps(node_defs), content_type="application/json")
 
     @routes.post("/generate")
     async def handle_generate(request: web.Request) -> web.StreamResponse:
@@ -90,8 +85,8 @@ def create_aiohttp_app(
 
             # Submit the job to the queue
             job_queue.put((data, child_conn))
-            
-            print(f'job queue put {data}', flush=True)
+
+            print(f"job queue put {data}", flush=True)
 
             # Set a timeout for the entire operation
             total_timeout = 300  # 5 minutes, adjust as needed
@@ -306,8 +301,9 @@ def create_aiohttp_app(
     app.add_routes(routes)
 
     # Register all API endpoints added by extensions
-    if extra_routes is not None:
-        for _name, api_routes in extra_routes.items():
+    api_routes = get_api_endpoints()
+    if api_routes is not None:
+        for _name, api_routes in api_routes.items():
             # TO DO: consider adding prefixes to the routes based on extension-name?
             # How can we overwrite built-in routes
             app.router.add_routes(api_routes)

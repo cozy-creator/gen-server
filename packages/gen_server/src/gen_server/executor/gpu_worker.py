@@ -2,8 +2,16 @@ from platform import node
 import queue
 from typing import Optional, Type, Any
 
+from gen_server.config import set_config
+
 from ..base_types.pydantic_models import RunCommandConfig
-from ..globals import CustomNode, CheckpointMetadata
+from ..globals import (
+    CustomNode,
+    CheckpointMetadata,
+    update_architectures,
+    update_checkpoint_files,
+    update_custom_nodes,
+)
 from .workflows import generate_images
 
 import logging
@@ -20,9 +28,14 @@ def start_gpu_worker(
     checkpoint_files: dict[str, CheckpointMetadata],
     architectures: dict,
 ):
+    set_config(cozy_config)
+    update_custom_nodes(custom_nodes)
+    update_architectures(architectures)
+    update_checkpoint_files(checkpoint_files)
+
     logger = logging.getLogger(__name__)
-    
-    print('GPU worker started', flush=True)
+
+    print("GPU worker started", flush=True)
 
     while True:
         try:
@@ -44,9 +57,6 @@ def start_gpu_worker(
                     task_data=data,
                     tensor_queue=tensor_queue,
                     response_conn=response_conn,
-                    custom_nodes=custom_nodes,
-                    checkpoint_files=checkpoint_files,
-                    architectures=architectures,
                 )
             except Exception as e:
                 logger.error(f"Error in image generation: {str(e)}")

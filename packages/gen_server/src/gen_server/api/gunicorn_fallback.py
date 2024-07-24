@@ -4,9 +4,15 @@
 import asyncio
 import multiprocessing
 from aiohttp.web import AppRunner, TCPSite
-from aiohttp.web_app import Application
 from typing import Optional, Any
-from ..globals import RouteDefinition, CheckpointMetadata
+from gen_server.config import get_server_url, set_config
+
+from ..globals import (
+    RouteDefinition,
+    CheckpointMetadata,
+    update_api_endpoints,
+    update_checkpoint_files,
+)
 from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
 
@@ -16,27 +22,23 @@ def start_api_server(
     config: RunCommandConfig,
     checkpoint_files: dict[str, CheckpointMetadata],
     node_defs: dict[str, Any],
-    extra_routes: Optional[dict[str, RouteDefinition]] = None
+    extra_routes: Optional[dict[str, RouteDefinition]] = None,
 ):
-    aiohttp_app = create_aiohttp_app(
-        job_queue,
-        config,
-        checkpoint_files,
-        node_defs,
-        extra_routes
-    )
-    
+    set_config(config)
+    update_api_endpoints(extra_routes)
+    update_checkpoint_files(checkpoint_files)
+
+    aiohttp_app = create_aiohttp_app(job_queue, node_defs)
+
     async def run_app():
         runner = AppRunner(aiohttp_app)
         await runner.setup()
         site = TCPSite(runner, config.host, config.port)
         await site.start()
-        
-        print(f"Serving on http://{config.host}:{config.port}", flush=True)
-        
+
         # This will keep the server running
         await asyncio.Event().wait()
 
     # Run the async app using asyncio
+    print(f"Server is running at {get_server_url()}")
     asyncio.run(run_app())
-
