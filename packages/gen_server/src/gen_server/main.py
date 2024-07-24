@@ -7,6 +7,7 @@ import os
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
+
 from typing import Any, Callable
 import signal
 from types import FrameType
@@ -44,6 +45,8 @@ from .base_types.pydantic_models import (
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import start_io_worker
 from .executor.gpu_worker import start_gpu_worker
+from .jupyter import start_jupyter_lab
+
 import warnings
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
@@ -251,7 +254,7 @@ def run_app(cozy_config: RunCommandConfig):
         # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not
         # support forking.
         with ProcessPoolExecutor(
-            max_workers=3, mp_context=multiprocessing.get_context("spawn")
+            max_workers=4, mp_context=multiprocessing.get_context("spawn")
         ) as executor:
             futures = [
                 named_future(
@@ -263,6 +266,12 @@ def run_app(cozy_config: RunCommandConfig):
                     checkpoint_files,
                     node_specs,
                     api_endpoints,
+                ),
+                named_future(
+                    executor,
+                    "jupyter_labs",
+                    start_jupyter_lab,
+                    token=os.getenv("JUPYTER_PASSWORD"),
                 ),
                 named_future(
                     executor,
