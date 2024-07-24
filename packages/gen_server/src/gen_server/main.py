@@ -45,7 +45,6 @@ from .base_types.pydantic_models import (
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.io_worker import start_io_worker
 from .executor.gpu_worker import start_gpu_worker
-from .jupyter import start_jupyter_lab
 
 import warnings
 
@@ -266,12 +265,6 @@ def run_app(cozy_config: RunCommandConfig):
                     checkpoint_files,
                     node_specs,
                     api_endpoints,
-                ),
-                named_future(
-                    executor,
-                    "jupyter_labs",
-                    start_jupyter_lab,
-                    token=os.getenv("JUPYTER_PASSWORD"),
                 ),
                 named_future(
                     executor,
