@@ -1,5 +1,5 @@
-from typing import Any
 import torch
+from typing import Any
 from diffusers.loaders.single_file_utils import (
     update_vae_resnet_ldm_to_diffusers, 
     update_vae_attentions_ldm_to_diffusers,
@@ -113,7 +113,6 @@ def convert_auraflow_transformer_checkpoint_to_diffusers(checkpoint: dict, **kwa
     converted_state_dict["norm_out.linear.weight"] = swap_scale_shift(
         checkpoint.pop("modF.1.weight"), dim=None
     )
-
 
     return converted_state_dict
 

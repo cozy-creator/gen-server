@@ -76,7 +76,7 @@ Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-ed
 Then in the root of this repo, run:
 
 ```sh
-docker build -t cozy-creator/gen-server:0.2.2 .
+docker build -t cozycreator/gen-server:0.2.2 .
 ```
 
 ### Docker Run
@@ -92,7 +92,7 @@ docker run \
   -v /root/.cozy-creator:/root/.cozy-creator \
   -v /root/.cache/huggingface:/root/.cache/huggingface \
   --gpus=all \
-  cozy-creator/gen-server:0.2.2
+  cozycreator/gen-server:0.2.2
 ```
 
 Windows version:
@@ -102,11 +102,11 @@ To fix this, you can access your WSL installation by typing in `\\wsl$` into the
 ```sh
 MSYS_NO_PATHCONV=1 docker run \
   --env-file=.env.local \
-  -p 8881:8881 \
+  -p 8881:8881 -p 8888:8888 \
   -v ~/.cozy-creator:/root/.cozy-creator \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   --gpus=all \
-  cozy-creator/gen-server:0.2.2
+  cozycreator/gen-server:0.2.2
 ```
 
 You can set environment variables manually by using `-e`; just remember to prepend them with `COZY_` first. When you specify an .env-file in Docker's run command, Docker inserts them as environment variables into the container, meaning all of the keys inside of your `.env` file should be prefixed with `COZY_` to have them work as expected. Some other flag-usage examples:
@@ -118,7 +118,7 @@ docker run \
   -e COZY_PORT=9000 \
   -v "C:/git/ComfyUI/models":/models \
   -e COZY_AUX_MODELS_PATHS='["/models"]' \
-  cozy-creator/gen-server:0.2.2
+  cozycreator/gen-server:0.2.2
 ```
 
 ### Hugging Face Hub Model Caching

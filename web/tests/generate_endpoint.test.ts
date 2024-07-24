@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
+const api_endpoint = process.env.API_ENDPOINT || 'http://localhost:8881';
+
 async function* generateImages() {
    const requestBody = {
       models: {
@@ -16,7 +18,7 @@ async function* generateImages() {
    };
 
    try {
-      const response = await fetch('http://localhost:8881/generate', {
+      const response = await fetch(`${api_endpoint}/generate`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify(requestBody)
