@@ -119,6 +119,9 @@ class ImageGenNode(CustomNode):
                 try:
                     pipe.enable_vae_tiling()
                     print("VAE Tiled")
+                except Exception as e:
+                    print(f"Error: {e}")
+                try:
                     pipe.enable_xformers_memory_efficient_attention()
                     print("Memory Efficient Attention")
                 except Exception as e:

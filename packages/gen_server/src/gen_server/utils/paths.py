@@ -42,8 +42,8 @@ def get_assets_dir() -> str:
     """
     config = get_config()
     if config.assets_path:
-        return config.assets_path
-    return os.path.join(config.workspace_path, "assets")
+        return os.path.expanduser(config.assets_path)
+    return os.path.join(os.path.expanduser(config.workspace_path), "assets")
 
 
 def get_models_dir() -> str:
@@ -51,9 +51,10 @@ def get_models_dir() -> str:
     Helper function; used to find the /models directory.
     """
     config = get_config()
+
     if config.models_path:
-        return config.models_path
-    return os.path.join(config.workspace_path, "models")
+        return os.path.expanduser(config.models_path)
+    return os.path.join(os.path.expanduser(config.workspace_path), "models")
 
 
 def get_s3_public_url() -> str:
