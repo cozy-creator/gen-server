@@ -45,8 +45,8 @@ function download_models() {
 }
 
 
-cozy run & # Start the Cozy server
-download_models
 start_jupyter
+download_models
+cozy run & # Start the Cozy server
 
-# sleep infinity  # This will keep the container running
+sleep infinity  # This will keep the container running
