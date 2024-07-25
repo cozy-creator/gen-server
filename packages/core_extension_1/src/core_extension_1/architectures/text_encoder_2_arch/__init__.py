@@ -17,6 +17,7 @@ import os
 import torch
 import logging
 from contextlib import nullcontext
+from gen_server.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,6 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         else:
             text_model.load_state_dict(text_model_dict)
             # text_model.to(torch.float16)
-        text_model.to_empty(device=torch.device("cuda"))
+        text_model.to_empty(device=get_torch_device())
 
-        # text_model.to(device=torch.device("cuda"))
+        # text_model.to(device=get_tensor_device()

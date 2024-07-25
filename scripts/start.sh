@@ -30,14 +30,13 @@ MODEL_DIR="/root/.cozy-creator/models"
 # Start JupyterLab
 start_jupyter() {
     echo "Starting JupyterLab..."
-    jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.allow_origin=* --ServerApp.token=$JUPYTER_PASSWORD \
+    jupyter lab --ip=* --port=8888 --no-browser --allow-root --ServerApp.allow_origin=* --ServerApp.token=$JUPYTER_PASSWORD \
         --FileContentsManager.delete_to_trash=False --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' &
     echo "JupyterLab started"
 }
 
 setup_jupyter_runtime
 cozy run & # Start the Cozy Creator Gen-Server
-
 
 function download_models() {
     mkdir -p "${MODEL_DIR}"
@@ -56,7 +55,7 @@ function download_models() {
 
 
 cozy run & # Start the Cozy server
-download_models
 start_jupyter
+download_models
 
-# sleep infinity  # This will keep the container running
+sleep infinity  # This will keep the container running
