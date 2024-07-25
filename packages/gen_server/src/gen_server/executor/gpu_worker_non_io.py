@@ -15,7 +15,7 @@ from ..globals import (
     update_checkpoint_files,
     update_custom_nodes,
 )
-from .workflows import generate_images_1
+from .workflows import generate_images_non_io
 from .config import set_config
 from ..utils.file_handler import FileHandler, get_file_handler
 from ..utils.image import tensor_to_pil
@@ -42,9 +42,8 @@ async def upload_batch(
         response_conn.send(file_url)
 
 
-async def start_gpu_worker(
+async def start_gpu_worker_non_io(
     task_queue: queue.Queue,
-    tensor_queue: queue.Queue,
     cozy_config: RunCommandConfig,
     custom_nodes: dict[str, Type[CustomNode]],
     checkpoint_files: dict[str, CheckpointMetadata],
@@ -77,7 +76,7 @@ async def start_gpu_worker(
             start_time = time.time()
             try:
                 # Generate images and upload the images in the current process
-                tensor_images = generate_images_1(data)
+                tensor_images = generate_images_non_io(data)
                 if tensor_images is not None:
                     try:
                         await upload_batch(file_handler, tensor_images, response_conn)
@@ -91,8 +90,11 @@ async def start_gpu_worker(
             finally:
                 end_time = time.time()
                 # Signal end of generation to IO process, s it can close out connection
-                tensor_queue.put((None, response_conn))
-                logger.info(f"Image generated in {end_time - start_time} seconds")
+                execution_time = end_time - start_time
+                logger.info(
+                    f"Time taken to generate images: {execution_time:.2f} seconds"
+                )
+
             # We don't need to wait for the future here, as sync_response handles the communication
 
         except queue.Empty:

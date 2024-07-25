@@ -53,23 +53,22 @@ def start_gpu_worker(
                 response_conn.close()
                 continue
 
-            start_time = time.time()
+            start_time = time.time()  # Start timing
             try:
                 # Generate images in the current process
                 generate_images(
                     task_data=data,
                     tensor_queue=tensor_queue,
                     response_conn=response_conn,
+                    start_time=start_time,  # Pass start time for computing execution time
                 )
             except Exception as e:
                 traceback.print_exc()
                 logger.error(f"Error in image generation: {str(e)}")
                 response_conn.send(None)  # Signal error to API server
             finally:
-                end_time = time.time()
                 # Signal end of generation to IO process, s it can close out connection
-                tensor_queue.put((None, response_conn))
-                logger.info(f"Image generated in {end_time - start_time} seconds")
+                tensor_queue.put((None, response_conn, None))
 
             # We don't need to wait for the future here, as sync_response handles the communication
 
