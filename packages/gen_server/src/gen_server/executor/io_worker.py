@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import multiprocessing
 from queue import Empty
 import queue
-from PIL import Image, PngImagePlugin
+from PIL import PngImagePlugin
 from gen_server.config import set_config
 import torch
 from multiprocessing.connection import Connection
