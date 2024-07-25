@@ -29,7 +29,6 @@ start_jupyter() {
 }
 
 
-
 function download_models() {
     mkdir -p "${MODEL_DIR}"
     for i in "${!DOWNLOAD_URLS[@]}"; do

@@ -1,4 +1,5 @@
 import queue
+import time
 from typing import Type
 from multiprocessing.connection import Connection
 
@@ -73,6 +74,7 @@ async def start_gpu_worker(
                 response_conn.close()
                 continue
 
+            start_time = time.time()
             try:
                 # Generate images and upload the images in the current process
                 tensor_images = generate_images_1(data)
@@ -87,9 +89,10 @@ async def start_gpu_worker(
                 logger.error(f"Error in image generation: {str(e)}")
                 response_conn.send(None)  # Signal error to API server
             finally:
+                end_time = time.time()
                 # Signal end of generation to IO process, s it can close out connection
                 tensor_queue.put((None, response_conn))
-
+                logger.info(f"Image generated in {end_time - start_time} seconds")
             # We don't need to wait for the future here, as sync_response handles the communication
 
         except queue.Empty:
