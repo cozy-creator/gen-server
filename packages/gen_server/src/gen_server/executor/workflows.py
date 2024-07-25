@@ -27,6 +27,7 @@ def generate_images(
     task_data: dict[str, Any],
     tensor_queue: Queue,
     response_conn: Connection,
+    start_time: float,
 ) -> None:
     """Generates images based on the provided task data."""
     start = time.time()
@@ -74,7 +75,7 @@ def generate_images(
                 # still in use?
                 tensor_images.share_memory_()
 
-                tensor_queue.put((tensor_images, response_conn))
+                tensor_queue.put((tensor_images, response_conn, start_time))
 
                 print("Placed generation result on queue")
                 print(f"Tensor dimensions: {tensor_images.shape}")
@@ -102,7 +103,7 @@ def generate_images(
     # tensor_queue.put((None, None))
 
 
-def generate_images_1(task_data: dict[str, Any]) -> Optional[torch.Tensor]:
+def generate_images_non_io(task_data: dict[str, Any]) -> Optional[torch.Tensor]:
     """Generates images based on the provided task data."""
     start = time.time()
 
