@@ -89,6 +89,7 @@ class ImageGenNode(CustomNode):
                     pipe = self.create_sd3_pipe(components)
                     cfg = 7.0
                     num_inference_steps = 28
+                    
                 case "AuraFlow":
                     pipe = self.create_auraflow_pipe(components)
                     cfg = 3.5
