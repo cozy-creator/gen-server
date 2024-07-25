@@ -1,9 +1,9 @@
 import asyncio
 import logging
-import multiprocessing
 from queue import Empty
 import queue
-from PIL import Image, PngImagePlugin
+import time
+from PIL import PngImagePlugin
 from gen_server.config import set_config
 import torch
 from multiprocessing.connection import Connection
@@ -26,7 +26,7 @@ async def start_io_worker(tensor_queue: queue.Queue, cozy_config: RunCommandConf
             try:
                 # Unfortunately the inter-process communication queue is not async
                 # this is a blocking call
-                tensor_batch, response_conn = tensor_queue.get(
+                tensor_batch, response_conn, start_time = tensor_queue.get(
                     timeout=1
                 )  # Wait for up to 1 second
 
@@ -43,6 +43,13 @@ async def start_io_worker(tensor_queue: queue.Queue, cozy_config: RunCommandConf
 
                 await upload_batch(file_handler, tensor_batch, response_conn)
                 tensor_queue.task_done()
+
+                if start_time is not None:
+                    end_time = time.time()  # End timing
+                    execution_time = end_time - start_time
+                    logger.info(
+                        f"Time taken to generate images: {execution_time:.2f} seconds"
+                    )
 
                 await asyncio.sleep(0)  # Yield control to other async tasks
 

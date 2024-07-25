@@ -69,5 +69,6 @@ setup_jupyter_runtime
 
 cozy run & # Start the Cozy server
 start_jupyter
+download_models
 
 sleep infinity  # This will keep the container running
