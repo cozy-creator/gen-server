@@ -96,7 +96,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
             print("Using accelerate")
             torch_dtype = next(text_encoder.parameters()).dtype
             unexpected_keys = load_model_dict_into_meta(
-                text_encoder, text_model_dict, dtype=torch_dtype
+                text_encoder, text_model_dict, dtype=torch.float16
             )
             if text_encoder._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_encoder._keys_to_ignore_on_load_unexpected:

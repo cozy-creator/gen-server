@@ -128,7 +128,7 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         if is_accelerate_available():
             print("Using accelerate")
             # torch_dtype = next(text_model.parameters()).dtype
-            unexpected_keys = load_model_dict_into_meta(text_model, text_model_dict)
+            unexpected_keys = load_model_dict_into_meta(text_model, text_model_dict, dtype=torch.float16)
             if text_model._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_model._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
@@ -143,6 +143,6 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         else:
             text_model.load_state_dict(text_model_dict)
             # text_model.to(torch.float16)
-        text_model.to_empty(device=get_torch_device())
+        # text_model.to_empty(device=get_torch_device())
 
         # text_model.to(device=get_tensor_device()

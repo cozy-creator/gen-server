@@ -16,7 +16,7 @@ from ..globals import (
     update_custom_nodes,
 )
 from .workflows import generate_images_non_io
-from .config import set_config
+from ..config import set_config
 from ..utils.file_handler import FileHandler, get_file_handler
 from ..utils.image import tensor_to_pil
 

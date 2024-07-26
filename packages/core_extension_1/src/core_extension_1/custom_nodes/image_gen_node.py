@@ -45,7 +45,7 @@ class ImageGenNode(CustomNode):
         random_seed: Optional[int] = None,
         checkpoint_files: dict = {},
         architectures: dict = {},
-        device="cuda",
+        device: torch.device ="cuda",
     ) -> dict[str, torch.Tensor]:
         """
         Args:
@@ -70,7 +70,7 @@ class ImageGenNode(CustomNode):
             components = load_models.from_file(
                 checkpoint_metadata.file_path,
                 registry=architectures,
-                device=device,
+                # device=device,
             )
 
             match checkpoint_metadata.category:
@@ -108,12 +108,12 @@ class ImageGenNode(CustomNode):
             )
 
             # More efficient dtype
-            try:
-                print(f"Device: {device}")
-                pipe.to(device=device, dtype=torch.bfloat16)
-                print(f"Pipe: {pipe.device}, DType: {pipe.dtype}")
-            except:
-                pass
+            # try:
+            #     print(f"Device: {device}")
+            #     pipe.to(device=device, dtype=torch.bfloat16)
+            #     print(f"Pipe: {pipe.device}, DType: {pipe.dtype}")
+            # except:
+            #     pass
 
             # Optional Efficiency gains.
             # Enable_xformers_memory_efficient_attention can save memory usage and increase inference speed.
