@@ -293,11 +293,12 @@ def run_app(cozy_config: RunCommandConfig):
                 # We only delete temp files if we are running locally
                 file_handler = get_file_handler()
                 if isinstance(file_handler, LocalFileHandler):
-                    file_handler.delete_files(folder_name="temp")
+                    asyncio.run(file_handler.delete_files(folder_name="temp"))
 
                 # for future in futures:
                 #     future.cancel()
                 # shutdown_event.set()
+                manager.shutdown()
                 executor.shutdown(wait=False, cancel_futures=True)
                 sys.exit(0)
 
