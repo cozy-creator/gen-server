@@ -24,11 +24,11 @@ MODEL_DIR="/workspace/.cozy-creator/models"
 
 
 # Set up Jupyter runtime directory with correct permissions
-setup_jupyter_runtime() {
-    # JUPYTER_RUNTIME_DIR="${JUPYTER_RUNTIME_DIR:-/workspace/.local/share/jupyter/runtime}"
-    mkdir -p "$JUPYTER_RUNTIME_DIR"
-    chmod 700 "$JUPYTER_RUNTIME_DIR"
-}
+# setup_jupyter_runtime() {
+#     # JUPYTER_RUNTIME_DIR="${JUPYTER_RUNTIME_DIR:-/workspace/.local/share/jupyter/runtime}"
+#     mkdir -p "$JUPYTER_RUNTIME_DIR"
+#     chmod 700 "$JUPYTER_RUNTIME_DIR"
+# }
 
 # Start JupyterLab
 start_jupyter() {
@@ -65,7 +65,7 @@ function download_models() {
 
 
 download_models &
-setup_jupyter_runtime
+# setup_jupyter_runtime
 
 cozy run & # Start the Cozy server
 start_jupyter
