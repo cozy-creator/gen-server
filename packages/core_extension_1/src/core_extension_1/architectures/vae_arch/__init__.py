@@ -45,6 +45,8 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "sd3_config.json"
             )
+
+            print("In SD3 medium")
         elif architecture == "stable-diffusion-xl-v1-base":
             result: ComponentMetadata = {
                 "display_name": "SDXL VAE",
@@ -54,6 +56,8 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
             )
+
+            print("In SDXL Base")
         elif metadata == {}:
             result: ComponentMetadata = {
                 "display_name": "Playgound VAE",
@@ -64,6 +68,22 @@ class VAEArch(Architecture[AutoencoderKL]):
                 os.path.dirname(os.path.abspath(__file__)), "play_config.json"
             )
             print("In play")
+
+        elif "sd_merge_models" in metadata:
+            sd_merge_models = json.loads(metadata['sd_merge_models'])
+            for model_key, model_data in sd_merge_models.items():
+                if 'name' in model_data and "PONY" in model_data['name']:
+                    pony_name = model_data['name']
+                    print(pony_name)
+                    result: ComponentMetadata = {
+                        "display_name": "Pony VAE",
+                        "input_space": "PONY",
+                        "output_space": "PONY",
+                    }
+                    config_path = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
+                    )
+                    break
         else:
             result: ComponentMetadata = {
                 "display_name": "SD1 VAE",
@@ -73,6 +93,7 @@ class VAEArch(Architecture[AutoencoderKL]):
             config_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "sd1_config.json"
             )
+            print("In SD1.5")
 
         return result, config_path
 

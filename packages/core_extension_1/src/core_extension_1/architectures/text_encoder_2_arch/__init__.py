@@ -122,7 +122,7 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
             text_model=text_model, checkpoint=text_encoder_state_dict, prefix=prefix
         )
 
-        print(text_model_dict.keys())
+        # print(text_model_dict.keys())
 
         if is_accelerate_available():
             print("Using accelerate")
@@ -142,6 +142,6 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         else:
             text_model.load_state_dict(text_model_dict)
             # text_model.to(torch.float16)
-        text_model.to_empty(device=torch.device("cuda"))
+        # text_model.to_empty(device=torch.device("cuda"))
 
         # text_model.to(device=torch.device("cuda"))

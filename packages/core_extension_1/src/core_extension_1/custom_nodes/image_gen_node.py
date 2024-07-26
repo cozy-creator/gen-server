@@ -8,7 +8,8 @@ from diffusers import (
     FlowMatchEulerDiscreteScheduler,
     DDIMScheduler,
     EulerDiscreteScheduler,
-    EDMDPMSolverMultistepScheduler
+    EDMDPMSolverMultistepScheduler,
+    DPMSolverMultistepScheduler
 )
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
@@ -211,6 +212,21 @@ class ImageGenNode(CustomNode):
             )
             tokenizer_2 = CLIPTokenizer.from_pretrained(
                 "playgroundai/playground-v2.5-1024px-aesthetic", subfolder="tokenizer_2"
+            )
+        elif model_type == "pony":
+            print("In Pony")
+            tokenizer = CLIPTokenizer.from_pretrained(
+                "stablediffusionapi/pony-realism", subfolder="tokenizer"
+            )
+            pipe_scheduler = EulerDiscreteScheduler.from_pretrained(
+                "stablediffusionapi/pony-realism", subfolder="scheduler"
+            )
+
+            scheduler = DPMSolverMultistepScheduler.from_config(
+                    pipe_scheduler.config, algorithm_type="sde-dpmsolver++", use_karras_sigmas=True
+                )
+            tokenizer_2 = CLIPTokenizer.from_pretrained(
+                "stablediffusionapi/pony-realism", subfolder="tokenizer_2"
             )
         else:
             tokenizer = CLIPTokenizer.from_pretrained(
