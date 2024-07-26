@@ -1,10 +1,12 @@
+import traceback
+from numpy import dtype
 import torch
 
 from diffusers import (
-    StableDiffusionPipeline, 
-    AuraFlowPipeline, 
+    StableDiffusionPipeline,
+    AuraFlowPipeline,
     StableDiffusion3Pipeline,
-    StableDiffusionXLPipeline, 
+    StableDiffusionXLPipeline,
     FlowMatchEulerDiscreteScheduler,
     DDIMScheduler,
     EulerDiscreteScheduler,
@@ -19,11 +21,7 @@ from diffusers import (
 # from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
 # from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
 
-from transformers import (
-    CLIPTokenizer,
-    T5TokenizerFast,
-    LlamaTokenizerFast
-)
+from transformers import CLIPTokenizer, T5TokenizerFast, LlamaTokenizerFast
 from typing import Optional
 from PIL import Image
 import os
@@ -47,6 +45,7 @@ class ImageGenNode(CustomNode):
         random_seed: Optional[int] = None,
         checkpoint_files: dict = {},
         architectures: dict = {},
+        device="cuda",
     ) -> dict[str, torch.Tensor]:
         """
         Args:
@@ -69,7 +68,9 @@ class ImageGenNode(CustomNode):
                 raise ValueError(f"No checkpoint file found for ID: {checkpoint_id}")
 
             components = load_models.from_file(
-                checkpoint_metadata.file_path, registry=architectures
+                checkpoint_metadata.file_path,
+                registry=architectures,
+                device=device,
             )
 
             match checkpoint_metadata.category:
@@ -77,7 +78,7 @@ class ImageGenNode(CustomNode):
                     pipe = self.create_sd1_pipe(components)
                     cfg = 7.0
                     num_inference_steps = 25
-                    
+
                 case "SDXL":
                     sdxl_type = checkpoint_metadata.components["core_extension_1.vae"][
                         "input_space"
@@ -85,21 +86,22 @@ class ImageGenNode(CustomNode):
                     pipe = self.create_sdxl_pipe(components, model_type=sdxl_type)
                     cfg = 7.0
                     num_inference_steps = 20
-                    
+
                 case "SD3":
                     pipe = self.create_sd3_pipe(components)
                     cfg = 7.0
                     num_inference_steps = 28
+                    
                 case "AuraFlow":
                     pipe = self.create_auraflow_pipe(components)
                     cfg = 3.5
                     num_inference_steps = 20
-                    
+
                 case _:
                     raise ValueError(
                         f"Unknown category: {checkpoint_metadata.category}"
                     )
-                    
+
             # Determine the width and height based on the aspect ratio and base model
             width, height = aspect_ratio_to_dimensions(
                 aspect_ratio, checkpoint_metadata.category
@@ -107,7 +109,9 @@ class ImageGenNode(CustomNode):
 
             # More efficient dtype
             try:
-                pipe.to(torch.bfloat16)
+                print(f"Device: {device}")
+                pipe.to(device=device, dtype=torch.bfloat16)
+                print(f"Pipe: {pipe.device}, DType: {pipe.dtype}")
             except:
                 pass
 
@@ -115,12 +119,12 @@ class ImageGenNode(CustomNode):
             # Enable_xformers_memory_efficient_attention can save memory usage and increase inference speed.
             # enable_model_cpu_offload and enable_vae_tiling can save memory usage.
 
-
             if not checkpoint_metadata.category == "AuraFlow":
                 try:
                     pipe.enable_vae_tiling()
                     print("VAE Tiled")
                 except Exception as e:
+                    print("error here.... ")
                     print(f"Error: {e}")
                 try:
                     pipe.enable_xformers_memory_efficient_attention()
@@ -130,16 +134,12 @@ class ImageGenNode(CustomNode):
 
             pipe.enable_model_cpu_offload()
             print("Done offloading")
-    
-
 
             # Run the pipeline
             generator = (
-                torch.Generator().manual_seed(random_seed)
-                if random_seed
-                else None
+                torch.Generator().manual_seed(random_seed) if random_seed else None
             )
-            
+
             tensor_images = pipe(
                 prompt=positive_prompt,
                 negative_prompt=negative_prompt,
@@ -154,22 +154,23 @@ class ImageGenNode(CustomNode):
 
             print("I'm done")
 
-        #     image = pipe(
-        #     prompt="A person with green hair standing at the left side of the screen, a man with blue hair at the centre and a baby with red hair at the right playing with a toy. There is a yellow UFO looming over them.",
-        #     height=1024,
-        #     width=1024,
-        #     num_images_per_prompt=1,
-        #     num_inference_steps=20, 
-        #     generator=torch.Generator().manual_seed(234),
-        #     guidance_scale=3.5,
-        #     output_type="pt"
-        # ).images
+            #     image = pipe(
+            #     prompt="A person with green hair standing at the left side of the screen, a man with blue hair at the centre and a baby with red hair at the right playing with a toy. There is a yellow UFO looming over them.",
+            #     height=1024,
+            #     width=1024,
+            #     num_images_per_prompt=1,
+            #     num_inference_steps=20,
+            #     generator=torch.Generator().manual_seed(234),
+            #     guidance_scale=3.5,
+            #     output_type="pt"
+            # ).images
 
             del pipe
-            
-            return { "images": tensor_images }
+
+            return {"images": tensor_images}
 
         except Exception as e:
+            traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
 
     def create_sd1_pipe(self, components: dict) -> StableDiffusionPipeline:
@@ -285,15 +286,19 @@ class ImageGenNode(CustomNode):
         print("Done!")
 
         return pipe
-    
+
     def create_auraflow_pipe(self, components: dict) -> AuraFlowPipeline:
         vae = components["core_extension_1.auraflow_vae"].model
         transformer = components["core_extension_1.auraflow_transformer"].model
         text_encoder = components["core_extension_1.auraflow_text_encoder"].model
 
         # Load scheduler and Tokenizer
-        scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained("fal/AuraFlow", subfolder="scheduler")
-        tokenizer = LlamaTokenizerFast.from_pretrained("fal/AuraFlow", subfolder="tokenizer")
+        scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
+            "fal/AuraFlow", subfolder="scheduler"
+        )
+        tokenizer = LlamaTokenizerFast.from_pretrained(
+            "fal/AuraFlow", subfolder="tokenizer"
+        )
 
         pipe = AuraFlowPipeline(
             vae=vae,
