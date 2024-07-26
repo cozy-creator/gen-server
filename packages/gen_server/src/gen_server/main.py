@@ -273,7 +273,15 @@ def run_app(cozy_config: RunCommandConfig):
                 named_future(
                     executor,
                     "gpu_worker",
-                    start_gpu_worker_non_io,
+                    asyncio.run(
+                        start_gpu_worker_non_io(
+                            job_queue,
+                            cozy_config,
+                            custom_nodes,
+                            checkpoint_files,
+                            architectures,
+                        )
+                    ),
                     job_queue,
                     cozy_config,
                     custom_nodes,
