@@ -1,5 +1,4 @@
 import traceback
-from numpy import dtype
 import torch
 
 from diffusers import (
@@ -23,7 +22,6 @@ from diffusers import (
 
 from transformers import CLIPTokenizer, T5TokenizerFast, LlamaTokenizerFast
 from typing import Optional
-from PIL import Image
 import os
 import json
 
@@ -73,6 +71,8 @@ class ImageGenNode(CustomNode):
                 # device=device,
             )
 
+            print("Checkpoint Metadata", checkpoint_metadata)
+
             match checkpoint_metadata.category:
                 case "SD1":
                     pipe = self.create_sd1_pipe(components)
@@ -91,7 +91,7 @@ class ImageGenNode(CustomNode):
                     pipe = self.create_sd3_pipe(components)
                     cfg = 7.0
                     num_inference_steps = 28
-                    
+
                 case "AuraFlow":
                     pipe = self.create_auraflow_pipe(components)
                     cfg = 3.5
