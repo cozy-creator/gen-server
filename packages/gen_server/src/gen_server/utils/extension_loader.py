@@ -2,7 +2,6 @@
 import sys
 import logging
 import traceback
-from pprint import pprint
 from typing import TypeVar, Optional
 
 from gen_server.base_types.common import Validator
@@ -65,7 +64,10 @@ def load_extensions(
                 # print(f"Loading plugin {plugin_name}")
                 plugins[plugin_name] = plugin_item
 
+            # try:
             plugin = entry_point.load()
+            # except Exception:
+            #     traceback.print_exc()
 
             if isinstance(plugin, list) and all(
                 isinstance(item, type) for item in plugin
