@@ -67,8 +67,8 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         print("Loading SDXL UNet")
         start = time.time()
 
-        config = self.config
-        unet = self.model
+        config = self._config
+        unet = self._model
 
         unet_state_dict = {
             key: state_dict[key]

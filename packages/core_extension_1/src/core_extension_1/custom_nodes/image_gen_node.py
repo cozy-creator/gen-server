@@ -174,7 +174,7 @@ class ImageGenNode(CustomNode):
             raise ValueError(f"Error generating images: {e}")
 
     def create_sd1_pipe(self, components: dict) -> StableDiffusionPipeline:
-        vae = components["core_extension_1.vae"].model
+        vae = components["core_extension_1.sd1_vae"].model
         unet = components["core_extension_1.sd1_unet"].model
         text_encoder = components["core_extension_1.sd1_text_encoder"].model
 
@@ -253,7 +253,7 @@ class ImageGenNode(CustomNode):
         return pipe
 
     def create_sd3_pipe(self, components: dict) -> StableDiffusion3Pipeline:
-        vae = components["core_extension_1.vae"].model
+        vae = components["core_extension_1.sd3_vae"].model
         unet = components["core_extension_1.sd3_unet"].model
         text_encoder_1 = components["core_extension_1.sd3_text_encoder_1"].model
         text_encoder_2 = components["core_extension_1.text_encoder_2"].model

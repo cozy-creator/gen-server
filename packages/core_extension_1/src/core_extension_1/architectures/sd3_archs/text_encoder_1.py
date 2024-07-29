@@ -50,7 +50,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
@@ -75,7 +75,7 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
         print("Loading SD3 Text Encoder 1")
         start = time.time()
 
-        text_encoder = self.model
+        text_encoder = self._model
         text_encoder_state_dict = {
             key: state_dict[key]
             for key in state_dict
@@ -91,6 +91,8 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
                 if key.startswith(prefix):
                     diffusers_key = key.replace(prefix, "")
                     text_model_dict[diffusers_key] = text_encoder_state_dict[key]
+
+        # print(text_model_dict.keys())
 
         if is_accelerate_available():
             print("Using accelerate")
@@ -118,5 +120,6 @@ class SD3TextEncoder1(Architecture[CLIPTextModelWithProjection]):
             text_encoder.load_state_dict(text_model_dict)
             text_encoder.to(torch.float16)
 
-        text_encoder.to_empty(device=get_torch_device())
+        # text_encoder.to_empty(device=get_torch_device())
+        # text_encoder.to(torch.float16)
         # text_encoder.to("cuda")

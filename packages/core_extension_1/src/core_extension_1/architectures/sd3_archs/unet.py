@@ -74,14 +74,14 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
         print("Loading SD3 U-Net")
         start = time.time()
 
-        unet = self.model
+        unet = self._model
         unet_state_dict = {
             key: state_dict[key]
             for key in state_dict
             if key.startswith("model.diffusion_model.")
         }
         new_unet_state_dict = convert_sd3_transformer_checkpoint_to_diffusers(
-            unet_state_dict, config=self.config
+            unet_state_dict, config=self._config
         )
 
         if is_accelerate_available():
