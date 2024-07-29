@@ -43,9 +43,8 @@ from .base_types.pydantic_models import (
     InstallCommandConfig,
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
-
-# from .executor.io_worker import start_io_worker
-from .executor.gpu_worker_non_io import start_gpu_worker
+from .executor.io_worker import start_io_worker
+from .executor.gpu_worker import start_gpu_worker
 
 import warnings
 
@@ -273,18 +272,19 @@ def run_app(cozy_config: RunCommandConfig):
                     "gpu_worker",
                     start_gpu_worker,
                     job_queue,
+                    tensor_queue,
                     cozy_config,
                     custom_nodes,
                     checkpoint_files,
                     architectures,
                 ),
-                # named_future(
-                #     executor,
-                #     "io_worker",
-                #     asyncio.run(start_io_worker(tensor_queue, cozy_config)),
-                #     tensor_queue,
-                #     cozy_config,
-                # ),
+                named_future(
+                    executor,
+                    "io_worker",
+                    asyncio.run(start_io_worker(tensor_queue, cozy_config)),
+                    tensor_queue,
+                    cozy_config,
+                ),
             ]
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
