@@ -41,13 +41,10 @@ COPY --from=builder /app/web/dist /srv/www/cozy/dist
 COPY packages/ ./packages
 COPY pyproject.toml ./pyproject.toml
 
-# Install the latest unreleased version of Diffusers
-RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
-
 # Install the gen_server package and its plugin-packages
-RUN pip install --no-cache-dir --prefer-binary ./packages/gen_server[performance] && \
-    pip install ./packages/image_utils && \
-    pip install ./packages/core_extension_1
+RUN pip install -e ./packages/gen_server[performance] && \
+    pip install -e ./packages/image_utils && \
+    pip install -e ./packages/core_extension_1
 
 # Install Jupyter Lab
 RUN pip install --no-cache-dir jupyterlab
@@ -56,6 +53,7 @@ RUN pip install --no-cache-dir jupyterlab
 
 # start script
 COPY scripts/start.sh .
+
 # remove any Windows line endings
 RUN sed -i 's/\r$//' /app/start.sh
 RUN chmod +x start.sh

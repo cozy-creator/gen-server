@@ -1,3 +1,4 @@
+import asyncio
 import queue
 import time
 from typing import Type
@@ -105,6 +106,20 @@ async def start_gpu_worker_non_io(
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
 
     logger.info("GPU-worker shut down complete")
+
+
+def start_gpu_worker(
+    task_queue: queue.Queue,
+    cozy_config: RunCommandConfig,
+    custom_nodes: dict[str, Type[CustomNode]],
+    checkpoint_files: dict[str, CheckpointMetadata],
+    architectures: dict,
+):
+    asyncio.run(
+        start_gpu_worker_non_io(
+            task_queue, cozy_config, custom_nodes, checkpoint_files, architectures
+        )
+    )
 
 
 # async def run_worker(request_queue: multiprocessing.Queue):

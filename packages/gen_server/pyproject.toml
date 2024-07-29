@@ -19,7 +19,6 @@ dependencies = [
     "aioshutil",
     "aiohttp_middlewares",
     "blake3",
-    "diffusers>=0.29",
     "einops",
     "grpcio",
     "gunicorn",
@@ -38,7 +37,8 @@ dependencies = [
     "transformers>=4.25",
     "tqdm",
     "typing_extensions",
-    "uuid"
+    "uuid",
+    "diffusers@git+https://github.com/huggingface/diffusers.git"
 ]
 
 [project.optional-dependencies]
