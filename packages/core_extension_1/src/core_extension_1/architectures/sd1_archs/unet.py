@@ -7,8 +7,18 @@ from typing_extensions import override
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from contextlib import nullcontext
+import logging
+import re
+from diffusers.utils.import_utils import is_accelerate_available
+if is_accelerate_available():
+    from accelerate import init_empty_weights
 
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
+
+
+
+logger = logging.getLogger(__name__)
 
 
 class SD1UNet(Architecture[UNet2DConditionModel]):
@@ -20,7 +30,10 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         with open(config_path, "r") as file:
             # Create diffusers class
             config = json.load(file)
-            self._model = UNet2DConditionModel(**config)
+            ctx = init_empty_weights if is_accelerate_available() else nullcontext
+            with ctx():
+                self._model = UNet2DConditionModel(**config)
+
             self._config = config
         
         self._display_name = "SD1 UNet"
@@ -28,7 +41,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
         self._output_space = "SD1"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -51,7 +64,7 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
     def load(self, state_dict: StateDict, device: Optional[TorchDevice] = None):
         start = time.time()
 
-        unet = self.model
+        unet = self._model
 
         # Slice state-dict and convert key keys to cannonical
         unet_state_dict = {
@@ -60,13 +73,30 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
             if key.startswith("model.diffusion_model.")
         }
         new_unet_state_dict = convert_ldm_unet_checkpoint(
-            unet_state_dict, config=self.config
+            unet_state_dict, config=self._config
         )
 
-        unet.load_state_dict(new_unet_state_dict)
+        if is_accelerate_available():
+            from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
-        if device is not None:
-            unet.to(device=device)
+            print("Using accelerate")
+            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict, dtype=torch.float16)
+            if unet._keys_to_ignore_on_load_unexpected is not None:
+                for pat in unet._keys_to_ignore_on_load_unexpected:
+                    unexpected_keys = [
+                        k for k in unexpected_keys if re.search(pat, k) is None
+                    ]
+
+            if len(unexpected_keys) > 0:
+                logger.warning(
+                    f"Some weights of the model checkpoint were not used when initializing {unet.__name__}: \n {[', '.join(unexpected_keys)]}"
+                )
+        else:
+            unet.load_state_dict(new_unet_state_dict)
+            if device is not None:
+                unet.to(device=device)
+
+            unet.to(torch.float16)
         
 
         print(f"UNet state dict loaded in {time.time() - start} seconds")

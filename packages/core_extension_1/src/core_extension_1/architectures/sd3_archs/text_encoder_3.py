@@ -25,7 +25,7 @@ config_path = os.path.join(
 )
 
 
-def convert_sd3_t5_checkpoint_to_diffusers(checkpoint):
+def convert_sd3_t5_checkpoint_to_diffusers(checkpoint: StateDict):
     keys = list(checkpoint.keys())
     text_model_dict = {}
 
@@ -62,7 +62,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
@@ -80,14 +80,14 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             else None
         )
 
-    def load(self, state_dict: StateDict, device: TorchDevice = "cpu"):
+    def load(self, state_dict: StateDict, device: TorchDevice = "cpu"): # type: ignore
         """
         Loads the SD3 Text Encoder 3 model from the given state dictionary.
         """
         print("Loading SD3 Text Encoder 3")
         start = time.time()
 
-        text_encoder_3 = self.model
+        text_encoder_3 = self._model
         text_dict = {
             key: state_dict[key]
             for key in state_dict
@@ -96,10 +96,13 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         # print(f"text: {text_dict}")
         text_state_dict = convert_sd3_t5_checkpoint_to_diffusers(text_dict)
 
+        # print(text_state_dict.keys())
+
         if is_accelerate_available():
             print("Using accelerate")
+            torch_dtype = next(text_encoder_3.parameters()).dtype
             unexpected_keys = load_model_dict_into_meta(
-                text_encoder_3, text_state_dict, dtype=torch.float16
+                text_encoder_3, text_state_dict, dtype=torch_dtype
             )
             if text_encoder_3._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_encoder_3._keys_to_ignore_on_load_unexpected:
