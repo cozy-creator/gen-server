@@ -117,7 +117,7 @@ def create_aiohttp_app(
             parent_conn, child_conn = multiprocessing.Pipe()
 
             # Submit the job to the queue
-            job_queue.put((data, child_conn, None))
+            job_queue.put((data.dict(), child_conn, None))
 
             print(f"job queue put {data}", flush=True)
 
@@ -192,7 +192,7 @@ def create_aiohttp_app(
                 )
 
             # Submit the job to the queue
-            job_queue.put((data, None, job_id))
+            job_queue.put((data.dict(), None, job_id))
             print(f"job queue put {data}", flush=True)
 
             return web.json_response(
@@ -216,7 +216,13 @@ def create_aiohttp_app(
                     {"error": f"Job ID {job_id} not found"}, status=404
                 )
 
-            job_registry[job_id].set()
+            cancel_event = job_registry[job_id]
+            print(f"Cancelling job {job_id}", flush=True)
+            print(cancel_event)
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+            cancel_event.set()
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+
             return web.json_response({"status": "cancelled"}, status=200)
         except Exception as e:
             logger.error(f"Error cancelling job: {str(e)}")

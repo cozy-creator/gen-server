@@ -1,5 +1,7 @@
 import asyncio
+import multiprocessing
 import queue
+import traceback
 from threading import Event
 from typing import (
     Any,
@@ -11,8 +13,7 @@ from typing import (
     Dict,
 )
 
-from multiprocessing import managers
-from gen_server.api.api_routes import GenerateData
+from multiprocessing import Manager, managers
 from requests.packages.urllib3.util.retry import Retry
 from PIL import PngImagePlugin
 import requests
@@ -78,8 +79,11 @@ def invoke_webhook(webhook_url: str, file_url: FileURL):
 
 
 async def check_cancellation(cancel_event: Event):
+    print("Checking for cancellation....")
     while not cancel_event.is_set():
         await asyncio.sleep(0.1)
+
+    print("Task was cancelled....")
     raise asyncio.CancelledError("Operation was cancelled.")
 
 
@@ -89,6 +93,7 @@ async def cancellable(
     task_future = asyncio.ensure_future(task(*args, **kwargs))
     cancel_future = asyncio.ensure_future(check_cancellation(event))
 
+    print("Waiting for task to complete or be cancelled....")
     done, pending = await asyncio.wait(
         [task_future, cancel_future], return_when=asyncio.FIRST_COMPLETED
     )
@@ -99,6 +104,7 @@ async def cancellable(
     if task_future in done:
         return task_future.result()
     else:
+        print("Task was cancelled...... haha")
         raise asyncio.CancelledError("Operation was cancelled.")
 
 
@@ -110,6 +116,8 @@ async def start_gpu_worker_non_io(
     checkpoint_files: Dict[str, CheckpointMetadata],
     architectures: Dict[str, Any],
 ):
+    manager = multiprocessing.Manager()
+
     set_config(cozy_config)
     update_custom_nodes(custom_nodes)
     update_architectures(architectures)
@@ -127,8 +135,8 @@ async def start_gpu_worker_non_io(
                 logger.info("Received stop signal. GPU-worker shutting down.")
                 break
 
-            if not isinstance(data, GenerateData):
-                logger.error(f"Invalid data received: {data.dict()}")
+            if not isinstance(data, dict):
+                logger.error(f"Invalid data received: {data}")
                 if response_conn is not None:
                     response_conn.send(None)
                     response_conn.close()
@@ -136,7 +144,7 @@ async def start_gpu_worker_non_io(
 
             cancel_event = None
             if request_id is not None:
-                cancel_event = Event()
+                cancel_event = manager.Event()
                 cancel_registry[request_id] = cancel_event
 
                 if cancel_event.is_set():
@@ -145,10 +153,10 @@ async def start_gpu_worker_non_io(
 
             async def _generate_images():
                 if cancel_event is None:
-                    return await generate_images_non_io(data.model_dump())
-                return await cancellable(
-                    cancel_event, generate_images_non_io, data.model_dump()
-                )
+                    return await generate_images_non_io(data)
+                print("Generating images.... with cancellation")
+                print(cancel_event)
+                return await cancellable(cancel_event, generate_images_non_io, data)
 
             async def _upload_images(images: torch.Tensor):
                 if cancel_event is None:
@@ -167,8 +175,8 @@ async def start_gpu_worker_non_io(
                     async for file_url in await _upload_images(images):
                         if response_conn is not None:
                             response_conn.send(file_url)
-                        if data.webhook_url is not None:
-                            invoke_webhook(data.webhook_url, file_url)
+                        if data.get("webhook_url") is not None:
+                            invoke_webhook(data["webhook_url"], file_url)
             except asyncio.CancelledError:
                 logger.info("Task was cancelled.")
                 if response_conn is not None:
@@ -180,6 +188,7 @@ async def start_gpu_worker_non_io(
         except queue.Empty:
             continue
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
 
     logger.info("GPU-worker shut down complete")

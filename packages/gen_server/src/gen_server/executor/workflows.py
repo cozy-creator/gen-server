@@ -112,7 +112,6 @@ async def generate_images_non_io(
     custom_nodes = get_custom_nodes()
     architectures = get_architectures()
     checkpoint_files = get_checkpoint_files()
-
     try:
         models = task_data.get("models", {})
         positive_prompt = task_data.get("positive_prompt")
