@@ -1,5 +1,8 @@
+import asyncio
+from threading import Event
 import time
 import traceback
+
 from gen_server.utils.device import get_torch_device
 
 import torch
@@ -103,8 +106,9 @@ def generate_images(
     # tensor_queue.put((None, None))
 
 
-async def generate_images_non_io(
+def generate_images_non_io(
     task_data: dict[str, Any],
+    cancel_event: Optional[Event],
 ) -> Optional[torch.Tensor]:
     """Generates images based on the provided task data."""
     start = time.time()
@@ -112,6 +116,7 @@ async def generate_images_non_io(
     custom_nodes = get_custom_nodes()
     architectures = get_architectures()
     checkpoint_files = get_checkpoint_files()
+
     try:
         models = task_data.get("models", {})
         positive_prompt = task_data.get("positive_prompt")
@@ -124,6 +129,9 @@ async def generate_images_non_io(
 
         for checkpoint_id, num_images in models.items():
             try:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise asyncio.CancelledError("Operation was cancelled.")
+
                 # Run the ImageGenNode
                 tensor_images: torch.Tensor = image_gen_node(
                     checkpoint_id=checkpoint_id,
@@ -136,6 +144,9 @@ async def generate_images_non_io(
                     architectures=architectures,
                     device=get_torch_device(),
                 )["images"]
+
+                if cancel_event is not None and cancel_event.is_set():
+                    raise asyncio.CancelledError("Operation was cancelled.")
 
                 # Process the generated images (convert to tensors and put on the queue)
                 # tensor_batch = []
@@ -150,27 +161,32 @@ async def generate_images_non_io(
                 # TO DO: could this problematic if the gpu-worker terminates as this tensor is
                 # still in use?
                 tensor_images.share_memory_()
-                print("Placed generation result on queue")
-                print(f"Tensor dimensions: {tensor_images.shape}")
+                logger.info("Placed generation result on queue")
+                logger.info(f"Tensor dimensions: {tensor_images.shape}")
 
-                # Free up memory
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
                 return tensor_images
 
+            except asyncio.CancelledError:
+                logger.info("Task was cancelled during image generation.")
+                raise
             except Exception as e:
-                # Log the error and send an error message to the API server
                 traceback.print_exc()
                 logger.error(
                     f"Error generating images for model '{checkpoint_id}': {e}"
                 )
 
+    except asyncio.CancelledError:
+        logger.info("Task was cancelled.")
+        raise
     except Exception as e:
         traceback.print_exc()
         logger.error(f"Error in image generation workflow: {e}")
 
-    print(f"Image generated in {time.time() - start} seconds")
+    logger.info(f"Image generated in {time.time() - start} seconds")
 
+    return None
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))

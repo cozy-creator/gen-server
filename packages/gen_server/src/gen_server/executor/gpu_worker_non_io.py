@@ -13,7 +13,7 @@ from typing import (
     Dict,
 )
 
-from multiprocessing import Manager, managers
+from multiprocessing import managers
 from requests.packages.urllib3.util.retry import Retry
 from PIL import PngImagePlugin
 import requests
@@ -151,37 +151,22 @@ async def start_gpu_worker_non_io(
                     logger.info("Task was cancelled. Skipping task.")
                     continue
 
-            async def _generate_images():
-                if cancel_event is None:
-                    return await generate_images_non_io(data)
-                print("Generating images.... with cancellation")
-                print(cancel_event)
-                return await cancellable(cancel_event, generate_images_non_io, data)
-
-            async def _upload_images(images: torch.Tensor):
-                if cancel_event is None:
-                    return upload_batch(file_handler, images)
-
-                return await cancellable(
-                    cancel_event,
-                    upload_batch,
-                    file_handler,
-                    images,
-                )
-
             try:
-                images = await _generate_images()
+                images = generate_images_non_io(data, cancel_event)
                 if images is not None:
-                    async for file_url in await _upload_images(images):
+                    async for file_url in upload_batch(file_handler, images):
+                        if cancel_event is not None and cancel_event.is_set():
+                            raise asyncio.CancelledError("Operation was cancelled.")
                         if response_conn is not None:
                             response_conn.send(file_url)
                         if data.get("webhook_url") is not None:
                             invoke_webhook(data["webhook_url"], file_url)
             except asyncio.CancelledError:
-                logger.info("Task was cancelled.")
+                logger.info("Task was cancelled... Cancelling...")
                 if response_conn is not None:
                     response_conn.send(None)
             except Exception as e:
+                traceback.print_exc()
                 logger.error(f"Error in image generation: {str(e)}")
                 if response_conn is not None:
                     response_conn.send(None)
