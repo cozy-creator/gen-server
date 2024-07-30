@@ -32,7 +32,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch for CUDA 12.1
-RUN pip install --index-url https://download.pytorch.org/whl/cu121 \
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio xformers
 
 # Move files over from the web-build stage
@@ -47,7 +47,7 @@ RUN pip install -e ./packages/gen_server[performance] && \
     pip install -e ./packages/core_extension_1
 
 # Install Jupyter Lab
-RUN pip install jupyterlab
+RUN pip install --no-cache-dir jupyterlab
 # RUN mkdir -p /root/.local/share/jupyter/runtime && \
 #     chmod 777 /root/.local/share/jupyter/runtime
 
