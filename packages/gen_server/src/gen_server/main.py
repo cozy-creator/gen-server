@@ -263,6 +263,7 @@ def run_app(cozy_config: RunCommandConfig):
                     "api_worker",
                     start_api_server,
                     job_queue,
+                    cancel_registry,
                     cozy_config,
                     checkpoint_files,
                     node_specs,

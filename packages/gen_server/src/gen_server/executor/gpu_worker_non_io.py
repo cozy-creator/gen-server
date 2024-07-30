@@ -6,7 +6,6 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
-    Optional,
     Type,
     TypeVar,
     Dict,
