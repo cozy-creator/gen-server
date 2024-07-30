@@ -43,8 +43,7 @@ from .base_types.pydantic_models import (
     InstallCommandConfig,
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
-from .executor.io_worker import start_io_worker
-from .executor.gpu_worker import start_gpu_worker
+from .executor.gpu_worker_non_io import start_gpu_worker
 
 import warnings
 
@@ -236,9 +235,11 @@ def run_app(cozy_config: RunCommandConfig):
         # Stores JobQueueItem
         job_queue = manager.Queue()
 
+        cancel_registry = manager.dict()
+
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.
-        tensor_queue = manager.Queue()
+        # tensor_queue = manager.Queue()
 
         # shutdown_event = manager.Event()
 
@@ -272,18 +273,11 @@ def run_app(cozy_config: RunCommandConfig):
                     "gpu_worker",
                     start_gpu_worker,
                     job_queue,
-                    tensor_queue,
+                    cancel_registry,
                     cozy_config,
                     custom_nodes,
                     checkpoint_files,
                     architectures,
-                ),
-                named_future(
-                    executor,
-                    "io_worker",
-                    asyncio.run(start_io_worker(tensor_queue, cozy_config)),
-                    tensor_queue,
-                    cozy_config,
                 ),
             ]
 

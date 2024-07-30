@@ -1,12 +1,15 @@
 import os
 import json
 import multiprocessing
-from typing import Tuple, Any, Iterable
+from threading import Event
+from typing import Optional, Tuple, Any, Iterable
+from uuid import uuid4
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
 import asyncio
 import logging
 import blake3
+from pydantic import BaseModel
 
 from ..utils.file_handler import (
     get_mime_type,
@@ -24,10 +27,35 @@ from ..utils.paths import get_web_root, get_assets_dir
 script_dir = os.path.dirname(os.path.abspath(__file__))
 react_components = os.path.abspath(os.path.join(script_dir, "..", "react_components"))
 
+# models: {
+#          majic_mix: 4,
+#          // pony_diffusion_v6: 4,
+#          // citron_anime_treasure_v10: 4,
+#          // dark_sushi_25d_v40: 4,
+#          // break_domain_xl_v05g: 4,
+#          // sd3_medium_incl_clips_t5xxlfp8: 1
+#       },
+#       positive_prompt: 'a dragon made of ice flying through a waterfall ' +
+#          'beautiful, high quality, hyper-realism, digital art',
+#       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
+#       random_seed: 77,
+#       aspect_ratio: '9/16'
+
+
+class GenerateData(BaseModel):
+    random_seed: int
+    aspect_ratio: str
+    positive_prompt: str
+    negative_prompt: str
+    models: dict[str, int]
+    webhook_url: Optional[str] = None
+
 
 # TO DO: eventually replace checkpoint_files with a database query instead
 def create_aiohttp_app(
-    job_queue: multiprocessing.Queue, node_defs: dict[str, Any]
+    job_queue: multiprocessing.Queue,
+    job_registry: dict[str, Event],
+    node_defs: dict[str, Any],
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
@@ -78,13 +106,18 @@ def create_aiohttp_app(
 
         try:
             # TO DO: validate these types using something like pydantic
-            data = await request.json()
+            data = GenerateData(**(await request.json()))
+            if data.webhook_url is not None:
+                return web.json_response(
+                    {"error": "webhook_url is not allowed for this endpoint"},
+                    status=400,
+                )
 
             # Create a pair of connections for inter-process communication
             parent_conn, child_conn = multiprocessing.Pipe()
 
             # Submit the job to the queue
-            job_queue.put((data, child_conn))
+            job_queue.put((data, child_conn, None))
 
             print(f"job queue put {data}", flush=True)
 
@@ -143,6 +176,51 @@ def create_aiohttp_app(
         await response.write_eof()
 
         return response
+
+    @routes.post("/generate_async")
+    async def handle_generate_async(request: web.Request) -> web.Response:
+        """
+        Submits generation requests from the user to the queue and returns an id.
+        """
+
+        job_id = str(uuid4())
+        try:
+            data = GenerateData(**(await request.json()))
+            if data.webhook_url is None:
+                return web.json_response(
+                    {"error": "webhook_url is required"}, status=400
+                )
+
+            # Submit the job to the queue
+            job_queue.put((data, None, job_id))
+            print(f"job queue put {data}", flush=True)
+
+            return web.json_response(
+                {"status": "pending", "job_id": job_id},
+                status=201,
+            )
+        except Exception as e:
+            logger.error(f"Error in generation: {str(e)}")
+            return web.json_response({"error": str(e)})
+
+    @routes.get("/cancel/{job_id}")
+    async def handle_cancel(request: web.Request) -> web.Response:
+        """
+        Cancels a pending generation job.
+        """
+
+        job_id = request.match_info["job_id"]
+        try:
+            if job_id not in job_registry:
+                return web.json_response(
+                    {"error": f"Job ID {job_id} not found"}, status=404
+                )
+
+            job_registry[job_id].set()
+            return web.json_response({"status": "cancelled"}, status=200)
+        except Exception as e:
+            logger.error(f"Error cancelling job: {str(e)}")
+            return web.json_response({"error": str(e)})
 
     # This does inference using an arbitrary hugging face repo
     # @routes.post("/generate-from-repo")

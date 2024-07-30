@@ -103,7 +103,9 @@ def generate_images(
     # tensor_queue.put((None, None))
 
 
-def generate_images_non_io(task_data: dict[str, Any]) -> Optional[torch.Tensor]:
+async def generate_images_non_io(
+    task_data: dict[str, Any],
+) -> Optional[torch.Tensor]:
     """Generates images based on the provided task data."""
     start = time.time()
 
