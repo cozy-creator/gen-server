@@ -7,7 +7,7 @@ from gen_server.utils.device import get_torch_device
 
 import torch
 import logging
-from typing import Any, Optional
+from typing import Any, Generator, Optional
 from multiprocessing.connection import Connection
 
 from queue import Queue
@@ -109,7 +109,7 @@ def generate_images(
 def generate_images_non_io(
     task_data: dict[str, Any],
     cancel_event: Optional[Event],
-) -> Optional[torch.Tensor]:
+) -> Generator[torch.Tensor, None, None]:
     """Generates images based on the provided task data."""
     start = time.time()
 
@@ -167,7 +167,7 @@ def generate_images_non_io(
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                return tensor_images
+                yield tensor_images
 
             except asyncio.CancelledError:
                 logger.info("Task was cancelled during image generation.")
@@ -187,6 +187,5 @@ def generate_images_non_io(
 
     logger.info(f"Image generated in {time.time() - start} seconds")
 
-    return None
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))

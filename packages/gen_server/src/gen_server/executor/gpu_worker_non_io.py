@@ -152,8 +152,9 @@ async def start_gpu_worker_non_io(
                     continue
 
             try:
-                images = generate_images_non_io(data, cancel_event)
-                if images is not None:
+                for images in generate_images_non_io(data, cancel_event):
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise asyncio.CancelledError("Operation was cancelled.")
                     async for file_url in upload_batch(file_handler, images):
                         if cancel_event is not None and cancel_event.is_set():
                             raise asyncio.CancelledError("Operation was cancelled.")
