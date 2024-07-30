@@ -12,6 +12,7 @@ from typing import (
 )
 
 from multiprocessing import managers
+from gen_server.api.api_routes import GenerateData
 from requests.packages.urllib3.util.retry import Retry
 from PIL import PngImagePlugin
 import requests
@@ -126,8 +127,8 @@ async def start_gpu_worker_non_io(
                 logger.info("Received stop signal. GPU-worker shutting down.")
                 break
 
-            if not isinstance(data, dict):
-                logger.error(f"Invalid data received: {data}")
+            if not isinstance(data, GenerateData):
+                logger.error(f"Invalid data received: {data.dict()}")
                 if response_conn is not None:
                     response_conn.send(None)
                     response_conn.close()
@@ -144,8 +145,10 @@ async def start_gpu_worker_non_io(
 
             async def _generate_images():
                 if cancel_event is None:
-                    return await generate_images_non_io(data)
-                return await cancellable(cancel_event, generate_images_non_io, data)
+                    return await generate_images_non_io(data.model_dump())
+                return await cancellable(
+                    cancel_event, generate_images_non_io, data.model_dump()
+                )
 
             async def _upload_images(images: torch.Tensor):
                 if cancel_event is None:
@@ -164,8 +167,8 @@ async def start_gpu_worker_non_io(
                     async for file_url in await _upload_images(images):
                         if response_conn is not None:
                             response_conn.send(file_url)
-                        if "webhook_url" in data:
-                            invoke_webhook(data["webhook_url"], file_url)
+                        if data.webhook_url is not None:
+                            invoke_webhook(data.webhook_url, file_url)
             except asyncio.CancelledError:
                 logger.info("Task was cancelled.")
                 if response_conn is not None:
