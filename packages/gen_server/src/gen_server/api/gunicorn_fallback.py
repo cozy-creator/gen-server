@@ -3,6 +3,7 @@
 
 import asyncio
 import multiprocessing
+from threading import Event
 from aiohttp.web import AppRunner, TCPSite
 from typing import Optional, Any
 from gen_server.config import get_server_url, set_config
@@ -19,16 +20,18 @@ from .api_routes import create_aiohttp_app
 
 def start_api_server(
     job_queue: multiprocessing.Queue,
+    cancel_registry: dict[str, Event],
     config: RunCommandConfig,
     checkpoint_files: dict[str, CheckpointMetadata],
     node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
 ):
     set_config(config)
-    update_api_endpoints(extra_routes)
+    if extra_routes is not None:
+        update_api_endpoints(extra_routes)
     update_checkpoint_files(checkpoint_files)
 
-    aiohttp_app = create_aiohttp_app(job_queue, node_defs)
+    aiohttp_app = create_aiohttp_app(job_queue, cancel_registry, node_defs)
 
     async def run_app():
         runner = AppRunner(aiohttp_app)
