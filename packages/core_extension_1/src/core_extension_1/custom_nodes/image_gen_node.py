@@ -136,11 +136,15 @@ class ImageGenNode(CustomNode):
         ]
 
         for opt_func, opt_name in optimizations:
+            if torch.backends.mps.is_available():
+                pipeline.to("mps")
+                break
             try:
                 getattr(pipeline, opt_func)()
                 print(f"{opt_name} enabled")
             except Exception as e:
                 print(f"Error enabling {opt_name}: {e}")
+
 
 # class ImageGenNode(CustomNode):
 #     """Generates images using Stable Diffusion pipelines."""

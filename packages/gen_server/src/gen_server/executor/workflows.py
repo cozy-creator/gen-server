@@ -134,15 +134,15 @@ def generate_images_non_io(
 
                 # Run the ImageGenNode
                 tensor_images: torch.Tensor = image_gen_node(
-                    checkpoint_id=checkpoint_id,
+                    repo_id=checkpoint_id,
                     positive_prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
-                    checkpoint_files=checkpoint_files,
-                    architectures=architectures,
-                    device=get_torch_device(),
+                    # checkpoint_files=checkpoint_files,
+                    # architectures=architectures,
+                    # device=get_torch_device(),
                 )["images"]
 
                 if cancel_event is not None and cancel_event.is_set():

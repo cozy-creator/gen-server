@@ -246,7 +246,6 @@ def run_app(cozy_config: RunCommandConfig):
         # Get global variables that we need to pass to sub-processes
         checkpoint_files = get_checkpoint_files()
         api_endpoints = get_api_endpoints()
-        print(api_endpoints)
         custom_nodes = get_custom_nodes()
         architectures = get_architectures()
         node_specs = load_custom_node_specs(custom_nodes)

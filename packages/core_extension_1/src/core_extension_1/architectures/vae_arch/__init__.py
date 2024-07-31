@@ -128,12 +128,9 @@ class VAEArch(Architecture[AutoencoderKL]):
             "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight"
         }
 
-        print("In here for breakdomain")
 
         if all(key in state_dict for key in required_keys):
-            print("\n\nIn Here with Breakdomain")
             component_metadata, _ = cls._determine_type(metadata)
-            print(component_metadata)
             return component_metadata
 
         return None
