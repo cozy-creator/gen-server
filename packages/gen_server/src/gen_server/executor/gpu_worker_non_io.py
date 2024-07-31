@@ -2,12 +2,9 @@ import asyncio
 import multiprocessing
 import queue
 import traceback
-from threading import Event
 from typing import (
     Any,
     AsyncGenerator,
-    Awaitable,
-    Callable,
     Type,
     TypeVar,
     Dict,
@@ -76,36 +73,6 @@ def invoke_webhook(webhook_url: str, file_url: FileURL):
         logger.info("Webhook invoked successfully! Response: %s", response.text)
     except requests.exceptions.RequestException as e:
         logger.error("Request error occurred: %s", e)
-
-
-async def check_cancellation(cancel_event: Event):
-    print("Checking for cancellation....")
-    while not cancel_event.is_set():
-        await asyncio.sleep(0.1)
-
-    print("Task was cancelled....")
-    raise asyncio.CancelledError("Operation was cancelled.")
-
-
-async def cancellable(
-    event: Event, task: Callable[..., Awaitable[T]], *args: Any, **kwargs: Any
-) -> T:
-    task_future = asyncio.ensure_future(task(*args, **kwargs))
-    cancel_future = asyncio.ensure_future(check_cancellation(event))
-
-    print("Waiting for task to complete or be cancelled....")
-    done, pending = await asyncio.wait(
-        [task_future, cancel_future], return_when=asyncio.FIRST_COMPLETED
-    )
-
-    for future in pending:
-        future.cancel()
-
-    if task_future in done:
-        return task_future.result()
-    else:
-        print("Task was cancelled...... haha")
-        raise asyncio.CancelledError("Operation was cancelled.")
 
 
 async def start_gpu_worker_non_io(
