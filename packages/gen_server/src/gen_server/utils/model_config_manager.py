@@ -18,12 +18,25 @@ class ModelConfigManager:
             raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
 
     def get_model_config(self, repo_id: str, class_name: str) -> Dict[str, Any]:
-        if repo_id in self.config['models']:
-            return self.config['models'][repo_id]
-        elif class_name in self.config['class_defaults']:
-            return self.config['class_defaults'][class_name]
-        else:
-            return self.config['global_default']
+
+        # Get global default settings
+        global_config = self.config['global_default']
+
+        # Get class default settings
+        class_config = self.config['class_defaults'].get(class_name, {})
+
+        # Get category settings
+        model_config = self.config['models'].get(repo_id, {})
+        category = model_config.get('category', None)
+        category_config = self.config['categories'].get(category, {}) if category else {}
+
+        # Merge configurations, with the order of precedence being:
+        # model_config > category_config > class_config > global_config
+        final_config = {**global_config, **class_config, **category_config, **model_config}
+
+        print(final_config)
+
+        return final_config
 
     def get_scheduler(self, repo_id: str, class_name: str) -> str:
         return self.get_model_config(repo_id, class_name)['scheduler']

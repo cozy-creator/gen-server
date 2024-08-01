@@ -10,7 +10,8 @@ from diffusers import (
     DDIMScheduler,
     EulerDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
-    DPMSolverMultistepScheduler
+    DPMSolverMultistepScheduler,
+    DiffusionPipeline
 )
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
@@ -65,37 +66,40 @@ class ImageGenNode(CustomNode):
         """
 
         try:
-            model_info = requests.post(f"{SERVER_URL}/get_components", json={"repo_id": repo_id})
+            # model_info = requests.post(f"{SERVER_URL}/get_components", json={"repo_id": repo_id})
 
-            if model_info.status_code != 200:
-                raise ValueError(f"Error fetching model info: {model_info.text}")
-            model_info = model_info.json()
+            # if model_info.status_code != 200:
+            #     raise ValueError(f"Error fetching model info: {model_info.text}")
+            # model_info = model_info.json()
 
-            class_name = model_info["keys"]["_class_name"]
+            # class_name = model_info["keys"]["_class_name"]
 
+            # Create pipeline without changing the scheduler
             try:
-                module = import_module('diffusers')
-                PipelineClass = getattr(module, class_name)
-
-                # Get model-specific configuration
-                model_config = self.config_manager.get_model_config(repo_id, class_name)
-
-                # Create pipeline without changing the scheduler
-                pipeline = PipelineClass.from_pretrained(
-                    repo_id, 
+                pipeline = DiffusionPipeline.from_pretrained(
+                    repo_id,
+                    local_files_only=True, 
                     variant="fp16", 
                     torch_dtype=torch.float16
                 )
-
-                # Check if a specific scheduler is specified in the config
-                scheduler_name = model_config.get('scheduler')
-                if scheduler_name:
-                    print("In Here")
-                    SchedulerClass = getattr(module, scheduler_name)
-                    pipeline.scheduler = SchedulerClass.from_config(pipeline.scheduler.config)
-
             except Exception as e:
-                raise ValueError(f"Error loading model: {e}")
+                raise ValueError(f"Error in loading Pipeline caused by: {e}")
+
+            class_name = pipeline.__class__.__name__
+
+            module = import_module('diffusers')
+
+
+            # Get model-specific configuration
+            model_config = self.config_manager.get_model_config(repo_id, class_name)
+
+
+            # Check if a specific scheduler is specified in the config
+            scheduler_name = model_config.get('scheduler')
+            if scheduler_name:
+                print("In Here")
+                SchedulerClass = getattr(module, scheduler_name)
+                pipeline.scheduler = SchedulerClass.from_config(pipeline.scheduler.config)
             
             # Determine the width and height based on the aspect ratio and base model
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
