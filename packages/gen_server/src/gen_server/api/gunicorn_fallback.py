@@ -5,7 +5,7 @@ import asyncio
 import multiprocessing
 from threading import Event
 from aiohttp.web import AppRunner, TCPSite
-from typing import Optional, Any
+from typing import Optional, Any, Type
 from gen_server.config import get_server_url, set_config
 
 from ..globals import (
@@ -16,6 +16,7 @@ from ..globals import (
 )
 from ..base_types.pydantic_models import RunCommandConfig
 from .api_routes import create_aiohttp_app
+from ..base_types import ApiAuthenticator
 
 
 def start_api_server(
@@ -25,13 +26,16 @@ def start_api_server(
     checkpoint_files: dict[str, CheckpointMetadata],
     node_defs: dict[str, Any],
     extra_routes: Optional[dict[str, RouteDefinition]] = None,
+    api_authenticator: Optional[Type[ApiAuthenticator]] = None,
 ):
     set_config(config)
     if extra_routes is not None:
         update_api_endpoints(extra_routes)
     update_checkpoint_files(checkpoint_files)
 
-    aiohttp_app = create_aiohttp_app(job_queue, cancel_registry, node_defs)
+    aiohttp_app = create_aiohttp_app(
+        job_queue, cancel_registry, node_defs, api_authenticator
+    )
 
     async def run_app():
         runner = AppRunner(aiohttp_app)
