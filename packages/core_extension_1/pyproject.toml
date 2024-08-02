@@ -71,6 +71,8 @@ openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
 [project.entry-points."cozy_creator.api"]
 get_components = "core_extension_1.api:routes"
 
+[project.entry-points."cozy_creator.api_authenticator"]
+authenticator = "core_extension_1.authenticator.firebase:FirebaseAuthenticator"
 
 [tool.setuptools.packages.find]
 where = ["src"]

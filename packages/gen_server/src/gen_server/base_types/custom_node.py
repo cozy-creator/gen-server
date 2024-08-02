@@ -1,4 +1,4 @@
-from typing import TypedDict, Any, Type
+from typing import TypedDict, Any
 from abc import ABC, abstractmethod
 from .common import Language, Category
 
@@ -70,14 +70,14 @@ class CustomNode(ABC):
 
     description: dict[Language, str]
     """ Description, displayed in the client. Localized by language. """
-    
+
     @staticmethod
     def get_spec() -> dict[str, Any]:
         """
         Returns the custom node's specification, as a dictionary. Usually loaded from JSON.
         """
         return {}
-    
+
     @abstractmethod
     def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """
@@ -88,11 +88,8 @@ class CustomNode(ABC):
 
 def custom_node_validator(plugin: Any) -> bool:
     try:
-        if isinstance(plugin, type):
-            return issubclass(plugin, CustomNode)
-        else:
-            return isinstance(plugin, CustomNode)
-        
+        return issubclass(plugin, CustomNode)
+
     except TypeError:
         print(f"Invalid plugin type: {plugin}")
         return False
