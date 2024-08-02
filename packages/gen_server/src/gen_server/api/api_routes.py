@@ -1,8 +1,10 @@
+from email import message
 from functools import wraps
 import os
 import json
 import multiprocessing
 from threading import Event
+import traceback
 from typing import Callable, Optional, Tuple, Any, Iterable, Type
 from uuid import uuid4
 from aiohttp import web, BodyPartReader
@@ -22,6 +24,7 @@ from ..globals import (
     get_api_endpoints,
     get_checkpoint_files,
 )
+from ..base_types.authenticator import AuthenticationError
 
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
@@ -73,12 +76,23 @@ def create_aiohttp_app(
 
     def auth_middleware(request: web.Request, handler: Callable):
         if authenticator:
-            print("Authenticating user", flush=True)
-            user = authenticator.current_user(request)
-            print(f"User: {user}", flush=True)
-            if user is None:
-                return web.HTTPUnauthorized(reason="Invalid or missing authentication")
-            request["user"] = user
+            try:
+                authenticator.authenticate(request)
+            except AuthenticationError as e:
+                logger.error("An error occured during authentication", e)
+                return web.json_response(
+                    {"status": "error", "message": e.message}, status=401
+                )
+            except Exception as e:
+                logger.error("An unknown error occured", e)
+                return web.json_response(
+                    {
+                        "status": "error",
+                        "message": "An error occured, please try again",
+                    },
+                    status=500,
+                )
+
         return handler(request)
 
     def with_auth(handler: Callable) -> Callable:
@@ -328,9 +342,6 @@ def create_aiohttp_app(
         Submits generation requests from the user to the queue and returns an id.
         """
 
-        print("Handling generate_async", flush=True)
-        print("Current user", request.get("user"), flush=True)
-
         job_id = str(uuid4())
         try:
             data = GenerateData(**(await request.json()))
@@ -348,6 +359,7 @@ def create_aiohttp_app(
                 status=201,
             )
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in generation: {str(e)}")
             return web.json_response({"error": str(e)})
 

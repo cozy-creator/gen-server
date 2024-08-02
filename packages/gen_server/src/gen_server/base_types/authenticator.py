@@ -7,11 +7,14 @@ class ApiAuthenticator:
     def __init__(self):
         pass
 
-    def authenticate(self, _request: web.Request) -> Optional[dict]:
+    def authenticate(self, _request: web.Request) -> Optional[Any]:
         pass
 
-    def is_authenticated(self, _request: web.Request) -> bool:
-        pass
+
+class AuthenticationError(Exception):
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(self.message)
 
 
 def api_authenticator_validator(plugin: Any) -> bool:

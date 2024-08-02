@@ -200,13 +200,9 @@ def run_app(cozy_config: RunCommandConfig):
     api_authenticators = load_extensions(
         "cozy_creator.api_authenticator", api_authenticator_validator
     )
-    if len(api_authenticators) > 1:
-        raise ValueError("Application must have only one api authenticator")
 
-    api_authenticators = list(api_authenticators.values())
-    update_api_authenticator(
-        api_authenticators[0] if len(api_authenticators) > 0 else None
-    )
+    if cozy_config.api_authenticator is not None:
+        update_api_authenticator(api_authenticators.get(cozy_config.api_authenticator))
     print(
         f"AUTHENTICATOR loading time: {time.time() - start_time_api_authenticator:.2f} seconds"
     )
