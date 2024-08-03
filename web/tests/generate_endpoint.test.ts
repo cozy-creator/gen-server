@@ -1,22 +1,23 @@
 import { describe, it, expect } from 'vitest';
 
-const api_endpoint = process.env.API_ENDPOINT || 'http://localhost:8881';
+const api_endpoint = (process.env.API_ENDPOINT || 'http://localhost:8881').replace(/\/$/, '')
 
 async function* generateImages() {
    const requestBody = {
       models: {
          majic_mix: 4,
-         // pony_diffusion_v6: 4,
+         pony_diffusion_v6: 4,
          // citron_anime_treasure_v10: 4,
          // dark_sushi_25d_v40: 4,
          // break_domain_xl_v05g: 4,
+         real_cartoon_3d_v17: 4,
          // sd3_medium_incl_clips_t5xxlfp8: 1
       },
-      positive_prompt: 'a dragon made of ice flying through a waterfall ' +
-         'beautiful, high quality, hyper-realism, digital art',
-      negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 77,
-      aspect_ratio: '9/16'
+      positive_prompt: 'score_9, score_8_up, beautiful anime woman ' +
+         '',
+      negative_prompt: 'score_4, watermark, low quality, worst quality, ugly, text',
+      random_seed: 79,
+      aspect_ratio: '16/9'
    };
 
    try {

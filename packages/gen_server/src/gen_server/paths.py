@@ -1,8 +1,47 @@
 import os
+import sys
 
 from .static import ENV_TEMPLATE
 
 base_path = os.path.dirname(os.path.abspath(__file__))
+
+APP_NAME = "cozy-creator"
+
+def get_app_dirs():
+    if sys.platform == "win32":
+        # Windows
+        app_data = os.environ.get('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
+        local_app_data = os.environ.get('LOCALAPPDATA', os.path.expanduser('~\\AppData\\Local'))
+        return {
+            'data': os.path.join(app_data, APP_NAME),
+            'config': os.path.join(app_data, APP_NAME),
+            'cache': os.path.join(local_app_data, APP_NAME, 'Cache'),
+            'state': os.path.join(local_app_data, APP_NAME, 'State'),
+        }
+    elif sys.platform == "darwin":
+        # macOS
+        home = os.path.expanduser("~")
+        return {
+            'data': os.path.join(home, 'Library', 'Application Support', APP_NAME),
+            'config': os.path.join(home, 'Library', 'Application Support', APP_NAME),
+            'cache': os.path.join(home, 'Library', 'Caches', APP_NAME),
+            'state': os.path.join(home, 'Library', 'Application Support', APP_NAME, 'State'),
+        }
+    else:
+        # Linux and other Unix-like systems (support XDG)
+        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        xdg_config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        xdg_cache_home = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+        xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+        return {
+            'data': os.path.join(xdg_data_home, APP_NAME),
+            'config': os.path.join(xdg_config_home, APP_NAME),
+            'cache': os.path.join(xdg_cache_home, APP_NAME),
+            'state': os.path.join(xdg_state_home, APP_NAME),
+        }
+
+
+# TO DO: everything below is probably trash. Please remove
 
 folders = {
     "core_nodes": os.path.join(base_path, "extensions", "core"),
