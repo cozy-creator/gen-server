@@ -33,7 +33,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
         self._output_space = "SD1"
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -83,6 +83,8 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
 
         if device is not None:
             text_encoder.to(device=device)
+
+        text_encoder.to(torch.float16)
         
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")

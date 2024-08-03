@@ -16,6 +16,7 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
+from gen_server.base_types.authenticator import api_authenticator_validator
 from gen_server.utils.file_handler import LocalFileHandler
 from gen_server.utils.web import install_and_build_web_dir
 from .paths import ensure_workspace_path
@@ -36,6 +37,8 @@ from .globals import (
     update_checkpoint_files,
     get_checkpoint_files,
     get_architectures,
+    update_api_authenticator,
+    get_api_authenticator,
 )
 from .base_types.pydantic_models import (
     RunCommandConfig,
@@ -43,8 +46,8 @@ from .base_types.pydantic_models import (
     InstallCommandConfig,
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
-from .executor.io_worker import start_io_worker
-from .executor.gpu_worker import start_gpu_worker
+from .executor.gpu_worker_non_io import start_gpu_worker
+
 
 import warnings
 
@@ -192,6 +195,18 @@ def run_app(cozy_config: RunCommandConfig):
     update_widgets(load_extensions("cozy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
 
+    start_time_api_authenticator = time.time()
+
+    api_authenticators = load_extensions(
+        "cozy_creator.api_authenticator", api_authenticator_validator
+    )
+
+    if cozy_config.api_authenticator is not None:
+        update_api_authenticator(api_authenticators.get(cozy_config.api_authenticator))
+    print(
+        f"AUTHENTICATOR loading time: {time.time() - start_time_api_authenticator:.2f} seconds"
+    )
+
     # compile model registry
     start_time_checkpoint_files = time.time()
     models_paths = [get_models_dir()] + cozy_config.aux_models_paths
@@ -202,8 +217,6 @@ def run_app(cozy_config: RunCommandConfig):
 
     # Ensure our workspace directory and its subdirectories exist. Add a .env.example if needed
     ensure_workspace_path(cozy_config.workspace_path)
-
-    print("Cozy config:", cozy_config)
 
     # debug
     print("Number of checkpoint files:", len(get_checkpoint_files()))
@@ -236,9 +249,11 @@ def run_app(cozy_config: RunCommandConfig):
         # Stores JobQueueItem
         job_queue = manager.Queue()
 
+        cancel_registry = manager.dict()
+
         # A tensor queue so that the gpu-workers process can push their finished
         # files into the io-worker process.
-        tensor_queue = manager.Queue()
+        # tensor_queue = manager.Queue()
 
         # shutdown_event = manager.Event()
 
@@ -247,6 +262,7 @@ def run_app(cozy_config: RunCommandConfig):
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
         architectures = get_architectures()
+        api_authenticator = get_api_authenticator()
         node_specs = load_custom_node_specs(custom_nodes)
 
         # Create a process pool for the workers
@@ -262,28 +278,23 @@ def run_app(cozy_config: RunCommandConfig):
                     "api_worker",
                     start_api_server,
                     job_queue,
+                    cancel_registry,
                     cozy_config,
                     checkpoint_files,
                     node_specs,
                     api_endpoints,
+                    api_authenticator,
                 ),
                 named_future(
                     executor,
                     "gpu_worker",
                     start_gpu_worker,
                     job_queue,
-                    tensor_queue,
+                    cancel_registry,
                     cozy_config,
                     custom_nodes,
                     checkpoint_files,
                     architectures,
-                ),
-                named_future(
-                    executor,
-                    "io_worker",
-                    asyncio.run(start_io_worker(tensor_queue, cozy_config)),
-                    tensor_queue,
-                    cozy_config,
                 ),
             ]
 

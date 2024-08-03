@@ -32,22 +32,12 @@ class VAEArch(Architecture[AutoencoderKL]):
     # except for the changes specified in their config files.
     @staticmethod
     def _determine_type(metadata: dict[str, Any]) -> tuple[ComponentMetadata, str]:
+        result: dict = {}
         architecture = metadata.get("modelspec.architecture", "")
         # print(f"metadata: {metadata}\n\n")
         # print(f"architecture: {architecture}\n\n")
 
-        if architecture == "stable-diffusion-v3-medium":
-            result: ComponentMetadata = {
-                "display_name": "SD3 VAE",
-                "input_space": "SD3",
-                "output_space": "SD3",
-            }
-            config_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "sd3_config.json"
-            )
-
-            print("In SD3 medium")
-        elif architecture == "stable-diffusion-xl-v1-base":
+        if architecture == "stable-diffusion-xl-v1-base":
             result: ComponentMetadata = {
                 "display_name": "SDXL VAE",
                 "input_space": "SDXL",
@@ -84,16 +74,27 @@ class VAEArch(Architecture[AutoencoderKL]):
                         os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
                     )
                     break
+                
+            if result == {}:
+                result: ComponentMetadata = {
+                    "display_name": "SDXL VAE",
+                    "input_space": "SDXL",
+                    "output_space": "SDXL",
+                }
+                config_path = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
+                )
         else:
             result: ComponentMetadata = {
-                "display_name": "SD1 VAE",
-                "input_space": "SD1",
-                "output_space": "SD1",
+                "display_name": "SDXL VAE",
+                "input_space": "SDXL",
+                "output_space": "SDXL",
             }
             config_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "sd1_config.json"
+                os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
             )
-            print("In SD1.5")
+
+            print("In SDXL Base")
 
         return result, config_path
 
@@ -117,15 +118,16 @@ class VAEArch(Architecture[AutoencoderKL]):
             self._config = config
 
     @classmethod
-    def detect(
+    def detect( # type: ignore
         cls,
         state_dict: StateDict,
         metadata: dict[str, Any],
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "first_stage_model.encoder.conv_in.bias",
-            # "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
+            "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight"
         }
+
 
         if all(key in state_dict for key in required_keys):
             component_metadata, _ = cls._determine_type(metadata)

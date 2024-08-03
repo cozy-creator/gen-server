@@ -34,7 +34,10 @@ def from_file(
     Returns an empty dictionary if no supported model architecture is found.
     """
     state_dict = load_state_dict_from_file(path, device=device)
+
     metadata = read_safetensors_metadata(path)
+
+    # print(state_dict.keys())
 
     return from_state_dict(state_dict, metadata, device, registry)
 
@@ -85,6 +88,7 @@ def components_from_state_dict(
             # print(metadata)
             # print(architecture)
             # print("Done above")
+
             checkpoint_metadata = architecture.detect(
                 state_dict=state_dict, metadata=metadata
             )

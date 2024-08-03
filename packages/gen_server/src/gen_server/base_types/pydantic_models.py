@@ -15,11 +15,11 @@ def is_running_in_docker() -> bool:
     """
     Determines if our process is currently in a docker environment or not.
     """
-    container_env = os.environ.get('container')
-    if container_env == 'docker':
+    container_env = os.environ.get("container")
+    if container_env == "docker":
         return True
     else:
-        return os.path.exists('/.dockerenv')
+        return os.path.exists("/.dockerenv")
 
 
 class FilesystemTypeEnum(str, Enum):
@@ -153,6 +153,11 @@ class RunCommandConfig(BaseSettings):
     s3: Optional[S3Credentials] = Field(
         default=None,
         description="Credentials to read from and write to an S3-compatible API.",
+    )
+
+    api_authenticator: Optional[str] = Field(
+        default=None,
+        description="The authenticator to be used in authenticating api requests.",
     )
 
     # This allows the aux_models_paths field to be a comma-separated string of paths

@@ -1,13 +1,20 @@
+from functools import wraps
 import os
 import json
 import multiprocessing
-from typing import Tuple, Any, Iterable
+from threading import Event
+import traceback
+from typing import Callable, Optional, Tuple, Any, Iterable, Type
+from uuid import uuid4
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
 import asyncio
 import logging
 import blake3
+from huggingface_hub import HfApi
+from pydantic import BaseModel
 
+from .. import ApiAuthenticator
 from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
@@ -16,6 +23,7 @@ from ..globals import (
     get_api_endpoints,
     get_checkpoint_files,
 )
+from ..base_types.authenticator import AuthenticationError
 
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
@@ -25,9 +33,25 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 react_components = os.path.abspath(os.path.join(script_dir, "..", "react_components"))
 
 
+# Huggingface API
+hf_api = HfApi()
+
+
+class GenerateData(BaseModel):
+    random_seed: int
+    aspect_ratio: str
+    positive_prompt: str
+    negative_prompt: str
+    models: dict[str, int]
+    webhook_url: Optional[str] = None
+
+
 # TO DO: eventually replace checkpoint_files with a database query instead
 def create_aiohttp_app(
-    job_queue: multiprocessing.Queue, node_defs: dict[str, Any]
+    job_queue: multiprocessing.Queue,
+    job_registry: dict[str, Event],
+    node_defs: dict[str, Any],
+    api_authenticator: Optional[Type[ApiAuthenticator]] = None,
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
@@ -47,6 +71,35 @@ def create_aiohttp_app(
     )
 
     routes = web.RouteTableDef()
+    authenticator = api_authenticator() if api_authenticator else None
+
+    def auth_middleware(request: web.Request, handler: Callable):
+        if authenticator:
+            try:
+                authenticator.authenticate(request)
+            except AuthenticationError as e:
+                logger.error("An error occured during authentication", e)
+                return web.json_response(
+                    {"status": "error", "message": e.message}, status=401
+                )
+            except Exception as e:
+                logger.error("An unknown error occured", e)
+                return web.json_response(
+                    {
+                        "status": "error",
+                        "message": "An error occured, please try again",
+                    },
+                    status=500,
+                )
+
+        return handler(request)
+
+    def with_auth(handler: Callable) -> Callable:
+        @wraps(handler)
+        def wrapped(request: web.Request):
+            return auth_middleware(request, handler)
+
+        return wrapped
 
     @routes.get("/checkpoints")
     async def get_checkpoints(_req: web.Request) -> web.Response:
@@ -66,6 +119,7 @@ def create_aiohttp_app(
         return web.Response(text=json.dumps(node_defs), content_type="application/json")
 
     @routes.post("/generate")
+    @with_auth
     async def handle_generate(request: web.Request) -> web.StreamResponse:
         """
         Submits generation requests from the user to the queue and streams the results.
@@ -78,13 +132,18 @@ def create_aiohttp_app(
 
         try:
             # TO DO: validate these types using something like pydantic
-            data = await request.json()
+            data = GenerateData(**(await request.json()))
+            if data.webhook_url is not None:
+                return web.json_response(
+                    {"error": "webhook_url is not allowed for this endpoint"},
+                    status=400,
+                )
 
             # Create a pair of connections for inter-process communication
             parent_conn, child_conn = multiprocessing.Pipe()
 
             # Submit the job to the queue
-            job_queue.put((data, child_conn))
+            job_queue.put((data.dict(), child_conn, None))
 
             print(f"job queue put {data}", flush=True)
 
@@ -143,6 +202,190 @@ def create_aiohttp_app(
         await response.write_eof()
 
         return response
+
+    @routes.get("/get_diffusers_models")
+    async def get_diffusers_models(request: web.Request) -> web.StreamResponse:
+        """
+        Retrieves diffusers models and streams the results.
+        """
+        response = web.StreamResponse(
+            status=200, reason="OK", headers={"Content-Type": "application/json"}
+        )
+        await response.prepare(request)
+
+        try:
+            page = int(request.query.get("page", 1))
+            limit = int(request.query.get("limit", 10))
+            offset = (page - 1) * limit
+
+            # Set a timeout for the entire operation
+            total_timeout = 60  # 1 minute, adjust as needed
+            start_time = asyncio.get_event_loop().time()
+
+            # Use asyncio to make the potentially blocking API calls non-blocking
+            models = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: hf_api.list_models(
+                    library="diffusers",
+                    sort="downloads",
+                    task=["text-to-image"],
+                    limit=limit,
+                ),
+            )
+
+            # Stream the models as they are retrieved
+            for model in models:
+                model_data = {
+                    "id": model.id,
+                    "downloads": model.downloads,
+                    "tags": model.tags,
+                }
+                await response.write(
+                    json.dumps({"model": model_data}).encode("utf-8") + b"\n"
+                )
+                await response.drain()
+
+                # Check if we've exceeded the total timeout
+                if asyncio.get_event_loop().time() - start_time > total_timeout:
+                    raise TimeoutError("Operation timed out")
+
+            # Get total number of models (this might be a heavy operation, maybe cache the value?)
+            total_models = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: len(hf_api.list_models(library="diffusers"))
+            )
+
+            # Send pagination information
+            pagination_data = {
+                "pagination": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total_models,
+                    "total_pages": (total_models // limit)
+                    + (1 if total_models % limit > 0 else 0),
+                }
+            }
+            await response.write(json.dumps(pagination_data).encode("utf-8") + b"\n")
+
+            # Signal completion
+            await response.write(
+                json.dumps({"status": "finished"}).encode("utf-8") + b"\n"
+            )
+
+        except TimeoutError as e:
+            logging.error(f"Operation timed out: {str(e)}")
+            await response.write(
+                json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+            )
+        except Exception as e:
+            logging.error(f"Error in get_diffusers_models: {str(e)}")
+            await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
+
+        await response.write_eof()
+        return response
+
+    @routes.post("/generate_async")
+    async def handle_generate_async(request: web.Request) -> web.Response:
+        """
+        Submits generation requests from the user to the queue and returns an id.
+        """
+
+        job_id = str(uuid4())
+        try:
+            data = GenerateData(**(await request.json()))
+            if data.webhook_url is None:
+                return web.json_response(
+                    {"error": "webhook_url is required"}, status=400
+                )
+
+            # Submit the job to the queue
+            job_queue.put((data.dict(), None, job_id))
+            print(f"job queue put {data}", flush=True)
+
+            return web.json_response(
+                {"status": "pending", "job_id": job_id},
+                status=201,
+            )
+        except Exception as e:
+            logger.error(f"Error in generation: {str(e)}")
+            return web.json_response({"error": str(e)})
+
+    @routes.get("/cancel/{job_id}")
+    async def handle_cancel(request: web.Request) -> web.Response:
+        """
+        Cancels a pending generation job.
+        """
+
+        job_id = request.match_info["job_id"]
+        try:
+            if job_id not in job_registry:
+                return web.json_response(
+                    {"error": f"Job ID {job_id} not found"}, status=404
+                )
+
+            cancel_event = job_registry[job_id]
+            print(f"Cancelling job {job_id}", flush=True)
+            print(cancel_event)
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+            cancel_event.set()
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+
+            return web.json_response({"status": "cancelled"}, status=200)
+        except Exception as e:
+            logger.error(f"Error cancelling job: {str(e)}")
+            return web.json_response({"error": str(e)})
+
+    @routes.post("/generate_async")
+    @with_auth
+    async def handle_generate_async(request: web.Request) -> web.Response:
+        """
+        Submits generation requests from the user to the queue and returns an id.
+        """
+
+        job_id = str(uuid4())
+        try:
+            data = GenerateData(**(await request.json()))
+            if data.webhook_url is None:
+                return web.json_response(
+                    {"error": "webhook_url is required"}, status=400
+                )
+
+            # Submit the job to the queue
+            job_queue.put((data.dict(), None, job_id))
+            print(f"job queue put {data}", flush=True)
+
+            return web.json_response(
+                {"status": "pending", "job_id": job_id},
+                status=201,
+            )
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Error in generation: {str(e)}")
+            return web.json_response({"error": str(e)})
+
+    @routes.get("/cancel/{job_id}")
+    async def handle_cancel(request: web.Request) -> web.Response:
+        """
+        Cancels a pending generation job.
+        """
+
+        job_id = request.match_info["job_id"]
+        try:
+            if job_id not in job_registry:
+                return web.json_response(
+                    {"error": f"Job ID {job_id} not found"}, status=404
+                )
+
+            cancel_event = job_registry[job_id]
+            print(f"Cancelling job {job_id}", flush=True)
+            print(cancel_event)
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+            cancel_event.set()
+            print(f"Cancelled event?: {cancel_event.is_set()}")
+
+            return web.json_response({"status": "cancelled"}, status=200)
+        except Exception as e:
+            logger.error(f"Error cancelling job: {str(e)}")
+            return web.json_response({"error": str(e)})
 
     # This does inference using an arbitrary hugging face repo
     # @routes.post("/generate-from-repo")

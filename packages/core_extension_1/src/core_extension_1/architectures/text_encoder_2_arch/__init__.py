@@ -98,7 +98,7 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         Loads the SDXL Text Encoder 2 model from the given state dictionary.
         """
         print("Loading SDXL Text Encoder 2")
-        text_model = self.model
+        text_model = self._model
         text_encoder_state_dict = {
             key: state_dict[key]
             for key in state_dict
@@ -118,6 +118,8 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
             prefix = "conditioner.embedders.1.model."
         else:
             prefix = None
+
+        print(prefix)
 
         text_model_dict = convert_open_clip_checkpoint(
             text_model=text_model, checkpoint=text_encoder_state_dict, prefix=prefix
@@ -142,7 +144,8 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
 
         else:
             text_model.load_state_dict(text_model_dict)
-            # text_model.to(torch.float16)
+            text_model.to(torch.float16)
         # text_model.to_empty(device=get_torch_device())
+        # text_model.to(torch.float16)
 
         # text_model.to(device=get_tensor_device()

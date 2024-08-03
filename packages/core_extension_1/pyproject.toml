@@ -6,9 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "core-extension-1"
 description = "Generative-AI server for content production"
 version = "0.1.0"
-authors = [
-    { name = "Paul Fidika", email = "paul@fidika.com" }
-]
+authors = [{ name = "Paul Fidika", email = "paul@fidika.com" }]
 dependencies = [
     "accelerate",
     "controlnet_aux",
@@ -26,12 +24,14 @@ dependencies = [
     "spandrel",
     "torch",
     "tqdm",
-    "transformers"
+    "transformers",
+    "firebase-admin",
 ]
 
 [project.entry-points."cozy_creator.architectures"]
 sd1_text_encoder = "core_extension_1.architectures.sd1_archs:SD1TextEncoder"
 sd1_unet = "core_extension_1.architectures.sd1_archs:SD1UNet"
+sd1_vae = "core_extension_1.architectures.sd1_archs:SD1VAEArch"
 
 sdxl_text_encoder_1 = "core_extension_1.architectures.sdxl_archs:SDXLTextEncoder"
 sdxl_unet = "core_extension_1.architectures.sdxl_archs:SDXLUNet"
@@ -40,6 +40,7 @@ sd3_unet = "core_extension_1.architectures.sd3_archs:SD3UNet"
 sd3_text_encoder_1 = "core_extension_1.architectures.sd3_archs:SD3TextEncoder1"
 # sd3_text_encoder_2 = "core_extension_1.architectures.sd3_archs:SD3TextEncoder2"
 sd3_text_encoder_3 = "core_extension_1.architectures.sd3_archs:SD3TextEncoder3"
+sd3_vae = "core_extension_1.architectures.sd3_archs:SD3VAEArch"
 
 vae = "core_extension_1.architectures.vae_arch:VAEArch"
 text_encoder_2 = "core_extension_1.architectures.text_encoder_2_arch:TextEncoder2"
@@ -62,13 +63,16 @@ image_gen_node = "core_extension_1.custom_nodes:ImageGenNode"
 video_node = "core_extension_1.custom_nodes:VideoNode"
 image_node = "core_extension_1.custom_nodes:ImageNode"
 image_regen_node = "core_extension_1.custom_nodes:ImageRegenNode"
-select_area_node ="core_extension_1.custom_nodes:SelectAreaNode"
+select_area_node = "core_extension_1.custom_nodes:SelectAreaNode"
 openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
 
 
 [project.entry-points."cozy_creator.api"]
 get_components = "core_extension_1.api:routes"
 
+[project.entry-points."cozy_creator.api_authenticator"]
+firebase_authenticator = "core_extension_1.authenticator.firebase:FirebaseAuthenticator"
+api_key_authenticator = "core_extension_1.authenticator.api_key:ApiKeyAuthenticator"
 
 [tool.setuptools.packages.find]
 where = ["src"]
