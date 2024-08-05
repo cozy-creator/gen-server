@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class HFModelManager:
     def __init__(self, cache_dir: Optional[str] = None):
-        self.cache_dir = cache_dir or get_models_dir()
+        self.cache_dir = get_models_dir() or  "~/.cache/huggingface/hub"
         self.loaded_models: Dict[str, DiffusionPipeline] = {}
         self.hf_api = HfApi()
 
