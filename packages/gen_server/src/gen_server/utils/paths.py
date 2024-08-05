@@ -24,13 +24,13 @@ def get_absolute_path(path: Optional[str], default: str) -> str:
 def get_app_dirs():
     if sys.platform == "win32":
         # Windows; both 32 and 64 bit versions despite the name 'win32'
-        # app_data = get_absolute_path(os.environ.get('APPDATA'), os.path.expanduser('~\\AppData\\Roaming'))
+        app_data = get_absolute_path(os.environ.get('APPDATA') or os.environ.get('PROGRAMDATA'), os.path.expanduser('~\\AppData\\Roaming'))
         local_app_data = get_absolute_path(os.environ.get('LOCALAPPDATA'), os.path.expanduser('~\\AppData\\Local'))
         cache_dir = os.path.expanduser('~\\.cache')
 
         return {
-            'data': os.path.join(local_app_data, WIN_APP_NAME),
-            'config': os.path.join(local_app_data, WIN_APP_NAME),
+            'data': os.path.join(app_data, WIN_APP_NAME),
+            'config': os.path.join(app_data, WIN_APP_NAME),
             'cache': os.path.join(cache_dir, APP_NAME),
             'state': os.path.join(local_app_data, WIN_APP_NAME),
             'runtime': os.path.join(tempfile.gettempdir(), APP_NAME),
