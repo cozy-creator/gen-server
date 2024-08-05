@@ -1,22 +1,17 @@
 import { describe, it, expect } from 'vitest';
 
-const api_endpoint = process.env.API_ENDPOINT || 'http://localhost:8881';
+const api_endpoint = (process.env.API_ENDPOINT || 'http://localhost:8881').replace(/\/$/, '')
 
 async function* generateImages() {
    const requestBody = {
-      models: {
-         majic_mix: 4,
-         pony_diffusion_v6: 4,
-         // citron_anime_treasure_v10: 4,
-         // dark_sushi_25d_v40: 4,
-         break_domain_xl_v05g: 4,
-         // sd3_medium_incl_clips_t5xxlfp8: 1
+      "models": {
+         "playgroundai/playground-v2.5-1024px-aesthetic": 1,
+         "RunDiffusion/Juggernaut-XL-v9": 1
       },
-      positive_prompt: 'a dragon made of ice flying through a waterfall ' +
-         'beautiful, high quality, hyper-realism, digital art',
-      negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-      random_seed: 77,
-      aspect_ratio: '9/16'
+      "positive_prompt": "A beautiful man, detailed, 8k",
+      "negative_prompt": "",
+      "aspect_ratio": "1/1",
+      "random_seed": 2
    };
 
    try {
@@ -64,25 +59,25 @@ describe(
       it('Should generate images on the gen-server, then yield the image-urls as each job completes', async () => {
          const chunks: any[] = [];
 
-      for await (const chunk of generateImages()) {
-         console.log('Chunk received: ', chunk)
+         for await (const chunk of generateImages()) {
+            console.log('Chunk received: ', chunk)
 
-         // Validate chunk structure
-         // expect(chunk).toHaveProperty('image_urls');
-         // expect(Array.isArray(chunk.image_urls)).toBe(true);
+            // Validate chunk structure
+            // expect(chunk).toHaveProperty('image_urls');
+            // expect(Array.isArray(chunk.image_urls)).toBe(true);
 
-         // chunk.image_urls.forEach((imageUrl: { url: string; is_temp: boolean }) => {
-         //   expect(imageUrl).toHaveProperty('url');
-         //   expect(typeof imageUrl.url).toBe('string');
-         //   expect(imageUrl).toHaveProperty('is_temp');
-         //   expect(typeof imageUrl.is_temp).toBe('boolean');
-         // });
-      }
+            // chunk.image_urls.forEach((imageUrl: { url: string; is_temp: boolean }) => {
+            //   expect(imageUrl).toHaveProperty('url');
+            //   expect(typeof imageUrl.url).toBe('string');
+            //   expect(imageUrl).toHaveProperty('is_temp');
+            //   expect(typeof imageUrl.is_temp).toBe('boolean');
+            // });
+         }
 
-      // Ensure we received at least one chunk
-      // expect(chunks.length).toBeGreaterThan(0);
+         // Ensure we received at least one chunk
+         // expect(chunks.length).toBeGreaterThan(0);
+      });
    });
-});
 
 // Invoke generate-images and collect results
 // (async () => {

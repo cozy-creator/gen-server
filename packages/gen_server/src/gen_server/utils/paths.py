@@ -1,9 +1,141 @@
 import os
+import tempfile
 from pathlib import Path
-from gen_server.config import get_config
+from ..config import get_config
+import sys
+from typing import Optional
+from ..static import ENV_TEMPLATE
 
 DEFAULT_DIST_PATH = Path("/srv/www/cozy/dist")
 DEFAULT_WEB_DIR = Path("/srv/www/cozy/web")
+
+APP_NAME = "cozy-creator"
+WIN_APP_NAME = "Cozy Creator"
+ASSETS_DIR_NAME = "assets"
+
+
+def get_absolute_path(path: Optional[str], default: str) -> str:
+    if path is None:
+        return default
+    expanded_path = os.path.expanduser(path)
+    return expanded_path if os.path.isabs(expanded_path) else default
+
+
+def get_app_dirs():
+    if sys.platform == "win32":
+        # Windows; both 32 and 64 bit versions despite the name 'win32'
+        app_data = get_absolute_path(os.environ.get('APPDATA') or os.environ.get('PROGRAMDATA'), os.path.expanduser('~\\AppData\\Roaming'))
+        local_app_data = get_absolute_path(os.environ.get('LOCALAPPDATA'), os.path.expanduser('~\\AppData\\Local'))
+        cache_dir = os.path.expanduser('~\\.cache')
+
+        return {
+            'data': os.path.join(app_data, WIN_APP_NAME),
+            'config': os.path.join(app_data, WIN_APP_NAME),
+            'cache': os.path.join(cache_dir, APP_NAME),
+            'state': os.path.join(local_app_data, WIN_APP_NAME),
+            'runtime': os.path.join(tempfile.gettempdir(), APP_NAME),
+        }
+    
+    elif sys.platform == "darwin":
+        # macOS
+        home = os.path.expanduser("~")
+        return {
+            'data': os.path.join(home, 'Library', 'Application Support', APP_NAME),
+            'config': os.path.join(home, 'Library', 'Preferences', APP_NAME),
+            'cache': os.path.join(home, 'Library', 'Caches', APP_NAME),
+            'state': os.path.join(home, 'Library', 'Application Support', APP_NAME),
+            'runtime': os.path.join(tempfile.gettempdir(), APP_NAME),
+        }
+    
+    else:
+        # Linux and other Unix-like systems (supports XDG)
+        home = os.path.expanduser("~")
+        xdg_data_home = get_absolute_path(os.environ.get("XDG_DATA_HOME"), os.path.join(home, ".local", "share"))
+        xdg_config_home = get_absolute_path(os.environ.get("XDG_CONFIG_HOME"), os.path.join(home, ".config"))
+        xdg_cache_home = get_absolute_path(os.environ.get("XDG_CACHE_HOME"), os.path.join(home, ".cache"))
+        xdg_state_home = get_absolute_path(os.environ.get("XDG_STATE_HOME"), os.path.join(home, ".local", "state"))
+        xdg_runtime_dir = get_absolute_path(os.environ.get("XDG_RUNTIME_DIR"), tempfile.gettempdir())
+        
+        # These are not used, but are part of the XDG spec
+
+        # Default values for XDG_DATA_DIRS and XDG_CONFIG_DIRS
+        # xdg_data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/").split(":")
+        # xdg_config_dirs = os.environ.get("XDG_CONFIG_DIRS", "/etc/xdg").split(":")
+
+        # Ensure all paths are absolute
+        # xdg_data_dirs = [os.path.abspath(path) for path in xdg_data_dirs]
+        # xdg_config_dirs = [os.path.abspath(path) for path in xdg_config_dirs]
+
+        return {
+            'data': os.path.join(xdg_data_home, APP_NAME),
+            'config': os.path.join(xdg_config_home, APP_NAME),
+            'cache': os.path.join(xdg_cache_home, APP_NAME),
+            'state': os.path.join(xdg_state_home, APP_NAME),
+            'runtime': os.path.join(xdg_runtime_dir, APP_NAME),
+            # 'data_dirs': [os.path.join(path, APP_NAME) for path in xdg_data_dirs],
+            # 'config_dirs': [os.path.join(path, APP_NAME) for path in xdg_config_dirs],
+        }
+
+def get_assets_dir():
+    return os.path.join(get_app_dirs()['data'], ASSETS_DIR_NAME)
+
+
+def get_models_dir() -> str:
+    return os.path.join(get_app_dirs()['cache'], "models")
+
+def get_secrets_dir() -> str:
+    return os.path.join(get_app_dirs()['config'], "secrets")
+
+def get_env_file_path() -> str:
+    return os.path.join(get_app_dirs()['config'], ".env")
+
+def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
+    def map_filename(filename: str) -> tuple[int, str]:
+        prefix_len = len(os.path.basename(filename_prefix))
+        prefix = filename[: prefix_len + 1]
+        try:
+            digits = int(filename[prefix_len + 1 :].split("_")[0])
+        except:
+            digits = 0
+        return (digits, prefix)
+
+    try:
+        counter = (
+            max(
+                filter(
+                    lambda a: a[1][:-1] == filename_prefix and a[1][-1] == "_",
+                    map(map_filename, os.listdir(assets_dir)),
+                )
+            )[0]
+            + 1
+        )
+    except ValueError:
+        counter = 1
+    except FileNotFoundError:
+        os.makedirs(assets_dir, exist_ok=True)
+        counter = 1
+    return counter
+
+
+def ensure_app_dirs():
+    app_dirs = get_app_dirs()
+
+    for app_dir in app_dirs.values():
+        if not os.path.exists(app_dir):
+            os.makedirs(app_dir, exist_ok=True)
+
+
+# TO DO: everything below needs to be revised
+
+def write_env_example_file(workspace_path: str):
+    try:
+        env_path = os.path.join(get_app_dirs()['config'], ".env.example")
+        if not os.path.exists(env_path):
+            with open(env_path, "w") as f:
+                f.write(ENV_TEMPLATE)
+
+    except Exception as e:
+        print(f"Error while creating initializing env file: {str(e)}")
 
 
 def get_web_root() -> Path:
@@ -34,27 +166,6 @@ def get_web_dir() -> Path:
         return prod_path
     else:
         raise FileNotFoundError("Neither primary nor secondary web root paths exist.")
-
-
-def get_assets_dir() -> str:
-    """
-    Helper function; used to find the /assets directory.
-    """
-    config = get_config()
-    if config.assets_path:
-        return os.path.expanduser(config.assets_path)
-    return os.path.join(os.path.expanduser(config.workspace_path), "assets")
-
-
-def get_models_dir() -> str:
-    """
-    Helper function; used to find the /models directory.
-    """
-    config = get_config()
-
-    if config.models_path:
-        return os.path.expanduser(config.models_path)
-    return os.path.join(os.path.expanduser(config.workspace_path), "models")
 
 
 def get_s3_public_url() -> str:

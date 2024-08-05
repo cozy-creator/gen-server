@@ -1,7 +1,7 @@
-from typing import Type, Any, Iterable, Union
+from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
 
-from . import CustomNode
+from . import CustomNode, ApiAuthenticator
 from .base_types import Architecture, CheckpointMetadata
 
 
@@ -31,6 +31,8 @@ _CHECKPOINT_FILES: dict[str, CheckpointMetadata] = {}
 """
 Dictionary of all discovered checkpoint files
 """
+
+_api_authenticator: Optional[Type[ApiAuthenticator]] = None
 
 
 def update_api_endpoints(endpoints: dict[str, RouteDefinition]):
@@ -76,3 +78,14 @@ def update_checkpoint_files(checkpoint_files: dict[str, "CheckpointMetadata"]):
 
 def get_checkpoint_files() -> dict[str, "CheckpointMetadata"]:
     return _CHECKPOINT_FILES
+
+
+def update_api_authenticator(api_authenticator: Optional[Type["ApiAuthenticator"]]):
+    global _api_authenticator
+    print(f"Setting api_authenticator to {api_authenticator}")
+    _api_authenticator = api_authenticator
+
+
+def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
+    global _api_authenticator
+    return _api_authenticator

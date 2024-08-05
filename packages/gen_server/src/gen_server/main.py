@@ -16,9 +16,10 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
+from gen_server.base_types.authenticator import api_authenticator_validator
 from gen_server.utils.file_handler import LocalFileHandler
 from gen_server.utils.web import install_and_build_web_dir
-from .paths import ensure_workspace_path
+from .utils.paths import ensure_app_dirs, get_env_file_path, get_secrets_dir
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
@@ -36,14 +37,18 @@ from .globals import (
     update_checkpoint_files,
     get_checkpoint_files,
     get_architectures,
+    update_api_authenticator,
+    get_api_authenticator,
 )
 from .base_types.pydantic_models import (
     RunCommandConfig,
     BuildWebCommandConfig,
     InstallCommandConfig,
+    DownloadCommandConfig
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.gpu_worker_non_io import start_gpu_worker
+
 
 import warnings
 
@@ -65,26 +70,9 @@ def main():
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
 
-    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # If no .env file is specified, try to find one in the workspace path
-    if env_file is None:
-        workspace_path = (
-            find_arg_value("--workspace_path")
-            or find_arg_value("--workspace-path")
-            or os.path.expanduser("~/.cozy-creator")
-        )
-        if os.path.exists(os.path.join(workspace_path, ".env")):
-            env_file = os.path.join(workspace_path, ".env")
-        elif os.path.exists(os.path.join(workspace_path, ".env.local")):
-            env_file = os.path.join(workspace_path, ".env.local")
-
-    secrets_dir = (
-        find_arg_value("--secrets_dir")
-        or find_arg_value("--secrets-dir")
-        or "/run/secrets"
-    )
-
     subcommand = find_subcommand()
+    env_file = get_env_file_path()
+    secrets_dir = get_secrets_dir()
 
     # Add subcommands
     subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
@@ -93,6 +81,18 @@ def main():
         "install", help="Install and prepare the Cozy environment"
     )
     build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
+    download_parser = subparsers.add_parser("download", help="Download models to cozy's local cache")
+
+
+    def get_cli_settings(cls: Any, root_parser: argparse.ArgumentParser) -> CliSettingsSource:
+        return CliSettingsSource(
+            cls,
+            root_parser=download_parser,
+            cli_parse_args=True,
+            cli_enforce_required=False,
+            parse_args_method=parse_known_args_wrapper,
+        )
+    
 
     if subcommand == "run":
         cozy_config = init_config(
@@ -105,10 +105,7 @@ def main():
         run_app(cozy_config)
 
     elif subcommand in ["build-web", "build_web"]:
-        cli_settings = CliSettingsSource(
-            BuildWebCommandConfig, root_parser=build_web_parser
-        )
-
+        cli_settings = get_cli_settings(BuildWebCommandConfig, build_web_parser)
         build_config = BuildWebCommandConfig(
             _env_file=env_file,  # type: ignore
             _secrets_dir=secrets_dir,  # type: ignore
@@ -117,12 +114,10 @@ def main():
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
     elif subcommand == "install":
+        cli_settings = get_cli_settings(InstallCommandConfig, install_parser)
         _config = InstallCommandConfig(
             _env_file=env_file,  # type: ignore
-            _cli_settings_source=CliSettingsSource(  # type: ignore
-                InstallCommandConfig,
-                root_parser=install_parser,
-            ),
+            _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
 
         # Ensure the web directory exists
@@ -133,7 +128,32 @@ def main():
 
         # Install and build the web directory
         install_and_build_web_dir(web_dir)
+    elif subcommand == "download":
+        cli_settings = get_cli_settings(DownloadCommandConfig, download_parser)
+        config = DownloadCommandConfig(
+            _env_file=env_file,  # type: ignore
+            _cli_settings_source=cli_settings(args=True), # type: ignore
+        )
 
+        from huggingface_hub import hf_hub_download, snapshot_download
+
+        repo_type = "model" # should we take this as an argument?
+        models_dir = get_models_dir()
+
+        if config.file_name is not None:
+            hf_hub_download(
+                repo_id=config.repo_id,
+                filename=config.file_name,
+                repo_type=repo_type,
+                subfolder=config.sub_folder,
+                local_dir=models_dir
+            )
+        else:
+            snapshot_download(
+                repo_id=config.repo_id,
+                repo_type=repo_type,
+                cache_dir=models_dir
+            )
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()
@@ -146,6 +166,9 @@ def main():
 
 
 def run_app(cozy_config: RunCommandConfig):
+    # Ensure our app directories exist.
+    ensure_app_dirs()
+
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
@@ -191,18 +214,25 @@ def run_app(cozy_config: RunCommandConfig):
     update_widgets(load_extensions("cozy_creator.widgets"))
     print(f"WIDGETS loading time: {time.time() - start_time_widgets:.2f} seconds")
 
+    start_time_api_authenticator = time.time()
+
+    api_authenticators = load_extensions(
+        "cozy_creator.api_authenticator", api_authenticator_validator
+    )
+
+    if cozy_config.api_authenticator is not None:
+        update_api_authenticator(api_authenticators.get(cozy_config.api_authenticator))
+    print(
+        f"AUTHENTICATOR loading time: {time.time() - start_time_api_authenticator:.2f} seconds"
+    )
+
     # compile model registry
     start_time_checkpoint_files = time.time()
-    models_paths = [get_models_dir()] + cozy_config.aux_models_paths
-    update_checkpoint_files(find_checkpoint_files(models_paths=models_paths))
+    models_dirs = [get_models_dir()] + cozy_config.aux_models_paths
+    update_checkpoint_files(find_checkpoint_files(models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
     )
-
-    # Ensure our workspace directory and its subdirectories exist. Add a .env.example if needed
-    ensure_workspace_path(cozy_config.workspace_path)
-
-    print("Cozy config:", cozy_config)
 
     # debug
     print("Number of checkpoint files:", len(get_checkpoint_files()))
@@ -248,6 +278,7 @@ def run_app(cozy_config: RunCommandConfig):
         api_endpoints = get_api_endpoints()
         custom_nodes = get_custom_nodes()
         architectures = get_architectures()
+        api_authenticator = get_api_authenticator()
         node_specs = load_custom_node_specs(custom_nodes)
 
         # Create a process pool for the workers
@@ -268,6 +299,7 @@ def run_app(cozy_config: RunCommandConfig):
                     checkpoint_files,
                     node_specs,
                     api_endpoints,
+                    api_authenticator,
                 ),
                 named_future(
                     executor,

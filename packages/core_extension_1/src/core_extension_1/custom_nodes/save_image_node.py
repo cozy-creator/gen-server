@@ -62,7 +62,7 @@ class SaveImageNode(CustomNode):
                 
                 file_urls.append(url[0]) 
 
-            return {"urls": file_urls}  
+            return {"urls": file_urls}
 
         except Exception as e:
             raise ValueError(f"Error saving images: {e}")

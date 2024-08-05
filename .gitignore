@@ -50,3 +50,5 @@ models/
 /GroundingDINO/
 upload_assets/
 
+
+*.db

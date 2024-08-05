@@ -91,7 +91,7 @@ class FileHandler(ABC):
         pass
 
     @abstractmethod
-    async def download_file(self, filename: str) -> Union[bytes, None]:
+    async def get_file(self, filename: str) -> Union[bytes, None]:
         pass
 
 
@@ -191,7 +191,7 @@ class LocalFileHandler(FileHandler):
 
         return [_make_url(file) for file in os.listdir(self.assets_path)]
 
-    async def download_file(self, filename: str) -> Union[bytes, None]:
+    async def get_file(self, filename: str) -> Union[bytes, None]:
         full_filepath = os.path.join(self.assets_path, filename)
 
         if not os.path.exists(full_filepath):
@@ -207,10 +207,10 @@ class S3FileHandler(FileHandler):
             raise ValueError("S3 configuration is required")
 
         self.config = config
-
         self.session = aioboto3.Session()
-
-    async def _get_client(self):
+        
+    # Creating the client every time is useful in case the config.s3 changes
+    def _get_client(self):
         return self.session.client(
             self.config.filesystem_type,
             region_name=self.config.s3.region_name,
@@ -234,7 +234,7 @@ class S3FileHandler(FileHandler):
         key = f"{folder_prefix}{temp_prefix}{file_basename}.{file_extension}"
 
         try:
-            async with await self._get_client() as client:
+            with self._get_client() as client:
                 await client.put_object(
                     Bucket=self.config.s3.bucket_name,
                     Key=key,
@@ -270,7 +270,7 @@ class S3FileHandler(FileHandler):
             raise ValueError("Invalid expiration configuration")
 
         try:
-            async with await self._get_client() as client:
+            with self._get_client() as client:
                 lifecycle_configuration = {
                     "Rules": [
                         {
@@ -309,8 +309,7 @@ class S3FileHandler(FileHandler):
         if len(file_names) == 0:
             raise ValueError("Provide a list of file names to delete")
 
-        async with await self._get_client() as client:
-
+        with self._get_client() as client:
             async def _delete_objects_in_chunks(objects):
                 chunk_size = 1000  # S3 allows up to 1000 objects per delete request
                 for i in range(0, len(objects), chunk_size):
@@ -340,7 +339,7 @@ class S3FileHandler(FileHandler):
         Lists all uploaded files.
         """
 
-        async with await self._get_client() as client:
+        with self._get_client() as client:
             response = await client.list_objects_v2(
                 Bucket=self.config.s3.bucket_name,
                 Prefix=self.config.s3.folder,
@@ -351,12 +350,12 @@ class S3FileHandler(FileHandler):
 
         return [_make_url(obj) for obj in response.get("Contents", [])]
 
-    async def download_file(self, filename: str) -> Union[bytes, None]:
+    async def get_file(self, filename: str) -> Union[bytes, None]:
         key = f"{self.config.s3.folder}/{filename}"
 
         bytesio = io.BytesIO()
-        async with await self._get_client() as client:
-            await client.download_fileobj(self.config.s3.bucket_name, key, bytesio)
+        with self._get_client() as client:
+            await client.get_fileobj(self.config.s3.bucket_name, key, bytesio)
         return bytesio.getvalue()
 
 

@@ -1,8 +1,10 @@
+from functools import wraps
 import os
 import json
 import multiprocessing
 from threading import Event
-from typing import Optional, Tuple, Any, Iterable
+import traceback
+from typing import Callable, Optional, Tuple, Any, Iterable, Type
 from uuid import uuid4
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
@@ -12,6 +14,7 @@ import blake3
 from huggingface_hub import HfApi
 from pydantic import BaseModel
 
+from .. import ApiAuthenticator
 from ..utils.file_handler import (
     get_mime_type,
     get_file_handler,
@@ -20,6 +23,7 @@ from ..globals import (
     get_api_endpoints,
     get_checkpoint_files,
 )
+from ..base_types.authenticator import AuthenticationError
 
 # from ..executor import generate_images_from_repo
 from ..utils.paths import get_web_root, get_assets_dir
@@ -31,20 +35,6 @@ react_components = os.path.abspath(os.path.join(script_dir, "..", "react_compone
 
 # Huggingface API
 hf_api = HfApi()
-
-# models: {
-#          majic_mix: 4,
-#          // pony_diffusion_v6: 4,
-#          // citron_anime_treasure_v10: 4,
-#          // dark_sushi_25d_v40: 4,
-#          // break_domain_xl_v05g: 4,
-#          // sd3_medium_incl_clips_t5xxlfp8: 1
-#       },
-#       positive_prompt: 'a dragon made of ice flying through a waterfall ' +
-#          'beautiful, high quality, hyper-realism, digital art',
-#       negative_prompt: 'watermark, low quality, worst quality, ugly, text',
-#       random_seed: 77,
-#       aspect_ratio: '9/16'
 
 
 class GenerateData(BaseModel):
@@ -61,6 +51,7 @@ def create_aiohttp_app(
     job_queue: multiprocessing.Queue,
     job_registry: dict[str, Event],
     node_defs: dict[str, Any],
+    api_authenticator: Optional[Type[ApiAuthenticator]] = None,
 ) -> web.Application:
     """
     Starts the web server with API endpoints from extensions
@@ -80,6 +71,35 @@ def create_aiohttp_app(
     )
 
     routes = web.RouteTableDef()
+    authenticator = api_authenticator() if api_authenticator else None
+
+    def auth_middleware(request: web.Request, handler: Callable):
+        if authenticator:
+            try:
+                authenticator.authenticate(request)
+            except AuthenticationError as e:
+                logger.error("An error occured during authentication", e)
+                return web.json_response(
+                    {"status": "error", "message": e.message}, status=401
+                )
+            except Exception as e:
+                logger.error("An unknown error occured", e)
+                return web.json_response(
+                    {
+                        "status": "error",
+                        "message": "An error occured, please try again",
+                    },
+                    status=500,
+                )
+
+        return handler(request)
+
+    def with_auth(handler: Callable) -> Callable:
+        @wraps(handler)
+        def wrapped(request: web.Request):
+            return auth_middleware(request, handler)
+
+        return wrapped
 
     @routes.get("/checkpoints")
     async def get_checkpoints(_req: web.Request) -> web.Response:
@@ -99,6 +119,7 @@ def create_aiohttp_app(
         return web.Response(text=json.dumps(node_defs), content_type="application/json")
 
     @routes.post("/generate")
+    @with_auth
     async def handle_generate(request: web.Request) -> web.StreamResponse:
         """
         Submits generation requests from the user to the queue and streams the results.
@@ -181,7 +202,7 @@ def create_aiohttp_app(
         await response.write_eof()
 
         return response
-    
+
     @routes.get("/get_diffusers_models")
     async def get_diffusers_models(request: web.Request) -> web.StreamResponse:
         """
@@ -193,8 +214,8 @@ def create_aiohttp_app(
         await response.prepare(request)
 
         try:
-            page = int(request.query.get('page', 1))
-            limit = int(request.query.get('limit', 10))
+            page = int(request.query.get("page", 1))
+            limit = int(request.query.get("limit", 10))
             offset = (page - 1) * limit
 
             # Set a timeout for the entire operation
@@ -203,8 +224,13 @@ def create_aiohttp_app(
 
             # Use asyncio to make the potentially blocking API calls non-blocking
             models = await asyncio.get_event_loop().run_in_executor(
-                None, 
-                lambda: hf_api.list_models(library="diffusers", sort="downloads", task=["text-to-image"], limit=limit)
+                None,
+                lambda: hf_api.list_models(
+                    library="diffusers",
+                    sort="downloads",
+                    task=["text-to-image"],
+                    limit=limit,
+                ),
             )
 
             # Stream the models as they are retrieved
@@ -214,7 +240,9 @@ def create_aiohttp_app(
                     "downloads": model.downloads,
                     "tags": model.tags,
                 }
-                await response.write(json.dumps({"model": model_data}).encode("utf-8") + b"\n")
+                await response.write(
+                    json.dumps({"model": model_data}).encode("utf-8") + b"\n"
+                )
                 await response.drain()
 
                 # Check if we've exceeded the total timeout
@@ -223,8 +251,7 @@ def create_aiohttp_app(
 
             # Get total number of models (this might be a heavy operation, maybe cache the value?)
             total_models = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: len(hf_api.list_models(library="diffusers"))
+                None, lambda: len(hf_api.list_models(library="diffusers"))
             )
 
             # Send pagination information
@@ -233,17 +260,22 @@ def create_aiohttp_app(
                     "page": page,
                     "limit": limit,
                     "total": total_models,
-                    "total_pages": (total_models // limit) + (1 if total_models % limit > 0 else 0)
+                    "total_pages": (total_models // limit)
+                    + (1 if total_models % limit > 0 else 0),
                 }
             }
             await response.write(json.dumps(pagination_data).encode("utf-8") + b"\n")
 
             # Signal completion
-            await response.write(json.dumps({"status": "finished"}).encode("utf-8") + b"\n")
+            await response.write(
+                json.dumps({"status": "finished"}).encode("utf-8") + b"\n"
+            )
 
         except TimeoutError as e:
             logging.error(f"Operation timed out: {str(e)}")
-            await response.write(json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n")
+            await response.write(
+                json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+            )
         except Exception as e:
             logging.error(f"Error in get_diffusers_models: {str(e)}")
             await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
@@ -302,8 +334,8 @@ def create_aiohttp_app(
             logger.error(f"Error cancelling job: {str(e)}")
             return web.json_response({"error": str(e)})
 
-
     @routes.post("/generate_async")
+    @with_auth
     async def handle_generate_async(request: web.Request) -> web.Response:
         """
         Submits generation requests from the user to the queue and returns an id.
@@ -326,6 +358,7 @@ def create_aiohttp_app(
                 status=201,
             )
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in generation: {str(e)}")
             return web.json_response({"error": str(e)})
 

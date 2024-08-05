@@ -35,28 +35,23 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio xformers
 
-# Move files over from the web-build stage
-COPY --from=builder /app/web/dist /srv/www/cozy/dist
-
-COPY packages/ ./packages
-COPY pyproject.toml ./pyproject.toml
-
-# Install the gen_server package and its plugin-packages
-RUN pip install -e ./packages/gen_server[performance] && \
-    pip install -e ./packages/image_utils && \
-    pip install -e ./packages/core_extension_1
-
 # Install Jupyter Lab
 RUN pip install --no-cache-dir jupyterlab
-# RUN mkdir -p /root/.local/share/jupyter/runtime && \
-#     chmod 777 /root/.local/share/jupyter/runtime
+
+# Install the gen_server package and its plugin-packages
+COPY packages/ ./packages
+RUN pip install ./packages/gen_server[performance] && \
+    pip install ./packages/image_utils && \
+    pip install ./packages/core_extension_1
 
 # start script
 COPY scripts/start.sh .
-
+RUN chmod +x start.sh
 # remove any Windows line endings
 RUN sed -i 's/\r$//' /app/start.sh
-RUN chmod +x start.sh
+
+# Move files over from the web-build stage
+COPY --from=builder /app/web/dist /srv/www/cozy/dist
 
 # ENTRYPOINT ["./start.sh"]
 

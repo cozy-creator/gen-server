@@ -2,27 +2,6 @@
 
 set -e  # Exit the script if any statement returns a non-true return value
 
-
-
-DOWNLOAD_URLS=(
-    "https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16"
-    "https://civitai.com/api/download/models/164360?type=Model&format=SafeTensor&size=pruned&fp=fp16"
-    "https://civitai.com/api/download/models/637156?type=Model&format=SafeTensor&size=pruned&fp=fp16"
-    "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors?download=true"
-    "https://huggingface.co/schirrmacher/ormbg/resolve/main/models/ormbg.pth?download=true"
-)
-
-MODEL_FILENAMES=(
-    "pony_diffusion_v6.safetensors"
-    "break_domain_xl_v05g.safetensors"
-    "real_cartoon_3d_v17.safetensors"
-    "sd_xl_base_1.0.safetensors"
-    "ormbg.pth"
-)
-
-MODEL_DIR="/workspace/.cozy-creator/models"
-
-
 # Set up Jupyter runtime directory with correct permissions
 # setup_jupyter_runtime() {
 #     # JUPYTER_RUNTIME_DIR="${JUPYTER_RUNTIME_DIR:-/workspace/.local/share/jupyter/runtime}"
@@ -47,28 +26,9 @@ start_jupyter() {
     echo "JupyterLab started"
 }
 
-
-function download_models() {
-    mkdir -p "${MODEL_DIR}"
-    for i in "${!DOWNLOAD_URLS[@]}"; do
-        URL="${DOWNLOAD_URLS[$i]}"
-        FILENAME="${MODEL_FILENAMES[$i]}"
-        MODEL_PATH="${MODEL_DIR}/${FILENAME}"
-        if [ ! -f "${MODEL_PATH}" ]; then
-            echo "Downloading ${FILENAME}..."
-            wget -O "${MODEL_PATH}" "${URL}"
-        else
-            echo "${FILENAME} already exists."
-        fi
-    done
-}
-
-
-download_models &
 # setup_jupyter_runtime
 
 cozy run & # Start the Cozy server
 start_jupyter
-download_models
 
 sleep infinity  # This will keep the container running
