@@ -33,9 +33,9 @@ from gen_server.base_types import CustomNode
 import requests
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
+from gen_server.utils.hf_model_manager import HFModelManager
+from gen_server.globals import _HF_MODEL_MANAGER
 
-
-SERVER_URL = "http://localhost:8881"
 
 
 class ImageGenNode(CustomNode):
@@ -67,22 +67,19 @@ class ImageGenNode(CustomNode):
         """
 
         try:
-            # model_info = requests.post(f"{SERVER_URL}/get_components", json={"repo_id": repo_id})
-
-            # if model_info.status_code != 200:
-            #     raise ValueError(f"Error fetching model info: {model_info.text}")
-            # model_info = model_info.json()
-
-            # class_name = model_info["keys"]["_class_name"]
 
             # Create pipeline without changing the scheduler
             try:
-                pipeline = DiffusionPipeline.from_pretrained(
-                    repo_id,
-                    local_files_only=False, 
-                    variant="fp16", 
-                    torch_dtype=torch.float16
-                )
+            #     pipeline = DiffusionPipeline.from_pretrained(
+            #         repo_id,
+            #         local_files_only=False, 
+            #         variant="fp16", 
+            #         torch_dtype=torch.float16
+            #     )
+                hf_model_manager = _HF_MODEL_MANAGER
+                
+                # Load the model
+                pipeline = hf_model_manager.load(None, repo_id)
             except Exception as e:
                 raise ValueError(f"Error in loading Pipeline caused by: {e}")
 

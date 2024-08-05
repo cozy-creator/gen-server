@@ -3,7 +3,11 @@ from aiohttp import web
 
 from . import CustomNode, ApiAuthenticator
 from .base_types import Architecture, CheckpointMetadata
+from .utils.hf_model_manager import HFModelManager
 
+
+# Huggingface Manager
+_HF_MODEL_MANAGER = HFModelManager()
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]

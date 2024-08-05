@@ -23,12 +23,12 @@ class ModelConfigManager:
         global_config = self.config['global_default']
 
         # Get class default settings
-        class_config = self.config['class_defaults'].get(class_name, {})
+        class_config = self.config['diffuser_class_defaults'].get(class_name, {})
 
         # Get category settings
-        model_config = self.config['models'].get(repo_id, {})
+        model_config = self.config['repo_defaults'].get(repo_id, {})
         category = model_config.get('category', None)
-        category_config = self.config['categories'].get(category, {}) if category else {}
+        category_config = self.config['cozy_categories'].get(category, {}) if category else {}
 
         # Merge configurations, with the order of precedence being:
         # model_config > category_config > class_config > global_config

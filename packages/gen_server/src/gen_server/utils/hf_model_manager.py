@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 class HFModelManager:
     def __init__(self, cache_dir: Optional[str] = None):
-        self.cache_dir = get_models_dir() or  "~/.cache/huggingface/hub"
+        # self.cache_dir = get_models_dir() or  os.path.expanduser("~/.cache/huggingface/hub")
+        self.cache_dir = None
         self.loaded_models: Dict[str, DiffusionPipeline] = {}
         self.hf_api = HfApi()
 
@@ -38,6 +39,10 @@ class HFModelManager:
                 variant="fp16",
                 torch_dtype=torch.float16
             )
+
+            # After successful download, update the list in memory
+            self.list()  # Call the list method to refresh the cached list
+
             logger.info(f"Model {repo_id} downloaded successfully.")
         except Exception as e:
             logger.error(f"Failed to download fp16 variant: {str(e)}")
@@ -48,9 +53,14 @@ class HFModelManager:
                     repo_id,
                     cache_dir=self.cache_dir
                 )
+
+                # After successful download, update the list in memory
+                self.list()  # Call the list method to refresh the cached list
+                
                 logger.info(f"Model {repo_id} downloaded successfully.")
             except Exception as e:
                 logger.error(f"Failed to download model {repo_id}: {str(e)}")
+
 
     async def delete(self, repo_id: str) -> None:
         model_path = os.path.join(self.cache_dir, "models--" + repo_id.replace("/", "--"))
@@ -60,25 +70,33 @@ class HFModelManager:
         else:
             logger.warning(f"Model {repo_id} not found in cache.")
 
+
     def load(self, gpu: Optional[int], repo_id: str) -> Optional[DiffusionPipeline]:
+
+        # print(self.list())
+
+        if not self.is_downloaded(repo_id):
+            logger.info(f" Model {repo_id} not downloaded. Please ensure the model is downloaded first.")
+            return None
+
         if repo_id in self.loaded_models:
             logger.info(f"Model {repo_id} is already loaded.")
             return self.loaded_models[repo_id]
 
-        device = f"cuda:{gpu}" if gpu is not None else "cpu"
+        # device = f"cuda:{gpu}" if gpu is not None else "cpu"
         try:
             pipeline = DiffusionPipeline.from_pretrained(repo_id, variant="fp16", torch_dtype=torch.float16, cache_dir=self.cache_dir, local_files_only=True)
-            pipeline = pipeline.to(device)
+            # pipeline = pipeline.to(device)
             self.loaded_models[repo_id] = pipeline
-            logger.info(f"Model {repo_id} loaded to {device}.")
+            # logger.info(f"Model {repo_id} loaded to {device}.")
             return pipeline
         except Exception as e:
             logger.error(f"Attempting to load default variant...")
             try:
                 pipeline = DiffusionPipeline.from_pretrained(repo_id, cache_dir=self.cache_dir, local_files_only=True, torch_dtype=torch.float16)
-                pipeline = pipeline.to(device)
+                # pipeline = pipeline.to(device)
                 self.loaded_models[repo_id] = pipeline
-                logger.info(f"Model {repo_id} loaded to {device}.")
+                # logger.info(f"Model {repo_id} loaded to {device}.")
                 return pipeline
             except Exception as e:
                 logger.error(f"Failed to load model {repo_id}: {str(e)}")
