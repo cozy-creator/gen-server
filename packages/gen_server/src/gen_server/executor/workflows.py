@@ -127,6 +127,10 @@ def generate_images_non_io(
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
 
+        def callback_handler(step: int, timestep, latents):
+            if cancel_event is not None and cancel_event.is_set():
+                raise StopIteration("Inference was cancelled.")
+
         for checkpoint_id, num_images in models.items():
             try:
                 if cancel_event is not None and cancel_event.is_set():
@@ -140,6 +144,7 @@ def generate_images_non_io(
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
+                    callback=callback_handler
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),
@@ -168,7 +173,9 @@ def generate_images_non_io(
                     torch.cuda.empty_cache()
 
                 yield tensor_images
-
+            except StopIteration:
+                logger.info("Task was cancelled during image generation.")
+                raise asyncio.CancelledError("Operation was cancelled.")
             except asyncio.CancelledError:
                 logger.info("Task was cancelled during image generation.")
                 raise

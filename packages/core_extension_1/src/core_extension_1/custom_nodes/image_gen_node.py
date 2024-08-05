@@ -23,7 +23,7 @@ from diffusers import (
 # from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
 
 from transformers import CLIPTokenizer, T5TokenizerFast, LlamaTokenizerFast
-from typing import Optional
+from typing import Callable, Optional
 import os
 import json
 
@@ -53,6 +53,8 @@ class ImageGenNode(CustomNode):
             aspect_ratio: str = "1/1",
             num_images: int = 1,
             random_seed: Optional[int] = None,
+            callback: Optional[Callable] = None,
+            callback_steps: Optional[int] = 1,
     ):
         """
         Args:
@@ -119,7 +121,9 @@ class ImageGenNode(CustomNode):
                 guidance_scale=model_config['guidance_scale'],
                 num_inference_steps=model_config['num_inference_steps'],
                 random_seed=random_seed,
-                output_type="pt"
+                output_type="pt",
+                callback=callback,
+                callback_steps=callback_steps,
             ).images
 
             del pipeline

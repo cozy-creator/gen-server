@@ -56,10 +56,20 @@ from .utils.paths import DEFAULT_HOME_DIR
 
 def main():
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
-
+    
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
+
+    env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
+    # If no .env file is specified, try to find one in the workspace path
+    env_file = get_env_file_path() if env_file is None else env_file
+
+    secrets_dir = (
+        find_arg_value("--secrets_dir")
+        or find_arg_value("--secrets-dir")
+        or get_secrets_dir()
+    )
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
     # If no .env file is specified, try to find one in the workspace path
@@ -114,6 +124,7 @@ def main():
             cls,
             root_parser=root_parser,
             cli_parse_args=True,
+            root_parser=root_parser,
             cli_enforce_required=False,
             parse_args_method=parse_known_args_wrapper,
         )
@@ -153,8 +164,7 @@ def main():
 
         repo_type = "model" # should we take this as an argument?
         models_dir = get_models_dir()
-        
-        # TO DO: replace this code with our HFModelManager class
+
 
         if config.file_name is not None:
             hf_hub_download(
