@@ -11,7 +11,8 @@ from diffusers import (
     EulerDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
     DPMSolverMultistepScheduler,
-    DiffusionPipeline
+    DiffusionPipeline,
+    FluxPipeline
 )
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline

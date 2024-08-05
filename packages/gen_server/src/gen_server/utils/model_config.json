@@ -1,5 +1,5 @@
 {
-    "models": {
+    "repo_defaults": {
       "John6666/pony-realism-v21main-sdxl": {
         "category": "pony",
         "default_negative_prompt": "score_4, score_5, score_6,"
@@ -17,7 +17,7 @@
         "num_inference_steps": 25
       }
     },
-    "categories": {
+    "cozy_categories": {
         "pony": {
             "scheduler": "",
             "default_positive_prompt": "score_9, score_8_up, score_7_up, BREAK",
@@ -26,7 +26,7 @@
             "num_inference_steps": 25
         }
     },
-    "class_defaults": {
+    "diffuser_class_defaults": {
       "StableDiffusionXLPipeline": {
         "scheduler": "",
         "default_positive_prompt": "",
