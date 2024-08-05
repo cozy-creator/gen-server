@@ -78,7 +78,7 @@ class ImageGenNode(CustomNode):
             try:
                 pipeline = DiffusionPipeline.from_pretrained(
                     repo_id,
-                    local_files_only=True, 
+                    local_files_only=False, 
                     variant="fp16", 
                     torch_dtype=torch.float16
                 )

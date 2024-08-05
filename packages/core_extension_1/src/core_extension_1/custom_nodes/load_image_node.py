@@ -7,26 +7,34 @@ import io
 import numpy as np
 import os
 import json
+from enum import Enum
+
+
+class SizeHandling(Enum):
+    UNIFORM_SIZE = "uniform_size"
+    RESIZE = "resize"
+    BATCH_BY_SIZE = "batch_by_size"
 
 
 class LoadImageNode(CustomNode):
     """Loads images from file IDs or byte data, handling size variations."""
 
-    def __call__(self, 
-                 filenames: List[Union[str, bytes]], # Note: GET RID OF BYTTEESS!!!
-                 size_handling: str = "uniform_size",
-                 target_size: Tuple[int, int] = (512, 512)) -> dict[str, Union[torch.Tensor, List[torch.Tensor]]]:
+    async def __call__(self, 
+                 filenames: list[str | bytes],
+                 size_handling: SizeHandling = SizeHandling.BATCH_BY_SIZE,
+                 target_size: Tuple[int, int] = (1024, 1024)
+        ) -> dict[str, Union[torch.Tensor, List[torch.Tensor]]]:
         """
         Args:
             filenames: A list of file IDs (strings) or binary encoded byte data.
             size_handling: How to handle variations in image sizes:
-                - "uniform_size": All images must have the same size (default).
-                - "resize": Resize all images to a common size (specify target_size).
-                - "batch_by_size": Create separate batches for each unique image size.
+                - UNIFORM_SIZE: All images must have the same size.
+                - RESIZE: Resize all images to a common size (specify target_size).
+                - BATCH_BY_SIZE: Create separate batches for each unique image size (default).
         Returns:
             A dictionary containing either:
-                - "images": A single batch of image tensors (if size_handling is "uniform_size" or "resize").
-                - "image_batches": A list of image tensor batches, grouped by size (if size_handling is "batch_by_size").
+                - "images": A single batch of image tensors (if size_handling is UNIFORM_SIZE or RESIZE).
+                - "image_batches": A list of image tensor batches, grouped by size (if size_handling is BATCH_BY_SIZE).
         """
         try:
             images = []
@@ -34,7 +42,7 @@ class LoadImageNode(CustomNode):
                 if isinstance(filename, str):
                     # Load from file ID
                     file_handler = get_file_handler()
-                    image_bytes = file_handler.download_file(filename)
+                    image_bytes = await file_handler.get_file(filename)
                     if image_bytes is None:
                         raise FileNotFoundError(f"File not found: {filename}")
                     image = Image.open(io.BytesIO(image_bytes))
@@ -46,16 +54,16 @@ class LoadImageNode(CustomNode):
 
                 images.append(image)
 
-            if size_handling == "uniform_size":
+            if size_handling == SizeHandling.UNIFORM_SIZE:
                 self.check_uniform_size(images)
                 image_batch = self.process_images(images)
                 return {"images": image_batch}
-            elif size_handling == "resize":
+            elif size_handling == SizeHandling.RESIZE:
                 # Get target size from node input
                 resized_images = [img.resize(target_size) for img in images]
                 image_batch = self.process_images(resized_images)
                 return {"images": image_batch}
-            elif size_handling == "batch_by_size":
+            elif size_handling == SizeHandling.BATCH_BY_SIZE:
                 image_batches = self.batch_images_by_size(images)
                 return {"image_batches": image_batches}
             else:
@@ -92,7 +100,6 @@ class LoadImageNode(CustomNode):
         image_batches = [self.process_images(batch) for batch in size_batches.values()]
         return image_batches
     
-
     @staticmethod
     def get_spec():
         """Returns the node specification."""
@@ -100,3 +107,4 @@ class LoadImageNode(CustomNode):
         with open(spec_file, 'r', encoding='utf-8') as f:
             spec = json.load(f)
         return spec
+

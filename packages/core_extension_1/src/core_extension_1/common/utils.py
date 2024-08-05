@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
+import aiohttp
 
 
 sdxl_resolutions = {
@@ -68,9 +69,11 @@ def resize_and_crop(img):
     return img_cropped, target_size
 
 
-def load_image_from_url(url):
-    response = requests.get(url)
-    img = Image.open(BytesIO(response.content))
+async def load_image_from_url(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            content = await response.read()
+    img = Image.open(BytesIO(content))
     return img.convert("RGB")
 
 

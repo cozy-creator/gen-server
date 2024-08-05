@@ -6,7 +6,7 @@ import os
 import blake3
 from PIL.Image import Image
 from gen_server.utils.file_handler import get_file_handler
-from .paths import get_folder_path, get_next_counter
+from gen_server.paths import get_next_counter
 import torch
 from typing import Optional
 
@@ -21,100 +21,6 @@ from typing import TypedDict
 class FileUrl(TypedDict):
     url: str
     is_temp: bool
-
-
-class SaveFile(CustomNode):
-    """
-    Custom node to save or upload generated images.
-    """
-
-    display_name = {Language.ENGLISH: "Saves Images"}
-
-    category = Category.INPAINTING
-
-    description = {Language.ENGLISH: "Useful for saving images"}
-
-    def __init__(self) -> None:
-        self.output_dir = get_folder_path("output")
-        self.temp_dir = get_folder_path("temp")
-        self.type = "output"
-        self.prefix_append = ""
-        self.temp_prefix_append = "_temp_" + "".join(
-            random.choice("abcdefghijklmnopqrstupvxyz") for _ in range(5)
-        )
-        self.compress_level = 4
-        self.temp_compress_level = 1
-
-    @staticmethod
-    def update_interface(
-        inputs: Optional[
-            Dict[str, Union[Tuple[str, ...], Tuple[str, Dict[str, Union[str, int]]]]]
-        ] = None,
-    ) -> NodeInterface:
-        """
-        Defines the input and output interface for the node.
-        """
-        interface = {
-            "inputs": {
-                "images": bytes,
-                "temp": bool,
-                "filename_prefix": ("STRING", {"default": "Cozy"}),
-                "save_type": (["local", "s3"], {"default": "local"}),
-                "bucket_name": ("STRING", {"default": "my_bucket"}),
-            },
-            "outputs": {},  # No explicit outputs for this node
-        }
-
-        if inputs:
-            # Check if the node is in "temp" mode
-            if inputs.get("temp", False):
-                interface["outputs"]["temp_image_url"] = str
-
-            # Check if the node is in "save" mode and environment is prod
-            elif inputs.get("temp", False) is False and "PROD" in os.environ:
-                interface["outputs"]["image_url"] = str
-
-        return interface
-
-    class NodeResponse(TypedDict):
-        image_urls: List[FileUrl]
-
-    def __call__(self, images: List[Image]) -> NodeResponse:
-        """
-        Saves images to the local filesystem or a remote S3 bucket.
-        """
-
-        image_urls = self.upload(images)
-        return {"image_urls": image_urls}
-
-    # @convert_image_format
-    def upload(self, images: Union[List[Image], Image]):
-        """
-        Uploads image(s) data returns the URL(s) of the uploaded image(s).
-
-        Args:
-            image_data (Union[bytes, List[bytes]]): A byte string or a list of byte strings representing image(s) to be uploaded.
-
-        Returns:
-            Union[str, List[str]]: A single URL or a list of URLs of the uploaded image(s).
-        """
-        if not isinstance(images, list):
-            images = [images]
-
-        image_urls = []
-
-        for img_pil in images:
-            with io.BytesIO() as output:
-                img_pil.save(output, format="PNG")
-                img_bytes = output.getvalue()
-
-            filename = f"{blake3.blake3(img_bytes).hexdigest()}.png"
-
-            file_handler = get_file_handler(get_config())
-            url = file_handler.upload_file(img_bytes, filename)
-            image_urls.append({"url": url, "filename": filename})
-
-        return image_urls if len(image_urls) > 1 else image_urls[0]
 
 
 def pil_to_tensor(image: Image) -> torch.Tensor:

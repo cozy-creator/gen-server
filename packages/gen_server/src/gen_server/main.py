@@ -19,7 +19,7 @@ import multiprocessing
 from gen_server.base_types.authenticator import api_authenticator_validator
 from gen_server.utils.file_handler import LocalFileHandler
 from gen_server.utils.web import install_and_build_web_dir
-from .paths import ensure_workspace_path
+from .utils.paths import ensure_workspace_path
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator

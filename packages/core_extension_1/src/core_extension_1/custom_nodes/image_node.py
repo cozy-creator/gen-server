@@ -9,7 +9,7 @@ from diffusers.utils.loading_utils import load_image
 class ImageNode(CustomNode):
     """Loads an image from a file path or URL."""
 
-    def __call__(self, file_path: str) -> dict[str, torch.Tensor]:
+    async def __call__(self, file_path: str) -> dict[str, torch.Tensor]:
         """
         Args:
             file_path: Path or URL of the image file.
@@ -17,7 +17,7 @@ class ImageNode(CustomNode):
             A dictionary containing the loaded image tensor.
         """
         try:
-            image_pil = load_image_from_url(file_path) if 'http' in file_path else load_image(file_path)
+            image_pil = await load_image_from_url(file_path) if 'http' in file_path else load_image(file_path)
             image_tensor = torch.from_numpy(np.array(image_pil)).permute(2, 0, 1) / 255.0 
             return {"image": image_tensor}
         except Exception as e:
