@@ -251,3 +251,37 @@ class InstallCommandConfig(BaseSettings):
         default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
         description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
     )
+
+
+
+class DownloadCommandConfig(BaseSettings):
+    """
+    Configuration for the `download` CLI command. Loaded by the pydantic-settings library
+    """
+
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        cli_parse_args=True,
+        env_prefix="cozy_",
+        env_ignore_empty=True,
+        env_nested_delimiter="__",
+        env_file_encoding="utf-8",
+        extra="allow",
+    )
+
+    repo_id: str = Field(
+        default=None,
+        description="The ID of the model repository to download from",
+    )
+
+    file_name: Optional[str] = Field(
+        default=None,
+        description="The name of the file to download, if not specified, the entire repo will be downloaded",
+    )
+
+
+    sub_folder: Optional[str] = Field(
+        default=None,
+        description="The subfolder within the repo to download from",
+    )
+

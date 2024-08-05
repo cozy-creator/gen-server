@@ -11,7 +11,7 @@ DEFAULT_WEB_DIR = Path("/srv/www/cozy/web")
 
 APP_NAME = "cozy-creator"
 WIN_APP_NAME = "Cozy Creator"
-MEDIA_DIR_NAME = "media"
+ASSETS_DIR_NAME = "assets"
 
 
 def get_absolute_path(path: Optional[str], default: str) -> str:
@@ -76,9 +76,18 @@ def get_app_dirs():
             # 'config_dirs': [os.path.join(path, APP_NAME) for path in xdg_config_dirs],
         }
 
-def get_media_dir():
-    return os.path.join(get_app_dirs()['data'], MEDIA_DIR_NAME)
+def get_assets_dir():
+    return os.path.join(get_app_dirs()['data'], ASSETS_DIR_NAME)
 
+
+def get_models_dir() -> str:
+    return os.path.join(get_app_dirs()['cache'], "models")
+
+def get_secrets_dir() -> str:
+    return os.path.join(get_app_dirs()['config'], "secrets")
+
+def get_env_file_path() -> str:
+    return os.path.join(get_app_dirs()['config'], ".env")
 
 def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
     def map_filename(filename: str) -> tuple[int, str]:
@@ -108,31 +117,19 @@ def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
     return counter
 
 
+def ensure_app_dirs():
+    app_dirs = get_app_dirs()
+
+    for app_dir in app_dirs.values():
+        if not os.path.exists(app_dir):
+            os.makedirs(app_dir, exist_ok=True)
+
+
 # TO DO: everything below needs to be revised
-
-def ensure_workspace_path(path: str):
-    subdirs = ["models", ["assets", "temp"]]
-
-    path = os.path.expanduser(path)
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-        write_env_example_file(
-            path
-        )  # we only write this the first time the dir is created
-
-    for subdir in subdirs:
-        if isinstance(subdir, list):
-            subdir_path = os.path.join(path, *subdir)
-        else:
-            subdir_path = os.path.join(path, subdir)
-
-        if not os.path.exists(subdir_path):
-            os.makedirs(subdir_path, exist_ok=True)
-
 
 def write_env_example_file(workspace_path: str):
     try:
-        env_path = os.path.expanduser(os.path.join(workspace_path, ".env.example"))
+        env_path = os.path.join(get_app_dirs()['config'], ".env.example")
         if not os.path.exists(env_path):
             with open(env_path, "w") as f:
                 f.write(ENV_TEMPLATE)
@@ -169,27 +166,6 @@ def get_web_dir() -> Path:
         return prod_path
     else:
         raise FileNotFoundError("Neither primary nor secondary web root paths exist.")
-
-
-def get_assets_dir() -> str:
-    """
-    Helper function; used to find the /assets directory.
-    """
-    config = get_config()
-    if config.assets_path:
-        return os.path.expanduser(config.assets_path)
-    return os.path.join(os.path.expanduser(config.workspace_path), "assets")
-
-
-def get_models_dir() -> str:
-    """
-    Helper function; used to find the /models directory.
-    """
-    config = get_config()
-
-    if config.models_path:
-        return os.path.expanduser(config.models_path)
-    return os.path.join(os.path.expanduser(config.workspace_path), "models")
 
 
 def get_s3_public_url() -> str:
