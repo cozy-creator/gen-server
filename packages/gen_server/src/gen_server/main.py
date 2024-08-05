@@ -70,25 +70,6 @@ def main():
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
 
-    # env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # # If no .env file is specified, try to find one in the workspace path
-    # if env_file is None:
-    #     workspace_path = (
-    #         find_arg_value("--workspace_path")
-    #         or find_arg_value("--workspace-path")
-    #         or os.path.expanduser("~/.cozy-creator")
-    #     )
-    #     if os.path.exists(os.path.join(workspace_path, ".env")):
-    #         env_file = os.path.join(workspace_path, ".env")
-    #     elif os.path.exists(os.path.join(workspace_path, ".env.local")):
-    #         env_file = os.path.join(workspace_path, ".env.local")
-
-    # secrets_dir = (
-    #     find_arg_value("--secrets_dir")
-    #     or find_arg_value("--secrets-dir")
-    #     or "/run/secrets"
-    # )
-
     subcommand = find_subcommand()
     env_file = get_env_file_path()
     secrets_dir = get_secrets_dir()
@@ -103,10 +84,10 @@ def main():
     download_parser = subparsers.add_parser("download", help="Download models to cozy's local cache")
 
 
-    def get_cli_settings(cls: Any):
+    def get_cli_settings(cls: Any, root_parser: argparse.ArgumentParser) -> CliSettingsSource:
         return CliSettingsSource(
             cls,
-            root_parser=run_parser,
+            root_parser=download_parser,
             cli_parse_args=True,
             cli_enforce_required=False,
             parse_args_method=parse_known_args_wrapper,
@@ -124,10 +105,7 @@ def main():
         run_app(cozy_config)
 
     elif subcommand in ["build-web", "build_web"]:
-        cli_settings = CliSettingsSource(
-            BuildWebCommandConfig, root_parser=build_web_parser
-        )
-
+        cli_settings = get_cli_settings(BuildWebCommandConfig, build_web_parser)
         build_config = BuildWebCommandConfig(
             _env_file=env_file,  # type: ignore
             _secrets_dir=secrets_dir,  # type: ignore
@@ -136,12 +114,10 @@ def main():
 
         print(json.dumps(build_config.model_dump(), indent=2, default=str))
     elif subcommand == "install":
+        cli_settings = get_cli_settings(InstallCommandConfig, install_parser)
         _config = InstallCommandConfig(
             _env_file=env_file,  # type: ignore
-            _cli_settings_source=CliSettingsSource(  # type: ignore
-                InstallCommandConfig,
-                root_parser=install_parser,
-            ),
+            _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
 
         # Ensure the web directory exists
@@ -153,7 +129,7 @@ def main():
         # Install and build the web directory
         install_and_build_web_dir(web_dir)
     elif subcommand == "download":
-        cli_settings = get_cli_settings(DownloadCommandConfig)
+        cli_settings = get_cli_settings(DownloadCommandConfig, download_parser)
         config = DownloadCommandConfig(
             _env_file=env_file,  # type: ignore
             _cli_settings_source=cli_settings(args=True), # type: ignore
