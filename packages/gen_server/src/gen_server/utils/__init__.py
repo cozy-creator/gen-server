@@ -4,6 +4,8 @@ from . import load_models
 from .load_models import load_state_dict_from_file, components_from_state_dict
 from .file_handler import get_file_handler
 from .utils import flatten_architectures
+from .hf_model_manager import HFModelManager
+
 
 
 __all__ = [
@@ -15,4 +17,5 @@ __all__ = [
     "get_file_handler",
     "load_custom_node_specs",
     "flatten_architectures",
+    "HFModelManager",
 ]

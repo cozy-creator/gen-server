@@ -11,7 +11,8 @@ from diffusers import (
     EulerDiscreteScheduler,
     EDMDPMSolverMultistepScheduler,
     DPMSolverMultistepScheduler,
-    DiffusionPipeline
+    DiffusionPipeline,
+    FluxPipeline
 )
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
@@ -78,8 +79,8 @@ class ImageGenNode(CustomNode):
             try:
                 pipeline = DiffusionPipeline.from_pretrained(
                     repo_id,
-                    local_files_only=True, 
-                    variant="fp16", 
+                    # local_files_only=True, 
+                    # variant="fp16", 
                     torch_dtype=torch.float16
                 )
             except Exception as e:
