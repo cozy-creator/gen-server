@@ -84,6 +84,7 @@ docker build -t cozycreator/gen-server:0.2.5 .
 Note that in windows, we add the `MSYS_NO_PATHCONV=1` flag because Windows dcommand line doesn't know how to interpet paths. Note that in Docker, destination route paths must be absolute, so `~/.cozy-creator` won't work; you must use `/root/.cozy-creator` or whever your user's home directory is. This command below assumes the user is inside of the container is running as root:
 
 WSL2 version:
+In Windows, run `wsl` to enter Windows Subsystem for Linux. And then run:
 
 ```sh
 docker run \
