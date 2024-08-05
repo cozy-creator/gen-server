@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from ..config import get_config
 import sys
@@ -23,17 +24,16 @@ def get_absolute_path(path: Optional[str], default: str) -> str:
 def get_app_dirs():
     if sys.platform == "win32":
         # Windows; both 32 and 64 bit versions despite the name 'win32'
-        app_data = get_absolute_path(os.environ.get('APPDATA'), os.path.expanduser('~\\AppData\\Roaming'))
+        # app_data = get_absolute_path(os.environ.get('APPDATA'), os.path.expanduser('~\\AppData\\Roaming'))
         local_app_data = get_absolute_path(os.environ.get('LOCALAPPDATA'), os.path.expanduser('~\\AppData\\Local'))
         cache_dir = os.path.expanduser('~\\.cache')
-        temp_dir = os.environ.get('TEMP', os.environ.get('TMP', os.path.join(local_app_data, 'Temp')))
 
         return {
             'data': os.path.join(local_app_data, WIN_APP_NAME),
-            'config': os.path.join(app_data, WIN_APP_NAME),
+            'config': os.path.join(local_app_data, WIN_APP_NAME),
             'cache': os.path.join(cache_dir, APP_NAME),
             'state': os.path.join(local_app_data, WIN_APP_NAME),
-            'runtime': os.path.join(temp_dir, APP_NAME),
+            'runtime': os.path.join(tempfile.gettempdir(), APP_NAME),
         }
     
     elif sys.platform == "darwin":
@@ -44,17 +44,17 @@ def get_app_dirs():
             'config': os.path.join(home, 'Library', 'Preferences', APP_NAME),
             'cache': os.path.join(home, 'Library', 'Caches', APP_NAME),
             'state': os.path.join(home, 'Library', 'Application Support', APP_NAME),
-            'runtime': os.path.join(home, 'Library', 'Application Support', APP_NAME, 'Runtime'),
+            'runtime': os.path.join(tempfile.gettempdir(), APP_NAME),
         }
     
     else:
-        # Linux and other Unix-like systems (support XDG)
+        # Linux and other Unix-like systems (supports XDG)
         home = os.path.expanduser("~")
         xdg_data_home = get_absolute_path(os.environ.get("XDG_DATA_HOME"), os.path.join(home, ".local", "share"))
         xdg_config_home = get_absolute_path(os.environ.get("XDG_CONFIG_HOME"), os.path.join(home, ".config"))
         xdg_cache_home = get_absolute_path(os.environ.get("XDG_CACHE_HOME"), os.path.join(home, ".cache"))
         xdg_state_home = get_absolute_path(os.environ.get("XDG_STATE_HOME"), os.path.join(home, ".local", "state"))
-        xdg_runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+        xdg_runtime_dir = get_absolute_path(os.environ.get("XDG_RUNTIME_DIR"), tempfile.gettempdir())
         
         # These are not used, but are part of the XDG spec
 
@@ -71,11 +71,10 @@ def get_app_dirs():
             'config': os.path.join(xdg_config_home, APP_NAME),
             'cache': os.path.join(xdg_cache_home, APP_NAME),
             'state': os.path.join(xdg_state_home, APP_NAME),
-            'runtime': os.path.join(xdg_runtime_dir, APP_NAME) if xdg_runtime_dir else None,
+            'runtime': os.path.join(xdg_runtime_dir, APP_NAME),
             # 'data_dirs': [os.path.join(path, APP_NAME) for path in xdg_data_dirs],
             # 'config_dirs': [os.path.join(path, APP_NAME) for path in xdg_config_dirs],
         }
-
 
 def get_media_dir():
     return os.path.join(get_app_dirs()['data'], MEDIA_DIR_NAME)
