@@ -95,9 +95,8 @@ async def start_gpu_worker_non_io(
     logger.info("GPU worker started")
 
     while True:
-        data, response_conn, request_id = task_queue.get(timeout=1.0)
         try:
-
+            data, response_conn, request_id = task_queue.get(timeout=1.0)
             if data is None:
                 logger.info("Received stop signal. GPU-worker shutting down.")
                 break
@@ -144,9 +143,9 @@ async def start_gpu_worker_non_io(
             traceback.print_exc()
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
         finally:
-            if response_conn is not None:
-                response_conn.send(None)
-                response_conn.close()
+            if "response_conn" in locals() and response_conn is not None: # type: ignore
+                response_conn.send(None)  # type: ignore
+                response_conn.close() # type: ignore
 
 
     logger.info("GPU-worker shut down complete")

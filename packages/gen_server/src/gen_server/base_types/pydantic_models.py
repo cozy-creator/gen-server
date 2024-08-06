@@ -1,9 +1,10 @@
+from ast import List
 import os
 import json
 import yaml
 from enum import Enum
 from typing import Type, Optional, Any, Iterable, Union
-from pydantic import BaseModel, Field, field_validator, ValidationInfo
+from pydantic import BaseModel, Field, field_validator, ValidationInfo, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings import PydanticBaseSettingsSource, YamlConfigSettingsSource
 
@@ -220,6 +221,17 @@ class RunCommandConfig(BaseSettings):
         default=None,
         description="The authenticator to be used in authenticating api requests.",
     )
+
+    enabled_models: Optional[list[str]] = Field(
+        default=None,
+        description="List of models to enable by default",
+    )
+
+    @field_validator('enabled_models', mode='before')
+    def parse_comma_separated_string(cls, v: object):
+        if isinstance(v, str):
+            return v.split(',')
+        return v
 
     # This allows the aux_models_paths field to be a comma-separated string of paths
     # or a list of paths

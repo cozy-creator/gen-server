@@ -219,6 +219,13 @@ def run_app(cozy_config: RunCommandConfig):
     
     print(f'COZY CONFIG: {cozy_config}')
 
+    print("Enabled models:", cozy_config.enabled_models)
+
+    if cozy_config.enabled_models:
+        for model in cozy_config.enabled_models:
+            hf_manager = get_hf_model_manager()
+            asyncio.run(hf_manager.download(model, None, None))
+
     # We load the extensions inside a function to avoid circular dependencies
 
     # Api-endpoints will extend the aiohttp rest server somehow
