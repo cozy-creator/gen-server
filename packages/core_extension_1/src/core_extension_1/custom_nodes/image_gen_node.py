@@ -1,19 +1,7 @@
 import traceback
 import torch
 
-from diffusers import (
-    StableDiffusionPipeline,
-    AuraFlowPipeline,
-    StableDiffusion3Pipeline,
-    StableDiffusionXLPipeline,
-    FlowMatchEulerDiscreteScheduler,
-    DDIMScheduler,
-    EulerDiscreteScheduler,
-    EDMDPMSolverMultistepScheduler,
-    DPMSolverMultistepScheduler,
-    DiffusionPipeline,
-    FluxPipeline
-)
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
 # from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
@@ -21,21 +9,15 @@ from diffusers import (
 # from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
 # from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
 # from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
-
-from transformers import CLIPTokenizer, T5TokenizerFast, LlamaTokenizerFast
 from typing import Callable, Optional
-import os
-import json
 
-from gen_server.utils import load_models
+
 from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
-import requests
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.utils.hf_model_manager import HFModelManager
-from gen_server.globals import _HF_MODEL_MANAGER
-
+from gen_server.globals import get_hf_model_manager
+from gen_server.utils.device import get_torch_device
 
 
 class ImageGenNode(CustomNode):
@@ -78,12 +60,15 @@ class ImageGenNode(CustomNode):
             #         variant="fp16", 
             #         torch_dtype=torch.float16
             #     )
-                hf_model_manager = _HF_MODEL_MANAGER
+                hf_model_manager = get_hf_model_manager()
                 
                 # Load the model
                 pipeline = hf_model_manager.load(None, repo_id)
             except Exception as e:
                 raise ValueError(f"Error in loading Pipeline caused by: {e}")
+
+            if pipeline is None:
+                return None
 
             class_name = pipeline.__class__.__name__
 
@@ -122,35 +107,35 @@ class ImageGenNode(CustomNode):
                 num_inference_steps=model_config['num_inference_steps'],
                 random_seed=random_seed,
                 output_type="pt",
-                callback=callback,
+                callback_on_step_end=callback,
                 callback_steps=callback_steps,
-            ).images
+            ).images # type: ignore
 
             del pipeline
 
             return {"images": tensor_images}
-
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
 
-    def apply_optimizations(self, pipeline: any):
+    def apply_optimizations(self, pipeline: DiffusionPipeline):
         optimizations = [
-            ('enable_vae_tiling', "VAE Tiled"),
-            ('enable_xformers_memory_efficient_attention', "Memory Efficient Attention"),
-            ('enable_model_cpu_offload', "CPU Offloading")
+            ('enable_vae_tiling', "VAE Tiled", {}),
+            ('enable_xformers_memory_efficient_attention', "Memory Efficient Attention", {}),
+            ('enable_model_cpu_offload', "CPU Offloading", {"device": get_torch_device()})
         ]
 
-        for opt_func, opt_name in optimizations:
-            if torch.backends.mps.is_available():
-                pipeline.to("mps")
-                break
+        # Patch torch.mps to torch.backends.mps
+        if torch.backends.mps.is_available():
+            setattr(torch, "mps", torch.backends.mps)
+        for opt_func, opt_name, kwargs in optimizations:
             try:
-                getattr(pipeline, opt_func)()
+                getattr(pipeline, opt_func)(**kwargs)
                 print(f"{opt_name} enabled")
             except Exception as e:
                 print(f"Error enabling {opt_name}: {e}")
 
+        delattr(torch, "mps")
 
 # class ImageGenNode(CustomNode):
 #     """Generates images using Stable Diffusion pipelines."""

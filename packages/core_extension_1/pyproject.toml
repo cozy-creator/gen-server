@@ -10,7 +10,6 @@ authors = [{ name = "Paul Fidika", email = "paul@fidika.com" }]
 dependencies = [
     "accelerate",
     "controlnet_aux",
-    "diffusers",
     "gen_server",
     "groundingdino-py",
     "huggingface_hub",
@@ -26,6 +25,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "firebase-admin",
+    "diffusers@git+https://github.com/huggingface/diffusers.git",
 ]
 
 [project.entry-points."cozy_creator.architectures"]
