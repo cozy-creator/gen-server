@@ -1,14 +1,21 @@
 import os
+import sys
 import tempfile
 from pathlib import Path
-from ..config import get_config
-import sys
+from importlib import resources
+import shutil
 from typing import Optional
-from ..static import ENV_TEMPLATE
 
+from gen_server import examples
+from ..config import get_config
+
+APP_NAME = "cozy-creator"
 DEFAULT_DIST_PATH = Path("/srv/www/cozy/dist")
 DEFAULT_WEB_DIR = Path("/srv/www/cozy/web")
-APP_NAME = "cozy-creator"
+DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
+# Note: the default models_path is [{home}/models]
+# Note: the default assets_path is [{home}/assets]
+# DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
 
 
 def get_assets_dir():
@@ -16,7 +23,7 @@ def get_assets_dir():
     if config.assets_path:
         return config.assets_path
     else:
-        return os.path.join(config.home, "assets")
+        return os.path.join(config.home_dir, "assets")
 
 
 def get_models_dir():
@@ -24,7 +31,7 @@ def get_models_dir():
     if config.models_path:
         return config.models_path
     else:
-        return os.path.join(config.home, "models")
+        return os.path.join(config.home_dir, "models")
 
 
 def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
@@ -60,8 +67,8 @@ def ensure_app_dirs():
     
     # Ensure home directory exists
     home_created = False
-    if not os.path.exists(config.home):
-        os.makedirs(config.home, exist_ok=True)
+    if not os.path.exists(config.home_dir):
+        os.makedirs(config.home_dir, exist_ok=True)
         home_created = True
     
     # Ensure assets directory exists
@@ -76,17 +83,28 @@ def ensure_app_dirs():
     
     # If home directory was just created, write the example env file
     if home_created:
-        _write_env_example_file(config.home)
+        _write_example_files(config.home_dir)
 
 
-def _write_env_example_file(workspace_path: str):
+def _write_example_files(workspace_path: str):
     try:
-        env_path = os.path.join(workspace_path, ".env.example")
-        if not os.path.exists(env_path):
-            with open(env_path, "w") as f:
-                f.write(ENV_TEMPLATE)
+        # Use importlib.resources to get the path of the example files
+        with resources.path(examples, '.env.local.example') as env_example_path, \
+             resources.path(examples, 'config.example.yaml') as config_example_path:
+            # Construct the destination paths
+            env_path = os.path.join(workspace_path, ".env.local.example")
+            config_path = os.path.join(workspace_path, "config.example.yaml")
+
+            # Copy the .env.local.example file if it doesn't exist
+            if not os.path.exists(env_path):
+                shutil.copy2(env_example_path, env_path)
+
+            # Copy the models.yaml file if it doesn't exist
+            if not os.path.exists(config_path):
+                shutil.copy2(config_example_path, config_path)
+
     except Exception as e:
-        print(f"Error while creating initializing env file: {str(e)}")
+        print(f"Error while initializing example files: {str(e)}")
 
 
 def get_web_root() -> Path:
@@ -130,3 +148,34 @@ def get_s3_public_url() -> str:
         return config.s3.endpoint_url
     else:
         raise ValueError("No S3 public URL or endpoint URL found in the configuration")
+
+
+def is_runpod_available() -> bool:
+    """
+    Returns a boolean indicating whether the server is running within a RunPod.
+    """
+    return os.environ.get("RUNPOD_POD_ID") is not None
+
+
+def get_runpod_url(port: str | int, token: Optional[str] = None) -> str:
+    """
+    Returns the URL of the RunPod.
+    """
+
+    pod_id = os.environ.get("RUNPOD_POD_ID")
+    url = f"https://{pod_id}-{port}.proxy.runpod.net"
+    if token is not None:
+        return f"{url}?token={token}"
+    return url
+
+
+def get_server_url():
+    """
+    Returns the URL of the server.
+    """
+
+    config = get_config()
+    if is_runpod_available():
+        return get_runpod_url(config.port)
+    return f"http://{config.host}:{config.port}"
+

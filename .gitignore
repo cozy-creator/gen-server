@@ -29,8 +29,8 @@ build
 # Environment variables
 .env*
 !.env.*example
-config*.json
-!config.example.json
+config*.yaml
+!config.example.yaml
 
 # state dictionaries
 *.pt

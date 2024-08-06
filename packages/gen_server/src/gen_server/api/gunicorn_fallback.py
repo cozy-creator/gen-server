@@ -6,8 +6,8 @@ import multiprocessing
 from threading import Event
 from aiohttp.web import AppRunner, TCPSite
 from typing import Optional, Any, Type
-from gen_server.config import get_server_url, set_config
-
+from ..utils.paths import get_server_url
+from ..config import set_config
 from ..globals import (
     RouteDefinition,
     CheckpointMetadata,

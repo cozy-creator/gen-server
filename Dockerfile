@@ -38,6 +38,9 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu12
 # Install Jupyter Lab
 RUN pip install --no-cache-dir jupyterlab
 
+# Install the latest version of diffusers straight from GitHub; the release branch may be out of date
+RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
+
 # Install the gen_server package and its plugin-packages
 COPY packages/ ./packages
 RUN pip install ./packages/gen_server[performance] && \

@@ -1,22 +1,35 @@
 import os
 import json
+import yaml
 from enum import Enum
 from typing import Type, Optional, Any, Iterable, Union
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import PydanticBaseSettingsSource, YamlConfigSettingsSource
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
-# Note: the default models_path is [{home}/models]
-# Note: the default assets_path is [{home}/assets]
-# DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
+
+class ModelConfig(BaseModel):
+    """
+    Model configuration loaded from a config.yaml file usually
+    """
+    category: str
+    variant: str
 
 
 def get_default_home_dir():
+    """
+    Returns the default home directory for the Cozy Creator.
+    """
+    cozy_home_dir = os.environ.get("COZY_HOME_DIR")
+    if cozy_home_dir:
+        return cozy_home_dir
+    
     xdg_data_home = os.environ.get("XDG_DATA_HOME")
     if xdg_data_home:
-        return os.path.join(xdg_data_home, "cozy-creator")
-    else:
-        return DEFAULT_HOME_DIR
+        return os.path.join(xdg_data_home, ".cozy-creator")
+    
+    return DEFAULT_HOME_DIR
 
 
 def is_running_in_docker() -> bool:
@@ -28,6 +41,25 @@ def is_running_in_docker() -> bool:
         return True
     else:
         return os.path.exists("/.dockerenv")
+
+
+def find_config_file() -> Optional[str]:
+    """
+    Finds the config.yaml file in various locations.
+    Returns the path to the config file if found, None otherwise.
+    """
+    possible_locations = [
+        os.environ.get("COZY_CONFIG_FILE"), # from cli-command or environment variable
+        '/etc/config/config.yaml',  # Kubernetes ConfigMap typical mount path
+        os.path.join(get_default_home_dir(), 'config.yaml'),  # Cozy's home directory
+    ]
+    
+    for location in possible_locations:
+        if location is not None and os.path.exists(location):
+            print(f'Config file loaded from: {location}')
+            return location
+    
+    return None
 
 
 class FilesystemTypeEnum(str, Enum):
@@ -97,19 +129,33 @@ class RunCommandConfig(BaseSettings):
         env_nested_delimiter="__",
         env_file_encoding="utf-8",
         extra="allow",
-    )
-
-    env_file: Optional[str] = Field(
-        default=None,
-        description="Path to .env file",
-    )
-
-    secrets_dir: Optional[str] = Field(
-        default=None,
-        description="Path to secrets directory",
+        yaml_file_encoding="utf-8",
     )
     
-    home: str = Field(
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """
+        This is used so that we can load our config.yaml file from a location determined at runtime
+        """
+        yaml_settings = YamlConfigSettingsSource(
+            settings_cls,
+            yaml_file=find_config_file()
+        )
+        return (
+            init_settings,
+            yaml_settings,
+            env_settings,
+            file_secret_settings,
+        )
+    
+    home_dir: str = Field(
         default=get_default_home_dir(),
         description=("Local file-directory where /assets and /model folders will be loaded from and saved to. "
                      "XDG_DATA_HOME is checked as a fallback if not specified."),
@@ -157,6 +203,12 @@ class RunCommandConfig(BaseSettings):
             "If `local`, files will be saved to and served from the {assets_path} folder."
             "If `s3`, files will be saved to and served from the specified S3 bucket and folder."
         ),
+    )
+    
+    models: Optional[dict[str, ModelConfig]] = Field(
+        default=None,
+        description=("Dictionary of models to be downloaded from hugging face on startup and made available "
+                     "for inference.")
     )
 
     s3: Optional[S3Credentials] = Field(

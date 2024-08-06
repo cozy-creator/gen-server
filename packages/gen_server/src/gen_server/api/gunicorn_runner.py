@@ -2,7 +2,8 @@ import multiprocessing
 from threading import Event
 import aiohttp.web
 from typing import Optional, Any, Type
-from gen_server.config import get_server_url, set_config
+from ..utils.paths import get_server_url
+from ..config import set_config
 from gunicorn.app.base import BaseApplication
 
 from ..globals import (

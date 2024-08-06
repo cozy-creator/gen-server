@@ -45,13 +45,13 @@ from .config import init_config
 from .api import start_api_server, api_routes_validator
 from .globals import *
 from .base_types.pydantic_models import (
-    DEFAULT_HOME_DIR,
     RunCommandConfig,
     BuildWebCommandConfig,
     DownloadCommandConfig
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.gpu_worker_non_io import start_gpu_worker
+from .utils.paths import DEFAULT_HOME_DIR
 
 
 def main():
@@ -64,28 +64,48 @@ def main():
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
     # If no .env file is specified, try to find one in the workspace path
     if env_file is None:
-        home = (
-            find_arg_value("--home")
-            or find_arg_value("--home-dir")
+        home_dir = (
+            find_arg_value("--home-dir")
             or find_arg_value("--home_dir")
             or DEFAULT_HOME_DIR
         )
-        if os.path.exists(os.path.join(home, ".env")):
-            env_file = os.path.join(home, ".env")
-        elif os.path.exists(os.path.join(home, ".env.local")):
-            env_file = os.path.join(home, ".env.local")
-
+        if os.path.exists(os.path.join(home_dir, ".env")):
+            env_file = os.path.join(home_dir, ".env")
+        elif os.path.exists(os.path.join(home_dir, ".env.local")):
+            env_file = os.path.join(home_dir, ".env.local")
+    
+    # Load the environment variables into memory
+    if env_file:
+        from dotenv import load_dotenv
+        load_dotenv(env_file)
+        print(f"Loaded environment variables from {env_file}")
+        
+    # We don't really do much with this yet...
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")
         or "/run/secrets"
     )
 
+    # Set the config file from the CLI
+    config_file = find_arg_value("--config-file") or find_arg_value("--config_file")
+    # config_file = resolve_config_path(config_file)
+    if config_file is not None:
+        if os.path.exists(config_file):
+            os.environ["COZY_CONFIG_FILE"] = config_file
+        else:
+            print(f"Config file not found at {config_file}. Skipping.")
+
     subcommand = find_subcommand()
 
     # Add subcommands
     subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
+    
     run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
+    run_parser.add_argument("--env-file", type=str, default=None, metavar='', help="Path to an environment file loaded on startup")
+    run_parser.add_argument("--secrets-dir", type=str, default=None, metavar='', help="Path to the secrets directory")
+    run_parser.add_argument("--config-file", type=str, default=None, metavar='', help="Path to a YAML configuration file")
+    
     build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
     download_parser = subparsers.add_parser("download", help="Download models to cozy's local cache")
 
@@ -102,7 +122,6 @@ def main():
         cozy_config = init_config(
             run_parser,
             parse_known_args_wrapper,
-            env_file=env_file,
             secrets_dir=secrets_dir,
         )
 
@@ -111,7 +130,6 @@ def main():
     elif subcommand in ["build-web", "build_web"]:
         cli_settings = get_cli_settings(BuildWebCommandConfig, build_web_parser)
         _build_config = BuildWebCommandConfig(
-            _env_file=env_file,  # type: ignore
             _secrets_dir=secrets_dir,  # type: ignore
             _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
@@ -128,7 +146,6 @@ def main():
     elif subcommand == "download":
         cli_settings = get_cli_settings(DownloadCommandConfig, download_parser)
         config = DownloadCommandConfig(
-            _env_file=env_file,  # type: ignore
             _cli_settings_source=cli_settings(args=True), # type: ignore
         )
 
@@ -168,6 +185,8 @@ def main():
 def run_app(cozy_config: RunCommandConfig):
     # Ensure our app directories exist.
     ensure_app_dirs()
+    
+    print(f'COZY CONFIG: {cozy_config}')
 
     # We load the extensions inside a function to avoid circular dependencies
 

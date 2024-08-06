@@ -36,8 +36,8 @@ def generate_images(
     start = time.time()
 
     custom_nodes = get_custom_nodes()
-    architectures = get_architectures()
-    checkpoint_files = get_checkpoint_files()
+    _architectures = get_architectures()
+    _checkpoint_files = get_checkpoint_files()
 
     try:
         models = task_data.get("models", {})

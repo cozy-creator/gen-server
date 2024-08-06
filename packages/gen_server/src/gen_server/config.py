@@ -1,13 +1,15 @@
 import os
 import argparse
-from typing import Optional, List, Callable, Union
+from typing import Optional, List, Callable, Union, Any
 from pydantic_settings import CliSettingsSource
+import yaml
 
 from .base_types.pydantic_models import (
     RunCommandConfig,
-    FilesystemTypeEnum,
-    DEFAULT_HOME_DIR,
+    FilesystemTypeEnum
 )
+
+DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
 
 cozy_config: Optional[RunCommandConfig] = None
@@ -68,12 +70,12 @@ def init_config(
     )
 
     # This updates the configuration globally
-    global cozy_config
     cozy_config = RunCommandConfig(
         _env_file=env_file,  # type: ignore
         _secrets_dir=secrets_dir,  # type: ignore
         _cli_settings_source=cli_settings(args=True),  # type: ignore
     )
+    set_config(cozy_config)
 
     return cozy_config
 
@@ -112,32 +114,3 @@ def get_mock_config(
         home_dir=home_dir,
     )
 
-
-def is_runpod_available() -> bool:
-    """
-    Returns a boolean indicating whether the server is running within a RunPod.
-    """
-    return os.environ.get("RUNPOD_POD_ID") is not None
-
-
-def get_runpod_url(port: Union[str, int], token: Optional[str] = None) -> str:
-    """
-    Returns the URL of the RunPod.
-    """
-
-    pod_id = os.environ.get("RUNPOD_POD_ID")
-    url = f"https://{pod_id}-{port}.proxy.runpod.net"
-    if token is not None:
-        return f"{url}?token={token}"
-    return url
-
-
-def get_server_url():
-    """
-    Returns the URL of the server.
-    """
-
-    config = get_config()
-    if is_runpod_available():
-        return get_runpod_url(config.port)
-    return f"http://{config.host}:{config.port}"
