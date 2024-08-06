@@ -200,7 +200,6 @@ def create_aiohttp_app(
                 parent_conn.close()
 
         await response.write_eof()
-
         return response
 
     @routes.get("/get_diffusers_models")

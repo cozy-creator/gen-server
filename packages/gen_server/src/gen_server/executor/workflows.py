@@ -3,12 +3,13 @@ from threading import Event
 import time
 import traceback
 
-from gen_server.utils.device import get_torch_device
 
 import torch
 import logging
-from typing import Any, Generator, Optional
+from typing import Any, Dict, Generator, Optional
 from multiprocessing.connection import Connection
+from diffusers.callbacks import PipelineCallback
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 
 from queue import Queue
 
@@ -105,6 +106,22 @@ def generate_images(
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))
 
+class CancelCallback(PipelineCallback):
+
+    tensor_inputs = [] # type: ignore
+
+
+    def __init__(self, cancel_event: Optional[Event] = None, cutoff_step_ratio: float = 1.0, cutoff_step_index: Optional[int] = None):
+        super().__init__(cutoff_step_ratio, cutoff_step_index)
+        self._cancel_event = cancel_event
+
+
+    def callback_fn(self, pipeline: DiffusionPipeline, step_index: int, timesteps: int, callback_kwargs: Dict) -> Dict[str, Any]:
+        if self._cancel_event and self._cancel_event.is_set():
+            raise StopIteration("Inference was cancelled.")
+        return callback_kwargs
+
+
 
 def generate_images_non_io(
     task_data: dict[str, Any],
@@ -127,10 +144,6 @@ def generate_images_non_io(
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
 
-        def callback_handler(step: int, timestep, latents):
-            if cancel_event is not None and cancel_event.is_set():
-                raise StopIteration("Inference was cancelled.")
-
         for checkpoint_id, num_images in models.items():
             try:
                 if cancel_event is not None and cancel_event.is_set():
@@ -144,7 +157,7 @@ def generate_images_non_io(
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
-                    callback=callback_handler
+                    callback=CancelCallback(cancel_event),
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),

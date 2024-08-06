@@ -95,8 +95,8 @@ async def start_gpu_worker_non_io(
     logger.info("GPU worker started")
 
     while True:
+        data, response_conn, request_id = task_queue.get(timeout=1.0)
         try:
-            data, response_conn, request_id = task_queue.get(timeout=1.0)
 
             if data is None:
                 logger.info("Received stop signal. GPU-worker shutting down.")
@@ -122,6 +122,7 @@ async def start_gpu_worker_non_io(
                 for images in generate_images_non_io(data, cancel_event):
                     if cancel_event is not None and cancel_event.is_set():
                         raise asyncio.CancelledError("Operation was cancelled.")
+                    
                     async for file_url in upload_batch(file_handler, images):
                         if cancel_event is not None and cancel_event.is_set():
                             raise asyncio.CancelledError("Operation was cancelled.")
@@ -134,7 +135,6 @@ async def start_gpu_worker_non_io(
                 if response_conn is not None:
                     response_conn.send(None)
             except Exception as e:
-                traceback.print_exc()
                 logger.error(f"Error in image generation: {str(e)}")
                 if response_conn is not None:
                     response_conn.send(None)
@@ -143,6 +143,11 @@ async def start_gpu_worker_non_io(
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
+        finally:
+            if response_conn is not None:
+                response_conn.send(None)
+                response_conn.close()
+
 
     logger.info("GPU-worker shut down complete")
 
