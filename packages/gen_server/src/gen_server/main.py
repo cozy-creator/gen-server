@@ -19,7 +19,7 @@ import multiprocessing
 from gen_server.base_types.authenticator import api_authenticator_validator
 from gen_server.utils.file_handler import LocalFileHandler
 from gen_server.utils.web import install_and_build_web_dir
-from .utils.paths import ensure_app_dirs, get_env_file_path, get_secrets_dir
+from .utils.paths import ensure_app_dirs
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
 from .base_types.architecture import architecture_validator
@@ -44,7 +44,6 @@ from .globals import (
 from .base_types.pydantic_models import (
     RunCommandConfig,
     BuildWebCommandConfig,
-    InstallCommandConfig,
     DownloadCommandConfig
 )
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
@@ -102,12 +101,22 @@ def main():
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
     # If no .env file is specified, try to find one in the workspace path
-    env_file = get_env_file_path() if env_file is None else env_file
+    if env_file is None:
+        home = (
+            find_arg_value("--home")
+            or find_arg_value("--home-dir")
+            or find_arg_value("--home_dir")
+            or DEFAULT_HOME_DIR
+        )
+        if os.path.exists(os.path.join(home, ".env")):
+            env_file = os.path.join(home, ".env")
+        elif os.path.exists(os.path.join(home, ".env.local")):
+            env_file = os.path.join(home, ".env.local")
 
     secrets_dir = (
         find_arg_value("--secrets_dir")
         or find_arg_value("--secrets-dir")
-        or get_secrets_dir()
+        or "/run/secrets"
     )
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
@@ -163,7 +172,6 @@ def main():
             cls,
             root_parser=root_parser,
             cli_parse_args=True,
-            root_parser=root_parser,
             cli_enforce_required=False,
             parse_args_method=parse_known_args_wrapper,
         )
