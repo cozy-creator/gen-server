@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-bce_loss = nn.BCELoss(size_average=True)
+bce_loss = nn.BCELoss(reduction='mean')
 
 
-def muti_loss_fusion(preds, target):
+def muti_loss_fusion(preds: list[torch.Tensor], target: torch.Tensor) -> tuple[float, float]:
     loss0 = 0.0
     loss = 0.0
 
@@ -25,10 +25,10 @@ def muti_loss_fusion(preds, target):
     return loss0, loss
 
 
-fea_loss = nn.MSELoss(size_average=True)
-kl_loss = nn.KLDivLoss(size_average=True)
-l1_loss = nn.L1Loss(size_average=True)
-smooth_l1_loss = nn.SmoothL1Loss(size_average=True)
+fea_loss = nn.MSELoss(reduction='mean')
+kl_loss = nn.KLDivLoss(reduction='mean')
+l1_loss = nn.L1Loss(reduction='mean')
+smooth_l1_loss = nn.SmoothL1Loss(reduction='mean')
 
 
 def muti_loss_fusion_kl(preds, target, dfs, fs, mode="MSE"):

@@ -7,65 +7,12 @@ import os
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
-
 from typing import Any, Callable
 import signal
 from types import FrameType
 from typing import Optional
-
 from pydantic_settings import CliSettingsSource
 import multiprocessing
-
-from gen_server.base_types.authenticator import api_authenticator_validator
-from gen_server.utils.file_handler import LocalFileHandler
-from gen_server.utils.web import install_and_build_web_dir
-from .utils.paths import ensure_app_dirs
-from .config import init_config
-from .base_types.custom_node import custom_node_validator
-from .base_types.architecture import architecture_validator
-from .utils import load_extensions, find_checkpoint_files
-from .api import start_api_server, api_routes_validator
-from .utils import load_custom_node_specs, get_file_handler
-from .utils.paths import get_models_dir, get_web_dir
-from .globals import (
-    get_api_endpoints,
-    get_custom_nodes,
-    update_api_endpoints,
-    update_architectures,
-    update_custom_nodes,
-    update_widgets,
-    update_checkpoint_files,
-    get_checkpoint_files,
-    get_architectures,
-    update_api_authenticator,
-    get_api_authenticator,
-    get_hf_model_manager
-)
-from .base_types.pydantic_models import (
-    RunCommandConfig,
-    BuildWebCommandConfig,
-    DownloadCommandConfig
-)
-from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
-from .executor.gpu_worker_non_io import start_gpu_worker
-
-
-import warnings
-
-warnings.filterwarnings("ignore", module="pydantic_settings")
-
-# Configure the root logger
-logging.basicConfig(
-    level=logging.INFO,  # Set the minimum level to INFO
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger(__name__)
-
-# Suppress the ModuleNotFoundError for triton
-logging.getLogger("xformers").setLevel(logging.ERROR)
-# import warnings
-# warnings.filterwarnings("ignore", module="pydantic_settings")
 
 from .base_types import api_authenticator_validator, custom_node_validator, architecture_validator
 from .utils import (
@@ -90,6 +37,23 @@ from .base_types.pydantic_models import (
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.gpu_worker_non_io import start_gpu_worker
 from .utils.paths import DEFAULT_HOME_DIR
+
+import warnings
+
+warnings.filterwarnings("ignore", module="pydantic_settings")
+
+# Configure the root logger
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum level to INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+# Suppress the ModuleNotFoundError for triton
+logging.getLogger("xformers").setLevel(logging.ERROR)
+# import warnings
+# warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
@@ -120,7 +84,7 @@ def main():
     )
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # If no .env file is specified, try to find one in the workspace path
+    # If no .env file is specified, try to find one in our home-directory
     if env_file is None:
         home_dir = (
             find_arg_value("--home-dir")

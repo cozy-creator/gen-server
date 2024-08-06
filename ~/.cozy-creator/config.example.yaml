@@ -1,0 +1,33 @@
+# This configuration file provides global settings for the gen-server.
+# Do not include sensitive information (tokens, keys) in a config.yaml file; place them
+# inside of the .env file and access them via os.environ.get(), or use k8s secrets.
+
+home_dir: ~/.cozy-creator
+assets_path: ~/.cozy-creator/assets
+models_path: ~/.cozy-creator/models
+host: "0.0.0.0"
+port: "8881"
+filesystem_type: S3
+aux_models_paths: ['/workspace/models']
+
+s3:
+  endpoint_url: "https://nyc3.digitaloceanspaces.com"
+  access_key: "DO00W9N964WMQC2MV6JK"
+  region_name: "nyc3"
+  bucket_name: "voidtech-storage-dev"
+  folder: "public"
+  public_url: "https://storage.cozy.dev"
+
+models:
+  playgroundai/playground-v2.5-1024px-aesthetic:
+    category: playground2.5
+    variant: bf16
+
+  RunDiffusion/Juggernaut-XL-v9:
+    category: sdxl
+    variant: bf16
+
+  stabilityai/stable-diffusion-xl-base-1.0:
+    category: sdxl
+    variant: bf16
+

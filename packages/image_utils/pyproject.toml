@@ -21,6 +21,4 @@ dependencies = [
   "torchvision"
 ]
 
-[project.entry-points."cozy_creator.custom_nodes"]
-save_file = "image_utils.custom_nodes:SaveFile"
 
