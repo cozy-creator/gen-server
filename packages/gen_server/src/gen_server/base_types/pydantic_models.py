@@ -5,10 +5,18 @@ from typing import Type, Optional, Any, Iterable, Union
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_WORKSPACE_PATH = "~/.cozy-creator/"
-# Note: the default models_path is [{workspace_path}/models]
-# Note: the default assets_path is [{workspace_path}/assets]
+DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
+# Note: the default models_path is [{home}/models]
+# Note: the default assets_path is [{home}/assets]
 # DEFAULT_ENV_FILE_PATH = os.path.join(os.getcwd(), ".env")
+
+
+def get_default_home_dir():
+    xdg_data_home = os.environ.get("XDG_DATA_HOME")
+    if xdg_data_home:
+        return os.path.join(xdg_data_home, "cozy-creator")
+    else:
+        return DEFAULT_HOME_DIR
 
 
 def is_running_in_docker() -> bool:
@@ -100,6 +108,12 @@ class RunCommandConfig(BaseSettings):
         default=None,
         description="Path to secrets directory",
     )
+    
+    home: str = Field(
+        default=get_default_home_dir(),
+        description=("Local file-directory where /assets and /model folders will be loaded from and saved to. "
+                     "XDG_DATA_HOME is checked as a fallback if not specified."),
+    )
 
     environment: str = Field(
         default="dev",
@@ -107,7 +121,7 @@ class RunCommandConfig(BaseSettings):
     )
 
     host: str = Field(
-        default_factory=lambda: "0.0.0.0" if is_running_in_docker() else "localhost",
+        default="0.0.0.0" if is_running_in_docker() else "localhost",
         description="Hostname or IP-address",
     )
 
@@ -116,21 +130,16 @@ class RunCommandConfig(BaseSettings):
         description="Port to bind to",
     )
 
-    workspace_path: str = Field(
-        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
-        description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
-    )
-
     models_path: Optional[str] = Field(
         default=None,
         description=(
             "The directory where models will be saved to and loaded from by default."
-            "The default value is {workspace_path}/models"
+            "The default value is {home}/models"
         ),
     )
 
     aux_models_paths: list[str] = Field(
-        default_factory=list,
+        default=list(),
         description=(
             "A list of additional directories containing model-files (serialized state dictionaries), "
             "such as .safetensors or .pth files."
@@ -139,7 +148,7 @@ class RunCommandConfig(BaseSettings):
 
     assets_path: Optional[str] = Field(
         default=None,
-        description="Directory for storing assets locally, Default value is {workspace_path}/assets",
+        description="Directory for storing assets locally, Default value is {home}/assets",
     )
 
     filesystem_type: FilesystemTypeEnum = Field(
@@ -214,24 +223,6 @@ class BuildWebCommandConfig(BaseSettings):
     Configuration for the build-web CLI command. Loaded by the pydantic-settings library
     """
 
-    model_config = {"extra": "ignore"}
-
-    env_file: Optional[str] = Field(
-        default=None,
-        description="Path to .env file",
-    )
-
-    secrets_dir: Optional[str] = Field(
-        default=None,
-        description="Path to secrets directory",
-    )
-
-
-class InstallCommandConfig(BaseSettings):
-    """
-    Configuration for the `install` CLI command. Loaded by the pydantic-settings library
-    """
-
     model_config = SettingsConfigDict(
         case_sensitive=False,
         cli_parse_args=True,
@@ -241,17 +232,8 @@ class InstallCommandConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
-
-    env_file: Optional[str] = Field(
-        default=None,
-        description="Path to .env file",
-    )
-
-    workspace_path: str = Field(
-        default_factory=lambda: os.path.expanduser(DEFAULT_WORKSPACE_PATH),
-        description="Local file-directory where /assets and /temp files will be loaded from and saved to.",
-    )
-
+    
+    # TO DO: add a specifier for web-dir location
 
 
 class DownloadCommandConfig(BaseSettings):

@@ -1,8 +1,7 @@
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
 
-from . import CustomNode, ApiAuthenticator
-from .base_types import Architecture, CheckpointMetadata
+from .base_types import Architecture, CheckpointMetadata, CustomNode, ApiAuthenticator
 from .utils.hf_model_manager import HFModelManager
 
 

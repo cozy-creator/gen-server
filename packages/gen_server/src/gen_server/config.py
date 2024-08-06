@@ -6,7 +6,7 @@ from pydantic_settings import CliSettingsSource
 from .base_types.pydantic_models import (
     RunCommandConfig,
     FilesystemTypeEnum,
-    DEFAULT_WORKSPACE_PATH,
+    DEFAULT_HOME_DIR,
 )
 
 
@@ -87,12 +87,12 @@ def get_mock_config(
     """
 
     environment = "test"
-    workspace_path = os.path.expanduser(DEFAULT_WORKSPACE_PATH)
-    models_path = os.path.join(workspace_path, "models")
+    home_dir = DEFAULT_HOME_DIR
+    models_path = os.path.join(home_dir, "models")
 
     if filesystem_type == FilesystemTypeEnum.LOCAL:
         os.environ["COZY_FILESYSTEM_TYPE"] = filesystem_type
-        os.environ["COZY_ASSETS_PATH"] = os.path.join(workspace_path, "assets")
+        os.environ["COZY_ASSETS_PATH"] = os.path.join(home_dir, "assets")
     else:
         os.environ["COZY_FILESYSTEM_TYPE"] = FilesystemTypeEnum.S3
         os.environ["COZY_S3__FOLDER"] = "public"
@@ -109,7 +109,7 @@ def get_mock_config(
         host="127.0.0.1",
         environment=environment,
         models_path=models_path,
-        workspace_path=workspace_path,
+        home_dir=home_dir,
     )
 
 

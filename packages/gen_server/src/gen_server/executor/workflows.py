@@ -114,8 +114,8 @@ def generate_images_non_io(
     start = time.time()
 
     custom_nodes = get_custom_nodes()
-    architectures = get_architectures()
-    checkpoint_files = get_checkpoint_files()
+    _architectures = get_architectures()
+    _checkpoint_files = get_checkpoint_files()
 
     try:
         models = task_data.get("models", {})
@@ -172,6 +172,7 @@ def generate_images_non_io(
             except asyncio.CancelledError:
                 logger.info("Task was cancelled during image generation.")
                 raise
+            
             except Exception as e:
                 traceback.print_exc()
                 logger.error(
