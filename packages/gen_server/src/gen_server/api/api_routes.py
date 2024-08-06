@@ -144,8 +144,30 @@ def create_aiohttp_app(
         """
         Submits generation requests from the user to the queue and streams the results.
         """
+        
+        data = GenerateData(**(await request.json()))
+            
+        # Only allow enabled models to be used in production
+        if config.environment == "production":
+            all_enabled, not_enabled = models_enabled(list(data.models.keys()))
+            if not all_enabled:
+                return web.json_response(
+                    { "message": "Models are not enabled", "models": not_enabled},
+                    status=400,
+                )
+        else:
+            hf_manager = get_hf_model_manager()
+            for model_id in data.models.keys():
+                if not hf_manager.is_downloaded(model_id):
+                    return web.json_response(
+                        {"error": f"Model {model_id} not found"}, status=404
+                    )
 
-                
+        if data.webhook_url is not None:
+            return web.json_response(
+                {"error": "webhook_url is not allowed for this endpoint"},
+                status=400,
+            )
 
         response = web.StreamResponse(
             status=200, reason="OK", headers={"Content-Type": "application/json"}
@@ -153,31 +175,6 @@ def create_aiohttp_app(
         await response.prepare(request)
 
         try:
-            # TO DO: validate these types using something like pydantic
-            data = GenerateData(**(await request.json()))
-            
-            # Only allow enabled models to be used in production
-            if config.environment == "production":
-                all_enabled, not_enabled = models_enabled(list(data.models.keys()))
-                if not all_enabled:
-                    return web.json_response(
-                       { "message": "Some models are not enabled", "models": not_enabled},
-                        status=400,
-                    )
-            else:
-                hf_manager = get_hf_model_manager()
-                for model_id in data.models.keys():
-                    if not hf_manager.is_downloaded(model_id):
-                        return web.json_response(
-                            {"error": f"Model {model_id} not found"}, status=404
-                        )
-
-            if data.webhook_url is not None:
-                return web.json_response(
-                    {"error": "webhook_url is not allowed for this endpoint"},
-                    status=400,
-                )
-
             # Create a pair of connections for inter-process communication
             parent_conn, child_conn = multiprocessing.Pipe()
 
