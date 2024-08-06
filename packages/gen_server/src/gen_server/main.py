@@ -16,6 +16,45 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
+from gen_server.base_types.authenticator import api_authenticator_validator
+from gen_server.utils.file_handler import LocalFileHandler
+from gen_server.utils.web import install_and_build_web_dir
+from .utils.paths import ensure_app_dirs, get_env_file_path, get_secrets_dir
+from .config import init_config
+from .base_types.custom_node import custom_node_validator
+from .base_types.architecture import architecture_validator
+from .utils import load_extensions, find_checkpoint_files
+from .api import start_api_server, api_routes_validator
+from .utils import load_custom_node_specs, get_file_handler
+from .utils.paths import get_models_dir, get_web_dir
+from .globals import (
+    get_api_endpoints,
+    get_custom_nodes,
+    update_api_endpoints,
+    update_architectures,
+    update_custom_nodes,
+    update_widgets,
+    update_checkpoint_files,
+    get_checkpoint_files,
+    get_architectures,
+    update_api_authenticator,
+    get_api_authenticator,
+    get_hf_model_manager
+)
+from .base_types.pydantic_models import (
+    RunCommandConfig,
+    BuildWebCommandConfig,
+    InstallCommandConfig,
+    DownloadCommandConfig
+)
+from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
+from .executor.gpu_worker_non_io import start_gpu_worker
+
+
+import warnings
+
+warnings.filterwarnings("ignore", module="pydantic_settings")
+
 # Configure the root logger
 logging.basicConfig(
     level=logging.INFO,  # Set the minimum level to INFO
@@ -160,27 +199,9 @@ def main():
             _cli_settings_source=cli_settings(args=True), # type: ignore
         )
 
-        from huggingface_hub import hf_hub_download, snapshot_download
+        hf_manager = get_hf_model_manager()
+        asyncio.run(hf_manager.download(config.repo_id, config.file_name, config.sub_folder))
 
-        repo_type = "model" # should we take this as an argument?
-        models_dir = get_models_dir()
-
-
-        if config.file_name is not None:
-            hf_hub_download(
-                repo_id=config.repo_id,
-                filename=config.file_name,
-                repo_type=repo_type,
-                subfolder=config.sub_folder,
-                local_dir=models_dir
-            )
-        else:
-            snapshot_download(
-                repo_id=config.repo_id,
-                repo_type=repo_type,
-                cache_dir=models_dir
-            )
-            
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
         root_parser.print_help()

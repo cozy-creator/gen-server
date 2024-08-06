@@ -92,3 +92,8 @@ def update_api_authenticator(api_authenticator: Optional[Type["ApiAuthenticator"
 def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
     global _api_authenticator
     return _api_authenticator
+
+
+def get_hf_model_manager() -> HFModelManager:
+    global _HF_MODEL_MANAGER
+    return _HF_MODEL_MANAGER

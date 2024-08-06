@@ -31,15 +31,24 @@ class HFModelManager:
         cache_info = scan_cache_dir()
         return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)]
 
-    async def download(self, repo_id: str) -> None:
+    async def download(self, repo_id: str, file_name: Optional[str], sub_folder: Optional[str]) -> None:
         try:
-            await asyncio.to_thread(
-                DiffusionPipeline.download,
-                repo_id,
-                cache_dir=self.cache_dir,
-                variant="fp16",
-                torch_dtype=torch.float16
-            )
+            if file_name:
+                await asyncio.to_thread(
+                    hf_hub_download,
+                    repo_id,
+                    file_name,
+                    cache_dir=self.cache_dir,
+                    subfolder=sub_folder
+                )
+            else:
+                await asyncio.to_thread(
+                    DiffusionPipeline.download,
+                    repo_id,
+                    cache_dir=self.cache_dir,
+                    variant="fp16",
+                    torch_dtype=torch.float16
+                )
 
             # After successful download, update the list in memory
             self.list()  # Call the list method to refresh the cached list
@@ -117,4 +126,3 @@ class HFModelManager:
             return [repo_id for repo_id, pipeline in self.loaded_models.items() 
                     if pipeline.device.index == gpu]
         return list(self.loaded_models.keys())
-
