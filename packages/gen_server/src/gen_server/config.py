@@ -4,10 +4,7 @@ from typing import Optional, List, Callable, Union, Any
 from pydantic_settings import CliSettingsSource
 import yaml
 
-from .base_types.pydantic_models import (
-    RunCommandConfig,
-    FilesystemTypeEnum
-)
+from .base_types.pydantic_models import RunCommandConfig, FilesystemTypeEnum
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
@@ -80,6 +77,13 @@ def init_config(
     return cozy_config
 
 
+def is_model_enabled(model_name: str) -> bool:
+    """
+    Returns a boolean indicating whether a model is enabled in the global configuration.
+    """
+    return model_name in get_config().enabled_models
+
+
 def get_mock_config(
     filesystem_type: FilesystemTypeEnum = FilesystemTypeEnum.LOCAL,
 ) -> RunCommandConfig:
@@ -113,4 +117,3 @@ def get_mock_config(
         models_path=models_path,
         home_dir=home_dir,
     )
-

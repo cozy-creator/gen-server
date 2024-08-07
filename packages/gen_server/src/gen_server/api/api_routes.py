@@ -4,7 +4,7 @@ import json
 import multiprocessing
 from threading import Event
 import traceback
-from typing import Callable, List, Optional, Tuple, Any, Iterable, Type
+from typing import Callable, Optional, Tuple, Any, Iterable, Type
 from uuid import uuid4
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
@@ -22,9 +22,9 @@ from ..utils.file_handler import (
 from ..globals import (
     get_api_endpoints,
     get_checkpoint_files,
-    get_hf_model_manager
+    get_download_manager,
 )
-from ..config import get_config
+from ..config import get_config, is_model_enabled
 from ..base_types.authenticator import AuthenticationError
 
 # from ..executor import generate_images_from_repo
@@ -46,22 +46,6 @@ class GenerateData(BaseModel):
     negative_prompt: str
     models: dict[str, int]
     webhook_url: Optional[str] = None
-
-def models_enabled(models: List[str]) -> Tuple[bool, List[str]]:
-    """
-    Check if all specified models are enabled.
-    """
-
-    config = get_config()
-    enabled_models = config.enabled_models
-    not_enabled = []
-    
-    if enabled_models:
-        for model in models:
-            if model not in enabled_models:
-                not_enabled.append(model)
-    
-    return len(not_enabled) == 0, not_enabled
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead
@@ -90,8 +74,11 @@ def create_aiohttp_app(
 
     config = get_config()
     routes = web.RouteTableDef()
+    download_manager = get_download_manager()
     authenticator = api_authenticator() if api_authenticator else None
 
+    if config.enabled_models is not None and download_manager:
+        download_manager.download_models_silently(config.enabled_models)
 
     def auth_middleware(request: web.Request, handler: Callable):
         if authenticator:
@@ -114,13 +101,45 @@ def create_aiohttp_app(
 
         return handler(request)
 
+    def validate_models(handler: Callable):
+        @wraps(handler)
+        async def wrapped(request: web.Request):
+            data = await request.json()
+            if "models" not in data:
+                return web.json_response(
+                    {"error": "models field is required"}, status=400
+                )
+
+            for model_id in data["models"].keys():
+                if download_manager and download_manager.is_pending_download(model_id):
+                    return web.json_response(
+                        {"error": f"Model {model_id} is still being downloaded"},
+                        status=400,
+                    )
+                if config.environment == "production" and not is_model_enabled(
+                    model_id
+                ):
+                    return web.json_response(
+                        {"error": f"Model {model_id} is not enabled"}, status=400
+                    )
+                if config.environment != "production":
+                    if not (
+                        download_manager and download_manager.is_downloaded(model_id)
+                    ):
+                        return web.json_response(
+                            {"error": f"Model {model_id} is not downloaded"}, status=404
+                        )
+            return await handler(request)
+
+        return wrapped
+
     def with_auth(handler: Callable) -> Callable:
         @wraps(handler)
         def wrapped(request: web.Request):
             return auth_middleware(request, handler)
 
         return wrapped
-   
+
     @routes.get("/checkpoints")
     async def get_checkpoints(_req: web.Request) -> web.Response:
         checkpoint_files = get_checkpoint_files()
@@ -140,28 +159,13 @@ def create_aiohttp_app(
 
     @routes.post("/generate")
     @with_auth
+    @validate_models
     async def handle_generate(request: web.Request) -> web.StreamResponse:
         """
         Submits generation requests from the user to the queue and streams the results.
         """
-        
+
         data = GenerateData(**(await request.json()))
-            
-        # Only allow enabled models to be used in production
-        if config.environment == "production":
-            all_enabled, not_enabled = models_enabled(list(data.models.keys()))
-            if not all_enabled:
-                return web.json_response(
-                    { "message": "Models are not enabled", "models": not_enabled},
-                    status=400,
-                )
-        else:
-            hf_manager = get_hf_model_manager()
-            for model_id in data.models.keys():
-                if not hf_manager.is_downloaded(model_id):
-                    return web.json_response(
-                        {"error": f"Model {model_id} not found"}, status=404
-                    )
 
         if data.webhook_url is not None:
             return web.json_response(
@@ -319,6 +323,8 @@ def create_aiohttp_app(
         return response
 
     @routes.post("/generate_async")
+    @with_auth
+    @validate_models
     async def handle_generate_async(request: web.Request) -> web.Response:
         """
         Submits generation requests from the user to the queue and returns an id.
@@ -327,23 +333,6 @@ def create_aiohttp_app(
         job_id = str(uuid4())
         try:
             data = GenerateData(**(await request.json()))
-
-            # Only allow enabled models to be used in production
-            if config.environment == "production":
-                all_enabled, not_enabled = models_enabled(list(data.models.keys()))
-                if not all_enabled:
-                    return web.json_response(
-                       { "message": "Some models are not enabled", "models": not_enabled},
-                        status=400,
-                    )
-            else:
-                hf_manager = get_hf_model_manager()
-                for model_id in data.models.keys():
-                    if not hf_manager.is_downloaded(model_id):
-                        return web.json_response(
-                            {"error": f"Model {model_id} not found"}, status=404
-                        )
-
             if data.webhook_url is None:
                 return web.json_response(
                     {"error": "webhook_url is required"}, status=400

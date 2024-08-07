@@ -206,7 +206,7 @@ class RunCommandConfig(BaseSettings):
         ),
     )
     
-    models: Optional[dict[str, ModelConfig]] = Field(
+    enabled_models: Optional[dict[str, ModelConfig]] = Field(
         default=None,
         description=("Dictionary of models to be downloaded from hugging face on startup and made available "
                      "for inference.")
@@ -222,15 +222,14 @@ class RunCommandConfig(BaseSettings):
         description="The authenticator to be used in authenticating api requests.",
     )
 
-    enabled_models: Optional[list[str]] = Field(
-        default=None,
-        description="List of models to enable by default",
-    )
-
     @field_validator('enabled_models', mode='before')
-    def parse_comma_separated_string(cls, v: object):
+    def parse_json_string(cls, v: object):
         if isinstance(v, str):
-            return v.split(',')
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # should we return None instead?
+                raise ValueError(f"Invalid JSON string for enabled_models: {v}")
         return v
 
     # This allows the aux_models_paths field to be a comma-separated string of paths

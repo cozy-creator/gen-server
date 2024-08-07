@@ -1,5 +1,6 @@
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
+from gen_server.utils.download_manager import DownloadManager
 
 from .base_types import Architecture, CheckpointMetadata, CustomNode, ApiAuthenticator
 from .utils.hf_model_manager import HFModelManager
@@ -7,6 +8,7 @@ from .utils.hf_model_manager import HFModelManager
 
 # Huggingface Manager
 _HF_MODEL_MANAGER = HFModelManager()
+_download_manager: Optional[DownloadManager] = None
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
@@ -97,3 +99,13 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
 def get_hf_model_manager() -> HFModelManager:
     global _HF_MODEL_MANAGER
     return _HF_MODEL_MANAGER
+
+
+def get_download_manager() -> Optional[DownloadManager]:
+    global _download_manager
+    return _download_manager
+
+
+def set_download_manager(download_manager: DownloadManager):
+    global _download_manager
+    _download_manager = download_manager
