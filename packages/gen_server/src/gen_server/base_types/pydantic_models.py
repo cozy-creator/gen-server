@@ -225,16 +225,6 @@ class RunCommandConfig(BaseSettings):
         description="The authenticator to be used in authenticating api requests.",
     )
 
-    @field_validator("enabled_models", mode="before")
-    def parse_json_string(cls, v: object):
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                # should we return None instead?
-                raise ValueError(f"Invalid JSON string for enabled_models: {v}")
-        return v
-
     # This allows the aux_models_paths field to be a comma-separated string of paths
     # or a list of paths
     @field_validator("aux_models_paths", mode="before")

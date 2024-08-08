@@ -36,7 +36,6 @@ class ImageGenNode(CustomNode):
         num_images: int = 1,
         random_seed: Optional[int] = None,
         callback: Optional[Callable] = None,
-        callback_steps: Optional[int] = 1,
     ):
         """
         Args:
@@ -111,7 +110,6 @@ class ImageGenNode(CustomNode):
                 random_seed=random_seed,
                 output_type="pt",
                 callback_on_step_end=callback,
-                callback_steps=callback_steps,
             ).images  # type: ignore
 
             del pipeline
