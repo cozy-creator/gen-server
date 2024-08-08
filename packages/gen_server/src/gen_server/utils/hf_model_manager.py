@@ -1,15 +1,13 @@
 import os
 import shutil
 import asyncio
-from typing import Optional, List, Dict, Any
-from huggingface_hub import snapshot_download, HfApi, hf_hub_download, scan_cache_dir
+from typing import Optional, List, Dict
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir
 from huggingface_hub.file_download import repo_folder_name
-from diffusers import DiffusionPipeline
 import torch
 import logging
-from pathlib import Path
 from huggingface_hub.constants import HF_HUB_CACHE
-from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 import json
 
 
@@ -31,7 +29,7 @@ class HFModelManager:
     #     try:
     #         # Get the storage folder for the repo
     #         storage_folder = os.path.join(self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model"))
-            
+
     #         if not os.path.exists(storage_folder):
     #             return False
 
@@ -39,7 +37,7 @@ class HFModelManager:
     #         refs_path = os.path.join(storage_folder, "refs", "main")
     #         if not os.path.exists(refs_path):
     #             return False
-            
+
     #         with open(refs_path, "r") as f:
     #             commit_hash = f.read().strip()
 
@@ -60,14 +58,15 @@ class HFModelManager:
     #         logger.error(f"Error checking download status for {repo_id}: {str(e)}")
     #         return False
 
-
     def is_downloaded(self, repo_id: str) -> bool:
         """
         Checks if a model is fully downloaded in the cache.
         Returns True if at least one variant is completely downloaded.
         """
         try:
-            storage_folder = os.path.join(self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model"))
+            storage_folder = os.path.join(
+                self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+            )
             if not os.path.exists(storage_folder):
                 return False
 
@@ -75,7 +74,7 @@ class HFModelManager:
             refs_path = os.path.join(storage_folder, "refs", "main")
             if not os.path.exists(refs_path):
                 return False
-            
+
             with open(refs_path, "r") as f:
                 commit_hash = f.read().strip()
 
@@ -85,21 +84,39 @@ class HFModelManager:
 
             # Check model_index.json for required folders
             model_index_path = os.path.join(snapshot_folder, "model_index.json")
-            
+
             if os.path.exists(model_index_path):
-                with open(model_index_path, 'r') as f:
+                with open(model_index_path, "r") as f:
                     model_index = json.load(f)
                     required_folders = {
-                        k for k, v in model_index.items() 
-                        if isinstance(v, list) and len(v) == 2 and v[0] is not None and v[1] is not None
+                        k
+                        for k, v in model_index.items()
+                        if isinstance(v, list)
+                        and len(v) == 2
+                        and v[0] is not None
+                        and v[1] is not None
                     }
 
                 # Remove known non-folder keys and ignored folders
-                ignored_folders = {'_class_name', '_diffusers_version', 'scheduler', 'feature_extractor', 'tokenizer', 'tokenizer_2', 'tokenizer_3', 'safety_checker'}
+                ignored_folders = {
+                    "_class_name",
+                    "_diffusers_version",
+                    "scheduler",
+                    "feature_extractor",
+                    "tokenizer",
+                    "tokenizer_2",
+                    "tokenizer_3",
+                    "safety_checker",
+                }
                 required_folders -= ignored_folders
 
                 # Define variant hierarchy
-                variants = ["bf16", "fp8", "fp16", ""]  # empty string for normal variant
+                variants = [
+                    "bf16",
+                    "fp8",
+                    "fp16",
+                    "",
+                ]  # empty string for normal variant
 
                 def check_folder_completeness(folder_path: str, variant: str) -> bool:
                     if not os.path.exists(folder_path):
@@ -115,13 +132,13 @@ class HFModelManager:
                                 file.endswith(f"{variant}.bin") or
                                 (variant == "" and (file.endswith('.safetensors') or file.endswith('.bin')))):
                                 return True
-                    
+
                     return False
 
                 def check_variant_completeness(variant: str) -> bool:
                     for folder in required_folders:
                         folder_path = os.path.join(snapshot_folder, folder)
-                        
+
                         if not check_folder_completeness(folder_path, variant):
                             return False
 
@@ -136,10 +153,10 @@ class HFModelManager:
                 # For repos without model_index.json, check the blob folder
                 blob_folder = os.path.join(storage_folder, "blobs")
                 if os.path.exists(blob_folder):
-                    for root, _, files in os.walk(blob_folder):
-                        if any(file.endswith('.incomplete') for file in files):
+                    for _root, _, files in os.walk(blob_folder):
+                        if any(file.endswith(".incomplete") for file in files):
                             return False
-                        
+
                     return True
 
             return False
@@ -147,8 +164,6 @@ class HFModelManager:
         except Exception as e:
             logger.error(f"Error checking download status for {repo_id}: {str(e)}")
             return False
-
-
 
     def list(self) -> List[str]:
         cache_info = scan_cache_dir()
@@ -242,8 +257,8 @@ class HFModelManager:
             self.loaded_models[repo_id] = pipeline
             # logger.info(f"Model {repo_id} loaded to {device}.")
             return pipeline
-        except Exception as e:
-            logger.error(f"Attempting to load default variant...")
+        except Exception:
+            logger.error("Attempting to load default variant...")
             try:
                 pipeline = DiffusionPipeline.from_pretrained(
                     repo_id,
