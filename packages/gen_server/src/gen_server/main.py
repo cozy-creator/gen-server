@@ -206,9 +206,14 @@ def main():
             _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
 
-        hf_manager = get_hf_model_manager()
+        download_manager = DownloadManager(hf_manager=get_hf_model_manager())
         asyncio.run(
-            hf_manager.download(config.repo_id, config.file_name, config.sub_folder)
+            download_manager.download_model(
+                config.repo_id,
+                file_name=config.file_name,
+                sub_folder=config.sub_folder,
+                variant=config.variant,
+            )
         )
 
     elif subcommand is None:
@@ -369,7 +374,7 @@ def run_app(cozy_config: RunCommandConfig):
             ]
 
             for index in range(device_count):
-                print("Device, ", index)
+                print("Device index:", index)
                 futures.append(
                     named_future(
                         executor,

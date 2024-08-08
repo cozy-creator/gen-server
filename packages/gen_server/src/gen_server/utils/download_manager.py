@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import Dict
+from typing import Dict, Optional
 from .hf_model_manager import HFModelManager
 from ..base_types.pydantic_models import ModelConfig
 
@@ -24,9 +24,20 @@ class DownloadManager:
     def is_pending_download(self, repo_id: str) -> bool:
         return repo_id in self._pending_downloads
 
-    async def download_model(self, repo_id: str, variant: str):
+    async def download_model(
+        self,
+        repo_id: str,
+        variant: Optional[str] = None,
+        file_name: Optional[str] = None,
+        sub_folder: Optional[str] = None,
+    ):
         try:
-            await self._hf_manager.download(repo_id, variant=variant)
+            await self._hf_manager.download(
+                repo_id,
+                variant=variant,
+                file_name=file_name,
+                sub_folder=sub_folder,
+            )
         except Exception as e:
             print(f"Failed to download model {repo_id}: {str(e)}")
 
