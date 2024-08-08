@@ -106,21 +106,29 @@ def generate_images(
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))
 
+
 class CancelCallback(PipelineCallback):
+    tensor_inputs = []  # type: ignore
 
-    tensor_inputs = [] # type: ignore
-
-
-    def __init__(self, cancel_event: Optional[Event] = None, cutoff_step_ratio: float = 1.0, cutoff_step_index: Optional[int] = None):
+    def __init__(
+        self,
+        cancel_event: Optional[Event] = None,
+        cutoff_step_ratio: float = 1.0,
+        cutoff_step_index: Optional[int] = None,
+    ):
         super().__init__(cutoff_step_ratio, cutoff_step_index)
         self._cancel_event = cancel_event
 
-
-    def callback_fn(self, pipeline: DiffusionPipeline, step_index: int, timesteps: int, callback_kwargs: Dict) -> Dict[str, Any]:
+    def callback_fn(
+        self,
+        pipeline: DiffusionPipeline,
+        step_index: int,
+        timesteps: int,
+        callback_kwargs: Dict,
+    ) -> Dict[str, Any]:
         if self._cancel_event and self._cancel_event.is_set():
             raise StopIteration("Inference was cancelled.")
         return callback_kwargs
-
 
 
 def generate_images_non_io(
@@ -192,7 +200,7 @@ def generate_images_non_io(
             except asyncio.CancelledError:
                 logger.info("Task was cancelled during image generation.")
                 raise
-            
+
             except Exception as e:
                 traceback.print_exc()
                 logger.error(

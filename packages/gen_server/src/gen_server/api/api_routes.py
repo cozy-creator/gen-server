@@ -15,15 +15,8 @@ from huggingface_hub import HfApi
 from pydantic import BaseModel
 
 from .. import ApiAuthenticator
-from ..utils.file_handler import (
-    get_mime_type,
-    get_file_handler,
-)
-from ..globals import (
-    get_api_endpoints,
-    get_checkpoint_files,
-    get_download_manager,
-)
+from ..utils.file_handler import get_mime_type, get_file_handler
+from ..globals import get_api_endpoints, get_checkpoint_files, get_hf_model_manager
 from ..config import get_config, is_model_enabled
 from ..base_types.authenticator import AuthenticationError
 
@@ -74,11 +67,8 @@ def create_aiohttp_app(
 
     config = get_config()
     routes = web.RouteTableDef()
-    download_manager = get_download_manager()
     authenticator = api_authenticator() if api_authenticator else None
-
-    if config.enabled_models is not None and download_manager:
-        download_manager.download_models_silently(config.enabled_models)
+    hf_model_manager = get_hf_model_manager()
 
     def auth_middleware(request: web.Request, handler: Callable):
         if authenticator:
@@ -111,23 +101,18 @@ def create_aiohttp_app(
                 )
 
             for model_id in data["models"].keys():
-                if download_manager and download_manager.is_pending_download(model_id):
-                    return web.json_response(
-                        {"error": f"Model {model_id} is still being downloaded"},
-                        status=400,
-                    )
                 if config.environment == "production" and not is_model_enabled(
                     model_id
                 ):
                     return web.json_response(
-                        {"error": f"Model {model_id} is not enabled"}, status=400
+                        {"error": f"Model {model_id} is not enabled"},
+                        status=400,
                     )
                 if config.environment != "production":
-                    if not (
-                        download_manager and download_manager.is_downloaded(model_id)
-                    ):
+                    if not hf_model_manager.is_downloaded(model_id):
                         return web.json_response(
-                            {"error": f"Model {model_id} is not downloaded"}, status=404
+                            {"error": f"Model {model_id} is not available"},
+                            status=404,
                         )
             return await handler(request)
 
@@ -586,11 +571,10 @@ def create_aiohttp_app(
 
     # Register all API endpoints added by extensions
     api_routes = get_api_endpoints()
-    if api_routes is not None:
-        for _name, api_routes in api_routes.items():
-            # TO DO: consider adding prefixes to the routes based on extension-name?
-            # How can we overwrite built-in routes
-            app.router.add_routes(api_routes)
+    for _name, api_routes in api_routes.items():
+        # TO DO: consider adding prefixes to the routes based on extension-name?
+        # How can we overwrite built-in routes
+        app.router.add_routes(api_routes)
 
     # Store a reference to the queue in the aiohttp-application state
     # app['job_queue'] = queue

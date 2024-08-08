@@ -15,10 +15,9 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
-from gen_server.base_types.authenticator import api_authenticator_validator
-from gen_server.utils.file_handler import LocalFileHandler
-from gen_server.utils.web import install_and_build_web_dir
-from torch import ge
+from .base_types.authenticator import api_authenticator_validator
+from .utils.file_handler import LocalFileHandler
+from .utils.web import install_and_build_web_dir
 from .utils.paths import ensure_app_dirs
 from .config import init_config
 from .base_types.custom_node import custom_node_validator
@@ -51,7 +50,7 @@ from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args
 from .executor.gpu_worker_non_io import start_gpu_worker
 from .utils.paths import DEFAULT_HOME_DIR
 import warnings
-
+from .utils.device import get_torch_device, get_torch_device_count
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
 
@@ -317,6 +316,10 @@ def run_app(cozy_config: RunCommandConfig):
 
     # asyncio.run(test_generate_images())
 
+    download_manager = DownloadManager(hf_manager=get_hf_model_manager())
+    if cozy_config.enabled_models is not None and download_manager:
+        asyncio.run(download_manager.download_models(cozy_config.enabled_models))
+
     try:
         manager = multiprocessing.Manager()
 
@@ -340,13 +343,14 @@ def run_app(cozy_config: RunCommandConfig):
         architectures = get_architectures()
         api_authenticator = get_api_authenticator()
         node_specs = load_custom_node_specs(custom_nodes)
-        download_manager = DownloadManager(hf_manager=get_hf_model_manager())
+
+        device_count = get_torch_device_count()
 
         # Create a process pool for the workers
         # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not
         # support forking.
         with ProcessPoolExecutor(
-            max_workers=3,
+            max_workers=device_count + 1,
             mp_context=multiprocessing.get_context("spawn"),
         ) as executor:
             futures = [
@@ -361,20 +365,25 @@ def run_app(cozy_config: RunCommandConfig):
                     node_specs,
                     api_endpoints,
                     api_authenticator,
-                    download_manager,
-                ),
-                named_future(
-                    executor,
-                    "gpu_worker",
-                    start_gpu_worker,
-                    job_queue,
-                    cancel_registry,
-                    cozy_config,
-                    custom_nodes,
-                    checkpoint_files,
-                    architectures,
-                ),
+                )
             ]
+
+            for index in range(device_count):
+                print("Device, ", index)
+                futures.append(
+                    named_future(
+                        executor,
+                        "gpu_worker",
+                        start_gpu_worker,
+                        job_queue,
+                        cancel_registry,
+                        cozy_config,
+                        custom_nodes,
+                        checkpoint_files,
+                        architectures,
+                        get_torch_device(index),
+                    ),
+                )
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
                 print("Received shutdown signal. Terminating processes...")
@@ -397,7 +406,7 @@ def run_app(cozy_config: RunCommandConfig):
             # Print exceptions from futures
             for future in futures:
                 future.add_done_callback(
-                    lambda f: print(f"Error in {f.__dict__['name']}: {f.exception()}")
+                    lambda f: print(f"Error in {f.__dict__['name']}: {f.exception()}")  # type: ignore
                     if f.exception()
                     else None
                 )
