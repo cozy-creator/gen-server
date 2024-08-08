@@ -1,19 +1,15 @@
-from typing import Dict, Tuple, Union, List
-from gen_server import Category, Language
-from gen_server.base_types import CustomNode, NodeInterface
-import random
+from multiprocessing import Pool
+from typing import List
 import os
-import blake3
 from PIL.Image import Image
-from gen_server.utils.file_handler import get_file_handler
 from gen_server.utils.paths import get_next_counter
 import torch
 from typing import Optional
 
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
-from gen_server.config import get_config
-from multiprocessing import Pool
+from gen_server.utils.paths import get_assets_dir
+
 from typing import TypedDict
 
 
@@ -65,15 +61,10 @@ def save_image_to_filesystem(
     # images = tensor_to_pil(tensor_images)
 
     # TO DO: move this logic somewhere more general
-    workspace_path = get_config().workspace_path
-    if not workspace_path:
-        raise FileNotFoundError(
-            f"The workspace directory '{workspace_path}' does not exist."
-        )
 
     print(is_temp)
 
-    assets_dir = os.path.join(workspace_path, "assets", "temp" if is_temp else "")
+    assets_dir = get_assets_dir()
     if not os.path.exists(assets_dir):
         os.makedirs(assets_dir)
 

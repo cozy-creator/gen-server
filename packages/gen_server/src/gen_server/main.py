@@ -23,12 +23,11 @@ from pydantic_settings import CliSettingsSource
 import multiprocessing
 
 
-from .base_types.authenticator import api_authenticator_validator
-from .utils.file_handler import LocalFileHandler
-from .utils.web import install_and_build_web_dir
-from .utils.paths import ensure_app_dirs
-
-from .base_types import api_authenticator_validator, custom_node_validator, architecture_validator
+from .base_types import (
+    api_authenticator_validator,
+    custom_node_validator,
+    architecture_validator,
+)
 from .utils import (
     LocalFileHandler,
     install_and_build_web_dir,
@@ -38,14 +37,12 @@ from .utils import (
     load_custom_node_specs,
     get_file_handler,
     get_models_dir,
-    get_web_dir
+    get_web_dir,
 )
 
 from .config import init_config
 from .api import start_api_server, api_routes_validator
 
-from .utils import load_custom_node_specs, get_file_handler
-from .utils.paths import get_models_dir, get_web_dir
 from .globals import (
     get_api_endpoints,
     get_custom_nodes,
