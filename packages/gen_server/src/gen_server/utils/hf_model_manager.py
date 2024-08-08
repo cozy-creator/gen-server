@@ -105,26 +105,15 @@ class HFModelManager:
                     if not os.path.exists(folder_path):
                         return False
                     
-                    # if repo_id == "black-forest-labs/FLUX.1-schnell":
-                    #     print(required_folders)
-                    #     print(variant)
-                    #     print(f"{folder_path}:")
-                    
                     for root, _, files in os.walk(folder_path):
-                        if repo_id == "black-forest-labs/FLUX.1-schnell":
-                            print(files)
                         for file in files:
                             if file.endswith('.incomplete'):
-                                print("Here")
                                 return False
 
-                            
                             
                             if (file.endswith(f"{variant}.safetensors") or 
                                 file.endswith(f"{variant}.bin") or
                                 (variant == "" and (file.endswith('.safetensors') or file.endswith('.bin')))):
-                                if repo_id == "black-forest-labs/FLUX.1-schnell":
-                                    print(file)
                                 return True
                     
                     return False
@@ -163,8 +152,8 @@ class HFModelManager:
 
     def list(self) -> List[str]:
         cache_info = scan_cache_dir()
-        # print(cache_info)
         return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)]
+
 
     async def download(
         self,
@@ -173,8 +162,8 @@ class HFModelManager:
         file_name: Optional[str] = None,
         sub_folder: Optional[str] = None,
     ) -> None:
-        try:
-            if file_name:
+        if file_name:
+            try:
                 await asyncio.to_thread(
                     hf_hub_download,
                     repo_id,
@@ -182,34 +171,41 @@ class HFModelManager:
                     cache_dir=self.cache_dir,
                     subfolder=sub_folder,
                 )
-            else:
+                logger.info(f"File {file_name} from {repo_id} downloaded successfully.")
+                self.list()  # Refresh the cached list
+                return
+            except Exception as e:
+                logger.error(f"Failed to download file {file_name} from {repo_id}: {str(e)}")
+                return
+
+        variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
+        for var in variants:
+            try:
+                if var:
+                    logger.info(f"Attempting to download {repo_id} with {var} variant...")
+                else:
+                    logger.info(f"Attempting to download {repo_id} without variant...")
+
                 await asyncio.to_thread(
                     DiffusionPipeline.download,
                     repo_id,
-                    variant=variant,
+                    variant=var,
                     cache_dir=self.cache_dir,
                     torch_dtype=torch.float16,
                 )
 
-            # After successful download, update the list in memory
-            self.list()  # Call the list method to refresh the cached list
+                logger.info(f"Model {repo_id} downloaded successfully with variant: {var if var else 'default'}")
+                self.list()  # Refresh the cached list
+                return
 
-            logger.info(f"Model {repo_id} downloaded successfully.")
-
-        except Exception as e:
-            logger.error(f"Failed to download fp16 variant: {str(e)}")
-            logger.info("Attempting to download default variant...")
-            try:
-                await asyncio.to_thread(
-                    DiffusionPipeline.download, repo_id, cache_dir=self.cache_dir
-                )
-
-                # After successful download, update the list in memory
-                self.list()  # Call the list method to refresh the cached list
-
-                logger.info(f"Model {repo_id} downloaded successfully.")
             except Exception as e:
-                logger.error(f"Failed to download model {repo_id}: {str(e)}")
+                if var:
+                    logger.error(f"Failed to download {var} variant for {repo_id}: {str(e)}. Trying next variant...")
+                else:
+                    logger.error(f"Failed to download default variant for {repo_id}: {str(e)}")
+
+        logger.error(f"Failed to download model {repo_id} with any variant.")
+
 
     async def delete(self, repo_id: str) -> None:
         model_path = os.path.join(
@@ -222,7 +218,6 @@ class HFModelManager:
             logger.warning(f"Model {repo_id} not found in cache.")
 
     def load(self, gpu: Optional[int], repo_id: str) -> Optional[DiffusionPipeline]:
-        # print(self.list())
 
         if not self.is_downloaded(repo_id):
             logger.info(

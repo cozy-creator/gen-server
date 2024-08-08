@@ -1,8 +1,17 @@
+import os
+
+
+# Disable triton on Windows since it is not supported
+# We do this at the top of the file to ensure it is set before any imports that may trigger triton
+if os.name == 'nt':
+    print("\n----- Windows detected, disabling Triton -----\n")
+    os.environ['XFORMERS_FORCE_DISABLE_TRITON'] = "1"
+
+
 import logging
 import time
 import argparse
 import sys
-import os
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
@@ -52,8 +61,11 @@ from .executor.gpu_worker_non_io import start_gpu_worker
 from .utils.paths import DEFAULT_HOME_DIR
 import warnings
 
-
 warnings.filterwarnings("ignore", module="pydantic_settings")
+
+# This is a warning from one of our architectures that uses a deprecated function in one of its dependencies.
+warnings.filterwarnings("ignore", message="size_average and reduce args will be deprecated, please use reduction='mean' instead.") 
+
 
 # Configure the root logger
 logging.basicConfig(
@@ -64,12 +76,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Suppress the ModuleNotFoundError for triton
-logging.getLogger("xformers").setLevel(logging.ERROR)
+# logging.getLogger("xformers").setLevel(logging.ERROR)
 # import warnings
 # warnings.filterwarnings("ignore", module="pydantic_settings")
 
-
 def main():
+
+
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
 
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
