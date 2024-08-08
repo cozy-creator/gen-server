@@ -15,24 +15,35 @@ import sys
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
-
 from typing import Any, Callable
 import signal
 from types import FrameType
 from typing import Optional
-
 from pydantic_settings import CliSettingsSource
 import multiprocessing
+
 
 from .base_types.authenticator import api_authenticator_validator
 from .utils.file_handler import LocalFileHandler
 from .utils.web import install_and_build_web_dir
 from .utils.paths import ensure_app_dirs
+
+from .base_types import api_authenticator_validator, custom_node_validator, architecture_validator
+from .utils import (
+    LocalFileHandler,
+    install_and_build_web_dir,
+    ensure_app_dirs,
+    load_extensions,
+    find_checkpoint_files,
+    load_custom_node_specs,
+    get_file_handler,
+    get_models_dir,
+    get_web_dir
+)
+
 from .config import init_config
-from .base_types.custom_node import custom_node_validator
-from .base_types.architecture import architecture_validator
-from .utils import load_extensions, find_checkpoint_files
 from .api import start_api_server, api_routes_validator
+
 from .utils import load_custom_node_specs, get_file_handler
 from .utils.paths import get_models_dir, get_web_dir
 from .globals import (
@@ -112,7 +123,7 @@ def main():
     )
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # If no .env file is specified, try to find one in the workspace path
+    # If no .env file is specified, try to find one in our home-directory
     if env_file is None:
         home_dir = (
             find_arg_value("--home-dir")

@@ -6,11 +6,10 @@ import os
 import blake3
 from PIL.Image import Image
 from gen_server.utils.file_handler import get_file_handler
-from gen_server.paths import get_next_counter
+from gen_server.utils.paths import get_next_counter
 import torch
 from typing import Optional
 
-import io
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
 from gen_server.config import get_config
