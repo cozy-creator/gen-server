@@ -10,12 +10,21 @@ from .base_types import (
     TorchDevice,
 )
 from .utils.hf_model_manager import HFModelManager
+from .utils.model_memory_manager import ModelMemoryManager
 from .utils.device import get_torch_device
+import yaml
+
+
+
+_MODEL_CONFIG: dict = {}
 
 _available_torch_device: TorchDevice = get_torch_device()
 
 # Huggingface Manager
 _HF_MODEL_MANAGER = HFModelManager()
+
+# Model Memory Manager
+_MODEL_MEMORY_MANAGER = ModelMemoryManager()
 
 # Download Manager
 _download_manager: Optional[DownloadManager] = None
@@ -48,6 +57,18 @@ Dictionary of all discovered checkpoint files
 """
 
 _api_authenticator: Optional[Type[ApiAuthenticator]] = None
+
+
+
+def load_model_config(config_path: str):
+    global _MODEL_CONFIG
+    with open(config_path, 'r') as file:
+        _MODEL_CONFIG = yaml.safe_load(file)
+
+
+def get_model_config():
+    global _MODEL_CONFIG
+    return _MODEL_CONFIG
 
 
 def update_api_endpoints(endpoints: dict[str, RouteDefinition]):
@@ -109,6 +130,11 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
 def get_hf_model_manager() -> HFModelManager:
     global _HF_MODEL_MANAGER
     return _HF_MODEL_MANAGER
+
+def get_model_memory_manager() -> ModelMemoryManager:
+    global _MODEL_MEMORY_MANAGER
+    return _MODEL_MEMORY_MANAGER
+
 
 
 def get_download_manager() -> Optional[DownloadManager]:

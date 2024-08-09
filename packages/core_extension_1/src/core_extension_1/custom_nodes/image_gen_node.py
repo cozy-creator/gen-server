@@ -17,7 +17,7 @@ from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.globals import get_hf_model_manager, get_available_torch_device
+from gen_server.globals import get_hf_model_manager, get_available_torch_device, get_model_memory_manager
 
 
 class ImageGenNode(CustomNode):
@@ -59,10 +59,11 @@ class ImageGenNode(CustomNode):
                 #         variant="fp16",
                 #         torch_dtype=torch.float16
                 #     )
-                hf_model_manager = get_hf_model_manager()
+                # hf_model_manager = get_hf_model_manager()
+                model_memory_manager = get_model_memory_manager()
 
                 # Load the model
-                pipeline = hf_model_manager.load(None, repo_id)
+                pipeline = model_memory_manager.load(repo_id, None)
             except Exception as e:
                 raise ValueError(f"Error in loading Pipeline caused by: {e}")
 
