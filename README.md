@@ -12,7 +12,7 @@ Repeat this for all packages you want to install. The other packages extend func
 You'll also want to install PyTorch; the specific installation instructions vary depending upon your system; see here for details [here](https://pytorch.org/get-started/locally/). Be sure to use a CUDA installation if your system supports it.
 
 
-## Logging into Hugging Face
+### Logging into Hugging Face
 
 To access gated repositories and models on Hugging Face, you must log in using the Hugging Face CLI. Follow these steps:
 
