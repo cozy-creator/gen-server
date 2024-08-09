@@ -21,42 +21,6 @@ class HFModelManager:
         self.loaded_models: Dict[str, DiffusionPipeline] = {}
         self.hf_api = HfApi()
 
-    # def is_downloaded(self, repo_id: str) -> bool:
-    #     """
-    #     Checks if a model is fully downloaded in the cache.
-    #     Returns True only if all files for the latest revision of the model are present and complete.
-    #     """
-    #     try:
-    #         # Get the storage folder for the repo
-    #         storage_folder = os.path.join(self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model"))
-
-    #         if not os.path.exists(storage_folder):
-    #             return False
-
-    #         # Get the latest commit hash
-    #         refs_path = os.path.join(storage_folder, "refs", "main")
-    #         if not os.path.exists(refs_path):
-    #             return False
-
-    #         with open(refs_path, "r") as f:
-    #             commit_hash = f.read().strip()
-
-    #         # Check the snapshot folder for this commit
-    #         snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
-    #         if not os.path.exists(snapshot_folder):
-    #             return False
-
-    #         # Check if there are any .incomplete files in the entire repo folder
-    #         for root, _, files in os.walk(storage_folder):
-    #             if any(file.endswith('.incomplete') for file in files):
-    #                 return False
-
-    #         # If we've made it this far, the model is fully downloaded
-    #         return True
-
-    #     except Exception as e:
-    #         logger.error(f"Error checking download status for {repo_id}: {str(e)}")
-    #         return False
 
     def is_downloaded(self, repo_id: str) -> bool:
         """
@@ -122,7 +86,7 @@ class HFModelManager:
                     if not os.path.exists(folder_path):
                         return False
                     
-                    for root, _, files in os.walk(folder_path):
+                    for _, _, files in os.walk(folder_path):
                         for file in files:
                             if file.endswith('.incomplete'):
                                 return False
@@ -232,74 +196,74 @@ class HFModelManager:
         else:
             logger.warning(f"Model {repo_id} not found in cache.")
 
-    def load(self, gpu: Optional[int], repo_id: str) -> Optional[DiffusionPipeline]:
+    # def load(self, gpu: Optional[int], repo_id: str) -> Optional[DiffusionPipeline]:
 
-        if not self.is_downloaded(repo_id):
-            logger.info(
-                f" Model {repo_id} not downloaded. Please ensure the model is downloaded first."
-            )
-            return None
+    #     if not self.is_downloaded(repo_id):
+    #         logger.info(
+    #             f" Model {repo_id} not downloaded. Please ensure the model is downloaded first."
+    #         )
+    #         return None
 
-        if repo_id in self.loaded_models:
-            logger.info(f"Model {repo_id} is already loaded.")
-            return self.loaded_models[repo_id]
+    #     if repo_id in self.loaded_models:
+    #         logger.info(f"Model {repo_id} is already loaded.")
+    #         return self.loaded_models[repo_id]
 
-        # device = f"cuda:{gpu}" if gpu is not None else "cpu"
-        try:
-            pipeline = DiffusionPipeline.from_pretrained(
-                repo_id,
-                variant="fp16",
-                torch_dtype=torch.float16,
-                cache_dir=self.cache_dir,
-                local_files_only=True,
-            )
-            # pipeline = pipeline.to(device)
-            self.loaded_models[repo_id] = pipeline
-            # logger.info(f"Model {repo_id} loaded to {device}.")
-            return pipeline
-        except Exception:
-            logger.error("Attempting to load default variant...")
-            try:
-                pipeline = DiffusionPipeline.from_pretrained(
-                    repo_id,
-                    cache_dir=self.cache_dir,
-                    local_files_only=True,
-                    torch_dtype=torch.float16,
-                )
-                # pipeline = pipeline.to(device)
-                self.loaded_models[repo_id] = pipeline
-                # logger.info(f"Model {repo_id} loaded to {device}.")
-                return pipeline
-            except Exception as e:
-                logger.error(f"Failed to load model {repo_id}: {str(e)}")
-                logger.info(
-                    f"\nFailed to load model {repo_id}. This might be due to partial download or the model is not downloaded."
-                    " Try downloading (or redownloading) the model first by calling the download method. Use `manager.download(repo_id)`.\n"
-                )
-            return None
+    #     # device = f"cuda:{gpu}" if gpu is not None else "cpu"
+    #     try:
+    #         pipeline = DiffusionPipeline.from_pretrained(
+    #             repo_id,
+    #             variant="fp16",
+    #             torch_dtype=torch.float16,
+    #             cache_dir=self.cache_dir,
+    #             local_files_only=True,
+    #         )
+    #         # pipeline = pipeline.to(device)
+    #         self.loaded_models[repo_id] = pipeline
+    #         # logger.info(f"Model {repo_id} loaded to {device}.")
+    #         return pipeline
+    #     except Exception:
+    #         logger.error("Attempting to load default variant...")
+    #         try:
+    #             pipeline = DiffusionPipeline.from_pretrained(
+    #                 repo_id,
+    #                 cache_dir=self.cache_dir,
+    #                 local_files_only=True,
+    #                 torch_dtype=torch.float16,
+    #             )
+    #             # pipeline = pipeline.to(device)
+    #             self.loaded_models[repo_id] = pipeline
+    #             # logger.info(f"Model {repo_id} loaded to {device}.")
+    #             return pipeline
+    #         except Exception as e:
+    #             logger.error(f"Failed to load model {repo_id}: {str(e)}")
+    #             logger.info(
+    #                 f"\nFailed to load model {repo_id}. This might be due to partial download or the model is not downloaded."
+    #                 " Try downloading (or redownloading) the model first by calling the download method. Use `manager.download(repo_id)`.\n"
+    #             )
+    #         return None
 
-    def unload(self, repo_id: str) -> None:
-        if repo_id in self.loaded_models:
-            del self.loaded_models[repo_id]
+    # def unload(self, repo_id: str) -> None:
+    #     if repo_id in self.loaded_models:
+    #         del self.loaded_models[repo_id]
 
-            # Clear cache for gpu were model was loaded
+    #         # Clear cache for gpu were model was loaded
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            elif torch.backends.mps.is_available():
-                torch.mps.empty_cache()
-            else:
-                logger.warning("No GPU available to clear cache.")
+    #         if torch.cuda.is_available():
+    #             torch.cuda.empty_cache()
+    #         elif torch.backends.mps.is_available():
+    #             torch.mps.empty_cache()
+    #         else:
+    #             logger.warning("No GPU available to clear cache.")
 
-            logger.info(f"Model {repo_id} unloaded.")
-        else:
-            logger.warning(f"Model {repo_id} is not currently loaded.")
+    #         logger.info(f"Model {repo_id} unloaded.")
+    #     else:
+    #         logger.warning(f"Model {repo_id} is not currently loaded.")
 
-    def list_loaded(self, gpu: Optional[int] = None) -> List[str]:
-        if gpu is not None:
-            return [
-                repo_id
-                for repo_id, pipeline in self.loaded_models.items()
-                if pipeline.device.index == gpu
-            ]
-        return list(self.loaded_models.keys())
+    # def list_loaded(self, gpu: Optional[int] = None) -> List[str]:
+    #     if gpu is not None:
+    #         return [
+    #             repo_id
+    #             for repo_id, pipeline in self.loaded_models.items()
+    #             if pipeline.device.index == gpu
+    #         ]
+    #     return list(self.loaded_models.keys())
