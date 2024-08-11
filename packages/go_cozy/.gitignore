@@ -6,5 +6,8 @@ node_modules
 dist
 
 go-cozy
+go_cozy
+go_cozy.exe
+go_cozy.exe
 *.yaml
 *.tgz

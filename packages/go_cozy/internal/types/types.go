@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	FileResponseType = "file"
-	DataResponseType = "data"
+	JSONResponseType = "json"
 )
 
 type FileResponse struct {
@@ -24,9 +24,9 @@ type HandlerResponse struct {
 	Data interface{} `json:"data"`
 }
 
-func NewDataResponse(data interface{}) (*HandlerResponse, error) {
+func NewJSONResponse(data interface{}) (*HandlerResponse, error) {
 	return &HandlerResponse{
-		Type: DataResponseType,
+		Type: JSONResponseType,
 		Data: data,
 	}, nil
 }

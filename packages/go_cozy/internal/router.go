@@ -25,7 +25,7 @@ func wrapper(f func(c *gin.Context) (*types.HandlerResponse, error)) gin.Handler
 
 		if data.Type == types.FileResponseType {
 			c.File(data.Data.(types.FileResponse).Path)
-		} else if data.Type == types.DataResponseType {
+		} else if data.Type == types.JSONResponseType {
 			c.JSON(http.StatusOK, data.Data)
 		}
 	}

@@ -37,7 +37,7 @@ func UploadFile(c *gin.Context) (*types.HandlerResponse, error) {
 		return types.NewErrorResponse("failed to upload file: %w", err)
 	}
 
-	return types.NewDataResponse(
+	return types.NewJSONResponse(
 		types.UploadResponse{
 			Url: url,
 		},
