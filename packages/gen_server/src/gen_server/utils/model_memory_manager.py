@@ -18,54 +18,10 @@ class ModelMemoryManager:
         self.loaded_models: dict[str, DiffusionPipeline] = {}
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
-        
-
-    # def load(self, repo_id: str, gpu: Optional[int] = None) -> Optional[DiffusionPipeline]:
-    #     if not _HF_MODEL_MANAGER.is_downloaded(repo_id):
-    #         logger.info(f"Model {repo_id} not downloaded. Please ensure the model is downloaded first.")
-    #         return None
-
-    #     if repo_id in self.loaded_models:
-    #         logger.info(f"Model {repo_id} is already loaded.")
-    #         return self.loaded_models[repo_id]
-
-    #     variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
-        
-    #     for variant in variants:
-    #         try:
-    #             if variant:
-    #                 logger.info(f"Attempting to load {repo_id} with {variant} variant...")
-    #             else:
-    #                 logger.info(f"Attempting to load {repo_id} without variant...")
-
-    #             pipeline = DiffusionPipeline.from_pretrained(
-    #                 repo_id,
-    #                 variant=variant,
-    #                 torch_dtype=torch.float16,
-    #                 local_files_only=True,
-    #             )
-                
-    #             if gpu is not None and torch.cuda.is_available():
-    #                 pipeline = pipeline.to(f"cuda:{gpu}")
-    #             else:
-    #                 pipeline = pipeline.to("cpu")
-
-    #             self.loaded_models[repo_id] = pipeline
-    #             logger.info(f"Model {repo_id} loaded successfully with variant: {variant if variant else 'default'}")
-    #             return pipeline
-
-    #         except Exception as e:
-    #             if variant:
-    #                 # logger.error(f"Failed to load {variant} variant for {repo_id}: {str(e)}. Trying next variant...")
-    #                 continue
-    #             else:
-    #                 logger.error(f"Failed to load default variant for {repo_id}: {str(e)}")
-
-    #     logger.error(f"Failed to load model {repo_id} with any variant.")
-    #     return None
 
 
     def load(self, model_id: str, gpu: Optional[int] = None) -> Optional[DiffusionPipeline]:
+        print(f"Loading model {model_id}")
         if model_id in self.loaded_models:
             logger.info(f"Model {model_id} is already loaded.")
             return self.loaded_models[model_id]
@@ -80,7 +36,9 @@ class ModelMemoryManager:
         repo_id = model_config['repo'].replace('hf:', '')
         category = model_config['category']
 
-        if not self.hf_model_manager.is_downloaded(model_id):
+
+        is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
+        if not is_downloaded:
             logger.info(f"Model {model_id} not downloaded. Please ensure the model is downloaded first.")
             return None
 
@@ -93,17 +51,20 @@ class ModelMemoryManager:
                         # Diffusers format
                         component_repo, component_name = source
                         pipeline_kwargs[component] = self._load_diffusers_component(component_repo, component_name)
-                    elif isinstance(source, str) and source.endswith('.safetensors'):
+                    elif isinstance(source, str) and source.endswith(('.safetensors', '.bin', '.ckpt')):
                         # Custom format
                         pipeline_kwargs[component] = self._load_custom_component(source, category, component)
                     elif source is None:
                         pipeline_kwargs[component] = None
 
-            
+            if variant == "":
+                variant = None
+                
             pipeline = DiffusionPipeline.from_pretrained(
                 repo_id,
                 torch_dtype=torch.bfloat16,
                 local_files_only=True,
+                variant=variant,
                 **pipeline_kwargs
             )
 
@@ -167,7 +128,7 @@ class ModelMemoryManager:
 
     def _load_custom_component(self, repo_id: str, category: str, component_name: str):
 
-        # Keep on the the name between and after the first slash inclusing the slash
+        # Keep only the name between and after the first slash including the slash
         repo_folder = os.path.dirname(repo_id)
 
         # repo_id, weights_name = _extract_repo_id_and_weights_name(repo_id)
@@ -178,7 +139,7 @@ class ModelMemoryManager:
         )
 
         # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
-        safetensors_file = repo_id.split('/')[-1]
+        weights_name = repo_id.split('/')[-1]
 
         # Get the safetensors file
         if not os.path.exists(model_folder):
@@ -193,7 +154,7 @@ class ModelMemoryManager:
             commit_hash = f.read().strip()
 
         # Construct the path to model_index.json
-        file_path = os.path.join(model_folder, "snapshots", commit_hash, safetensors_file)
+        file_path = os.path.join(model_folder, "snapshots", commit_hash, weights_name)
         state_dict = load_state_dict_from_file(file_path)
 
 

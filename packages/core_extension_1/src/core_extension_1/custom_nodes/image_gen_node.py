@@ -133,7 +133,7 @@ class ImageGenNode(CustomNode):
                     callback_steps=callback_steps,
                 ).images  # type: ignore
 
-            del pipeline
+            # del pipeline
 
             return {"images": tensor_images}
         except Exception as e:
