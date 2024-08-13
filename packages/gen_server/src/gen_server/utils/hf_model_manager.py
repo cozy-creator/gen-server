@@ -37,7 +37,7 @@ class HFModelManager:
             model_info = model_config['models'].get(model_id)
             if not model_info:
                 logger.error(f"Model {model_id} not found in configuration.")
-                return False
+                return False, None
             
             print(f"Model Config: {model_config}")
             
@@ -48,117 +48,197 @@ class HFModelManager:
 
             print(f"Repo ID: {repo_id}")
 
-            storage_folder = os.path.join(
-                self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
-            )
+            # Check main repo
+            repo_downloaded, variant = self._check_repo_downloaded(repo_id)
+            if not repo_downloaded:
+                return False, None
 
-            print(f"Storage Folder: {storage_folder}")
-            if not os.path.exists(storage_folder):
-                return False
+            # Check components if model_index is present
+            if 'model_index' in model_info:
+                for component_name, source in model_info['model_index'].items():
+                    if isinstance(source, list):
+                        component_repo = source[0]
+                        if not self._check_component_downloaded(component_repo, component_name):
+                            print(f"Component {component_name} from {component_repo} is not downloaded.")
+                            logger.info(f"Component {component_name} from {component_repo} is not downloaded.")
+                            return False, None
+                    elif isinstance(source, str) and source.endswith(('.safetensors', '.bin', '.ckpt')):
+                        if not self._check_file_downloaded(source):
+                            print(f"Custom component file {source} is not downloaded.")
+                            logger.info(f"Custom component file {source} is not downloaded.")
+                            return False, None
 
-            # Get the latest commit hash
-            refs_path = os.path.join(storage_folder, "refs", "main")
-            if not os.path.exists(refs_path):
-                return False
-
-            with open(refs_path, "r") as f:
-                commit_hash = f.read().strip()
-
-
-            snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
-            if not os.path.exists(snapshot_folder):
-                return False
-
-            # Check model_index.json for required folders
-            model_index_path = os.path.join(snapshot_folder, "model_index.json")
-
-
-            if os.path.exists(model_index_path):
-                with open(model_index_path, "r") as f:
-                    model_index = json.load(f)
-                    required_folders = {
-                        k
-                        for k, v in model_index.items()
-                        if isinstance(v, list)
-                        and len(v) == 2
-                        and v[0] is not None
-                        and v[1] is not None
-                    }
-
-
-                # Remove known non-folder keys and ignored folders
-                ignored_folders = {
-                    "_class_name",
-                    "_diffusers_version",
-                    "scheduler",
-                    "feature_extractor",
-                    "tokenizer",
-                    "tokenizer_2",
-                    "tokenizer_3",
-                    "safety_checker",
-                }
-                required_folders -= ignored_folders
-
-                # Define variant hierarchy
-                variants = [
-                    "bf16",
-                    "fp8",
-                    "fp16",
-                    "",
-                ]  # empty string for normal variant
-
-                def check_folder_completeness(folder_path: str, variant: str) -> bool:
-                    if not os.path.exists(folder_path):
-                        return False
-                    
-                    for _, _, files in os.walk(folder_path):
-                        for file in files:
-                            if file.endswith('.incomplete'):
-                                print(f"Incomplete File: {file}")
-                                return False
-
-                            
-                            if (file.endswith(f"{variant}.safetensors") or 
-                                file.endswith(f"{variant}.bin") or
-                                (variant == "" and (file.endswith('.safetensors') or file.endswith('.bin')))):
-                                return True
-
-                    return False
-
-                def check_variant_completeness(variant: str) -> bool:
-                    for folder in required_folders:
-                        folder_path = os.path.join(snapshot_folder, folder)
-
-                        if not check_folder_completeness(folder_path, variant):
-                            return False
-
-                    return True
-
-                # Check variants in hierarchy
-                for variant in variants:
-                    print(f"Checking variant: {variant}")
-                    if check_variant_completeness(variant):
-                        return True
-
-            else:
-                # For repos without model_index.json, check the blob folder
-                blob_folder = os.path.join(storage_folder, "blobs")
-                if os.path.exists(blob_folder):
-                    for _root, _, files in os.walk(blob_folder):
-                        if any(file.endswith(".incomplete") for file in files):
-                            return False
-
-                    return True
-
-            return False
+            return True, variant
 
         except Exception as e:
             logger.error(f"Error checking download status for {repo_id}: {str(e)}")
+            return False, None
+        
+    def _check_repo_downloaded(self, repo_id: str) -> bool:
+        storage_folder = os.path.join(
+                self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+        )
+
+        print(f"Storage Folder: {storage_folder}")
+        if not os.path.exists(storage_folder):
+            return False, None
+
+        # Get the latest commit hash
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            return False, None
+
+        with open(refs_path, "r") as f:
+            commit_hash = f.read().strip()
+
+
+        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+        if not os.path.exists(snapshot_folder):
+            return False, None
+
+        # Check model_index.json for required folders
+        model_index_path = os.path.join(snapshot_folder, "model_index.json")
+
+
+        if os.path.exists(model_index_path):
+            with open(model_index_path, "r") as f:
+                model_index = json.load(f)
+                required_folders = {
+                    k
+                    for k, v in model_index.items()
+                    if isinstance(v, list)
+                    and len(v) == 2
+                    and v[0] is not None
+                    and v[1] is not None
+                }
+
+
+            # Remove known non-folder keys and ignored folders
+            ignored_folders = {
+                "_class_name",
+                "_diffusers_version",
+                "scheduler",
+                "feature_extractor",
+                "tokenizer",
+                "tokenizer_2",
+                "tokenizer_3",
+                "safety_checker",
+            }
+            required_folders -= ignored_folders
+
+            # Define variant hierarchy
+            variants = [
+                "bf16",
+                "fp8",
+                "fp16",
+                "",
+            ]  # empty string for normal variant
+
+            def check_folder_completeness(folder_path: str, variant: str) -> bool:
+                if not os.path.exists(folder_path):
+                    return False
+                
+                for _, _, files in os.walk(folder_path):
+                    for file in files:
+                        if file.endswith('.incomplete'):
+                            print(f"Incomplete File: {file}")
+                            return False
+
+                        
+                        if (file.endswith(f"{variant}.safetensors") or 
+                            file.endswith(f"{variant}.bin") or
+                            (variant == "" and (file.endswith('.safetensors') or file.endswith('.bin') or file.endswith('.ckpt')))):
+                            return True
+
+                return False
+
+            def check_variant_completeness(variant: str) -> bool:
+                for folder in required_folders:
+                    folder_path = os.path.join(snapshot_folder, folder)
+
+                    if not check_folder_completeness(folder_path, variant):
+                        return False
+
+                return True
+
+            # Check variants in hierarchy
+            for variant in variants:
+                print(f"Checking variant: {variant}")
+                if check_variant_completeness(variant):
+                    return True, variant
+
+        else:
+            # For repos without model_index.json, check the blob folder
+            blob_folder = os.path.join(storage_folder, "blobs")
+            if os.path.exists(blob_folder):
+                for _root, _, files in os.walk(blob_folder):
+                    if any(file.endswith(".incomplete") for file in files):
+                        return False, None
+
+                return True, None
+
+        return False, None
+
+    
+        
+    def _check_component_downloaded(self, repo_id: str, component_name: str) -> bool:
+        storage_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+        )
+
+        if not os.path.exists(storage_folder):
             return False
+
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            return False
+
+        with open(refs_path, "r") as f:
+            commit_hash = f.read().strip()
+
+        component_folder = os.path.join(storage_folder, "snapshots", commit_hash, component_name)
+        
+        if not os.path.exists(component_folder):
+            return False
+
+        # Check for any .bin, .safetensors, or .ckpt file in the component folder
+        for root, _, files in os.walk(component_folder):
+            for file in files:
+                if file.endswith(('.bin', '.safetensors', '.ckpt')) and not file.endswith('.incomplete'):
+                    return True
+
+        return False
+    
+    
+    
+    def _check_file_downloaded(self, file_path: str) -> bool:
+
+        # Keep only the name between and after the first slash including the slash
+        repo_folder = os.path.dirname(file_path)
+
+        storage_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
+        )
+
+        # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
+        weights_name = file_path.split('/')[-1]
+
+        if not os.path.exists(storage_folder):
+            return False
+
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            return False
+
+        with open(refs_path, "r") as f:
+            commit_hash = f.read().strip()
+
+        full_path = os.path.join(storage_folder, "snapshots", commit_hash, weights_name)
+        return os.path.exists(full_path) and not full_path.endswith('.incomplete')
 
     def list(self) -> List[str]:
         cache_info = scan_cache_dir()
-        return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)]
+        return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)[0]]
     
     def get_model_index(self, repo_id: str) -> Dict[str, Any]:
         storage_folder = os.path.join(

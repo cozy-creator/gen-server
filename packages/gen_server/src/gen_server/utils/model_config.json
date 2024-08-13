@@ -15,6 +15,9 @@
         "default_negative_prompt": "",
         "guidance_scale": 3.5,
         "num_inference_steps": 25
+      },
+      "flux.1-schnell": {
+        "num_inference_steps": 4
       }
     },
     "cozy_categories": {
