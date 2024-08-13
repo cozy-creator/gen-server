@@ -50,6 +50,9 @@ auraflow_transformer = "core_extension_1.architectures.aura_flow_archs:AuraFlowT
 auraflow_text_encoder = "core_extension_1.architectures.aura_flow_archs:AuraFlowTextEncoder"
 
 flux_transformer = "core_extension_1.architectures.flux_archs:FluxTransformer"
+flux_text_encoder_1 = "core_extension_1.architectures.flux_archs:FluxTextEncoder1"
+flux_text_encoder_2 = "core_extension_1.architectures.flux_archs:FluxTextEncoder2"
+flux_vae = "core_extension_1.architectures.flux_archs:FluxVAEArch"
 
 spandrel_architectures = "core_extension_1.architectures.spandrel:architectures"
 briarmbg = "core_extension_1.architectures.briarmbg_arch:BriaRMBG"

@@ -80,8 +80,21 @@ class FluxTransformer(Architecture[FluxTransformer2DModel]):
         #     for key in state_dict
         #     if key.startswith("model.diffusion_model.")
         # }
+        # Check if state_dict starts with "model.diffusion_model." 
+
+        if "model.diffusion_model.double_blocks.0.img_attn.norm.key_norm.scale" in state_dict:
+            transformer_state_dict = {
+                key.replace("model.diffusion_model.", ""): state_dict[key]
+                for key in state_dict
+                if key.startswith("model.diffusion_model.")
+            }
+        else:
+            transformer_state_dict = state_dict
+
+
+
         new_transformer_state_dict = convert_flux_transformer_checkpoint_to_diffusers(
-            state_dict, config=self._config
+            transformer_state_dict, config=self._config
         )
 
         if is_accelerate_available():

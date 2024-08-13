@@ -216,6 +216,7 @@ class HFModelManager:
         # Keep only the name between and after the first slash including the slash
         repo_folder = os.path.dirname(file_path)
 
+        
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
         )
@@ -224,7 +225,12 @@ class HFModelManager:
         weights_name = file_path.split('/')[-1]
 
         if not os.path.exists(storage_folder):
-            return False
+            storage_folder = os.path.join(self.cache_dir, repo_folder)
+            if not os.path.exists(storage_folder):
+                return False
+            else:
+                full_path = os.path.join(storage_folder, weights_name)
+                return os.path.exists(full_path) and not full_path.endswith('.incomplete')
 
         refs_path = os.path.join(storage_folder, "refs", "main")
         if not os.path.exists(refs_path):

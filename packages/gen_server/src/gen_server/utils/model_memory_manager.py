@@ -62,11 +62,14 @@ class ModelMemoryManager:
                 
             pipeline = DiffusionPipeline.from_pretrained(
                 repo_id,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=torch.float16,
                 local_files_only=True,
                 variant=variant,
                 **pipeline_kwargs
             )
+
+            pipeline.to(torch.float16)
+
 
 
             self.loaded_models[model_id] = pipeline
@@ -128,6 +131,8 @@ class ModelMemoryManager:
 
     def _load_custom_component(self, repo_id: str, category: str, component_name: str):
 
+
+        file_path = None
         # Keep only the name between and after the first slash including the slash
         repo_folder = os.path.dirname(repo_id)
 
@@ -143,18 +148,24 @@ class ModelMemoryManager:
 
         # Get the safetensors file
         if not os.path.exists(model_folder):
-            raise FileNotFoundError(f"Cache folder for {repo_id} not found")
+            model_folder = os.path.join(self.cache_dir, repo_folder)
+            if not os.path.exists(model_folder):
+                raise FileNotFoundError(f"Cache folder for {repo_id} not found")
+            else:
+                file_path = os.path.join(model_folder, weights_name)
 
-        # Get the latest commit hash
-        refs_path = os.path.join(model_folder, "refs", "main")
-        if not os.path.exists(refs_path):
-            raise FileNotFoundError(f"refs/main not found for {repo_id}")
+        if not file_path:
+            # Get the latest commit hash
+            refs_path = os.path.join(model_folder, "refs", "main")
+            if not os.path.exists(refs_path):
+                raise FileNotFoundError(f"refs/main not found for {repo_id}")
 
-        with open(refs_path, "r") as f:
-            commit_hash = f.read().strip()
+            with open(refs_path, "r") as f:
+                commit_hash = f.read().strip()
 
-        # Construct the path to model_index.json
-        file_path = os.path.join(model_folder, "snapshots", commit_hash, weights_name)
+            # Construct the path to model_index.json
+            file_path = os.path.join(model_folder, "snapshots", commit_hash, weights_name)
+
         state_dict = load_state_dict_from_file(file_path)
 
 
