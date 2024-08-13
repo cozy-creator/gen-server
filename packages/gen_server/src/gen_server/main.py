@@ -1,12 +1,10 @@
 import os
 
-
 # Disable triton on Windows since it is not supported
 # We do this at the top of the file to ensure it is set before any imports that may trigger triton
 if os.name == "nt":
     print("\n----- Windows detected, disabling Triton -----\n")
     os.environ["XFORMERS_FORCE_DISABLE_TRITON"] = "1"
-
 
 import logging
 import time
@@ -21,7 +19,6 @@ from types import FrameType
 from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
-
 
 from .base_types import (
     api_authenticator_validator,
@@ -39,10 +36,8 @@ from .utils import (
     get_models_dir,
     get_web_dir,
 )
-
 from .config import init_config
 from .api import start_api_server, api_routes_validator
-
 from .globals import (
     get_api_endpoints,
     get_custom_nodes,
@@ -316,7 +311,7 @@ def run_app(cozy_config: RunCommandConfig):
 
     # compile model registry
     start_time_checkpoint_files = time.time()
-    models_dirs = [get_models_dir()] + cozy_config.aux_models_paths
+    models_dirs = [get_models_dir(), *cozy_config.aux_models_paths]
     update_checkpoint_files(find_checkpoint_files(models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
