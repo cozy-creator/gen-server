@@ -9,6 +9,7 @@ from typing import Optional
 
 from gen_server import examples
 from ..config import get_config
+# from ..globals import get_model_config
 
 APP_NAME = "cozy-creator"
 DEFAULT_DIST_PATH = Path("/srv/www/cozy/dist")
@@ -63,6 +64,12 @@ def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
         counter = 1
     return counter
 
+def get_model_config_path() -> Path:
+    """
+    Returns the path to the model_config.yaml file in the home directory.
+    """
+    return Path(get_home_dir()) / "model_config.yaml"
+
 
 def ensure_app_dirs():
     config = get_config()
@@ -87,6 +94,28 @@ def ensure_app_dirs():
     # If home directory was just created, write the example env file
     if home_created:
         _write_example_files(home_dir)
+
+    # Ensure model_config.yaml exists
+    model_config_path = get_model_config_path()
+    if not model_config_path.exists():
+        _write_default_model_config(model_config_path)
+
+def _write_default_model_config(path: Path):
+    default_config = """
+    models:
+    playground-v2.5-1024px-aesthetic:
+        category: playground2.5
+        repo: "hf:playgroundai/playground-v2.5-1024px-aesthetic"
+    
+    flux.1-schnell:
+        category: flux.1
+        repo: "hf:black-forest-labs/FLUX.1-schnell"
+        model_index:
+        text_encoder_2: [ black-forest-labs/FLUX.1-schnell, text_encoder_2 ]
+        transformer: Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+    """
+    with open(path, 'w') as f:
+        f.write(default_config.strip())
 
 
 def _write_example_files(workspace_path: str):

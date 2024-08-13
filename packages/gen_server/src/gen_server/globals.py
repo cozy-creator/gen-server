@@ -9,10 +9,10 @@ from .base_types import (
     ApiAuthenticator,
     TorchDevice,
 )
-from .utils.hf_model_manager import HFModelManager
-from .utils.model_memory_manager import ModelMemoryManager
 from .utils.device import get_torch_device
 import yaml
+from .utils.paths import get_model_config_path
+
 
 
 
@@ -21,10 +21,10 @@ _MODEL_CONFIG: dict = {}
 _available_torch_device: TorchDevice = get_torch_device()
 
 # Huggingface Manager
-_HF_MODEL_MANAGER = HFModelManager()
+_HF_MODEL_MANAGER = None
 
 # Model Memory Manager
-_MODEL_MEMORY_MANAGER = ModelMemoryManager()
+_MODEL_MEMORY_MANAGER = None
 
 # Download Manager
 _download_manager: Optional[DownloadManager] = None
@@ -60,14 +60,33 @@ _api_authenticator: Optional[Type[ApiAuthenticator]] = None
 
 
 
-def load_model_config(config_path: str):
+def get_hf_model_manager():
+    global _HF_MODEL_MANAGER
+    if _HF_MODEL_MANAGER is None:
+        from .utils.hf_model_manager import HFModelManager
+        _HF_MODEL_MANAGER = HFModelManager()
+    return _HF_MODEL_MANAGER
+
+
+def get_model_memory_manager():
+    global _MODEL_MEMORY_MANAGER
+    if _MODEL_MEMORY_MANAGER is None:
+        from .utils.model_memory_manager import ModelMemoryManager
+        _MODEL_MEMORY_MANAGER = ModelMemoryManager()
+    return _MODEL_MEMORY_MANAGER
+
+
+def load_model_config():
     global _MODEL_CONFIG
+    config_path = get_model_config_path()
     with open(config_path, 'r') as file:
         _MODEL_CONFIG = yaml.safe_load(file)
 
 
 def get_model_config():
     global _MODEL_CONFIG
+    # if _MODEL_CONFIG is None:
+    #     load_model_config()
     return _MODEL_CONFIG
 
 
@@ -127,13 +146,13 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
     return _api_authenticator
 
 
-def get_hf_model_manager() -> HFModelManager:
-    global _HF_MODEL_MANAGER
-    return _HF_MODEL_MANAGER
+# def get_hf_model_manager() -> HFModelManager:
+#     global _HF_MODEL_MANAGER
+#     return _HF_MODEL_MANAGER
 
-def get_model_memory_manager() -> ModelMemoryManager:
-    global _MODEL_MEMORY_MANAGER
-    return _MODEL_MEMORY_MANAGER
+# def get_model_memory_manager() -> ModelMemoryManager:
+#     global _MODEL_MEMORY_MANAGER
+#     return _MODEL_MEMORY_MANAGER
 
 
 
