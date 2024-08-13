@@ -22,18 +22,19 @@ DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 def get_assets_dir():
     config = get_config()
     if config.assets_path:
-        return config.assets_path
-    else:
-        return os.path.join(config.home_dir, "assets")
+        return os.path.expanduser(config.assets_path)
+    return os.path.join(get_home_dir(), "assets")
 
 
 def get_models_dir():
     config = get_config()
-    if config.models_path:
-        return config.models_path
-    else:
-        return os.path.join(config.home_dir, "models")
 
+    if config.models_path:
+        return os.path.expanduser(config.models_path)
+    return os.path.join(get_home_dir(), "models")
+
+def get_home_dir():
+    return os.path.expanduser(get_config().home_dir)
 
 def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
     def map_filename(filename: str) -> tuple[int, str]:
@@ -68,8 +69,9 @@ def ensure_app_dirs():
     
     # Ensure home directory exists
     home_created = False
-    if not os.path.exists(config.home_dir):
-        os.makedirs(config.home_dir, exist_ok=True)
+    home_dir = get_home_dir()
+    if not os.path.exists(home_dir):
+        os.makedirs((home_dir), exist_ok=True)
         home_created = True
     
     # Ensure assets directory exists
@@ -84,7 +86,7 @@ def ensure_app_dirs():
     
     # If home directory was just created, write the example env file
     if home_created:
-        _write_example_files(config.home_dir)
+        _write_example_files(home_dir)
 
 
 def _write_example_files(workspace_path: str):

@@ -17,12 +17,14 @@ import requests
 import torch
 
 from ..base_types.pydantic_models import RunCommandConfig
+from ..base_types import TorchDevice
 from ..globals import (
     CustomNode,
     CheckpointMetadata,
     update_architectures,
     update_checkpoint_files,
     update_custom_nodes,
+    set_available_torch_device,
 )
 from .workflows import generate_images_non_io
 from ..config import set_config
@@ -82,6 +84,7 @@ async def start_gpu_worker_non_io(
     custom_nodes: Dict[str, Type[CustomNode]],
     checkpoint_files: Dict[str, CheckpointMetadata],
     architectures: Dict[str, Any],
+    device: TorchDevice,
 ):
     manager = multiprocessing.Manager()
 
@@ -89,6 +92,7 @@ async def start_gpu_worker_non_io(
     update_custom_nodes(custom_nodes)
     update_architectures(architectures)
     update_checkpoint_files(checkpoint_files)
+    set_available_torch_device(device)
 
     file_handler = get_file_handler(cozy_config)
 
@@ -121,7 +125,7 @@ async def start_gpu_worker_non_io(
                 for images in generate_images_non_io(data, cancel_event):
                     if cancel_event is not None and cancel_event.is_set():
                         raise asyncio.CancelledError("Operation was cancelled.")
-                    
+
                     async for file_url in upload_batch(file_handler, images):
                         if cancel_event is not None and cancel_event.is_set():
                             raise asyncio.CancelledError("Operation was cancelled.")
@@ -137,16 +141,15 @@ async def start_gpu_worker_non_io(
                 logger.error(f"Error in image generation: {str(e)}")
                 if response_conn is not None:
                     response_conn.send(None)
+            finally:
+                if response_conn is not None:
+                    response_conn.send(None)
+                    response_conn.close()
         except queue.Empty:
             continue
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
-        finally:
-            if "response_conn" in locals() and response_conn is not None: # type: ignore
-                response_conn.send(None)  # type: ignore
-                response_conn.close() # type: ignore
-
 
     logger.info("GPU-worker shut down complete")
 
@@ -158,6 +161,7 @@ def start_gpu_worker(
     custom_nodes: Dict[str, Type[CustomNode]],
     checkpoint_files: Dict[str, CheckpointMetadata],
     architectures: Dict[str, Any],
+    device: TorchDevice,
 ):
     asyncio.run(
         start_gpu_worker_non_io(
@@ -167,6 +171,7 @@ def start_gpu_worker(
             custom_nodes,
             checkpoint_files,
             architectures,
+            device,
         )
     )
 

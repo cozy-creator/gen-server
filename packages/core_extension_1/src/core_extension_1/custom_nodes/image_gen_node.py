@@ -2,6 +2,7 @@ import traceback
 import torch
 
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+
 # from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
 # from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
 # from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
@@ -16,8 +17,7 @@ from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.globals import get_hf_model_manager
-from gen_server.utils.device import get_torch_device
+from gen_server.globals import get_hf_model_manager, get_available_torch_device
 
 
 class ImageGenNode(CustomNode):
@@ -27,16 +27,15 @@ class ImageGenNode(CustomNode):
         super().__init__()
         self.config_manager = ModelConfigManager()
 
-    def __call__( # type: ignore
-            self,
-            repo_id: str,
-            positive_prompt: str,
-            negative_prompt: str = "",
-            aspect_ratio: str = "1/1",
-            num_images: int = 1,
-            random_seed: Optional[int] = None,
-            callback: Optional[Callable] = None,
-            callback_steps: Optional[int] = 1,
+    def __call__(  # type: ignore
+        self,
+        repo_id: str,
+        positive_prompt: str,
+        negative_prompt: str = "",
+        aspect_ratio: str = "1/1",
+        num_images: int = 1,
+        random_seed: Optional[int] = None,
+        callback: Optional[Callable] = None,
     ):
         """
         Args:
@@ -51,17 +50,16 @@ class ImageGenNode(CustomNode):
         """
 
         try:
-
             # Create pipeline without changing the scheduler
             try:
-            #     pipeline = DiffusionPipeline.from_pretrained(
-            #         repo_id,
-            #         local_files_only=False, 
-            #         variant="fp16", 
-            #         torch_dtype=torch.float16
-            #     )
+                #     pipeline = DiffusionPipeline.from_pretrained(
+                #         repo_id,
+                #         local_files_only=False,
+                #         variant="fp16",
+                #         torch_dtype=torch.float16
+                #     )
                 hf_model_manager = get_hf_model_manager()
-                
+
                 # Load the model
                 pipeline = hf_model_manager.load(None, repo_id)
             except Exception as e:
@@ -72,20 +70,20 @@ class ImageGenNode(CustomNode):
 
             class_name = pipeline.__class__.__name__
 
-            module = import_module('diffusers')
-
+            module = import_module("diffusers")
 
             # Get model-specific configuration
             model_config = self.config_manager.get_model_config(repo_id, class_name)
 
-
             # Check if a specific scheduler is specified in the config
-            scheduler_name = model_config.get('scheduler')
+            scheduler_name = model_config.get("scheduler")
             if scheduler_name:
                 print("In Here")
                 SchedulerClass = getattr(module, scheduler_name)
-                pipeline.scheduler = SchedulerClass.from_config(pipeline.scheduler.config)
-            
+                pipeline.scheduler = SchedulerClass.from_config(
+                    pipeline.scheduler.config
+                )
+
             # Determine the width and height based on the aspect ratio and base model
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
@@ -93,8 +91,12 @@ class ImageGenNode(CustomNode):
             self.apply_optimizations(pipeline)
 
             # Prepare prompts
-            full_positive_prompt = f"{model_config['default_positive_prompt']} {positive_prompt}".strip()
-            full_negative_prompt = f"{model_config['default_negative_prompt']} {negative_prompt}".strip()
+            full_positive_prompt = (
+                f"{model_config['default_positive_prompt']} {positive_prompt}".strip()
+            )
+            full_negative_prompt = (
+                f"{model_config['default_negative_prompt']} {negative_prompt}".strip()
+            )
 
             # Run the pipeline
             tensor_images = pipeline(
@@ -103,13 +105,12 @@ class ImageGenNode(CustomNode):
                 width=width,
                 height=height,
                 num_images_per_prompt=num_images,
-                guidance_scale=model_config['guidance_scale'],
-                num_inference_steps=model_config['num_inference_steps'],
+                guidance_scale=model_config["guidance_scale"],
+                num_inference_steps=model_config["num_inference_steps"],
                 random_seed=random_seed,
                 output_type="pt",
                 callback_on_step_end=callback,
-                callback_steps=callback_steps,
-            ).images # type: ignore
+            ).images  # type: ignore
 
             del pipeline
 
@@ -119,14 +120,24 @@ class ImageGenNode(CustomNode):
             raise ValueError(f"Error generating images: {e}")
 
     def apply_optimizations(self, pipeline: DiffusionPipeline):
+        device = get_available_torch_device()
         optimizations = [
-            ('enable_vae_tiling', "VAE Tiled", {}),
-            ('enable_xformers_memory_efficient_attention', "Memory Efficient Attention", {}),
-            ('enable_model_cpu_offload', "CPU Offloading", {"device": get_torch_device()})
+            ("enable_vae_tiling", "VAE Tiled", {}),
+            (
+                "enable_xformers_memory_efficient_attention",
+                "Memory Efficient Attention",
+                {},
+            ),
+            (
+                "enable_model_cpu_offload",
+                "CPU Offloading",
+                {"device": device},
+            ),
         ]
 
         # Patch torch.mps to torch.backends.mps
-        if torch.backends.mps.is_available():
+        device_type = device if isinstance(device, str) else device.type
+        if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
         for opt_func, opt_name, kwargs in optimizations:
             try:
@@ -136,6 +147,7 @@ class ImageGenNode(CustomNode):
                 print(f"Error enabling {opt_name}: {e}")
 
         delattr(torch, "mps")
+
 
 # class ImageGenNode(CustomNode):
 #     """Generates images using Stable Diffusion pipelines."""

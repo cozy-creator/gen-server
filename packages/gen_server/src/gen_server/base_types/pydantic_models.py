@@ -1,19 +1,19 @@
-from ast import List
 import os
 import json
-import yaml
 from enum import Enum
-from typing import Type, Optional, Any, Iterable, Union
-from pydantic import BaseModel, Field, field_validator, ValidationInfo, validator
+from typing import Type, Optional, Any
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings import PydanticBaseSettingsSource, YamlConfigSettingsSource
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
+
 class ModelConfig(BaseModel):
     """
     Model configuration loaded from a config.yaml file usually
     """
+
     category: str
     variant: str
 
@@ -25,11 +25,11 @@ def get_default_home_dir():
     cozy_home_dir = os.environ.get("COZY_HOME_DIR")
     if cozy_home_dir:
         return cozy_home_dir
-    
+
     xdg_data_home = os.environ.get("XDG_DATA_HOME")
     if xdg_data_home:
         return os.path.join(xdg_data_home, ".cozy-creator")
-    
+
     return DEFAULT_HOME_DIR
 
 
@@ -50,16 +50,16 @@ def find_config_file() -> Optional[str]:
     Returns the path to the config file if found, None otherwise.
     """
     possible_locations = [
-        os.environ.get("COZY_CONFIG_FILE"), # from cli-command or environment variable
-        '/etc/config/config.yaml',  # Kubernetes ConfigMap typical mount path
-        os.path.join(get_default_home_dir(), 'config.yaml'),  # Cozy's home directory
+        os.environ.get("COZY_CONFIG_FILE"),  # from cli-command or environment variable
+        "/etc/config/config.yaml",  # Kubernetes ConfigMap typical mount path
+        os.path.join(get_default_home_dir(), "config.yaml"),  # Cozy's home directory
     ]
-    
+
     for location in possible_locations:
         if location is not None and os.path.exists(location):
-            print(f'Config file loaded from: {location}')
+            print(f"Config file loaded from: {location}")
             return location
-    
+
     return None
 
 
@@ -132,7 +132,7 @@ class RunCommandConfig(BaseSettings):
         extra="allow",
         yaml_file_encoding="utf-8",
     )
-    
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -146,8 +146,7 @@ class RunCommandConfig(BaseSettings):
         This is used so that we can load our config.yaml file from a location determined at runtime
         """
         yaml_settings = YamlConfigSettingsSource(
-            settings_cls,
-            yaml_file=find_config_file()
+            settings_cls, yaml_file=find_config_file()
         )
         return (
             init_settings,
@@ -155,11 +154,13 @@ class RunCommandConfig(BaseSettings):
             env_settings,
             file_secret_settings,
         )
-    
+
     home_dir: str = Field(
         default=get_default_home_dir(),
-        description=("Local file-directory where /assets and /model folders will be loaded from and saved to. "
-                     "XDG_DATA_HOME is checked as a fallback if not specified."),
+        description=(
+            "Local file-directory where /assets and /model folders will be loaded from and saved to. "
+            "XDG_DATA_HOME is checked as a fallback if not specified."
+        ),
     )
 
     environment: str = Field(
@@ -205,11 +206,13 @@ class RunCommandConfig(BaseSettings):
             "If `s3`, files will be saved to and served from the specified S3 bucket and folder."
         ),
     )
-    
-    models: Optional[dict[str, ModelConfig]] = Field(
+
+    enabled_models: Optional[dict[str, ModelConfig]] = Field(
         default=None,
-        description=("Dictionary of models to be downloaded from hugging face on startup and made available "
-                     "for inference.")
+        description=(
+            "Dictionary of models to be downloaded from hugging face on startup and made available "
+            "for inference."
+        ),
     )
 
     s3: Optional[S3Credentials] = Field(
@@ -221,17 +224,6 @@ class RunCommandConfig(BaseSettings):
         default=None,
         description="The authenticator to be used in authenticating api requests.",
     )
-
-    enabled_models: Optional[list[str]] = Field(
-        default=None,
-        description="List of models to enable by default",
-    )
-
-    @field_validator('enabled_models', mode='before')
-    def parse_comma_separated_string(cls, v: object):
-        if isinstance(v, str):
-            return v.split(',')
-        return v
 
     # This allows the aux_models_paths field to be a comma-separated string of paths
     # or a list of paths
@@ -296,7 +288,7 @@ class BuildWebCommandConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
-    
+
     # TO DO: add a specifier for web-dir location
 
 
@@ -325,9 +317,12 @@ class DownloadCommandConfig(BaseSettings):
         description="The name of the file to download, if not specified, the entire repo will be downloaded",
     )
 
-
     sub_folder: Optional[str] = Field(
         default=None,
         description="The subfolder within the repo to download from",
     )
 
+    variant: Optional[str] = Field(
+        default="default",
+        description="The variant of the model to download",
+    )

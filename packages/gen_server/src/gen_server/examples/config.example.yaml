@@ -18,7 +18,7 @@ s3:
   folder: "public"
   public_url: "https://storage.cozy.dev"
 
-models:
+enabled_models:
   playgroundai/playground-v2.5-1024px-aesthetic:
     category: playground2.5
     variant: bf16

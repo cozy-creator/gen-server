@@ -11,6 +11,39 @@ Repeat this for all packages you want to install. The other packages extend func
 
 You'll also want to install PyTorch; the specific installation instructions vary depending upon your system; see here for details [here](https://pytorch.org/get-started/locally/). Be sure to use a CUDA installation if your system supports it.
 
+
+### Logging into Hugging Face
+
+To access gated repositories and models on Hugging Face, you must log in using the Hugging Face CLI. Follow these steps:
+
+1. Ensure you have the Hugging Face `cli` library installed:
+   ```
+   pip install -U "huggingface_hub[cli]"
+   ```
+
+2. Open a terminal or command prompt.
+
+3. Run the following command:
+   ```
+   huggingface-cli login
+   ```
+
+4. You will be prompted to enter your Hugging Face access token. If you don't have one:
+   - Go to https://huggingface.co/
+   - Log in to your account (or create one if you haven't already)
+   - Click on your profile picture and go to "Settings"
+   - In the left sidebar, click on "Access Tokens"
+   - Create a new token with the necessary permissions
+
+5. Copy your access token and paste it into the terminal when prompted.
+
+6. Press Enter. You should see a message confirming successful login.
+
+After logging in, you'll be able to access gated repositories and models in your Cozy Creator workflows that require authentication.
+
+Note: Your login credentials will be stored securely on your machine. You only need to perform this login process once, unless you need to change accounts or your token expires.
+
+
 ### Running Gen-Server Locally
 
 Cozy Creator has the following sub-commands:

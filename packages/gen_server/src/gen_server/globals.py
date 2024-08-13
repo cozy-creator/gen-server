@@ -1,12 +1,24 @@
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
+from .utils.download_manager import DownloadManager
 
-from .base_types import Architecture, CheckpointMetadata, CustomNode, ApiAuthenticator
+from .base_types import (
+    Architecture,
+    CheckpointMetadata,
+    CustomNode,
+    ApiAuthenticator,
+    TorchDevice,
+)
 from .utils.hf_model_manager import HFModelManager
+from .utils.device import get_torch_device
 
+_available_torch_device: TorchDevice = get_torch_device()
 
 # Huggingface Manager
 _HF_MODEL_MANAGER = HFModelManager()
+
+# Download Manager
+_download_manager: Optional[DownloadManager] = None
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
@@ -97,3 +109,24 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
 def get_hf_model_manager() -> HFModelManager:
     global _HF_MODEL_MANAGER
     return _HF_MODEL_MANAGER
+
+
+def get_download_manager() -> Optional[DownloadManager]:
+    global _download_manager
+    return _download_manager
+
+
+def set_download_manager(download_manager: DownloadManager):
+    global _download_manager
+    _download_manager = download_manager
+
+
+def get_available_torch_device():
+    global _available_torch_device
+    return _available_torch_device
+
+
+def set_available_torch_device(device: TorchDevice):
+    print("Setting device", device)
+    global _available_torch_device
+    _available_torch_device = device

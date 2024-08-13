@@ -1,9 +1,17 @@
-import json
+import os
+
+
+# Disable triton on Windows since it is not supported
+# We do this at the top of the file to ensure it is set before any imports that may trigger triton
+if os.name == "nt":
+    print("\n----- Windows detected, disabling Triton -----\n")
+    os.environ["XFORMERS_FORCE_DISABLE_TRITON"] = "1"
+
+
 import logging
 import time
 import argparse
 import sys
-import os
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
@@ -14,7 +22,12 @@ from typing import Optional
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
-from .base_types import api_authenticator_validator, custom_node_validator, architecture_validator
+
+from .base_types import (
+    api_authenticator_validator,
+    custom_node_validator,
+    architecture_validator,
+)
 from .utils import (
     LocalFileHandler,
     install_and_build_web_dir,
@@ -24,23 +37,46 @@ from .utils import (
     load_custom_node_specs,
     get_file_handler,
     get_models_dir,
-    get_web_dir
+    get_web_dir,
 )
+
 from .config import init_config
 from .api import start_api_server, api_routes_validator
-from .globals import *
+
+from .globals import (
+    get_api_endpoints,
+    get_custom_nodes,
+    update_api_endpoints,
+    update_architectures,
+    update_custom_nodes,
+    update_widgets,
+    update_checkpoint_files,
+    get_checkpoint_files,
+    get_architectures,
+    update_api_authenticator,
+    get_api_authenticator,
+    get_hf_model_manager,
+)
 from .base_types.pydantic_models import (
     RunCommandConfig,
     BuildWebCommandConfig,
-    DownloadCommandConfig
+    DownloadCommandConfig,
 )
+from .utils.download_manager import DownloadManager
 from .utils.cli_helpers import find_subcommand, find_arg_value, parse_known_args_wrapper
 from .executor.gpu_worker_non_io import start_gpu_worker
 from .utils.paths import DEFAULT_HOME_DIR
-
 import warnings
+from .utils.device import get_torch_device, get_torch_device_count
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
+
+# This is a warning from one of our architectures that uses a deprecated function in one of its dependencies.
+warnings.filterwarnings(
+    "ignore",
+    message="size_average and reduce args will be deprecated, please use reduction='mean' instead.",
+)
+
 
 # Configure the root logger
 logging.basicConfig(
@@ -51,14 +87,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Suppress the ModuleNotFoundError for triton
-logging.getLogger("xformers").setLevel(logging.ERROR)
+# logging.getLogger("xformers").setLevel(logging.ERROR)
 # import warnings
 # warnings.filterwarnings("ignore", module="pydantic_settings")
 
 
 def main():
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
-    
+
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
     # So we need to find the arguments _before_ we call parser.parse_args() inside of
     # CliSettingsSource() below.
@@ -95,13 +131,14 @@ def main():
             env_file = os.path.join(home_dir, ".env")
         elif os.path.exists(os.path.join(home_dir, ".env.local")):
             env_file = os.path.join(home_dir, ".env.local")
-    
+
     # Load the environment variables into memory
     if env_file:
         from dotenv import load_dotenv
+
         load_dotenv(env_file)
         print(f"Loaded environment variables from {env_file}")
-        
+
     # We don't really do much with this yet...
     secrets_dir = (
         find_arg_value("--secrets_dir")
@@ -122,16 +159,38 @@ def main():
 
     # Add subcommands
     subparsers = root_parser.add_subparsers(dest="command", help="Available commands")
-    
-    run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
-    run_parser.add_argument("--env-file", type=str, default=None, metavar='', help="Path to an environment file loaded on startup")
-    run_parser.add_argument("--secrets-dir", type=str, default=None, metavar='', help="Path to the secrets directory")
-    run_parser.add_argument("--config-file", type=str, default=None, metavar='', help="Path to a YAML configuration file")
-    
-    build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
-    download_parser = subparsers.add_parser("download", help="Download models to cozy's local cache")
 
-    def get_cli_settings(cls: Any, root_parser: argparse.ArgumentParser) -> CliSettingsSource:
+    run_parser = subparsers.add_parser("run", help="Run the Cozy Creator server")
+    run_parser.add_argument(
+        "--env-file",
+        type=str,
+        default=None,
+        metavar="",
+        help="Path to an environment file loaded on startup",
+    )
+    run_parser.add_argument(
+        "--secrets-dir",
+        type=str,
+        default=None,
+        metavar="",
+        help="Path to the secrets directory",
+    )
+    run_parser.add_argument(
+        "--config-file",
+        type=str,
+        default=None,
+        metavar="",
+        help="Path to a YAML configuration file",
+    )
+
+    build_web_parser = subparsers.add_parser("build-web", help="Build the web bundle")
+    download_parser = subparsers.add_parser(
+        "download", help="Download models to cozy's local cache"
+    )
+
+    def get_cli_settings(
+        cls: Any, root_parser: argparse.ArgumentParser
+    ) -> CliSettingsSource:
         return CliSettingsSource(
             cls,
             root_parser=root_parser,
@@ -164,15 +223,22 @@ def main():
 
         # Install and build the web directory
         install_and_build_web_dir(web_dir)
-        
+
     elif subcommand == "download":
         cli_settings = get_cli_settings(DownloadCommandConfig, download_parser)
         config = DownloadCommandConfig(
-            _cli_settings_source=cli_settings(args=True), # type: ignore
+            _cli_settings_source=cli_settings(args=True),  # type: ignore
         )
 
-        hf_manager = get_hf_model_manager()
-        asyncio.run(hf_manager.download(config.repo_id, config.file_name, config.sub_folder))
+        download_manager = DownloadManager(hf_manager=get_hf_model_manager())
+        asyncio.run(
+            download_manager.download_model(
+                config.repo_id,
+                file_name=config.file_name,
+                sub_folder=config.sub_folder,
+                variant=config.variant,
+            )
+        )
 
     elif subcommand is None:
         print("No subcommand specified. Please specify a subcommand.")
@@ -188,15 +254,8 @@ def main():
 def run_app(cozy_config: RunCommandConfig):
     # Ensure our app directories exist.
     ensure_app_dirs()
-    
-    print(f'COZY CONFIG: {cozy_config}')
 
-    print("Enabled models:", cozy_config.enabled_models)
-
-    if cozy_config.enabled_models:
-        for model in cozy_config.enabled_models:
-            hf_manager = get_hf_model_manager()
-            asyncio.run(hf_manager.download(model, None, None))
+    # print(f'COZY CONFIG: {cozy_config}')
 
     # We load the extensions inside a function to avoid circular dependencies
 
@@ -286,6 +345,10 @@ def run_app(cozy_config: RunCommandConfig):
 
     # asyncio.run(test_generate_images())
 
+    download_manager = DownloadManager(hf_manager=get_hf_model_manager())
+    if cozy_config.enabled_models is not None:
+        asyncio.run(download_manager.download_models(cozy_config.enabled_models))
+
     try:
         manager = multiprocessing.Manager()
 
@@ -310,11 +373,13 @@ def run_app(cozy_config: RunCommandConfig):
         api_authenticator = get_api_authenticator()
         node_specs = load_custom_node_specs(custom_nodes)
 
+        device_count = get_torch_device_count()
+
         # Create a process pool for the workers
         # Note that we must use 'spawn' rather than 'fork' because CUDA and Windows do not
         # support forking.
         with ProcessPoolExecutor(
-            max_workers=3,
+            max_workers=device_count + 1,
             mp_context=multiprocessing.get_context("spawn"),
         ) as executor:
             futures = [
@@ -329,19 +394,24 @@ def run_app(cozy_config: RunCommandConfig):
                     node_specs,
                     api_endpoints,
                     api_authenticator,
-                ),
-                named_future(
-                    executor,
-                    "gpu_worker",
-                    start_gpu_worker,
-                    job_queue,
-                    cancel_registry,
-                    cozy_config,
-                    custom_nodes,
-                    checkpoint_files,
-                    architectures,
-                ),
+                )
             ]
+
+            for index in range(device_count):
+                futures.append(
+                    named_future(
+                        executor,
+                        f"gpu_worker:{index}",
+                        start_gpu_worker,
+                        job_queue,
+                        cancel_registry,
+                        cozy_config,
+                        custom_nodes,
+                        checkpoint_files,
+                        architectures,
+                        get_torch_device(index),
+                    ),
+                )
 
             def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
                 print("Received shutdown signal. Terminating processes...")
@@ -364,7 +434,7 @@ def run_app(cozy_config: RunCommandConfig):
             # Print exceptions from futures
             for future in futures:
                 future.add_done_callback(
-                    lambda f: print(f"Error in {f.__dict__['name']}: {f.exception()}")
+                    lambda f: print(f"Error in {f.__dict__['name']}: {f.exception()}")  # type: ignore
                     if f.exception()
                     else None
                 )

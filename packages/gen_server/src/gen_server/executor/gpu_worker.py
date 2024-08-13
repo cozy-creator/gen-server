@@ -1,7 +1,6 @@
 import queue
 import time
 import traceback
-from tracemalloc import start
 from typing import Type
 
 from gen_server.config import set_config
