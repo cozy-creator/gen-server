@@ -4,7 +4,7 @@ extraPaths = ["packages/*/src"]
 
 pythonVersion = "3.11"
 
-typeCheckingMode = "off"
+typeCheckingMode = "strict"
 
 reportMissingImports = false
 reportUnusedImport = "none"
