@@ -40,9 +40,9 @@ def convert_sd3_t5_checkpoint_to_diffusers(checkpoint: StateDict):
     return text_model_dict
 
 
-class SD3TextEncoder3(Architecture[T5EncoderModel]):
+class FluxTextEncoder2(Architecture[T5EncoderModel]):
     """
-    Architecture definition for the SD3 Text Encoder 3 (T5-based).
+    Architecture definition for the Flux Text Encoder 2 (T5-based).
     """
 
     def __init__(self, **ignored: Any):
@@ -82,7 +82,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
 
     def load(self, state_dict: StateDict, device: TorchDevice = "cpu"): # type: ignore
         """
-        Loads the SD3 Text Encoder 3 model from the given state dictionary.
+        Loads the Flux Text Encoder 2 model from the given state dictionary.
         """
         print("Loading SD3 Text Encoder 3")
         start = time.time()

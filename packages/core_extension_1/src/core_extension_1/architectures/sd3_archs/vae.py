@@ -80,7 +80,7 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
         vae_state_dict = {
             key: state_dict[key]
             for key in state_dict
-            if key.startswith("first_stage_model.")
+            if key.startswith("vae.")
         }
 
         new_vae_state_dict = convert_ldm_vae_checkpoint(
@@ -94,7 +94,7 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict, dtype=torch.bfloat16)
             if vae._keys_to_ignore_on_load_unexpected is not None:
                 for pat in vae._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
