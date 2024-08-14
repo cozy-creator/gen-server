@@ -6,9 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "image_utils"
 description = "Image Utilities"
 version = "0.1.0"
-authors = [
-  { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" }
-]
+authors = [{ name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" }]
 
 dependencies = [
   "blake3",
@@ -18,9 +16,5 @@ dependencies = [
   "Pillow",
   "python-dotenv",
   "torch",
-  "torchvision"
+  "torchvision",
 ]
-
-[project.entry-points."cozy_creator.custom_nodes"]
-save_file = "image_utils.custom_nodes:SaveFile"
-

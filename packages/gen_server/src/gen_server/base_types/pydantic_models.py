@@ -14,8 +14,18 @@ class ModelConfig(BaseModel):
     Model configuration loaded from a config.yaml file usually
     """
 
-    category: str
-    variant: str
+    source: str
+    arch: Optional[str] = None
+    components: Optional[dict[str, "ModelConfig"]] = None
+
+    @field_validator("components")
+    def validate_components(cls, v: Any) -> Optional[dict[str, "ModelConfig"]]:
+        if v is not None:
+            return {
+                key: ModelConfig(**value) if isinstance(value, dict) else value
+                for key, value in v.items()
+            }
+        return v
 
 
 def get_default_home_dir():
@@ -224,16 +234,6 @@ class RunCommandConfig(BaseSettings):
         default=None,
         description="The authenticator to be used in authenticating api requests.",
     )
-
-    @field_validator("enabled_models", mode="before")
-    def parse_json_string(cls, v: object):
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                # should we return None instead?
-                raise ValueError(f"Invalid JSON string for enabled_models: {v}")
-        return v
 
     # This allows the aux_models_paths field to be a comma-separated string of paths
     # or a list of paths

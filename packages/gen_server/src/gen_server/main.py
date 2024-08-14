@@ -1,12 +1,10 @@
 import os
 
-
 # Disable triton on Windows since it is not supported
 # We do this at the top of the file to ensure it is set before any imports that may trigger triton
-if os.name == 'nt':
+if os.name == "nt":
     print("\n----- Windows detected, disabling Triton -----\n")
-    os.environ['XFORMERS_FORCE_DISABLE_TRITON'] = "1"
-
+    os.environ["XFORMERS_FORCE_DISABLE_TRITON"] = "1"
 
 import logging
 import time
@@ -15,26 +13,31 @@ import sys
 import concurrent.futures
 from concurrent.futures import Future, ProcessPoolExecutor
 import asyncio
-
 from typing import Any, Callable
 import signal
 from types import FrameType
 from typing import Optional
-
 from pydantic_settings import CliSettingsSource
 import multiprocessing
 
-from .base_types.authenticator import api_authenticator_validator
-from .utils.file_handler import LocalFileHandler
-from .utils.web import install_and_build_web_dir
-from .utils.paths import ensure_app_dirs, get_model_config_path
+from .base_types import (
+    api_authenticator_validator,
+    custom_node_validator,
+    architecture_validator,
+)
+from .utils import (
+    LocalFileHandler,
+    install_and_build_web_dir,
+    ensure_app_dirs,
+    load_extensions,
+    find_checkpoint_files,
+    load_custom_node_specs,
+    get_file_handler,
+    get_models_dir,
+    get_web_dir,
+)
 from .config import init_config
-from .base_types.custom_node import custom_node_validator
-from .base_types.architecture import architecture_validator
-from .utils import load_extensions, find_checkpoint_files
 from .api import start_api_server, api_routes_validator
-from .utils import load_custom_node_specs, get_file_handler
-from .utils.paths import get_models_dir, get_web_dir
 from .globals import (
     get_api_endpoints,
     get_custom_nodes,
@@ -70,7 +73,10 @@ from .utils.device import get_torch_device, get_torch_device_count
 warnings.filterwarnings("ignore", module="pydantic_settings")
 
 # This is a warning from one of our architectures that uses a deprecated function in one of its dependencies.
-warnings.filterwarnings("ignore", message="size_average and reduce args will be deprecated, please use reduction='mean' instead.") 
+warnings.filterwarnings(
+    "ignore",
+    message="size_average and reduce args will be deprecated, please use reduction='mean' instead.",
+)
 
 
 # Configure the root logger
@@ -86,9 +92,8 @@ logger = logging.getLogger(__name__)
 # import warnings
 # warnings.filterwarnings("ignore", module="pydantic_settings")
 
+
 def main():
-
-
     root_parser = argparse.ArgumentParser(description="Cozy Creator")
 
     # When we call parser.parse_args() the arg-parser will stop populating the --help menu
@@ -116,7 +121,7 @@ def main():
     )
 
     env_file = find_arg_value("--env_file") or find_arg_value("--env-file") or None
-    # If no .env file is specified, try to find one in the workspace path
+    # If no .env file is specified, try to find one in our home-directory
     if env_file is None:
         home_dir = (
             find_arg_value("--home-dir")
@@ -312,7 +317,7 @@ def run_app(cozy_config: RunCommandConfig):
 
     # compile model registry
     start_time_checkpoint_files = time.time()
-    models_dirs = [get_models_dir()] + cozy_config.aux_models_paths
+    models_dirs = [get_models_dir(), *cozy_config.aux_models_paths]
     update_checkpoint_files(find_checkpoint_files(models_dirs))
     print(
         f"CHECKPOINT_FILES loading time: {time.time() - start_time_checkpoint_files:.2f} seconds"
@@ -349,7 +354,7 @@ def run_app(cozy_config: RunCommandConfig):
     # asyncio.run(test_generate_images())
 
     download_manager = DownloadManager(hf_manager=get_hf_model_manager())
-    if cozy_config.enabled_models is not None and download_manager:
+    if cozy_config.enabled_models is not None:
         asyncio.run(download_manager.download_models(cozy_config.enabled_models))
 
     try:
@@ -401,11 +406,10 @@ def run_app(cozy_config: RunCommandConfig):
             ]
 
             for index in range(device_count):
-                print("Device index:", index)
                 futures.append(
                     named_future(
                         executor,
-                        "gpu_worker",
+                        f"gpu_worker:{index}",
                         start_gpu_worker,
                         job_queue,
                         cancel_registry,

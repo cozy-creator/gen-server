@@ -141,15 +141,15 @@ async def start_gpu_worker_non_io(
                 logger.error(f"Error in image generation: {str(e)}")
                 if response_conn is not None:
                     response_conn.send(None)
+            finally:
+                if response_conn is not None:
+                    response_conn.send(None)
+                    response_conn.close()
         except queue.Empty:
             continue
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Unexpected error in gpu-worker: {str(e)}")
-        finally:
-            if "response_conn" in locals() and response_conn is not None:  # type: ignore
-                response_conn.send(None)  # type: ignore
-                response_conn.close()  # type: ignore
 
     logger.info("GPU-worker shut down complete")
 

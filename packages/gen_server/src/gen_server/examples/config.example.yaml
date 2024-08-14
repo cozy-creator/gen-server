@@ -19,15 +19,22 @@ s3:
   public_url: "https://storage.cozy.dev"
 
 enabled_models:
-  playgroundai/playground-v2.5-1024px-aesthetic:
-    category: playground2.5
-    variant: bf16
+  playground2.5:
+    source: hf:playgroundai/playground-v2.5-1024px-aesthetic
 
-  RunDiffusion/Juggernaut-XL-v9:
-    category: sdxl
-    variant: bf16
+  juggernaut-xl-v9:
+    source: hf:RunDiffusion/Juggernaut-XL-v9
+  
+  flux.1-schnell:
+    source: hf:black-forest-labs/FLUX.1-schnell
+    components:
+      text_encoder_2:
+        source: hf:black-forest-labs/FLUX.1-schnell/text_encoder_2
+      transformer:
+        source: hf:Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+  
+  pony-diffusion-xl-v6:
+    source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    arch: core-extension-1.sdxl_pipe
 
-  stabilityai/stable-diffusion-xl-base-1.0:
-    category: sdxl
-    variant: bf16
 
