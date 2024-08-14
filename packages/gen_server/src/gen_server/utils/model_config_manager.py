@@ -7,6 +7,10 @@ model_config_path = os.path.join(
 )
 
 
+# TO DO: this should instead be more like, better default parameters for each
+# model.
+
+
 class ModelConfigManager:
     def __init__(self, config_path: str = model_config_path):
         self.config_path = config_path

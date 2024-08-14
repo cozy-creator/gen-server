@@ -14,8 +14,18 @@ class ModelConfig(BaseModel):
     Model configuration loaded from a config.yaml file usually
     """
 
-    category: str
-    variant: str
+    source: str
+    arch: Optional[str] = None
+    components: Optional[dict[str, "ModelConfig"]] = None
+
+    @field_validator("components")
+    def validate_components(cls, v: Any) -> Optional[dict[str, "ModelConfig"]]:
+        if v is not None:
+            return {
+                key: ModelConfig(**value) if isinstance(value, dict) else value
+                for key, value in v.items()
+            }
+        return v
 
 
 def get_default_home_dir():

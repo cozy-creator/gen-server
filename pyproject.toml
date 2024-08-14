@@ -51,7 +51,8 @@ ignore = [
     "I001",  # Import block is un-sorted or un-formatted
     "PLR0913",  # Too many arguments in function definition
     "PLW0602",  # global assignment
-    "PLW0603"
+    "PLW0603",
+    "N805", # false positives
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

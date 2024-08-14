@@ -12,10 +12,7 @@ import json
 from .config_manager import get_model_config
 
 
-
-
 logger = logging.getLogger(__name__)
-
 
 
 class HFModelManager:
@@ -25,7 +22,6 @@ class HFModelManager:
         self.loaded_models: Dict[str, DiffusionPipeline] = {}
         self.hf_api = HfApi()
 
-
     def is_downloaded(self, model_id: str) -> bool:
         """
         Checks if a model is fully downloaded in the cache.
@@ -34,15 +30,15 @@ class HFModelManager:
         try:
             # Get the repo_id from the YAML configuration
             model_config = get_model_config()
-            model_info = model_config['models'].get(model_id)
+            model_info = model_config["models"].get(model_id)
             if not model_info:
                 logger.error(f"Model {model_id} not found in configuration.")
                 return False, None
-            
+
             print(f"Model Config: {model_config}")
-            
-            if model_info['repo']:
-                repo_id = model_info['repo'].replace('hf:', '')
+
+            if model_info["repo"]:
+                repo_id = model_info["repo"].replace("hf:", "")
             else:
                 repo_id = model_id
 
@@ -54,18 +50,28 @@ class HFModelManager:
                 return False, None
 
             # Check components if model_index is present
-            if 'model_index' in model_info:
-                for component_name, source in model_info['model_index'].items():
+            if "model_index" in model_info:
+                for component_name, source in model_info["model_index"].items():
                     if isinstance(source, list):
                         component_repo = source[0]
-                        if not self._check_component_downloaded(component_repo, component_name):
-                            print(f"Component {component_name} from {component_repo} is not downloaded.")
-                            logger.info(f"Component {component_name} from {component_repo} is not downloaded.")
+                        if not self._check_component_downloaded(
+                            component_repo, component_name
+                        ):
+                            print(
+                                f"Component {component_name} from {component_repo} is not downloaded."
+                            )
+                            logger.info(
+                                f"Component {component_name} from {component_repo} is not downloaded."
+                            )
                             return False, None
-                    elif isinstance(source, str) and source.endswith(('.safetensors', '.bin', '.ckpt')):
+                    elif isinstance(source, str) and source.endswith(
+                        (".safetensors", ".bin", ".ckpt")
+                    ):
                         if not self._check_file_downloaded(source):
                             print(f"Custom component file {source} is not downloaded.")
-                            logger.info(f"Custom component file {source} is not downloaded.")
+                            logger.info(
+                                f"Custom component file {source} is not downloaded."
+                            )
                             return False, None
 
             return True, variant
@@ -73,10 +79,10 @@ class HFModelManager:
         except Exception as e:
             logger.error(f"Error checking download status for {repo_id}: {str(e)}")
             return False, None
-        
+
     def _check_repo_downloaded(self, repo_id: str) -> bool:
         storage_folder = os.path.join(
-                self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+            self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
         )
 
         print(f"Storage Folder: {storage_folder}")
@@ -91,14 +97,12 @@ class HFModelManager:
         with open(refs_path, "r") as f:
             commit_hash = f.read().strip()
 
-
         snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
         if not os.path.exists(snapshot_folder):
             return False, None
 
         # Check model_index.json for required folders
         model_index_path = os.path.join(snapshot_folder, "model_index.json")
-
 
         if os.path.exists(model_index_path):
             with open(model_index_path, "r") as f:
@@ -111,7 +115,6 @@ class HFModelManager:
                     and v[0] is not None
                     and v[1] is not None
                 }
-
 
             # Remove known non-folder keys and ignored folders
             ignored_folders = {
@@ -137,17 +140,25 @@ class HFModelManager:
             def check_folder_completeness(folder_path: str, variant: str) -> bool:
                 if not os.path.exists(folder_path):
                     return False
-                
+
                 for _, _, files in os.walk(folder_path):
                     for file in files:
-                        if file.endswith('.incomplete'):
+                        if file.endswith(".incomplete"):
                             print(f"Incomplete File: {file}")
                             return False
 
-                        
-                        if (file.endswith(f"{variant}.safetensors") or 
-                            file.endswith(f"{variant}.bin") or
-                            (variant == "" and (file.endswith('.safetensors') or file.endswith('.bin') or file.endswith('.ckpt')))):
+                        if (
+                            file.endswith(f"{variant}.safetensors")
+                            or file.endswith(f"{variant}.bin")
+                            or (
+                                variant == ""
+                                and (
+                                    file.endswith(".safetensors")
+                                    or file.endswith(".bin")
+                                    or file.endswith(".ckpt")
+                                )
+                            )
+                        ):
                             return True
 
                 return False
@@ -179,8 +190,6 @@ class HFModelManager:
 
         return False, None
 
-    
-        
     def _check_component_downloaded(self, repo_id: str, component_name: str) -> bool:
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
@@ -196,33 +205,33 @@ class HFModelManager:
         with open(refs_path, "r") as f:
             commit_hash = f.read().strip()
 
-        component_folder = os.path.join(storage_folder, "snapshots", commit_hash, component_name)
-        
+        component_folder = os.path.join(
+            storage_folder, "snapshots", commit_hash, component_name
+        )
+
         if not os.path.exists(component_folder):
             return False
 
         # Check for any .bin, .safetensors, or .ckpt file in the component folder
         for root, _, files in os.walk(component_folder):
             for file in files:
-                if file.endswith(('.bin', '.safetensors', '.ckpt')) and not file.endswith('.incomplete'):
+                if file.endswith(
+                    (".bin", ".safetensors", ".ckpt")
+                ) and not file.endswith(".incomplete"):
                     return True
 
         return False
-    
-    
-    
-    def _check_file_downloaded(self, file_path: str) -> bool:
 
+    def _check_file_downloaded(self, file_path: str) -> bool:
         # Keep only the name between and after the first slash including the slash
         repo_folder = os.path.dirname(file_path)
 
-        
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
         )
 
         # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
-        weights_name = file_path.split('/')[-1]
+        weights_name = file_path.split("/")[-1]
 
         if not os.path.exists(storage_folder):
             storage_folder = os.path.join(self.cache_dir, repo_folder)
@@ -230,7 +239,9 @@ class HFModelManager:
                 return False
             else:
                 full_path = os.path.join(storage_folder, weights_name)
-                return os.path.exists(full_path) and not full_path.endswith('.incomplete')
+                return os.path.exists(full_path) and not full_path.endswith(
+                    ".incomplete"
+                )
 
         refs_path = os.path.join(storage_folder, "refs", "main")
         if not os.path.exists(refs_path):
@@ -240,12 +251,16 @@ class HFModelManager:
             commit_hash = f.read().strip()
 
         full_path = os.path.join(storage_folder, "snapshots", commit_hash, weights_name)
-        return os.path.exists(full_path) and not full_path.endswith('.incomplete')
+        return os.path.exists(full_path) and not full_path.endswith(".incomplete")
 
     def list(self) -> List[str]:
         cache_info = scan_cache_dir()
-        return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)[0]]
-    
+        return [
+            repo.repo_id
+            for repo in cache_info.repos
+            if self.is_downloaded(repo.repo_id)[0]
+        ]
+
     def get_model_index(self, repo_id: str) -> Dict[str, Any]:
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
@@ -263,14 +278,15 @@ class HFModelManager:
             commit_hash = f.read().strip()
 
         # Construct the path to model_index.json
-        model_index_path = os.path.join(storage_folder, "snapshots", commit_hash, "model_index.json")
+        model_index_path = os.path.join(
+            storage_folder, "snapshots", commit_hash, "model_index.json"
+        )
 
         if not os.path.exists(model_index_path):
             raise FileNotFoundError(f"model_index.json not found for {repo_id}")
 
-        with open(model_index_path, 'r') as f:
+        with open(model_index_path, "r") as f:
             return json.load(f)
-
 
     async def download(
         self,
@@ -292,14 +308,18 @@ class HFModelManager:
                 self.list()  # Refresh the cached list
                 return
             except Exception as e:
-                logger.error(f"Failed to download file {file_name} from {repo_id}: {str(e)}")
+                logger.error(
+                    f"Failed to download file {file_name} from {repo_id}: {str(e)}"
+                )
                 return
 
         variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
         for var in variants:
             try:
                 if var:
-                    logger.info(f"Attempting to download {repo_id} with {var} variant...")
+                    logger.info(
+                        f"Attempting to download {repo_id} with {var} variant..."
+                    )
                 else:
                     logger.info(f"Attempting to download {repo_id} without variant...")
 
@@ -311,18 +331,23 @@ class HFModelManager:
                     torch_dtype=torch.float16,
                 )
 
-                logger.info(f"Model {repo_id} downloaded successfully with variant: {var if var else 'default'}")
+                logger.info(
+                    f"Model {repo_id} downloaded successfully with variant: {var if var else 'default'}"
+                )
                 self.list()  # Refresh the cached list
                 return
 
             except Exception as e:
                 if var:
-                    logger.error(f"Failed to download {var} variant for {repo_id}: {str(e)}. Trying next variant...")
+                    logger.error(
+                        f"Failed to download {var} variant for {repo_id}: {str(e)}. Trying next variant..."
+                    )
                 else:
-                    logger.error(f"Failed to download default variant for {repo_id}: {str(e)}")
+                    logger.error(
+                        f"Failed to download default variant for {repo_id}: {str(e)}"
+                    )
 
         logger.error(f"Failed to download model {repo_id} with any variant.")
-
 
     async def delete(self, repo_id: str) -> None:
         model_path = os.path.join(

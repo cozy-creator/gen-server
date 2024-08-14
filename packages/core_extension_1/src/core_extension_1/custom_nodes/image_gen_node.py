@@ -85,7 +85,6 @@ class ImageGenNode(CustomNode):
             # Check if a specific scheduler is specified in the config
             scheduler_name = model_config.get("scheduler")
             if scheduler_name:
-                print("In Here")
                 SchedulerClass = getattr(module, scheduler_name)
                 pipeline.scheduler = SchedulerClass.from_config(
                     pipeline.scheduler.config
