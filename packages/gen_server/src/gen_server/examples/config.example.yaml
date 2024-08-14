@@ -35,6 +35,6 @@ enabled_models:
   
   pony-diffusion-xl-v6:
     source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
-    arch: sdxl
+    arch: core-extension-1.sdxl_pipe
 
 
