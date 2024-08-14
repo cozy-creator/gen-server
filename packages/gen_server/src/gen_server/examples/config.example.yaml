@@ -19,31 +19,22 @@ s3:
   public_url: "https://storage.cozy.dev"
 
 enabled_models:
-  playgroundai/playground-v2.5-1024px-aesthetic:
-    category: playground2.5
-    variant: bf16
+  playground2.5:
+    source: hf:playgroundai/playground-v2.5-1024px-aesthetic
 
-  RunDiffusion/Juggernaut-XL-v9:
-    category: sdxl
-    variant: bf16
-
-  stabilityai/stable-diffusion-xl-base-1.0:
-    category: sdxl
-    variant: bf16
-
-  black-forest-labs/FLUX.1-schnell:
-    category: flux
-    model_index:
-      text_encoder: openai/clip-vit-large-patch14/model.safetensors
-      text_encoder_2: [ black-forest-labs/FLUX.1-schnell, text_encoder_2 ]
-      tokenizer: openai/clip-vit-large-patch14/tokenizer.json
-      tokenizer_2: [ black-forest-labs/FLUX.1-schnell, tokenizer_2 ]
-      vae: [ black-forest-labs/FLUX.1-schnell, vae ]
-      transformer: Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+  juggernaut-xl-v9:
+    source: hf:RunDiffusion/Juggernaut-XL-v9
   
   flux.1-schnell:
-    category: flux
-    repo: { source: hf, location: black-forest-labs/FLUX.1-schnell }
-    model_index:
-      text_encoder_2: [ black-forest-labs/FLUX.1-schnell, text_encoder_2 ]
-      transformer: Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+    source: hf:black-forest-labs/FLUX.1-schnell
+    components:
+      text_encoder_2:
+        source: hf:black-forest-labs/FLUX.1-schnell/text_encoder_2
+      transformer:
+        source: hf:Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+  
+  pony-diffusion-xl-v6:
+    source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    arch: sdxl
+
+
