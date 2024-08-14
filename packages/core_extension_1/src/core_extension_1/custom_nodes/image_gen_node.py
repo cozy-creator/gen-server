@@ -17,7 +17,12 @@ from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.globals import get_hf_model_manager, get_available_torch_device, get_model_memory_manager
+from gen_server.globals import (
+    get_hf_model_manager,
+    get_available_torch_device,
+    get_model_memory_manager,
+)
+# from gen_server.utils.model_memory_manager import ModelMemoryManager
 
 
 class ImageGenNode(CustomNode):
@@ -26,6 +31,7 @@ class ImageGenNode(CustomNode):
     def __init__(self):
         super().__init__()
         self.config_manager = ModelConfigManager()
+        self.model_memory_manager = get_model_memory_manager()
 
     def __call__(  # type: ignore
         self,
@@ -59,10 +65,10 @@ class ImageGenNode(CustomNode):
                 #         torch_dtype=torch.float16
                 #     )
                 # hf_model_manager = get_hf_model_manager()
-                model_memory_manager = get_model_memory_manager()
+                # model_memory_manager = ModelMemoryManager()
 
                 # Load the model
-                pipeline = model_memory_manager.load(repo_id, None)
+                pipeline = self.model_memory_manager.load(repo_id, None)
             except Exception as e:
                 raise ValueError(f"Error in loading Pipeline caused by: {e}")
 
@@ -89,7 +95,7 @@ class ImageGenNode(CustomNode):
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
             # Apply optimizations
-            self.apply_optimizations(pipeline)
+            self.model_memory_manager.apply_optimizations(pipeline)
 
             # Prepare prompts
             full_positive_prompt = (
@@ -100,18 +106,34 @@ class ImageGenNode(CustomNode):
             )
 
             # Run the pipeline
-            tensor_images = pipeline(
-                prompt=full_positive_prompt,
-                negative_prompt=full_negative_prompt,
-                width=width,
-                height=height,
-                num_images_per_prompt=num_images,
-                guidance_scale=model_config["guidance_scale"],
-                num_inference_steps=model_config["num_inference_steps"],
-                random_seed=random_seed,
-                output_type="pt",
-                callback_on_step_end=callback,
-            ).images  # type: ignore
+            # Check if pipeline is a FluxPipeline so as to not use negative prompt and random seed
+            if pipeline.__class__.__name__ == "FluxPipeline":
+                tensor_images = pipeline(
+                    prompt=full_positive_prompt,
+                    width=width,
+                    height=height,
+                    num_images_per_prompt=num_images,
+                    guidance_scale=model_config["guidance_scale"],
+                    num_inference_steps=model_config["num_inference_steps"],
+                    generator=torch.Generator().manual_seed(random_seed),
+                    output_type="pt",
+                    callback_on_step_end=callback,
+                    # callback_steps=callback_steps,
+                ).images  # type: ignore
+            else:
+                tensor_images = pipeline(
+                    prompt=full_positive_prompt,
+                    negative_prompt=full_negative_prompt,
+                    width=width,
+                    height=height,
+                    num_images_per_prompt=num_images,
+                    guidance_scale=model_config["guidance_scale"],
+                    num_inference_steps=model_config["num_inference_steps"],
+                    random_seed=random_seed,
+                    output_type="pt",
+                    callback_on_step_end=callback,
+                    callback_steps=callback_steps,
+                ).images  # type: ignore
 
             del pipeline
 
@@ -120,34 +142,34 @@ class ImageGenNode(CustomNode):
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
 
-    def apply_optimizations(self, pipeline: DiffusionPipeline):
-        device = get_available_torch_device()
-        optimizations = [
-            ("enable_vae_tiling", "VAE Tiled", {}),
-            (
-                "enable_xformers_memory_efficient_attention",
-                "Memory Efficient Attention",
-                {},
-            ),
-            (
-                "enable_model_cpu_offload",
-                "CPU Offloading",
-                {"device": device},
-            ),
-        ]
+    # def apply_optimizations(self, pipeline: DiffusionPipeline):
+    #     device = get_available_torch_device()
+    #     optimizations = [
+    #         ("enable_vae_tiling", "VAE Tiled", {}),
+    #         (
+    #             "enable_xformers_memory_efficient_attention",
+    #             "Memory Efficient Attention",
+    #             {},
+    #         ),
+    #         (
+    #             "enable_model_cpu_offload",
+    #             "CPU Offloading",
+    #             {"device": device},
+    #         ),
+    #     ]
 
-        # Patch torch.mps to torch.backends.mps
-        device_type = device if isinstance(device, str) else device.type
-        if device_type == "mps":
-            setattr(torch, "mps", torch.backends.mps)
-        for opt_func, opt_name, kwargs in optimizations:
-            try:
-                getattr(pipeline, opt_func)(**kwargs)
-                print(f"{opt_name} enabled")
-            except Exception as e:
-                print(f"Error enabling {opt_name}: {e}")
+    #     # Patch torch.mps to torch.backends.mps
+    #     device_type = device if isinstance(device, str) else device.type
+    #     if device_type == "mps":
+    #         setattr(torch, "mps", torch.backends.mps)
+    #     for opt_func, opt_name, kwargs in optimizations:
+    #         try:
+    #             getattr(pipeline, opt_func)(**kwargs)
+    #             print(f"{opt_name} enabled")
+    #         except Exception as e:
+    #             print(f"Error enabling {opt_name}: {e}")
 
-        delattr(torch, "mps")
+    #     delattr(torch, "mps")
 
 
 # class ImageGenNode(CustomNode):

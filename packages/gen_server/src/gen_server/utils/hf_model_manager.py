@@ -1,7 +1,7 @@
 import os
 import shutil
 import asyncio
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir
 from huggingface_hub.file_download import repo_folder_name
@@ -9,9 +9,13 @@ import torch
 import logging
 from huggingface_hub.constants import HF_HUB_CACHE
 import json
+from .config_manager import get_model_config
+
+
 
 
 logger = logging.getLogger(__name__)
+
 
 
 class HFModelManager:
@@ -22,15 +26,33 @@ class HFModelManager:
         self.hf_api = HfApi()
 
 
-    def is_downloaded(self, repo_id: str) -> bool:
+    def is_downloaded(self, model_id: str) -> bool:
         """
         Checks if a model is fully downloaded in the cache.
         Returns True if at least one variant is completely downloaded.
         """
         try:
+            # Get the repo_id from the YAML configuration
+            model_config = get_model_config()
+            model_info = model_config['models'].get(model_id)
+            if not model_info:
+                logger.error(f"Model {model_id} not found in configuration.")
+                return False
+            
+            print(f"Model Config: {model_config}")
+            
+            if model_info['repo']:
+                repo_id = model_info['repo'].replace('hf:', '')
+            else:
+                repo_id = model_id
+
+            print(f"Repo ID: {repo_id}")
+
             storage_folder = os.path.join(
                 self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
             )
+
+            print(f"Storage Folder: {storage_folder}")
             if not os.path.exists(storage_folder):
                 return False
 
@@ -42,12 +64,14 @@ class HFModelManager:
             with open(refs_path, "r") as f:
                 commit_hash = f.read().strip()
 
+
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if not os.path.exists(snapshot_folder):
                 return False
 
             # Check model_index.json for required folders
             model_index_path = os.path.join(snapshot_folder, "model_index.json")
+
 
             if os.path.exists(model_index_path):
                 with open(model_index_path, "r") as f:
@@ -60,6 +84,7 @@ class HFModelManager:
                         and v[0] is not None
                         and v[1] is not None
                     }
+
 
                 # Remove known non-folder keys and ignored folders
                 ignored_folders = {
@@ -89,6 +114,7 @@ class HFModelManager:
                     for _, _, files in os.walk(folder_path):
                         for file in files:
                             if file.endswith('.incomplete'):
+                                print(f"Incomplete File: {file}")
                                 return False
 
                             
@@ -110,6 +136,7 @@ class HFModelManager:
 
                 # Check variants in hierarchy
                 for variant in variants:
+                    print(f"Checking variant: {variant}")
                     if check_variant_completeness(variant):
                         return True
 
@@ -132,6 +159,31 @@ class HFModelManager:
     def list(self) -> List[str]:
         cache_info = scan_cache_dir()
         return [repo.repo_id for repo in cache_info.repos if self.is_downloaded(repo.repo_id)]
+    
+    def get_model_index(self, repo_id: str) -> Dict[str, Any]:
+        storage_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+        )
+
+        if not os.path.exists(storage_folder):
+            raise FileNotFoundError(f"Cache folder for {repo_id} not found")
+
+        # Get the latest commit hash
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            raise FileNotFoundError(f"refs/main not found for {repo_id}")
+
+        with open(refs_path, "r") as f:
+            commit_hash = f.read().strip()
+
+        # Construct the path to model_index.json
+        model_index_path = os.path.join(storage_folder, "snapshots", commit_hash, "model_index.json")
+
+        if not os.path.exists(model_index_path):
+            raise FileNotFoundError(f"model_index.json not found for {repo_id}")
+
+        with open(model_index_path, 'r') as f:
+            return json.load(f)
 
 
     async def download(

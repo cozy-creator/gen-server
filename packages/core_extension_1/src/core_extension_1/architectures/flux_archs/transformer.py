@@ -17,7 +17,7 @@ from contextlib import nullcontext
 logger = logging.getLogger(__name__)
 
 config_path = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "config_unet.json"
+    os.path.dirname(os.path.abspath(__file__)), "config_transformer.json"
 )
 
 
@@ -74,34 +74,35 @@ class FluxTransformer(Architecture[FluxTransformer2DModel]):
         print("Loading Flux Transformer")
         start = time.time()
 
-        unet = self._model
-        unet_state_dict = {
-            key: state_dict[key]
-            for key in state_dict
-            if key.startswith("model.diffusion_model.")
-        }
-        new_unet_state_dict = convert_flux_transformer_checkpoint_to_diffusers(
-            unet_state_dict, config=self._config
+        transformer = self._model
+        # transformer_state_dict = {
+        #     key: state_dict[key]
+        #     for key in state_dict
+        #     if key.startswith("model.diffusion_model.")
+        # }
+        new_transformer_state_dict = convert_flux_transformer_checkpoint_to_diffusers(
+            state_dict, config=self._config
         )
 
         if is_accelerate_available():
             print("Using accelerate")
             unexpected_keys = load_model_dict_into_meta(
-                unet, new_unet_state_dict, dtype=torch.float16
+                transformer, new_transformer_state_dict, dtype=torch.bfloat16
             )
-            if unet._keys_to_ignore_on_load_unexpected is not None:
-                for pat in unet._keys_to_ignore_on_load_unexpected:
+            if transformer._keys_to_ignore_on_load_unexpected is not None:
+                for pat in transformer._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
                         k for k in unexpected_keys if re.search(pat, k) is None
                     ]
 
             if len(unexpected_keys) > 0:
                 logger.warning(
-                    f"Some weights of the model checkpoint were not used when initializing {unet.__name__}: \n {[', '.join(unexpected_keys)]}"
+                    f"Some weights of the model checkpoint were not used when initializing {transformer.__name__}: \n {[', '.join(unexpected_keys)]}"
                 )
         else:
-            unet.load_state_dict(new_unet_state_dict)
-            unet.to(torch.float16)
+            transformer.load_state_dict(new_transformer_state_dict)
+            transformer.to(torch.float16)
 
 
-        print(f"UNet loaded in {time.time() - start:.2f} seconds")
+        print(f"Transformer loaded in {time.time() - start:.2f} seconds")
+        
