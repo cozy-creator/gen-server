@@ -14,7 +14,7 @@ import blake3
 from huggingface_hub import HfApi
 from pydantic import BaseModel
 
-from .. import ApiAuthenticator
+from ..base_types import ApiAuthenticator
 from ..utils.file_handler import get_mime_type, get_file_handler
 from ..globals import get_api_endpoints, get_checkpoint_files, get_hf_model_manager
 from ..config import get_config, is_model_enabled

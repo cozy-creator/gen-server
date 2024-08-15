@@ -3,12 +3,12 @@ import os
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 folders = {
-    "core_nodes": os.path.join(base_path, 'extensions', 'core'),
-    "extensions": os.path.join(base_path, 'extensions'),
-    "output": os.path.join(base_path, 'output'),
-    "temp": os.path.join(base_path, 'temp'),
-    "input": os.path.join(base_path, 'input'),
-    "models": os.path.join(base_path, 'models'),
+    "core_nodes": os.path.join(base_path, "extensions", "core"),
+    "extensions": os.path.join(base_path, "extensions"),
+    "output": os.path.join(base_path, "output"),
+    "temp": os.path.join(base_path, "temp"),
+    "input": os.path.join(base_path, "input"),
+    "models": os.path.join(base_path, "models"),
 }
 
 
@@ -30,9 +30,9 @@ def get_folder_path(folder_name):
 def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height=0):
     def map_filename(filename):
         prefix_len = len(os.path.basename(filename_prefix))
-        prefix = filename[:prefix_len + 1]
+        prefix = filename[: prefix_len + 1]
         try:
-            digits = int(filename[prefix_len + 1:].split('_')[0])
+            digits = int(filename[prefix_len + 1 :].split("_")[0])
         except:
             digits = 0
         return (digits, prefix)
@@ -49,16 +49,32 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
 
     full_output_folder = os.path.join(output_dir, subfolder)
 
-    if os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) != output_dir:
-        err = "**** ERROR: Saving image outside the output folder is not allowed." + \
-              "\n full_output_folder: " + os.path.abspath(full_output_folder) + \
-              "\n         output_dir: " + output_dir + \
-              "\n         commonpath: " + os.path.commonpath((output_dir, os.path.abspath(full_output_folder))) 
+    if (
+        os.path.commonpath((output_dir, os.path.abspath(full_output_folder)))
+        != output_dir
+    ):
+        err = (
+            "**** ERROR: Saving image outside the output folder is not allowed."
+            + "\n full_output_folder: "
+            + os.path.abspath(full_output_folder)
+            + "\n         output_dir: "
+            + output_dir
+            + "\n         commonpath: "
+            + os.path.commonpath((output_dir, os.path.abspath(full_output_folder)))
+        )
         print(err)
         raise Exception(err)
 
     try:
-        counter = max(filter(lambda a: a[1][:-1] == filename and a[1][-1] == "_", map(map_filename, os.listdir(full_output_folder))))[0] + 1
+        counter = (
+            max(
+                filter(
+                    lambda a: a[1][:-1] == filename and a[1][-1] == "_",
+                    map(map_filename, os.listdir(full_output_folder)),
+                )
+            )[0]
+            + 1
+        )
     except ValueError:
         counter = 1
     except FileNotFoundError:
@@ -66,7 +82,8 @@ def get_save_image_path(filename_prefix, output_dir, image_width=0, image_height
         counter = 1
     return full_output_folder, filename, counter, subfolder, filename_prefix
 
-def get_model_path(folder_name):
+
+def get_model_path(folder_name: str) -> str:
     """
     Returns the path for the given folder name.
     Creates the folder if it doesn't exist.
@@ -81,16 +98,15 @@ def get_model_path(folder_name):
     return folder_path
 
 
-
-def annotated_filepath(name):
+def annotated_filepath(name: str) -> tuple[str, str | None]:
     if name.endswith("[output]"):
-        base_dir = get_folder_path('output')
+        base_dir = get_folder_path("output")
         name = name[:-9]
     elif name.endswith("[input]"):
-        base_dir = get_folder_path('input')
+        base_dir = get_folder_path("input")
         name = name[:-8]
     elif name.endswith("[temp]"):
-        base_dir = get_folder_path('temp')
+        base_dir = get_folder_path("temp")
         name = name[:-7]
     else:
         return name, None
@@ -105,15 +121,16 @@ def get_annotated_filepath(name, default_dir=None):
         if default_dir is not None:
             base_dir = default_dir
         else:
-            base_dir = get_folder_path('input')  # fallback path
+            base_dir = get_folder_path("input")  # fallback path
 
     return os.path.join(base_dir, name)
+
 
 def exists_annotated_filepath(name):
     name, base_dir = annotated_filepath(name)
 
     if base_dir is None:
-        base_dir = get_folder_path('input')  # fallback path
+        base_dir = get_folder_path("input")  # fallback path
 
     filepath = os.path.join(base_dir, name)
     return os.path.exists(filepath)
@@ -127,4 +144,3 @@ def check_model_in_path(model_id, model_path):
             raise ValueError(f"File not found: {model_id}")
     else:
         return None  # Treat the model_id as a repository ID
-    

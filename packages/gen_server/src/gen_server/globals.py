@@ -1,5 +1,7 @@
+import os
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
+from .base_types.pydantic_models import ModelConfig
 from .utils.download_manager import DownloadManager
 
 from .base_types import (
@@ -10,13 +12,9 @@ from .base_types import (
     TorchDevice,
 )
 from .utils.device import get_torch_device
-import yaml
-from .utils.paths import get_model_config_path
 
 
-
-
-_MODEL_CONFIG: dict = {}
+_ENABLED_MODELS: dict[str, ModelConfig] = {}
 
 _available_torch_device: TorchDevice = get_torch_device()
 
@@ -59,11 +57,11 @@ Dictionary of all discovered checkpoint files
 _api_authenticator: Optional[Type[ApiAuthenticator]] = None
 
 
-
 def get_hf_model_manager():
     global _HF_MODEL_MANAGER
     if _HF_MODEL_MANAGER is None:
         from .utils.hf_model_manager import HFModelManager
+
         _HF_MODEL_MANAGER = HFModelManager()
     return _HF_MODEL_MANAGER
 
@@ -72,22 +70,9 @@ def get_model_memory_manager():
     global _MODEL_MEMORY_MANAGER
     if _MODEL_MEMORY_MANAGER is None:
         from .utils.model_memory_manager import ModelMemoryManager
+
         _MODEL_MEMORY_MANAGER = ModelMemoryManager()
     return _MODEL_MEMORY_MANAGER
-
-
-def load_model_config():
-    global _MODEL_CONFIG
-    config_path = get_model_config_path()
-    with open(config_path, 'r') as file:
-        _MODEL_CONFIG = yaml.safe_load(file)
-
-
-def get_model_config():
-    global _MODEL_CONFIG
-    # if _MODEL_CONFIG is None:
-    #     load_model_config()
-    return _MODEL_CONFIG
 
 
 def update_api_endpoints(endpoints: dict[str, RouteDefinition]):
@@ -153,7 +138,6 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
 # def get_model_memory_manager() -> ModelMemoryManager:
 #     global _MODEL_MEMORY_MANAGER
 #     return _MODEL_MEMORY_MANAGER
-
 
 
 def get_download_manager() -> Optional[DownloadManager]:

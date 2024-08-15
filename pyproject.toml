@@ -52,6 +52,7 @@ ignore = [
     "PLR0913",  # Too many arguments in function definition
     "PLW0602",  # global assignment
     "PLW0603",
+    "PLR2004", # annoying
     "N805", # false positives
 ]
 

@@ -1,7 +1,4 @@
-from functools import cache
 import os
-import sys
-import tempfile
 from pathlib import Path
 from importlib import resources
 import shutil
@@ -9,6 +6,7 @@ from typing import Optional
 
 from gen_server import examples
 from ..config import get_config
+
 # from ..globals import get_model_config
 
 APP_NAME = "cozy-creator"
@@ -34,8 +32,10 @@ def get_models_dir():
         return os.path.expanduser(config.models_path)
     return os.path.join(get_home_dir(), "models")
 
+
 def get_home_dir():
     return os.path.expanduser(get_config().home_dir)
+
 
 def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
     def map_filename(filename: str) -> tuple[int, str]:
@@ -64,76 +64,49 @@ def get_next_counter(assets_dir: str, filename_prefix: str) -> int:
         counter = 1
     return counter
 
-def get_model_config_path() -> Path:
-    """
-    Returns the path to the model_config.yaml file in the home directory.
-    """
-    return Path(get_home_dir()) / "model_config.yaml"
-
 
 def ensure_app_dirs():
     config = get_config()
-    
+
     # Ensure home directory exists
     home_created = False
     home_dir = get_home_dir()
     if not os.path.exists(home_dir):
         os.makedirs((home_dir), exist_ok=True)
         home_created = True
-    
+
     # Ensure assets directory exists
     assets_dir = get_assets_dir()
     if not os.path.exists(assets_dir):
         os.makedirs(assets_dir, exist_ok=True)
-    
+
     # Ensure models directory exists
     models_dir = get_models_dir()
     if not os.path.exists(models_dir):
         os.makedirs(models_dir, exist_ok=True)
-    
+
     # If home directory was just created, write the example env file
     if home_created:
         _write_example_files(home_dir)
 
-    # Ensure model_config.yaml exists
-    model_config_path = get_model_config_path()
-    if not model_config_path.exists():
-        _write_default_model_config(model_config_path)
-
-def _write_default_model_config(path: Path):
-    default_config = """
-    models:
-    playground-v2.5-1024px-aesthetic:
-        category: playground2.5
-        repo: "hf:playgroundai/playground-v2.5-1024px-aesthetic"
-    
-    flux.1-schnell:
-        category: flux.1
-        repo: "hf:black-forest-labs/FLUX.1-schnell"
-        model_index:
-        text_encoder_2: [ black-forest-labs/FLUX.1-schnell, text_encoder_2 ]
-        transformer: Kijai/flux-fp8/flux1-schnell-fp8.safetensors
-    """
-    with open(path, 'w') as f:
-        f.write(default_config.strip())
-
 
 def _write_example_files(workspace_path: str):
     try:
-        # Use importlib.resources to get the path of the example files
-        with resources.path(examples, '.env.local.example') as env_example_path, \
-             resources.path(examples, 'config.example.yaml') as config_example_path:
-            # Construct the destination paths
-            env_path = os.path.join(workspace_path, ".env.local.example")
-            config_path = os.path.join(workspace_path, "config.example.yaml")
+        # Use importlib.resources to get the files from the examples module
+        example_files = resources.files(examples)
 
-            # Copy the .env.local.example file if it doesn't exist
-            if not os.path.exists(env_path):
-                shutil.copy2(env_example_path, env_path)
+        # Harcoded filenames
+        files_to_copy = [".env.local.example", "config.example.yaml"]
 
-            # Copy the models.yaml file if it doesn't exist
-            if not os.path.exists(config_path):
-                shutil.copy2(config_example_path, config_path)
+        for file_name in files_to_copy:
+            source_path = example_files.joinpath(file_name)
+            dest_path = os.path.join(workspace_path, file_name)
+
+            # Copy the file if it doesn't exist in the workspace
+            if not os.path.exists(dest_path):
+                with source_path.open("rb") as source_file:
+                    with open(dest_path, "wb") as dest_file:
+                        shutil.copyfileobj(source_file, dest_file)
 
     except Exception as e:
         print(f"Error while initializing example files: {str(e)}")
@@ -210,4 +183,3 @@ def get_server_url():
     if is_runpod_available():
         return get_runpod_url(config.port)
     return f"http://{config.host}:{config.port}"
-
