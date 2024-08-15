@@ -54,12 +54,11 @@ func (wp *WorkerPool) start() {
 			case wp.active <- task:
 			default:
 				if workerCount < wp.maxWorkers {
-					wg.Add(10)
+					wg.Add(1)
 					go worker(task, wp.active, &wg)
 					workerCount++
 				} else {
 					wp.waiting = append(wp.waiting, task)
-
 				}
 			}
 			// TODO: handle timeout

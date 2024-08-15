@@ -81,12 +81,12 @@ func NewLocalUploader() (*LocalUploader, error) {
 		return nil, fmt.Errorf("filesystem is not local")
 	}
 
-	assetsDir, err := utils.GetCozyAssetsDir()
+	assetsDir, err := utils.GetAssetsPath()
 	if err != nil {
 		return nil, err
 	}
 
-	tempDir, err := utils.GetTempDir()
+	tempDir, err := utils.GetTempPath()
 	if err != nil {
 		return nil, err
 	}

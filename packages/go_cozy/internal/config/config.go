@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"os"
+	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/joho/godotenv"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -13,47 +14,77 @@ const (
 )
 
 type Config struct {
-	Port        int       `yaml:"port"`
-	Host        string    `yaml:"host"`
-	Environment string    `yaml:"environment"`
-	HomeDir     string    `yaml:"home_dir"`
-	AssetsDir   string    `yaml:"assets_dir"`
-	ModelsDir   string    `yaml:"models_dir"`
-	Filesystem  string    `yaml:"filesystem_type"`
-	S3          *S3Config `yaml:"s3"`
-}
-
-type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Host string `yaml:"host"`
+	Port          int       `mapstructure:"port"`
+	Host          string    `mapstructure:"host"`
+	Environment   string    `mapstructure:"environment"`
+	AssetsPath    string    `mapstructure:"assets_path"`
+	ModelsPath    string    `mapstructure:"models_path"`
+	WorkspacePath string    `mapstructure:"workspace_path"`
+	Filesystem    string    `mapstructure:"filesystem_type"`
+	S3            *S3Config `mapstructure:"s3"`
 }
 
 type S3Config struct {
-	Folder      string `yaml:"folder"`
-	Region      string `yaml:"region"`
-	Bucket      string `yaml:"bucket"`
-	AccessKey   string `yaml:"access_key_id"`
-	SecretKey   string `yaml:"secret_access_key"`
-	EndpointUrl string `yaml:"endpoint_url"`
+	Folder      string `mapstructure:"folder"`
+	Region      string `mapstructure:"region"`
+	Bucket      string `mapstructure:"bucket"`
+	AccessKey   string `mapstructure:"access_key_id"`
+	SecretKey   string `mapstructure:"secret_access_key"`
+	EndpointUrl string `mapstructure:"endpoint_url"`
 }
 
-func NewConfigFromFile(path string) (*Config, error) {
-	config := &Config{}
+var config *Config
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("config file %s not found", path)
+func InitConfig() error {
+	envFile := viper.GetString("env-file")
+	configFile := viper.GetString("config-file")
+	workspacePath := viper.GetString("workspace-path")
+
+	if envFile != "" {
+		if err := godotenv.Load(envFile); err != nil {
+			return fmt.Errorf("failed to load env file: %w", err)
+		}
 	}
 
-	file, err := os.Open(path)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+	} else {
+		viper.SetConfigType("yaml")
+		viper.SetConfigName("config")
+		viper.AddConfigPath(workspacePath)
+	}
+
+	if err := LoadConfig(false); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func LoadConfig(reload bool) error {
+	if config != nil && !reload {
+		return fmt.Errorf("config already loaded")
+	}
+
+	if err := viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("error reading config: %w", err)
+	}
+
+	config = &Config{}
+	err := viper.Unmarshal(config)
 	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	d := yaml.NewDecoder(file)
-	if err := d.Decode(&config); err != nil {
-		return nil, err
+		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
-	return config, nil
+	return nil
+}
+
+func GetConfig() *Config {
+	if config == nil {
+		panic("config not loaded")
+	}
+
+	return config
 }

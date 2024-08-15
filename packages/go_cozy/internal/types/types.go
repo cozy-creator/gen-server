@@ -24,6 +24,15 @@ type HandlerResponse struct {
 	Data interface{} `json:"data"`
 }
 
+type GenerateData struct {
+	Models         map[string]int `json:"models"`
+	WebhookUrl     *string        `json:"webhook_url"`
+	RandomSeed     int            `json:"random_seed"`
+	AspectRatio    string         `json:"aspect_ratio"`
+	PositivePrompt string         `json:"positive_prompt"`
+	NegativePrompt string         `json:"negative_prompt"`
+}
+
 func NewJSONResponse(data interface{}) (*HandlerResponse, error) {
 	return &HandlerResponse{
 		Type: JSONResponseType,

@@ -3,6 +3,7 @@ package worker
 import (
 	"cozy-creator/go-cozy/internal/services"
 	"cozy-creator/go-cozy/pkg/workerpool"
+	"fmt"
 )
 
 type UploadWorker struct {
@@ -28,6 +29,7 @@ func (w *UploadWorker) Upload(file services.FileMeta, response chan string) {
 	}
 
 	upload := func() {
+		fmt.Println("Uploading file...")
 		url, err := w.uploader.Upload(file)
 		if err != nil {
 			return

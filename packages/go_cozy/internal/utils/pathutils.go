@@ -14,44 +14,47 @@ func ExpandPath(path string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to get user home directory: %w", err)
 		}
+
 		// Replace "~" with the home directory path
 		path = filepath.Join(homeDir, path[1:])
 	}
+
 	return path, nil
 }
 
-func GetCozyHomeDir() (string, error) {
-	return ExpandPath(config.GetConfig().HomeDir)
+func GetWorkspacePath() (string, error) {
+	return ExpandPath(config.GetConfig().WorkspacePath)
 }
 
-func GetCozyAssetsDir() (string, error) {
-	if config.GetConfig().AssetsDir == "" {
-		homeDir, err := GetCozyHomeDir()
+func GetAssetsPath() (string, error) {
+	if config.GetConfig().AssetsPath == "" {
+		workspacePath, err := GetWorkspacePath()
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(homeDir, "assets"), nil
+		return filepath.Join(workspacePath, "assets"), nil
 	}
 
-	return ExpandPath(config.GetConfig().AssetsDir)
+	return ExpandPath(config.GetConfig().AssetsPath)
 }
 
-func GetCozyModelsDir() (string, error) {
-	if config.GetConfig().ModelsDir == "" {
-		homeDir, err := GetCozyHomeDir()
+func GetModelsPath() (string, error) {
+	if config.GetConfig().ModelsPath == "" {
+		workspacePath, err := GetWorkspacePath()
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(homeDir, "models"), nil
+		return filepath.Join(workspacePath, "models"), nil
 	}
 
-	return ExpandPath(config.GetConfig().ModelsDir)
+	return ExpandPath(config.GetConfig().ModelsPath)
 }
 
-func GetTempDir() (string, error) {
-	homeDir, err := GetCozyHomeDir()
+func GetTempPath() (string, error) {
+	workspacePath, err := GetWorkspacePath()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(homeDir, "temp"), nil
+
+	return filepath.Join(workspacePath, "temp"), nil
 }
