@@ -51,11 +51,7 @@ from .globals import (
     update_api_authenticator,
     get_api_authenticator,
     get_hf_model_manager,
-    # load_model_config,
-    # get_model_config
 )
-
-from .utils.config_manager import load_model_config
 
 # from .utils.hf_model_manager import load_model_config
 from .base_types.pydantic_models import (
@@ -330,13 +326,6 @@ def run_app(cozy_config: RunCommandConfig):
     print(
         f"Time taken to load extensions and compile registries: {end_time - start_time:.2f} seconds"
     )
-
-    # Load the model configuration
-    # model_config_path = get_model_config_path()
-    # load_model_config(str(model_config_path))
-
-    load_model_config()
-    print(f"Time taken to load model config: {time.time() - start_time:.2f} seconds")
 
     # ====== The server is initialized; good spot to run your tests here ======
 

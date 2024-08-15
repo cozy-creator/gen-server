@@ -9,18 +9,16 @@ import torch
 import logging
 from huggingface_hub.constants import HF_HUB_CACHE
 import json
-from .config_manager import get_model_config
+from ..config import get_config
 
 
 logger = logging.getLogger(__name__)
 
 
-
 class HFModelManager:
     def __init__(self, cache_dir: Optional[str] = None):
-        self.cache_dir = HF_HUB_CACHE
-        # self.cache_dir = None
-        self.loaded_models: Dict[str, DiffusionPipeline] = {}
+        self.cache_dir = cache_dir or HF_HUB_CACHE
+        self.loaded_models: dict[str, DiffusionPipeline] = {}
         self.hf_api = HfApi()
 
     def is_downloaded(self, model_id: str) -> bool:
@@ -30,13 +28,13 @@ class HFModelManager:
         """
         try:
             # Get the repo_id from the YAML configuration
-            model_config = get_model_config()
-            model_info = model_config["models"].get(model_id)
+            config = get_config()
+            model_info = config["enabled_models"].get(model_id)
             if not model_info:
                 logger.error(f"Model {model_id} not found in configuration.")
                 return False, None
 
-            print(f"Model Config: {model_config}")
+            print(f"Model Config: {model_info}")
 
             if model_info["repo"]:
                 repo_id = model_info["repo"].replace("hf:", "")
@@ -292,7 +290,6 @@ class HFModelManager:
     async def download(
         self,
         repo_id: str,
-        variant: Optional[str] = "fp16",
         file_name: Optional[str] = None,
         sub_folder: Optional[str] = None,
     ) -> None:
