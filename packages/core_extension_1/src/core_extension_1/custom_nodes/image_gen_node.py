@@ -42,6 +42,7 @@ class ImageGenNode(CustomNode):
         num_images: int = 1,
         random_seed: Optional[int] = None,
         callback: Optional[Callable] = None,
+        callback_steps: Optional[int] = 1,
     ):
         """
         Args:
@@ -85,6 +86,7 @@ class ImageGenNode(CustomNode):
             # Check if a specific scheduler is specified in the config
             scheduler_name = model_config.get("scheduler")
             if scheduler_name:
+                print("In Here")
                 SchedulerClass = getattr(module, scheduler_name)
                 pipeline.scheduler = SchedulerClass.from_config(
                     pipeline.scheduler.config

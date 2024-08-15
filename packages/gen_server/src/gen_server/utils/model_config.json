@@ -9,7 +9,7 @@
         "default_negative_prompt": "score_1, score_2, score_3,",
         "guidance_scale": 6.0
       },
-      "playgroundai/playground-v2.5-1024px-aesthetic": {
+      "playground-v2.5-1024px-aesthetic": {
         "scheduler": "",
         "default_positive_prompt": "",
         "default_negative_prompt": "",

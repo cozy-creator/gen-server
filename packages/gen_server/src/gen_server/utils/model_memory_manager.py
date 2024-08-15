@@ -68,7 +68,7 @@ class ModelMemoryManager:
                 **pipeline_kwargs
             )
 
-            pipeline.to(torch.float16)
+            # pipeline.to(torch.float16)
 
 
 
@@ -235,6 +235,7 @@ class ModelMemoryManager:
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
+
         for opt_func, opt_name, kwargs in optimizations:
             try:
                 getattr(pipeline, opt_func)(**kwargs)
@@ -242,7 +243,9 @@ class ModelMemoryManager:
             except Exception as e:
                 print(f"Error enabling {opt_name}: {e}")
 
-        delattr(torch, "mps")
+        if device_type == "mps":
+            delattr(torch, "mps")
+
 
     def unload(self, repo_id: str) -> None:
         if repo_id in self.loaded_models:
