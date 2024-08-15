@@ -31,22 +31,25 @@ class DownloadManager:
                 await self._download_file(config.source, model_id)
 
             if hasattr(config, "components"):
-                for component_name, component_config in config.components.items():
-                    if component_config.source.startswith("hf:"):
-                        await self._download_hf(component_config.source[3:])
-                    elif component_config.source.startswith("http"):
-                        await self._download_file(
-                            component_config.source, f"{model_id}_{component_name}"
-                        )
+                if config.components:
+                    for component_name, component_config in config.components.items():
+                        
+                        if component_config.source.startswith("hf:"):
+                            await self._download_hf(component_config.source[3:])
+                        elif component_config.source.startswith("http"):
+                            await self._download_file(
+                                component_config.source, f"{model_id}_{component_name}"
+                            )
         except Exception as e:
             print(f"Failed to download model {model_id}: {str(e)}")
+            raise  # Re-raise the exception to be caught in download_models
 
     async def _download_hf(self, hf_path: str):
         parts = hf_path.split("/")
         repo_id = "/".join(parts[:2])
-        sub_folder = "/".join(parts[2:-1]) if len(parts) > 3 else None
+        sub_folder = parts[-1] if len(parts) > 2 and "." not in parts[-1] else None
         file_name = (
-            parts[-1] if len(parts) > 2 and not parts[-1].endswith("/") else None
+            parts[-1] if len(parts) > 2 and "." in parts[-1] else None
         )
 
         await self._hf_manager.download(
@@ -81,22 +84,30 @@ class DownloadManager:
 
     async def download_models(self, models: dict[str, ModelConfig]):
         try:
-            self._pending_downloads = {
-                model_id: self.download_model(model_id, config)
+            # Create all download tasks first
+            download_tasks: list[tuple[str, asyncio.Task]] = [
+                (model_id, asyncio.create_task(self.download_model(model_id, config)))
                 for model_id, config in models.items()
-            }
+            ]
 
-            for model_id, download_task in self._pending_downloads.items():
+            # Update pending downloads
+            self._pending_downloads.update(dict(download_tasks))
+
+            # Execute and await all tasks
+            for model_id, task in download_tasks:
+                print(f"Downloading model {model_id}")
                 try:
-                    await download_task
+                    await task
                 except Exception as e:
                     print(f"Failed to download model {model_id}: {str(e)}")
                 finally:
-                    del self._pending_downloads[model_id]
+                    print(f"Downloading model {model_id} finished")
+                    self._pending_downloads.pop(model_id, None)
+                    print(f"Remaining pending downloads: {len(self._pending_downloads)}")
+
         except Exception as e:
             print(f"Failed to download models: {str(e)}")
 
-    # ... (rest of the methods remain unchanged)
 
     def download_with_event_loop(self, models: dict[str, ModelConfig]):
         try:

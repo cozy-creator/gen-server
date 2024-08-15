@@ -3,13 +3,15 @@ import shutil
 import asyncio
 from typing import Optional, List, Dict, Any
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
-from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir
+from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir, snapshot_download
 from huggingface_hub.file_download import repo_folder_name
 import torch
 import logging
 from huggingface_hub.constants import HF_HUB_CACHE
 import json
 from ..config import get_config
+from ..utils.utils import serialize_config
+
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,9 @@ class HFModelManager:
         try:
             # Get the repo_id from the YAML configuration
             config = get_config()
+
+            config = serialize_config(config)
+            # print(f"Config: {config}")
             model_info = config["enabled_models"].get(model_id)
             if not model_info:
                 logger.error(f"Model {model_id} not found in configuration.")
@@ -36,8 +41,8 @@ class HFModelManager:
 
             print(f"Model Config: {model_info}")
 
-            if model_info["repo"]:
-                repo_id = model_info["repo"].replace("hf:", "")
+            if model_info["source"]:
+                repo_id = model_info["source"].replace("hf:", "")
             else:
                 repo_id = model_id
 
@@ -49,8 +54,8 @@ class HFModelManager:
                 return False, None
 
             # Check components if model_index is present
-            if "model_index" in model_info:
-                for component_name, source in model_info["model_index"].items():
+            if "components" in model_info and model_info["components"]:
+                for component_name, source in model_info["components"].items():
                     if isinstance(source, list):
                         component_repo = source[0]
                         if not self._check_component_downloaded(
@@ -76,7 +81,7 @@ class HFModelManager:
             return True, variant
 
         except Exception as e:
-            logger.error(f"Error checking download status for {repo_id}: {str(e)}")
+            logger.error(f"Error checking download status for {model_id}: {str(e)}")
             return False, None
 
     def _check_repo_downloaded(self, repo_id: str) -> bool:
@@ -293,23 +298,31 @@ class HFModelManager:
         file_name: Optional[str] = None,
         sub_folder: Optional[str] = None,
     ) -> None:
-        if file_name:
+        if file_name or sub_folder:
             try:
-                await asyncio.to_thread(
-                    hf_hub_download,
-                    repo_id,
-                    file_name,
-                    cache_dir=self.cache_dir,
-                    subfolder=sub_folder,
-                )
-                logger.info(f"File {file_name} from {repo_id} downloaded successfully.")
-                self.list()  # Refresh the cached list
-                return
+                if sub_folder and not file_name:
+                    await asyncio.to_thread(
+                        snapshot_download,
+                        repo_id,
+                        allow_patterns=f"{sub_folder}/*",
+                    )
+                    logger.info(f"{sub_folder} subfolder from {repo_id} downloaded successfully.")
+                else:   
+                    await asyncio.to_thread(
+                        hf_hub_download,
+                        repo_id,
+                        file_name,
+                        cache_dir=self.cache_dir,
+                        subfolder=sub_folder,
+                    )
+                    logger.info(f"File {file_name} from {repo_id} downloaded successfully.")
+                # self.list()  # Refresh the cached list
+                return True
             except Exception as e:
                 logger.error(
                     f"Failed to download file {file_name} from {repo_id}: {str(e)}"
                 )
-                return
+                return False
 
         variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
         for var in variants:
@@ -332,13 +345,13 @@ class HFModelManager:
                 logger.info(
                     f"Model {repo_id} downloaded successfully with variant: {var if var else 'default'}"
                 )
-                self.list()  # Refresh the cached list
-                return
+                # self.list()  # Refresh the cached list
+                return True
 
             except Exception as e:
                 if var:
                     logger.error(
-                        f"Failed to download {var} variant for {repo_id}: {str(e)}. Trying next variant..."
+                        f"Failed to download {var} variant for {repo_id}. Trying next variant..."
                     )
                 else:
                     logger.error(
@@ -346,7 +359,8 @@ class HFModelManager:
                     )
 
         logger.error(f"Failed to download model {repo_id} with any variant.")
-
+        return False
+    
     async def delete(self, repo_id: str) -> None:
         model_path = os.path.join(
             self.cache_dir, "models--" + repo_id.replace("/", "--")

@@ -2,7 +2,7 @@ import torch
 from typing import Dict, List, Optional, Any
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from ..globals import get_hf_model_manager, get_architectures, get_available_torch_device
-from .config_manager import get_model_config
+from ..config import get_config
 from ..utils.load_models import load_state_dict_from_file
 import logging
 import importlib
@@ -10,6 +10,7 @@ from huggingface_hub.constants import HF_HUB_CACHE
 import os
 from huggingface_hub.file_download import repo_folder_name
 from optimum.quanto import freeze, qfloat8, quantize
+from ..utils.utils import serialize_config
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +21,26 @@ class ModelMemoryManager:
         self.cache_dir = HF_HUB_CACHE
 
 
+
     def load(self, model_id: str, gpu: Optional[int] = None) -> Optional[DiffusionPipeline]:
         print(f"Loading model {model_id}")
         if model_id in self.loaded_models:
             logger.info(f"Model {model_id} is already loaded.")
             return self.loaded_models[model_id]
         
-        model_config = get_model_config()
+        config = get_config()
 
-        model_config = model_config['models'].get(model_id)
+        config = serialize_config(config)
+
+        model_config = config["enabled_models"].get(model_id)
         if not model_config:
             logger.error(f"Model {model_id} not found in configuration.")
             return None
 
-        repo_id = model_config['repo'].replace('hf:', '')
-        category = model_config['category']
+        repo_id = model_config['source'].replace('hf:', '')
+
+        category = model_config.get("category", None)
+
 
 
         is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
@@ -44,32 +50,47 @@ class ModelMemoryManager:
 
         try:
             pipeline_kwargs = {}
-            if 'model_index' in model_config:
-                print(f"Model Index: {model_config}")
-                for component, source in model_config['model_index'].items():
-                    if isinstance(source, list):
+            if 'components' in model_config and model_config['components']:
+                print(f"Components: {model_config['components']}")
+                for key, component in model_config['components'].items():
+                    # Check if 'source' key is in the component dict and is a string
+                    if 'source' in component and isinstance(component['source'], str):
                         # Diffusers format
-                        component_repo, component_name = source
-                        pipeline_kwargs[component] = self._load_diffusers_component(component_repo, component_name)
-                    elif isinstance(source, str) and source.endswith(('.safetensors', '.bin', '.ckpt')):
-                        # Custom format
-                        pipeline_kwargs[component] = self._load_custom_component(source, category, component)
-                    elif source is None:
-                        pipeline_kwargs[component] = None
+                        if not component['source'].endswith(('.safetensors', '.bin', '.ckpt', '.pt')):
+                            # Split the source by '/' and get the last element
+                            component_name = component['source'].split('/')[-1]
+                            
+                            # Component repo is the source without the last element, join it with '/'
+                            component_repo = '/'.join(component['source'].split('/')[:-1]).replace("hf:", "")
+                            print(component_repo, component_name)
+                            pipeline_kwargs[key] = self._load_diffusers_component(repo_id, component_repo, component_name)
+                        else:
+                            # Custom format
+                            pipeline_kwargs[key] = self._load_custom_component(component['source'], category, key)
+                    elif component['source'] is None:
+                        pipeline_kwargs[key] = None
 
             if variant == "":
                 variant = None
-                
-            pipeline = DiffusionPipeline.from_pretrained(
-                repo_id,
-                torch_dtype=torch.float16,
-                local_files_only=True,
-                variant=variant,
-                **pipeline_kwargs
-            )
 
-            # pipeline.to(torch.float16)
-
+            # Temporary: We can use bfloat16 as standard dtype but I just notice that float16 loads the pipeline faster. 
+            # Although, it's compulsory to use bfloat16 for Flux models.
+            if "flux" in model_id.lower():    
+                pipeline = DiffusionPipeline.from_pretrained(
+                    repo_id,
+                    torch_dtype=torch.bfloat16,
+                    local_files_only=True,
+                    variant=variant,
+                    **pipeline_kwargs
+                )
+            else:
+                pipeline = DiffusionPipeline.from_pretrained(
+                    repo_id,
+                    torch_dtype=torch.float16,
+                    local_files_only=True,
+                    variant=variant,
+                    **pipeline_kwargs
+                )
 
 
             self.loaded_models[model_id] = pipeline
@@ -81,7 +102,8 @@ class ModelMemoryManager:
             return None
         
 
-    def _load_diffusers_component(self, repo_id: str, component_name: str) -> Any:
+    def _load_diffusers_component(self, repo_id: str, component_repo: str, component_name: str) -> Any:
+        print(f"Loading diffusers component {component_name} from {repo_id}")
         try:
             # Get the model index using HFModelManager
             model_index = self.hf_model_manager.get_model_index(repo_id)
@@ -98,29 +120,56 @@ class ModelMemoryManager:
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
 
+
+            # Check for quantized models
+            if model_index["_class_name"] == "FluxPipeline":
+                quantized_model_list = ["FluxTransformer2DModel", "T5EncoderModel"]
+                
+                if class_name in quantized_model_list:
+                    quantized_class_name = "QuantizedFluxTransformer2DModel" if class_name == "FluxTransformer2DModel" else "QuantizedT5EncoderModelForCausalLM"
+                    quantized_module_path = "gen_server.utils.quantize_models"
+                    storage_folder = os.path.join(self.cache_dir, "models--" + component_repo.replace("/", "--"))
+
+                    if not os.path.exists(storage_folder):
+                        raise FileNotFoundError(f"Quantized model {component_repo} not found")
+                    
+                    # Get the latest commit hash
+                    refs_path = os.path.join(storage_folder, "refs", "main")
+                    if not os.path.exists(refs_path):
+                        return FileNotFoundError(f"No commit hash found")
+
+                    with open(refs_path, "r") as f:
+                        commit_hash = f.read().strip()
+
+                    repo_id = os.path.join(storage_folder, "snapshots", commit_hash, component_name)
+
+                    # Import the class
+                    quantized_module = importlib.import_module(quantized_module_path)
+                    quantized_model_class = getattr(quantized_module, quantized_class_name)
+
+                    if class_name == "T5EncoderModel":
+                        model_class.from_config = lambda config: model_class(config)
+
+                    print(f"Loading component {component_name} from {repo_id}. Class_name: {quantized_class_name}, module_path: {quantized_module_path}")
+
+                    # Load the component
+                    component = quantized_model_class.from_pretrained(
+                        repo_id,
+                    ).to(torch.bfloat16)
+
+                    return component
+                
+
+
+            print(f"Loading component {component_name} from {repo_id}. Class_name: {class_name}, module_path: {module_path}")
+
             # Load the component
             component = model_class.from_pretrained(
                 repo_id,
                 subfolder=component_name,
                 local_files_only=True,
-                torch_dtype=torch.bfloat16
+                torch_dtype=torch.float16
             )
-
-            # if model_index["_class_name"] == "FluxPipeline":
-            #     if torch.cuda.is_available():
-            #         component.to("cuda")
-            #         quantize(component, weights=qfloat8)
-            #         freeze(component)
-            #         print(f"FluxPipeline component: {component_name} quantized and frozen")
-
-            #         torch.cuda.empty_cache()
-            #     elif torch.backends.mps.is_available():
-            #         component.to("mps")
-            #         quantize(component, weights=qfloat8)
-            #         freeze(component)
-            #         print(f"FluxPipeline component: {component_name} quantized and frozen")
-
-            #         torch.mps.empty_cache()
 
             return component
 
@@ -130,7 +179,6 @@ class ModelMemoryManager:
 
 
     def _load_custom_component(self, repo_id: str, category: str, component_name: str):
-
 
         file_path = None
         # Keep only the name between and after the first slash including the slash
@@ -184,29 +232,6 @@ class ModelMemoryManager:
 
         # Load the state dict into the architecture
         architecture.load(state_dict)
-
-        # transformer = architecture.model
-
-
-        # if arch_key == "core_extension_1.flux_transformer":
-        #     if torch.cuda.is_available():
-        #         print("Moving to cuda")
-        #         transformer.to("cuda")
-        #         print("Quantizing")
-        #         quantize(transformer, weights=qfloat8)
-        #         print("Freezing")
-        #         freeze(transformer)
-        #         print(f"FluxTransformer component: {component_name} quantized and frozen")
-        #         print("Emptying cache")
-        #         torch.cuda.empty_cache()
-        #     elif torch.backends.mps.is_available():
-        #         transformer.to("mps")
-        #         quantize(transformer, weights=qfloat8)
-        #         freeze(transformer)
-        #         print(f"FluxTransformer component: {component_name} quantized and frozen")
-
-
-        #         torch.mps.empty_cache()
 
         return architecture.model
     

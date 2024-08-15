@@ -344,6 +344,7 @@ def run_app(cozy_config: RunCommandConfig):
 
     download_manager = DownloadManager(hf_manager=get_hf_model_manager())
     if cozy_config.enabled_models is not None:
+        # print(f"Downloading models: {cozy_config.enabled_models}")
         asyncio.run(download_manager.download_models(cozy_config.enabled_models))
 
     try:
