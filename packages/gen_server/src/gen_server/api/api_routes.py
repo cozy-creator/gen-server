@@ -109,7 +109,8 @@ def create_aiohttp_app(
                         status=400,
                     )
                 if config.environment != "production":
-                    if not hf_model_manager.is_downloaded(model_id):
+                    is_downloaded, variant = hf_model_manager.is_downloaded(model_id)
+                    if not is_downloaded:
                         return web.json_response(
                             {"error": f"Model {model_id} is not available"},
                             status=404,

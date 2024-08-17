@@ -46,6 +46,8 @@ def generate_images(
         negative_prompt = task_data.get("negative_prompt", "")
         random_seed = task_data.get("random_seed")
         aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
+        lora_path = task_data.get("lora_path", None)
+        lora_scale = task_data.get("lora_scale", 1.0)
 
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
@@ -60,6 +62,8 @@ def generate_images(
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
+                    lora_path=lora_path,
+                    lora_scale=lora_scale,
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),
@@ -148,6 +152,8 @@ def generate_images_non_io(
         negative_prompt = task_data.get("negative_prompt", "")
         random_seed = task_data.get("random_seed")
         aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
+        lora_path = task_data.get("lora_path", None)
+        lora_scale = task_data.get("lora_scale", 1.0)
 
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
@@ -166,6 +172,8 @@ def generate_images_non_io(
                     num_images=num_images,
                     random_seed=random_seed,
                     callback=CancelCallback(cancel_event),
+                    lora_path=lora_path,
+                    lora_scale=lora_scale,
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),

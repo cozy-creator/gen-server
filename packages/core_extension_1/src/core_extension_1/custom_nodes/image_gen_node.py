@@ -32,6 +32,7 @@ class ImageGenNode(CustomNode):
         super().__init__()
         self.config_manager = ModelConfigManager()
         self.model_memory_manager = get_model_memory_manager()
+        self.hf_model_manager = get_hf_model_manager()
 
     def __call__(  # type: ignore
         self,
@@ -43,6 +44,8 @@ class ImageGenNode(CustomNode):
         random_seed: Optional[int] = None,
         callback: Optional[Callable] = None,
         callback_steps: Optional[int] = 1,
+        lora_path: Optional[str] = None,
+        lora_scale: float = 1.0,
     ):
         """
         Args:
@@ -52,32 +55,19 @@ class ImageGenNode(CustomNode):
             aspect_ratio: Aspect ratio of the output image.
             num_images: Number of images to generate.
             random_seed: Random seed for reproducibility (optional).
+            lora_path: Combined Hugging Face repo ID and weight name of the LoRA to use (optional).
+            lora_scale: Scale factor for the LoRA weights (default: 1.0).
         Returns:
             A dictionary containing the list of generated PIL Images.
         """
 
         try:
-            # Create pipeline without changing the scheduler
-            try:
-                #     pipeline = DiffusionPipeline.from_pretrained(
-                #         repo_id,
-                #         local_files_only=False,
-                #         variant="fp16",
-                #         torch_dtype=torch.float16
-                #     )
-                # hf_model_manager = get_hf_model_manager()
-                # model_memory_manager = ModelMemoryManager()
-
-                # Load the model
-                pipeline = self.model_memory_manager.load(repo_id, None)
-            except Exception as e:
-                raise ValueError(f"Error in loading Pipeline caused by: {e}")
-
+            # Load the model
+            pipeline = self.model_memory_manager.load(repo_id, None)
             if pipeline is None:
                 return None
 
             class_name = pipeline.__class__.__name__
-
             module = import_module("diffusers")
 
             # Get model-specific configuration
@@ -86,7 +76,6 @@ class ImageGenNode(CustomNode):
             # Check if a specific scheduler is specified in the config
             scheduler_name = model_config.get("scheduler")
             if scheduler_name:
-                print("In Here")
                 SchedulerClass = getattr(module, scheduler_name)
                 pipeline.scheduler = SchedulerClass.from_config(
                     pipeline.scheduler.config
@@ -97,6 +86,10 @@ class ImageGenNode(CustomNode):
 
             # Apply optimizations
             self.model_memory_manager.apply_optimizations(pipeline)
+
+            # Load LoRA weights if provided
+            if lora_path:
+                self._load_lora(pipeline, lora_path)
 
             # Prepare prompts
             full_positive_prompt = (
@@ -114,7 +107,8 @@ class ImageGenNode(CustomNode):
                     width=width,
                     height=height,
                     num_images_per_prompt=num_images,
-                    guidance_scale=model_config["guidance_scale"],
+                    guidance_scale=0.0,
+                    max_sequence_length=256,
                     num_inference_steps=model_config["num_inference_steps"],
                     generator=torch.Generator().manual_seed(random_seed),
                     output_type="pt",
@@ -130,11 +124,16 @@ class ImageGenNode(CustomNode):
                     num_images_per_prompt=num_images,
                     guidance_scale=model_config["guidance_scale"],
                     num_inference_steps=model_config["num_inference_steps"],
-                    random_seed=random_seed,
+                    generator=torch.Generator().manual_seed(random_seed) if random_seed is not None else None,
                     output_type="pt",
                     callback_on_step_end=callback,
                     callback_steps=callback_steps,
-                ).images  # type: ignore
+                    cross_attention_kwargs={"scale": lora_scale} if lora_path else None,
+                ).images
+
+            # Unload LoRA weights after generation
+            if lora_path:
+                pipeline.unload_lora_weights()
 
             # del pipeline
 
@@ -142,6 +141,41 @@ class ImageGenNode(CustomNode):
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
+        
+    
+    def _load_lora(self, pipeline: DiffusionPipeline, lora_path: str) -> None:
+        """
+        Load LoRA weights into the pipeline.
+        
+        Args:
+            pipeline: The diffusion pipeline to load LoRA weights into.
+            lora_path: Combined Hugging Face repo ID and weight name of the LoRA.
+        """
+        # Split the lora_path into repo_id and weight_name
+        parts = lora_path.split("/")
+        if len(parts) > 1 and "." in parts[-1]:
+            repo_id = "/".join(parts[:-1])
+            weight_name = parts[-1]
+        else:
+            repo_id = lora_path
+            weight_name = None
+
+        # Check if the LoRA is already downloaded
+        is_downloaded, _ = self.hf_model_manager.is_downloaded(repo_id)
+        
+        if not is_downloaded:
+            print(f"LoRA {repo_id} is not downloaded. Downloading now...")
+            # You might want to use an async version of this if available
+            self.hf_model_manager.download(repo_id, weight_name)
+
+        # Load the LoRA weights
+        if weight_name:
+            pipeline.load_lora_weights(repo_id, weight_name=weight_name)
+        else:
+            pipeline.load_lora_weights(repo_id)
+
+        print(f"LoRA {lora_path} loaded successfully.")
+
 
     # def apply_optimizations(self, pipeline: DiffusionPipeline):
     #     device = get_available_torch_device()

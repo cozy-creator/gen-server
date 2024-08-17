@@ -16,17 +16,21 @@ logger = logging.getLogger(__name__)
 
 class ModelMemoryManager:
     def __init__(self):
-        self.loaded_models: dict[str, DiffusionPipeline] = {}
+        self.current_model: Optional[str] = None
+        self.loaded_model: Optional[DiffusionPipeline] = None
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
 
 
-
     def load(self, model_id: str, gpu: Optional[int] = None) -> Optional[DiffusionPipeline]:
         print(f"Loading model {model_id}")
-        if model_id in self.loaded_models:
+        if model_id == self.current_model and self.loaded_model is not None:
             logger.info(f"Model {model_id} is already loaded.")
-            return self.loaded_models[model_id]
+            return self.loaded_model
+        
+        # Unload the current model if it exists and is different
+        if self.current_model is not None and self.current_model != model_id:
+            self.unload(self.current_model)
         
         config = get_config()
 
@@ -75,25 +79,17 @@ class ModelMemoryManager:
 
             # Temporary: We can use bfloat16 as standard dtype but I just notice that float16 loads the pipeline faster. 
             # Although, it's compulsory to use bfloat16 for Flux models.
-            if "flux" in model_id.lower():    
-                pipeline = DiffusionPipeline.from_pretrained(
-                    repo_id,
-                    torch_dtype=torch.bfloat16,
-                    local_files_only=True,
-                    variant=variant,
-                    **pipeline_kwargs
-                )
-            else:
-                pipeline = DiffusionPipeline.from_pretrained(
-                    repo_id,
-                    torch_dtype=torch.float16,
-                    local_files_only=True,
-                    variant=variant,
-                    **pipeline_kwargs
-                )
+            # Load the pipeline
+            pipeline = DiffusionPipeline.from_pretrained(
+                repo_id,
+                torch_dtype=torch.bfloat16 if "flux" in model_id.lower() else torch.float16,
+                local_files_only=True,
+                variant=variant,
+                **pipeline_kwargs
+            )
 
-
-            self.loaded_models[model_id] = pipeline
+            self.loaded_model = pipeline
+            self.current_model = model_id
             logger.info(f"Model {model_id} loaded successfully.")
             return pipeline
 
@@ -272,36 +268,40 @@ class ModelMemoryManager:
             delattr(torch, "mps")
 
 
-    def unload(self, repo_id: str) -> None:
-        if repo_id in self.loaded_models:
-            del self.loaded_models[repo_id]
+    def unload(self, model_id: str) -> None:
+        if model_id == self.current_model and self.loaded_model is not None:
+            del self.loaded_model
+            self.loaded_model = None
+            self.current_model = None
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             elif torch.backends.mps.is_available():
                 torch.mps.empty_cache()
 
-            logger.info(f"Model {repo_id} unloaded.")
+            logger.info(f"Model {model_id} unloaded.")
         else:
-            logger.warning(f"Model {repo_id} is not currently loaded.")
+            logger.warning(f"Model {model_id} is not currently loaded.")
 
-    def list_loaded(self, gpu: Optional[int] = None) -> List[str]:
-        if gpu is not None:
-            return [
-                repo_id
-                for repo_id, pipeline in self.loaded_models.items()
-                if pipeline.device.type == "cuda" and pipeline.device.index == gpu
-            ]
-        return list(self.loaded_models.keys())
+    # def list_loaded(self, gpu: Optional[int] = None) -> List[str]:
+    #     if gpu is not None:
+    #         return [
+    #             repo_id
+    #             for repo_id, pipeline in self.loaded_models.items()
+    #             if pipeline.device.type == "cuda" and pipeline.device.index == gpu
+    #         ]
+    #     return list(self.loaded_models.keys())
 
-    def is_loaded(self, repo_id: str) -> bool:
-        return repo_id in self.loaded_models
+    def is_loaded(self, model_id: str) -> bool:
+        return model_id == self.current_model and self.loaded_model is not None
 
-    def get_model(self, repo_id: str) -> Optional[DiffusionPipeline]:
-        return self.loaded_models.get(repo_id)
+    def get_model(self, model_id: str) -> Optional[DiffusionPipeline]:
+        if self.is_loaded(model_id):
+            return self.loaded_model
+        return None
 
-    def get_model_device(self, repo_id: str) -> Optional[torch.device]:
-        model = self.loaded_models.get(repo_id)
+    def get_model_device(self, model_id: str) -> Optional[torch.device]:
+        model = self.get_model(model_id)
         return model.device if model else None
     
 
