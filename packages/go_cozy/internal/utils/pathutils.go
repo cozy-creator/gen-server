@@ -32,9 +32,12 @@ func GetAssetsPath() (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		fmt.Println("workspacePath", workspacePath)
 		return filepath.Join(workspacePath, "assets"), nil
 	}
 
+	fmt.Println("config.GetConfig().AssetsPath", config.GetConfig().AssetsPath)
 	return ExpandPath(config.GetConfig().AssetsPath)
 }
 

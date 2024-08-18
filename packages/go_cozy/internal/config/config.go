@@ -36,9 +36,11 @@ type S3Config struct {
 var config *Config
 
 func InitConfig() error {
-	envFile := viper.GetString("env-file")
-	configFile := viper.GetString("config-file")
-	workspacePath := viper.GetString("workspace-path")
+	envFile := viper.GetString("env_file")
+	configFile := viper.GetString("config_file")
+	workspacePath := viper.GetString("workspace_path")
+
+	fmt.Println("workspacePath--", workspacePath)
 
 	if envFile != "" {
 		if err := godotenv.Load(envFile); err != nil {

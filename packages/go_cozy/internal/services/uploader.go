@@ -134,11 +134,12 @@ func (u *LocalUploader) Upload(file FileMeta) (string, error) {
 		filedest = filepath.Join(u.assetsDir, fmt.Sprintf("%s%s", file.Name, file.Extension))
 	}
 
+	fmt.Println(filedest)
 	if err := os.WriteFile(filedest, file.Content, 0644); err != nil {
 		return "", err
 	}
 
-	return filedest, nil
+	return fmt.Sprintf("http://127.0.0.1:8181/file/%s.png", file.Name), nil
 }
 
 func (u *LocalUploader) UploadMultiple(files []FileMeta) ([]string, error) {

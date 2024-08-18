@@ -29,6 +29,7 @@ func init() {
 	cobra.OnInitialize(onCommandInit)
 
 	workspacePath, err := utils.ExpandPath(DefultWorkspacePath)
+	fmt.Println("wwwww", workspacePath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -37,9 +38,9 @@ func init() {
 	rootCmd.PersistentFlags().String("workspace-path", workspacePath, "Path to the workspace directory")
 	rootCmd.PersistentFlags().String("config-file", "", "Path to the config file")
 	rootCmd.PersistentFlags().String("env-file", "", "Path to the env file")
-	viper.BindPFlag("workspace-path", rootCmd.PersistentFlags().Lookup("workspace-path"))
-	viper.BindPFlag("config-file", rootCmd.PersistentFlags().Lookup("config-file"))
-	viper.BindPFlag("env-file", rootCmd.PersistentFlags().Lookup("env-file"))
+	viper.BindPFlag("workspace_path", rootCmd.PersistentFlags().Lookup("workspace-path"))
+	viper.BindPFlag("config_file", rootCmd.PersistentFlags().Lookup("config-file"))
+	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
 	rootCmd.AddCommand(startCmd)
 }

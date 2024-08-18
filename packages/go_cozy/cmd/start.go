@@ -3,6 +3,8 @@ package cmd
 import (
 	"cozy-creator/go-cozy/internal"
 	"cozy-creator/go-cozy/internal/config"
+	"cozy-creator/go-cozy/internal/services"
+	"cozy-creator/go-cozy/internal/worker"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +21,9 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("error setting up engine: %w", err)
 		}
 
-		server.SetupRouter()
+		go startUploadWorker()
+
+		server.SetupRoutes()
 		server.Start()
 
 		return nil
@@ -34,6 +38,20 @@ func init() {
 	viper.BindPFlag("port", startCmd.Flags().Lookup("port"))
 	viper.BindPFlag("host", startCmd.Flags().Lookup("host"))
 	viper.BindPFlag("environment", startCmd.Flags().Lookup("environment"))
+}
+
+func startUploadWorker() error {
+	uploader, err := services.GetUploader()
+	if err != nil {
+		return fmt.Errorf("error getting uploader: %w", err)
+	}
+
+	uploadWorker := worker.NewUploadWorker(uploader, 10)
+	worker.SetUploadWorker(uploadWorker)
+
+	fmt.Println("Starting upload worker...")
+	uploadWorker.Start()
+	return nil
 }
 
 // import (
@@ -56,19 +74,5 @@ func init() {
 
 // server.SetupRouter()
 // server.Start()
-// 	return nil
-// }
-
-// func startUploadWorker() error {
-// 	uploader, err := services.GetUploader()
-// 	if err != nil {
-// 		return fmt.Errorf("error getting uploader: %w", err)
-// 	}
-
-// 	uploadWorker := worker.NewUploadWorker(uploader, 10)
-// 	worker.SetUploadWorker(uploadWorker)
-
-// 	print("Starting upload worker...")
-// 	uploadWorker.Start()
 // 	return nil
 // }

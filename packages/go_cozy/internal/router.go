@@ -8,13 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *HTTPServer) SetupRouter() {
+func (s *HTTPServer) SetupRoutes() {
 	// Not an API, just a simple file server
 	s.engine.GET("/file/:filename", wrapper(api.GetFile))
 
 	apiV1 := s.engine.Group("/api/v1")
 	apiV1.POST("/upload", wrapper(api.UploadFile))
-	apiV1.POST("/generate", wrapper(api.GenerateImageSync))
+	apiV1.POST("/generate", api.GenerateImageSync)
 	apiV1.POST("/generate_async", wrapper(api.GenerateImageAsync))
 }
 
