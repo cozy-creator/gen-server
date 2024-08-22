@@ -76,6 +76,7 @@ class HFModelManager:
         except Exception as e:
             logger.error(f"Error retrieving model_index.json for {repo_id}: {str(e)}")
             return None
+        
 
     def is_downloaded(self, model_id: str) -> (bool, Optional[str]):
         """

@@ -1,9 +1,7 @@
 
 import re
 
-
-
-def convert_lora_keys(old_state_dict):
+def convert_lora_keys(old_state_dict: dict) -> dict:
     new_state_dict = {}
     
     for old_key, value in old_state_dict.items():

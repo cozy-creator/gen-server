@@ -41,12 +41,12 @@ class GenerateData(BaseModel):
     webhook_url: Optional[str] = None
     lora_path: Optional[str] = None
     lora_scale: float = 1.0,
-    input_image: str
-    controlnet_preprocessor: str
-    controlnet_model_id: str
-    controlnet_conditioning_scale: float
-    canny_threshold1: int
-    canny_threshold2: int
+    input_image: str = None
+    controlnet_preprocessor: str = None
+    controlnet_model_id: str = None
+    controlnet_conditioning_scale: float = None
+    canny_threshold1: int = None
+    canny_threshold2: int = None
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead

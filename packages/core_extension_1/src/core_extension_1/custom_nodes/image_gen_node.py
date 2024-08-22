@@ -54,7 +54,7 @@ class ImageGenNode(CustomNode):
         self.model_memory_manager = get_model_memory_manager()
         self.hf_model_manager = get_hf_model_manager()
 
-    def __call__( # type: ignore
+    async def __call__( # type: ignore
         self,
         repo_id: str,
         positive_prompt: str,
@@ -68,7 +68,7 @@ class ImageGenNode(CustomNode):
         controlnet_info: Optional[dict[str, any]] = None,
     ):
         try:
-            pipeline = self.model_memory_manager.load(repo_id, None)
+            pipeline = await self.model_memory_manager.load(repo_id, None)
             if pipeline is None:
                 return None
 

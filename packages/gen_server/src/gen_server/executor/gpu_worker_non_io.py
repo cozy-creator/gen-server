@@ -125,7 +125,7 @@ async def start_gpu_worker_non_io(
             try:
                 # Choose the appropriate generation function based on whether LoRA is being used
                 # generation_function = generate_images_with_lora if data.get("lora_path") else generate_images_non_io
-                for images in generate_images_with_lora(data, cancel_event):
+                async for images in generate_images_with_lora(data, cancel_event):
                     if cancel_event is not None and cancel_event.is_set():
                         raise asyncio.CancelledError("Operation was cancelled.")
 

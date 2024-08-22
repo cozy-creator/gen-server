@@ -220,7 +220,7 @@ def generate_images_non_io(
     # tensor_queue.put((None, None))
 
 
-def generate_images_with_lora(
+async def generate_images_with_lora(
     task_data: dict[str, Any],
     cancel_event: Optional[Event],
 ) -> Generator[torch.Tensor, None, None]:
@@ -287,7 +287,7 @@ def generate_images_with_lora(
                 # repo_id = model_config_entry['repo'].replace('hf:', '')
 
                 # Run the ImageGenNode with LoRA information
-                result = image_gen_node(
+                result = await image_gen_node(
                     repo_id=checkpoint_id,
                     positive_prompt=positive_prompt,
                     negative_prompt=negative_prompt,

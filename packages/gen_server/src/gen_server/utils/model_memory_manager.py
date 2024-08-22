@@ -26,7 +26,7 @@ class ModelMemoryManager:
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
 
-    def load(
+    async def load(
         self, model_id: str, gpu: Optional[int] = None
     ) -> Optional[DiffusionPipeline]:
         print(f"Loading model {model_id}")
@@ -77,7 +77,7 @@ class ModelMemoryManager:
                                 component["source"].split("/")[:-1]
                             ).replace("hf:", "")
                             print(component_repo, component_name)
-                            pipeline_kwargs[key] = self._load_diffusers_component(
+                            pipeline_kwargs[key] = await self._load_diffusers_component(
                                 repo_id, component_repo, component_name
                             )
                         else:
