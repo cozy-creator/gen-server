@@ -26,7 +26,10 @@ class DownloadManager:
     async def download_model(self, model_id: str, config: ModelConfig):
         try:
             if config.source.startswith("hf:"):
-                await self._download_hf(config.source[3:])
+                try:
+                    await self._download_hf(config.source[3:])
+                except Exception as e:
+                    print(f"Error downloading from HuggingFace: {str(e)}")
             elif config.source.startswith("http"):
                 await self._download_file(config.source, model_id)
 
@@ -46,15 +49,40 @@ class DownloadManager:
 
     async def _download_hf(self, hf_path: str):
         parts = hf_path.split("/")
+        if len(parts) < 2:
+            raise ValueError("Invalid HuggingFace path: repo_id is required")
+
         repo_id = "/".join(parts[:2])
         sub_folder = parts[-1] if len(parts) > 2 and "." not in parts[-1] else None
         file_name = (
             parts[-1] if len(parts) > 2 and "." in parts[-1] else None
         )
 
-        await self._hf_manager.download(
-            repo_id=repo_id, file_name=file_name, sub_folder=sub_folder
-        )
+        if file_name:
+            # Download the single file directly
+            await self._hf_manager.download(
+                repo_id=repo_id, file_name=file_name, sub_folder=sub_folder
+            )
+        else:
+            # If a filename is not specified, this means we either (1) need to download
+            # multiple files in the case of a diffusers-multifolder layout, or (2) we
+            # need to download the expected model-file from the subfolder.
+            is_diffusers_multifolder_layout = False
+            try:
+                if not sub_folder:
+                    model_index = await self._hf_manager.download(
+                        repo_id=repo_id, file_name="model_index.json"
+                    )
+                    if model_index:
+                        is_diffusers_multifolder_layout = True
+                        # Examine the model_index.json file
+                        with open(model_index, "r") as f:
+                            index_content = json.load(f)
+                        # TODO: Process the index_content as needed
+                    else:
+                        print(f"model_index.json not found in {repo_id}")
+            except Exception as e:
+                print(f"Error downloading or processing model_index.json: {str(e)}")
 
     async def _download_file(self, url: str, filename: str):
         # Extract file extension from URL
