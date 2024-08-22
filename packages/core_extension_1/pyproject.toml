@@ -25,7 +25,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "firebase-admin",
-    "diffusers@git+https://github.com/huggingface/diffusers.git",
+    # "diffusers@git+https://github.com/huggingface/diffusers.git",
 ]
 
 [project.entry-points."cozy_creator.architectures"]
@@ -49,6 +49,11 @@ auraflow_vae = "core_extension_1.architectures.aura_flow_archs:AuraFlowVAEArch"
 auraflow_transformer = "core_extension_1.architectures.aura_flow_archs:AuraFlowTransformer"
 auraflow_text_encoder = "core_extension_1.architectures.aura_flow_archs:AuraFlowTextEncoder"
 
+flux_transformer = "core_extension_1.architectures.flux_archs:FluxTransformer"
+flux_text_encoder_1 = "core_extension_1.architectures.flux_archs:FluxTextEncoder1"
+flux_text_encoder_2 = "core_extension_1.architectures.flux_archs:FluxTextEncoder2"
+flux_vae = "core_extension_1.architectures.flux_archs:FluxVAEArch"
+
 spandrel_architectures = "core_extension_1.architectures.spandrel:architectures"
 briarmbg = "core_extension_1.architectures.briarmbg_arch:BriaRMBG"
 ormbg = "core_extension_1.architectures.ormbg_arch:ORMBG"
@@ -65,6 +70,8 @@ image_node = "core_extension_1.custom_nodes:ImageNode"
 image_regen_node = "core_extension_1.custom_nodes:ImageRegenNode"
 select_area_node = "core_extension_1.custom_nodes:SelectAreaNode"
 openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
+load_lora_node = "core_extension_1.custom_nodes:LoadLoraNode"
+controlnet_preprocessor_node = "core_extension_1.custom_nodes:ControlNetPreprocessorNode"
 
 
 [project.entry-points."cozy_creator.api"]

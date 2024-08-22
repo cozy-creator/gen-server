@@ -1,34 +1,138 @@
 {
-    "display_name": {
-      "en": "Image",
-      "zh": "图像"
-    },
-    "description": {
-      "en": "Loads an image from a file path or URL.",
-      "zh": "从文件路径或 URL 加载图像。"
-    },
-    "category": "input", 
-    "inputs": {
-      "file_path": {
-        "display_name": "File Path/URL", 
-        "description": {
-          "en": "Enter the file path or URL of the image.",
-          "zh": "输入图像的文件路径或 URL。"
-        },
-        "widgets": {
-          "type": "string",
-          "multiline": false 
-        }
+  "display_name": {
+      "en": "Image Generator",
+      "zh": "图像生成器"
+  },
+  "description": {
+      "en": "Generates images using various models, with optional LoRA and ControlNet support.",
+      "zh": "使用各种模型生成图像，可选择性地支持 LoRA 和 ControlNet。"
+  },
+  "category": "image",
+  "inputs": {
+      "repo_id": {
+          "display_name": {
+              "en": "Model Repository ID",
+              "zh": "模型仓库 ID"
+          },
+          "description": {
+              "en": "The Hugging Face model repository ID.",
+              "zh": "Hugging Face 模型仓库 ID。"
+          },
+          "widgets": {
+              "type": "string",
+              "multiline": false
+          }
+      },
+      "positive_prompt": {
+          "display_name": {
+              "en": "Positive Prompt",
+              "zh": "正面提示"
+          },
+          "description": {
+              "en": "Text description of the desired image.",
+              "zh": "所需图像的文本描述。"
+          },
+          "widgets": {
+              "type": "string",
+              "multiline": true
+          }
+      },
+      "negative_prompt": {
+          "display_name": {
+              "en": "Negative Prompt",
+              "zh": "负面提示"
+          },
+          "description": {
+              "en": "Text description of what to avoid in the image.",
+              "zh": "图像中要避免的内容的文本描述。"
+          },
+          "widgets": {
+              "type": "string",
+              "multiline": true
+          }
+      },
+      "aspect_ratio": {
+          "display_name": {
+              "en": "Aspect Ratio",
+              "zh": "纵横比"
+          },
+          "description": {
+              "en": "The aspect ratio of the generated image.",
+              "zh": "生成图像的纵横比。"
+          },
+          "widgets": {
+              "type": "combo",
+              "choices": ["1/1", "4/3", "3/2", "16/9"],
+              "default": "1/1"
+          }
+      },
+      "num_images": {
+          "display_name": {
+              "en": "Number of Images",
+              "zh": "图像数量"
+          },
+          "description": {
+              "en": "The number of images to generate.",
+              "zh": "要生成的图像数量。"
+          },
+          "widgets": {
+              "type": "int",
+              "min": 1,
+              "max": 10,
+              "step": 1,
+              "default": 1
+          }
+      },
+      "random_seed": {
+          "display_name": {
+              "en": "Random Seed",
+              "zh": "随机种子"
+          },
+          "description": {
+              "en": "Seed for the random number generator (optional).",
+              "zh": "随机数生成器的种子（可选）。"
+          },
+          "widgets": {
+              "type": "int",
+              "min": 0,
+              "max": 2147483647
+          }
+      },
+      "lora_info": {
+          "display_name": {
+              "en": "LoRA Information",
+              "zh": "LoRA 信息"
+          },
+          "description": {
+              "en": "LoRA information for fine-tuning (optional).",
+              "zh": "用于微调的 LoRA 信息（可选）。"
+          },
+          "type": "LORA_INFO"
+      },
+      "controlnet_info": {
+          "display_name": {
+              "en": "ControlNet Information",
+              "zh": "ControlNet 信息"
+          },
+          "description": {
+              "en": "ControlNet information for guided generation (optional).",
+              "zh": "用于引导生成的 ControlNet 信息（可选）。"
+          },
+          "type": "CONTROLNET_INFO"
       }
-    },
-    "outputs": {
-      "image": {
-        "display_name": "Image",
-        "description": {
-          "en": "The loaded image as a tensor.",
-          "zh": "加载的图像，以张量形式表示。"
-        },
-        "type": "torch.Tensor" 
+  },
+  "outputs": {
+      "images": {
+          "display_name": {
+              "en": "Generated Images",
+              "zh": "生成的图像"
+          },
+          "description": {
+              "en": "The generated images.",
+              "zh": "生成的图像。"
+          },
+          "type": "IMAGE",
+          "is_list": true
       }
-    }
   }
+}

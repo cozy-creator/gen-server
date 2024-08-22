@@ -14,7 +14,7 @@ import blake3
 from huggingface_hub import HfApi
 from pydantic import BaseModel
 
-from .. import ApiAuthenticator
+from ..base_types import ApiAuthenticator
 from ..utils.file_handler import get_mime_type, get_file_handler
 from ..globals import get_api_endpoints, get_checkpoint_files, get_hf_model_manager
 from ..config import get_config, is_model_enabled
@@ -39,6 +39,14 @@ class GenerateData(BaseModel):
     negative_prompt: str
     models: dict[str, int]
     webhook_url: Optional[str] = None
+    lora_path: Optional[str] = None
+    lora_scale: float = 1.0,
+    input_image: str
+    controlnet_preprocessor: str
+    controlnet_model_id: str
+    controlnet_conditioning_scale: float
+    canny_threshold1: int
+    canny_threshold2: int
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead
@@ -109,7 +117,8 @@ def create_aiohttp_app(
                         status=400,
                     )
                 if config.environment != "production":
-                    if not hf_model_manager.is_downloaded(model_id):
+                    is_downloaded, variant = hf_model_manager.is_downloaded(model_id)
+                    if not is_downloaded:
                         return web.json_response(
                             {"error": f"Model {model_id} is not available"},
                             status=404,

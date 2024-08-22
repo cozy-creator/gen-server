@@ -12,12 +12,37 @@ from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 # from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
 from typing import Callable, Optional
 
+from diffusers import (
+    DiffusionPipeline,
+    StableDiffusionPipeline,
+    StableDiffusionXLPipeline,
+    StableDiffusionControlNetPipeline,
+    StableDiffusionXLControlNetPipeline,
+    ControlNetModel,
+    FluxPipeline,
+    FluxControlNetModel,
+    FluxControlNetPipeline,
+    FluxTransformer2DModel,
+    StableDiffusion3Pipeline
+)
+
+StableDiffusion3Pipeline.load_lora_weights
 
 from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
 from importlib import import_module
 from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.globals import get_hf_model_manager, get_available_torch_device
+from gen_server.globals import (
+    get_hf_model_manager,
+    get_available_torch_device,
+    get_model_memory_manager,
+)
+from diffusers import FluxPipeline
+import os
+import json
+
+
+# from gen_server.utils.model_memory_manager import ModelMemoryManager
 
 
 class ImageGenNode(CustomNode):
@@ -26,8 +51,10 @@ class ImageGenNode(CustomNode):
     def __init__(self):
         super().__init__()
         self.config_manager = ModelConfigManager()
+        self.model_memory_manager = get_model_memory_manager()
+        self.hf_model_manager = get_hf_model_manager()
 
-    def __call__(  # type: ignore
+    def __call__( # type: ignore
         self,
         repo_id: str,
         positive_prompt: str,
@@ -36,117 +63,188 @@ class ImageGenNode(CustomNode):
         num_images: int = 1,
         random_seed: Optional[int] = None,
         callback: Optional[Callable] = None,
+        callback_steps: Optional[int] = 1,
+        lora_info: Optional[dict[str, any]] = None,
+        controlnet_info: Optional[dict[str, any]] = None,
     ):
-        """
-        Args:
-            repo_id: ID of the pre-trained model checkpoint to use.
-            positive_prompt: Text prompt describing the desired image.
-            negative_prompt: Text prompt describing what to avoid in the image.
-            aspect_ratio: Aspect ratio of the output image.
-            num_images: Number of images to generate.
-            random_seed: Random seed for reproducibility (optional).
-        Returns:
-            A dictionary containing the list of generated PIL Images.
-        """
-
         try:
-            # Create pipeline without changing the scheduler
-            try:
-                #     pipeline = DiffusionPipeline.from_pretrained(
-                #         repo_id,
-                #         local_files_only=False,
-                #         variant="fp16",
-                #         torch_dtype=torch.float16
-                #     )
-                hf_model_manager = get_hf_model_manager()
-
-                # Load the model
-                pipeline = hf_model_manager.load(None, repo_id)
-            except Exception as e:
-                raise ValueError(f"Error in loading Pipeline caused by: {e}")
-
+            pipeline = self.model_memory_manager.load(repo_id, None)
             if pipeline is None:
                 return None
 
             class_name = pipeline.__class__.__name__
-
             module = import_module("diffusers")
 
-            # Get model-specific configuration
             model_config = self.config_manager.get_model_config(repo_id, class_name)
 
-            # Check if a specific scheduler is specified in the config
             scheduler_name = model_config.get("scheduler")
             if scheduler_name:
-                print("In Here")
                 SchedulerClass = getattr(module, scheduler_name)
-                pipeline.scheduler = SchedulerClass.from_config(
-                    pipeline.scheduler.config
-                )
+                pipeline.scheduler = SchedulerClass.from_config(pipeline.scheduler.config)
 
-            # Determine the width and height based on the aspect ratio and base model
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
-            # Apply optimizations
-            self.apply_optimizations(pipeline)
 
-            # Prepare prompts
-            full_positive_prompt = (
-                f"{model_config['default_positive_prompt']} {positive_prompt}".strip()
-            )
-            full_negative_prompt = (
-                f"{model_config['default_negative_prompt']} {negative_prompt}".strip()
-            )
+            if isinstance(pipeline, (DiffusionPipeline)):
+                self.handle_lora(pipeline, lora_info)
 
-            # Run the pipeline
-            tensor_images = pipeline(
-                prompt=full_positive_prompt,
-                negative_prompt=full_negative_prompt,
-                width=width,
-                height=height,
-                num_images_per_prompt=num_images,
-                guidance_scale=model_config["guidance_scale"],
-                num_inference_steps=model_config["num_inference_steps"],
-                random_seed=random_seed,
-                output_type="pt",
-                callback_on_step_end=callback,
-            ).images  # type: ignore
+            if controlnet_info:
+                pipeline = self.setup_controlnet(pipeline, controlnet_info)
 
-            del pipeline
+            self.model_memory_manager.apply_optimizations(pipeline)
+
+            full_positive_prompt = f"{model_config['default_positive_prompt']} {positive_prompt}".strip()
+            full_negative_prompt = f"{model_config['default_negative_prompt']} {negative_prompt}".strip()
+
+            gen_params = {
+                "prompt": full_positive_prompt,
+                "negative_prompt": full_negative_prompt,
+                "width": width,
+                "height": height,
+                "num_images_per_prompt": num_images,
+                "num_inference_steps": model_config["num_inference_steps"],
+                "generator": torch.Generator().manual_seed(random_seed) if random_seed is not None else None,
+                "output_type": "pt",
+                "callback_on_step_end": callback,
+                # "callback_steps": callback_steps,
+            }
+
+            if isinstance(pipeline, FluxPipeline):
+                gen_params["guidance_scale"] = 0.0
+                gen_params["max_sequence_length"] = 256
+                # Remove negative_prompt for Flux
+                gen_params.pop("negative_prompt", None)
+            else:
+                gen_params["guidance_scale"] = model_config["guidance_scale"]
+
+            if controlnet_info:
+                gen_params["image"] = controlnet_info.get("control_image")
+                gen_params["controlnet_conditioning_scale"] = controlnet_info.get("conditioning_scale", 1.0)
+                if "guess_mode" in controlnet_info:
+                    gen_params["guess_mode"] = controlnet_info["guess_mode"]
+
+            tensor_images = pipeline(**gen_params).images
 
             return {"images": tensor_images}
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
+        
+    def setup_controlnet(self, pipeline: any, controlnet_info: dict):
 
-    def apply_optimizations(self, pipeline: DiffusionPipeline):
-        device = get_available_torch_device()
-        optimizations = [
-            ("enable_vae_tiling", "VAE Tiled", {}),
-            (
-                "enable_xformers_memory_efficient_attention",
-                "Memory Efficient Attention",
-                {},
-            ),
-            (
-                "enable_model_cpu_offload",
-                "CPU Offloading",
-                {"device": device},
-            ),
-        ]
+        if isinstance(pipeline, FluxPipeline):
+            controlnet = FluxControlNetModel.from_pretrained(
+                controlnet_info["model_id"]
+            )
 
-        # Patch torch.mps to torch.backends.mps
-        device_type = device if isinstance(device, str) else device.type
-        if device_type == "mps":
-            setattr(torch, "mps", torch.backends.mps)
-        for opt_func, opt_name, kwargs in optimizations:
+            new_pipeline = FluxControlNetPipeline.from_pipe(
+                pipeline,
+                controlnet=controlnet
+            )
+
+            return new_pipeline
+
+
+        controlnet = ControlNetModel.from_pretrained(
+            controlnet_info["model_id"],
+            torch_dtype=torch.float16
+        )
+
+        if isinstance(pipeline, StableDiffusionXLPipeline):
+            new_pipeline = StableDiffusionXLControlNetPipeline.from_pipe(
+                pipeline,
+                controlnet=controlnet
+            )
+        elif isinstance(pipeline, StableDiffusionPipeline):
+            new_pipeline = StableDiffusionControlNetPipeline.from_pipe(
+                pipeline,
+                controlnet=controlnet
+            )
+
+        else:
+            raise ValueError(f"Unsupported pipeline type for ControlNet: {type(pipeline)}")
+
+
+        return new_pipeline
+    
+    def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict):
+        if lora_info is None:
+            # If no LoRA info is provided, disable all LoRAs
+            pipeline.unload_lora_weights()
+            
+        else:
+            print("Loading LoRA weights...")
+            adapter_name = lora_info["adapter_name"]
+            print(f"Adapter Name: {adapter_name}")
             try:
-                getattr(pipeline, opt_func)(**kwargs)
-                print(f"{opt_name} enabled")
-            except Exception as e:
-                print(f"Error enabling {opt_name}: {e}")
+                pipeline.load_lora_weights(
+                    lora_info["repo_id"],
+                    weight_name=lora_info["weight_name"],
+                    adapter_name=adapter_name
+                )
+                print(f"LoRA adapter '{adapter_name}' loaded successfully.")
+            except ValueError as e:
+                if "already in use" in str(e):
+                    print(f"LoRA adapter '{adapter_name}' is already loaded. Using existing adapter.")
+                    
+                else:
+                    raise e
 
-        delattr(torch, "mps")
+            # Set LoRA scales
+            lora_scale_dict = {}
+
+            if hasattr(pipeline, 'text_encoder'):
+                lora_scale_dict["text_encoder"] = lora_info["text_encoder_scale"]
+            if hasattr(pipeline, 'text_encoder_2'):
+                lora_scale_dict["text_encoder_2"] = lora_info["text_encoder_2_scale"]
+
+            # Determine if the model uses UNet or Transformer
+            if hasattr(pipeline, 'unet'):
+                lora_scale_dict["unet"] = lora_info["model_scale"]
+            elif hasattr(pipeline, 'transformer'):
+                lora_scale_dict["transformer"] = lora_info["model_scale"]
+
+            # Set the scales
+            pipeline.set_adapters(adapter_name, adapter_weights=[lora_info["model_scale"]])
+            # pipeline.fuse_lora(lora_scale=lora_info["model_scale"], adapter_name=adapter_name)
+
+    # @staticmethod
+    # def get_spec():
+    #     """Returns the node specification."""
+    #     spec_file = os.path.join(os.path.dirname(__file__), 'audio_node.json')
+    #     with open(spec_file, 'r', encoding='utf-8') as f:
+    #         spec = json.load(f)
+    #     return spec
+
+
+#     def apply_optimizations(self, pipeline: DiffusionPipeline):
+#         device = get_available_torch_device()
+#         optimizations = [
+#             ("enable_vae_tiling", "VAE Tiled", {}),
+#             (
+#                 "enable_xformers_memory_efficient_attention",
+#                 "Memory Efficient Attention",
+#                 {},
+#             ),
+#             (
+#                 "enable_model_cpu_offload",
+#                 "CPU Offloading",
+#                 {"device": device},
+#             ),
+#         ]
+
+#         # Patch torch.mps to torch.backends.mps
+#         device_type = device if isinstance(device, str) else device.type
+#         if device_type == "mps":
+#             setattr(torch, "mps", torch.backends.mps)
+#         for opt_func, opt_name, kwargs in optimizations:
+#             try:
+#                 getattr(pipeline, opt_func)(**kwargs)
+#                 print(f"{opt_name} enabled")
+#             except Exception as e:
+#                 print(f"Error enabling {opt_name}: {e}")
+
+#         delattr(torch, "mps")
 
 
 # class ImageGenNode(CustomNode):

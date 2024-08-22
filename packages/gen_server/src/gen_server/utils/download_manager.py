@@ -1,8 +1,11 @@
 import asyncio
 import threading
-from typing import Dict, Optional
+import aiohttp
+from urllib.parse import urlparse
+import os
 from .hf_model_manager import HFModelManager
 from ..base_types.pydantic_models import ModelConfig
+from ..utils.paths import get_models_dir
 
 
 class DownloadManager:
@@ -12,11 +15,7 @@ class DownloadManager:
 
     @property
     def pending_downloads(self):
-        return self._pending_downloads
-
-    @pending_downloads.setter
-    def pending_downloads(self):
-        raise AttributeError("Cannot manually alter pending_downloads")
+        return self._pending_downloads.copy()
 
     def is_downloaded(self, repo_id: str) -> bool:
         return self._hf_manager.is_downloaded(repo_id)
@@ -24,41 +23,121 @@ class DownloadManager:
     def is_pending_download(self, repo_id: str) -> bool:
         return repo_id in self._pending_downloads
 
-    async def download_model(
-        self,
-        repo_id: str,
-        variant: Optional[str] = None,
-        file_name: Optional[str] = None,
-        sub_folder: Optional[str] = None,
-    ):
+    async def download_model(self, model_id: str, config: ModelConfig):
         try:
-            await self._hf_manager.download(
-                repo_id,
-                variant=variant,
-                file_name=file_name,
-                sub_folder=sub_folder,
-            )
-        except Exception as e:
-            print(f"Failed to download model {repo_id}: {str(e)}")
-
-    async def download_models(self, models: Dict[str, ModelConfig]):
-        try:
-            self._pending_downloads = {
-                repo_id: self.download_model(repo_id, config.variant)
-                for repo_id, config in models.items()
-                if not self._hf_manager.is_downloaded(repo_id)
-            }
-
-            for repo_id, download_model in self._pending_downloads.items():
+            if config.source.startswith("hf:"):
                 try:
-                    await download_model
-                    del self._pending_downloads[repo_id]
+                    await self._download_hf(config.source[3:])
                 except Exception as e:
-                    print(f"Failed to download model {repo_id}: {str(e)}")
+                    print(f"Error downloading from HuggingFace: {str(e)}")
+            elif config.source.startswith("http"):
+                await self._download_file(config.source, model_id)
+
+            if hasattr(config, "components"):
+                if config.components:
+                    for component_name, component_config in config.components.items():
+                        
+                        if component_config.source.startswith("hf:"):
+                            await self._download_hf(component_config.source[3:])
+                        elif component_config.source.startswith("http"):
+                            await self._download_file(
+                                component_config.source, f"{model_id}_{component_name}"
+                            )
+        except Exception as e:
+            print(f"Failed to download model {model_id}: {str(e)}")
+            raise  # Re-raise the exception to be caught in download_models
+
+    async def _download_hf(self, hf_path: str):
+        parts = hf_path.split("/")
+        if len(parts) < 2:
+            raise ValueError("Invalid HuggingFace path: repo_id is required")
+
+        repo_id = "/".join(parts[:2])
+        sub_folder = parts[-1] if len(parts) > 2 and "." not in parts[-1] else None
+        file_name = (
+            parts[-1] if len(parts) > 2 and "." in parts[-1] else None
+        )
+
+        if file_name:
+            # Download the single file directly
+            await self._hf_manager.download(
+                repo_id=repo_id, file_name=file_name, sub_folder=sub_folder
+            )
+        else:
+            # If a filename is not specified, this means we either (1) need to download
+            # multiple files in the case of a diffusers-multifolder layout, or (2) we
+            # need to download the expected model-file from the subfolder.
+            is_diffusers_multifolder_layout = False
+            try:
+                if not sub_folder:
+                    model_index = await self._hf_manager.download(
+                        repo_id=repo_id, file_name="model_index.json"
+                    )
+                    if model_index:
+                        is_diffusers_multifolder_layout = True
+                        # Examine the model_index.json file
+                        with open(model_index, "r") as f:
+                            index_content = json.load(f)
+                        # TODO: Process the index_content as needed
+                    else:
+                        print(f"model_index.json not found in {repo_id}")
+            except Exception as e:
+                print(f"Error downloading or processing model_index.json: {str(e)}")
+
+    async def _download_file(self, url: str, filename: str):
+        # Extract file extension from URL
+        parsed_url = urlparse(url)
+        file_extension = os.path.splitext(parsed_url.path)[1]
+
+        # If filename doesn't have an extension, add .safetensors if file_extension is unknown
+        if "." not in filename:
+            filename += ".safetensors" if not file_extension else file_extension
+        # If filename already has an extension, keep it as is
+        elif not os.path.splitext(filename)[1]:
+            filename += file_extension if file_extension else ".safetensors"
+
+        file_path = os.path.join(get_models_dir(), filename)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    with open(file_path, "wb") as f:
+                        while True:
+                            chunk = await response.content.read(8192)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                else:
+                    raise Exception(f"Failed to download file: HTTP {response.status}")
+
+    async def download_models(self, models: dict[str, ModelConfig]):
+        try:
+            # Create all download tasks first
+            download_tasks: list[tuple[str, asyncio.Task]] = [
+                (model_id, asyncio.create_task(self.download_model(model_id, config)))
+                for model_id, config in models.items()
+            ]
+
+            # Update pending downloads
+            self._pending_downloads.update(dict(download_tasks))
+
+            # Execute and await all tasks
+            for model_id, task in download_tasks:
+                print(f"Downloading model {model_id}")
+                try:
+                    await task
+                except Exception as e:
+                    print(f"Failed to download model {model_id}: {str(e)}")
+                finally:
+                    print(f"Downloading model {model_id} finished")
+                    self._pending_downloads.pop(model_id, None)
+                    print(f"Remaining pending downloads: {len(self._pending_downloads)}")
+
         except Exception as e:
             print(f"Failed to download models: {str(e)}")
 
-    def download_with_event_loop(self, models: Dict[str, ModelConfig]):
+
+    def download_with_event_loop(self, models: dict[str, ModelConfig]):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -72,7 +151,7 @@ class DownloadManager:
         except Exception as e:
             print(f"Failed to download models: {str(e)}")
 
-    def download_models_silently(self, models: Dict[str, ModelConfig]):
+    def download_models_silently(self, models: dict[str, ModelConfig]):
         thread = threading.Thread(target=self.download_with_event_loop, args=(models,))
         thread.daemon = True
         thread.start()

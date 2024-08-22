@@ -29,12 +29,12 @@ enabled_models:
     source: hf:black-forest-labs/FLUX.1-schnell
     components:
       text_encoder_2:
-        source: hf:black-forest-labs/FLUX.1-schnell/text_encoder_2
+        source: hf:cozy-creator/flux-fp8-schnell-quantized/text_encoder_2
       transformer:
-        source: hf:Kijai/flux-fp8/flux1-schnell-fp8.safetensors
+        source: hf:cozy-creator/flux-fp8-schnell-quantized/transformer
   
   pony-diffusion-xl-v6:
     source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
-    arch: sdxl
+    arch: core-extension-1.sdxl_pipe
 
 

@@ -174,6 +174,7 @@ def aspect_ratio_to_dimensions(
         "StableDiffusionXLPipeline",
         "AuraFlow",
         "StableDiffusion3Pipeline",
+        "FluxPipeline"
     }
 
     size = "large" if class_name in large_models else "default"

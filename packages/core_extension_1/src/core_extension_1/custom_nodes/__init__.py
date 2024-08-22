@@ -6,3 +6,5 @@ from .image_node import ImageNode
 from .image_regen_node import ImageRegenNode
 from .select_area_node import SelectAreaNode
 from .openpose_node import OpenPoseNode
+from .load_lora import LoadLoraNode
+from .controlnet_node import ControlNetPreprocessorNode

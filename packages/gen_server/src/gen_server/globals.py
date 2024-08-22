@@ -1,5 +1,7 @@
+import os
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
+from .base_types.pydantic_models import ModelConfig
 from .utils.download_manager import DownloadManager
 
 from .base_types import (
@@ -9,13 +11,18 @@ from .base_types import (
     ApiAuthenticator,
     TorchDevice,
 )
-from .utils.hf_model_manager import HFModelManager
 from .utils.device import get_torch_device
+
+
+_ENABLED_MODELS: dict[str, ModelConfig] = {}
 
 _available_torch_device: TorchDevice = get_torch_device()
 
 # Huggingface Manager
-_HF_MODEL_MANAGER = HFModelManager()
+_HF_MODEL_MANAGER = None
+
+# Model Memory Manager
+_MODEL_MEMORY_MANAGER = None
 
 # Download Manager
 _download_manager: Optional[DownloadManager] = None
@@ -48,6 +55,24 @@ Dictionary of all discovered checkpoint files
 """
 
 _api_authenticator: Optional[Type[ApiAuthenticator]] = None
+
+
+def get_hf_model_manager():
+    global _HF_MODEL_MANAGER
+    if _HF_MODEL_MANAGER is None:
+        from .utils.hf_model_manager import HFModelManager
+
+        _HF_MODEL_MANAGER = HFModelManager()
+    return _HF_MODEL_MANAGER
+
+
+def get_model_memory_manager():
+    global _MODEL_MEMORY_MANAGER
+    if _MODEL_MEMORY_MANAGER is None:
+        from .utils.model_memory_manager import ModelMemoryManager
+
+        _MODEL_MEMORY_MANAGER = ModelMemoryManager()
+    return _MODEL_MEMORY_MANAGER
 
 
 def update_api_endpoints(endpoints: dict[str, RouteDefinition]):
@@ -106,9 +131,13 @@ def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
     return _api_authenticator
 
 
-def get_hf_model_manager() -> HFModelManager:
-    global _HF_MODEL_MANAGER
-    return _HF_MODEL_MANAGER
+# def get_hf_model_manager() -> HFModelManager:
+#     global _HF_MODEL_MANAGER
+#     return _HF_MODEL_MANAGER
+
+# def get_model_memory_manager() -> ModelMemoryManager:
+#     global _MODEL_MEMORY_MANAGER
+#     return _MODEL_MEMORY_MANAGER
 
 
 def get_download_manager() -> Optional[DownloadManager]:
