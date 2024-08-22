@@ -17,7 +17,7 @@
         },
         "widgets": {
           "type": "dropdown",
-          "options": ["This will be populated dynamically from available checkpoints"]
+          "options": "{checkpoints}"
         }
       },
       "positive_prompt": {

@@ -46,8 +46,6 @@ def generate_images(
         negative_prompt = task_data.get("negative_prompt", "")
         random_seed = task_data.get("random_seed")
         aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
-        lora_path = task_data.get("lora_path", None)
-        lora_scale = task_data.get("lora_scale", 1.0)
 
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
@@ -62,8 +60,6 @@ def generate_images(
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
-                    lora_path=lora_path,
-                    lora_scale=lora_scale,
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),
@@ -152,8 +148,6 @@ def generate_images_non_io(
         negative_prompt = task_data.get("negative_prompt", "")
         random_seed = task_data.get("random_seed")
         aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
-        lora_path = task_data.get("lora_path", None)
-        lora_scale = task_data.get("lora_scale", 1.0)
 
         # Get the ImageGenNode
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
@@ -172,8 +166,6 @@ def generate_images_non_io(
                     num_images=num_images,
                     random_seed=random_seed,
                     callback=CancelCallback(cancel_event),
-                    lora_path=lora_path,
-                    lora_scale=lora_scale,
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),
@@ -226,3 +218,116 @@ def generate_images_non_io(
 
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))
+
+
+def generate_images_with_lora(
+    task_data: dict[str, Any],
+    cancel_event: Optional[Event],
+) -> Generator[torch.Tensor, None, None]:
+    """Generates images based on the provided task data, with LoRA support."""
+    start = time.time()
+
+    custom_nodes = get_custom_nodes()
+
+    try:
+        models = task_data.get("models", {})
+        positive_prompt = task_data.get("positive_prompt")
+        negative_prompt = task_data.get("negative_prompt", "")
+        random_seed = task_data.get("random_seed")
+        aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
+        lora_path = task_data.get("lora_path")
+        model_scale = task_data.get("model_scale", 1.0)
+        text_encoder_scale = task_data.get("text_encoder_scale", 1.0)
+        text_encoder_2_scale = task_data.get("text_encoder_2_scale", 1.0)
+        adapter_name = task_data.get("adapter_name", None)
+
+        # Get the LoraPrepNode, ControlNetPrepNode and ImageGenNode
+        lora_prep_node = custom_nodes["core_extension_1.load_lora_node"]()
+        image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+        controlnet_preprocessor_node = custom_nodes["core_extension_1.controlnet_preprocessor_node"]()
+
+        # Prepare LoRA information
+        lora_info = None
+        if lora_path:
+            lora_info = lora_prep_node(
+                lora_path=lora_path,
+                model_scale=model_scale,
+                text_encoder_scale=text_encoder_scale,
+                text_encoder_2_scale=text_encoder_2_scale,
+                adapter_name=adapter_name
+            )
+
+        # Prepare ControlNet input
+        controlnet_info = None
+        if task_data.get("controlnet_preprocessor"):
+            control_image = controlnet_preprocessor_node(
+                image=task_data["input_image"],
+                preprocessor=task_data["controlnet_preprocessor"],
+                threshold1=task_data.get("canny_threshold1", 100),
+                threshold2=task_data.get("canny_threshold2", 200)
+            )["control_image"]
+            
+            controlnet_info = {
+                "model_id": task_data["controlnet_model_id"],
+                "control_image": control_image,
+                "conditioning_scale": task_data.get("controlnet_conditioning_scale", 1.0),
+                "guess_mode": task_data.get("controlnet_guess_mode", False)
+            }
+
+        for checkpoint_id, num_images in models.items():
+            if cancel_event is not None and cancel_event.is_set():
+                raise asyncio.CancelledError("Operation was cancelled.")
+
+            try:
+                # # Get the actual repo_id from the model config
+                # model_config_entry = model_config['models'].get(model_id)
+                # if not model_config_entry:
+                #     raise ValueError(f"Model {model_id} not found in configuration.")
+                
+                # repo_id = model_config_entry['repo'].replace('hf:', '')
+
+                # Run the ImageGenNode with LoRA information
+                result = image_gen_node(
+                    repo_id=checkpoint_id,
+                    positive_prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
+                    aspect_ratio=aspect_ratio,
+                    num_images=num_images,
+                    random_seed=random_seed,
+                    callback=CancelCallback(cancel_event),
+                    lora_info=lora_info,
+                    controlnet_info=controlnet_info
+                )
+
+                tensor_images: torch.Tensor = result["images"]
+
+                if cancel_event is not None and cancel_event.is_set():
+                    raise asyncio.CancelledError("Operation was cancelled.")
+
+                tensor_images = tensor_images.to("cpu")
+                tensor_images.share_memory_()
+                logger.info(f"Generated images for model '{checkpoint_id}' with LoRA. Tensor dimensions: {tensor_images.shape}")
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                yield tensor_images
+
+            except StopIteration:
+                logger.info("Task was cancelled during image generation.")
+                raise asyncio.CancelledError("Operation was cancelled.")
+            except asyncio.CancelledError:
+                logger.info("Task was cancelled during image generation.")
+                raise
+            except Exception as e:
+                logger.error(f"Error generating images for model '{checkpoint_id}' with LoRA: {str(e)}")
+                raise
+
+    except asyncio.CancelledError:
+        logger.info("Task was cancelled.")
+        raise
+    except Exception as e:
+        logger.error(f"Error in LoRA-enhanced image generation workflow: {str(e)}")
+        raise
+
+    logger.info(f"LoRA-enhanced image generation completed in {time.time() - start} seconds")

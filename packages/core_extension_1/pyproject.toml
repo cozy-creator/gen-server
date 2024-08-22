@@ -25,7 +25,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "firebase-admin",
-    "diffusers@git+https://github.com/huggingface/diffusers.git",
+    # "diffusers@git+https://github.com/huggingface/diffusers.git",
 ]
 
 [project.entry-points."cozy_creator.architectures"]
@@ -70,6 +70,8 @@ image_node = "core_extension_1.custom_nodes:ImageNode"
 image_regen_node = "core_extension_1.custom_nodes:ImageRegenNode"
 select_area_node = "core_extension_1.custom_nodes:SelectAreaNode"
 openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
+load_lora_node = "core_extension_1.custom_nodes:LoadLoraNode"
+controlnet_preprocessor_node = "core_extension_1.custom_nodes:ControlNetPreprocessorNode"
 
 
 [project.entry-points."cozy_creator.api"]

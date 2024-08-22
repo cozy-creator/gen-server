@@ -39,6 +39,14 @@ class GenerateData(BaseModel):
     negative_prompt: str
     models: dict[str, int]
     webhook_url: Optional[str] = None
+    lora_path: Optional[str] = None
+    lora_scale: float = 1.0,
+    input_image: str
+    controlnet_preprocessor: str
+    controlnet_model_id: str
+    controlnet_conditioning_scale: float
+    canny_threshold1: int
+    canny_threshold2: int
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead

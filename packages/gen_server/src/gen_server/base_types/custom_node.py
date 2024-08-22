@@ -1,6 +1,10 @@
 from typing import TypedDict, Any
 from abc import ABC, abstractmethod
 from .common import Language, Category
+import os
+import inspect
+import json
+from typing import Dict, Any
 
 
 class NodeInterfaceInput(TypedDict):
@@ -71,12 +75,15 @@ class CustomNode(ABC):
     description: dict[Language, str]
     """ Description, displayed in the client. Localized by language. """
 
-    @staticmethod
-    def get_spec() -> dict[str, Any]:
-        """
-        Returns the custom node's specification, as a dictionary. Usually loaded from JSON.
-        """
-        return {}
+    @classmethod
+    def get_spec(cls) -> Dict[str, Any]:
+        """Returns the node specification."""
+        class_file = os.path.abspath(inspect.getfile(cls))
+        spec_file = os.path.join(os.path.dirname(class_file), f"{cls.__name__}.json")
+        with open(spec_file, "r", encoding="utf-8") as f:
+            spec = json.load(f)
+        return spec
+    
 
     @abstractmethod
     def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:

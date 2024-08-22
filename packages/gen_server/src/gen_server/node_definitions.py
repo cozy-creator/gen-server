@@ -4,10 +4,11 @@ from typing import List, Dict, Any
 from pkg_resources import iter_entry_points
 import inspect
 from gen_server.base_types import ModelConstraint, Category, Language
+from .globals import _CUSTOM_NODES
 
 
 class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
+    def default(self, obj): # type: ignore
         if isinstance(obj, property):
             if callable(obj.fget):
                 return obj.fget(None)
@@ -49,11 +50,11 @@ def get_custom_nodes_from_entry_points(group: str) -> List[str]:
     return nodes
 
 
-def import_module_from_entry_point(entry_point) -> Any:
+def import_module_from_entry_point(entry_point) -> Any: # type: ignore
     return entry_point.load()
 
 
-def extract_node_metadata(node_class) -> Dict[str, Any]:
+def extract_node_metadata(node_class) -> Dict[str, Any]: # type: ignore
     # Check if the 'update_interface' method accepts 'inputs'
     update_interface = node_class.update_interface
     signature = inspect.signature(update_interface)
@@ -97,5 +98,28 @@ def produce_node_definitions_file(output_file: str):
         json.dump(all_nodes, f, indent=4, cls=CustomJSONEncoder)
 
 
+
+# def compile_node_definitions() -> List[Dict[str, Any]]:
+#     entry_point_group = "cozy_creator.custom_nodes"
+#     node_definitions = []
+
+#     for entry_point in iter_entry_points(group=entry_point_group):
+#         try:
+#             node_class = entry_point.load()
+#             node_spec = node_class.get_spec()
+#             node_definitions.append(node_spec)
+#         except Exception as e:
+#             print(f"Error loading node {entry_point.name}: {e}")
+
+#     return node_definitions
+
+def save_node_definitions(output_file: str):
+    node_definitions = compile_node_definitions()
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(node_definitions, f, ensure_ascii=False, indent=4)
+
+
+def compile_node_definitions() -> List[Dict[str, Any]]:
+    pass
 # Example usage
 # produce_node_definitions_file('node_definitions.json')

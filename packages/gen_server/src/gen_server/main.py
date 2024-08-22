@@ -51,6 +51,7 @@ from .globals import (
     update_api_authenticator,
     get_api_authenticator,
     get_hf_model_manager,
+    _CUSTOM_NODES,
 )
 
 # from .utils.hf_model_manager import load_model_config
@@ -65,6 +66,7 @@ from .executor.gpu_worker_non_io import start_gpu_worker
 from .utils.paths import DEFAULT_HOME_DIR
 import warnings
 from .utils.device import get_torch_device, get_torch_device_count
+from .node_definitions import save_node_definitions
 
 warnings.filterwarnings("ignore", module="pydantic_settings")
 
@@ -204,6 +206,12 @@ def main():
         )
 
         run_app(cozy_config)
+        print(_CUSTOM_NODES)
+
+        # Compile node definitions
+        node_definitions_file = os.path.join(get_web_dir(), 'node_definitions.json')
+        save_node_definitions(node_definitions_file)
+        print(f"Node definitions saved to {node_definitions_file}")
 
     elif subcommand in ["build-web", "build_web"]:
         cli_settings = get_cli_settings(BuildWebCommandConfig, build_web_parser)
