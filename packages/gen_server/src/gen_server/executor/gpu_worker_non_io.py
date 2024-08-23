@@ -13,8 +13,8 @@ from typing import (
 from multiprocessing import managers
 from requests.packages.urllib3.util.retry import Retry
 from PIL import PngImagePlugin
-import requests
 import torch
+import struct
 
 from ..base_types.pydantic_models import RunCommandConfig
 from ..base_types import TorchDevice
@@ -29,7 +29,7 @@ from ..globals import (
 from .workflows import generate_images_non_io, generate_images_with_lora
 from ..config import set_config
 from ..utils.file_handler import FileHandler, get_file_handler, FileURL
-from ..utils.image import tensor_to_pil
+from ..utils.image import tensor_to_pil, tensor_to_bytes
 from requests.adapters import HTTPAdapter
 
 import logging
@@ -59,22 +59,6 @@ async def upload_batch(
     logger.info("Starting to upload PNG files")
     async for file_url in file_handler.upload_png_files(pil_images, metadata):
         yield file_url
-
-
-def invoke_webhook(webhook_url: str, file_url: FileURL):
-    session = requests.Session()
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-
-    try:
-        headers = {"Content-Type": "application/json"}
-        response = session.post(
-            webhook_url, json={"file_url": file_url}, headers=headers, timeout=10
-        )
-        response.raise_for_status()
-        logger.info("Webhook invoked successfully! Response: %s", response.text)
-    except requests.exceptions.RequestException as e:
-        logger.error("Request error occurred: %s", e)
 
 
 async def start_gpu_worker_non_io(
@@ -129,13 +113,12 @@ async def start_gpu_worker_non_io(
                     if cancel_event is not None and cancel_event.is_set():
                         raise asyncio.CancelledError("Operation was cancelled.")
 
-                    async for file_url in upload_batch(file_handler, images):
-                        if cancel_event is not None and cancel_event.is_set():
-                            raise asyncio.CancelledError("Operation was cancelled.")
+                    image_bytes = tensor_to_bytes(images)
+                    for image_bytes in image_bytes:
                         if response_conn is not None:
-                            response_conn.send(file_url)
-                        if data.get("webhook_url") is not None:
-                            invoke_webhook(data["webhook_url"], file_url)
+                            print("bytes sent", len(image_bytes))
+                            header = struct.pack("!I", len(image_bytes))
+                            response_conn.send(header + image_bytes)
             except asyncio.CancelledError:
                 logger.info("Task was cancelled... Cancelling...")
                 if response_conn is not None:

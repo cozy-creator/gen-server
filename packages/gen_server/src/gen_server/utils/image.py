@@ -8,6 +8,7 @@ from PIL import Image
 from gen_server.utils.device import get_torch_device
 from gen_server.utils.load_models import from_file
 from torchvision.transforms import ToPILImage
+from io import BytesIO
 
 model_path = os.path.join(os.path.dirname(__file__), "models", "RealESRGAN_x8.pth")
 
@@ -112,6 +113,29 @@ def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
     return images
 
 
+def tensor_to_bytes(tensor: torch.Tensor, format: str = "PNG"):
+    tensor = tensor.to(dtype=torch.float16, device="cpu")
+
+    images: list[bytes] = []
+    transform = ToPILImage()
+
+    for t in tensor:
+        image = transform(t)
+        bytes_io = BytesIO()
+        image.save(bytes_io, format=format)
+        images.append(bytes_io.getvalue())
+
+    return images
+
+
+# def tensor_to_bytestrings(tensor: torch.Tensor) -> list[bytes]:
+#     tensor = tensor.to(dtype=torch.float16, device="cpu")
+
+#     transform = ToPILImage()
+#     images = [transform(t).tobytes() for t in tensor]
+#     return images
+
+
 # def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
 #     """
 #     Expects tensor of shape [batch, dim, height, width]
@@ -154,9 +178,7 @@ def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
 #     return aspect_ratio_map[aspect_ratio][size]
 
 
-def aspect_ratio_to_dimensions(
-    aspect_ratio: str, class_name: str
-) -> tuple[int, int]:
+def aspect_ratio_to_dimensions(aspect_ratio: str, class_name: str) -> tuple[int, int]:
     aspect_ratio_map = {
         "21/9": {"large": (1536, 640), "default": (896, 384)},
         "16/9": {"large": (1344, 768), "default": (768, 448)},

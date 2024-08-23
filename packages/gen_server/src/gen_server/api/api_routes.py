@@ -161,15 +161,7 @@ def create_aiohttp_app(
 
         data = GenerateData(**(await request.json()))
 
-        if data.webhook_url is not None:
-            return web.json_response(
-                {"error": "webhook_url is not allowed for this endpoint"},
-                status=400,
-            )
-
-        response = web.StreamResponse(
-            status=200, reason="OK", headers={"Content-Type": "application/json"}
-        )
+        response = web.StreamResponse(status=200, reason="OK")
         await response.prepare(request)
 
         try:
@@ -197,14 +189,13 @@ def create_aiohttp_app(
 
                     if has_data:
                         # Data is available, so let's receive it
-                        file_url = parent_conn.recv()
+                        image = parent_conn.recv()
 
-                        if file_url is None:  # Signal for completion
+                        if image is None:  # Signal for completion
                             break
-                        else:  # We have a valid file URL
-                            await response.write(
-                                json.dumps({"output": file_url}).encode("utf-8") + b"\n"
-                            )
+                        else:
+                            # We have a valid file URL
+                            await response.write(image)
                             await (
                                 response.drain()
                             )  # Ensure the data is sent immediately
@@ -217,14 +208,11 @@ def create_aiohttp_app(
                     # Connection was closed
                     break
 
-            await response.write(
-                json.dumps({"status": "finished"}).encode("utf-8") + b"\n"
-            )
-
         except TimeoutError as e:
             logger.error(f"Generation timed out: {str(e)}")
             await response.write(
-                json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+                "timeout".encode("utf-8")
+                # json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
             )
         except Exception as e:
             logger.error(f"Error in generation: {str(e)}")
