@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -59,7 +60,11 @@ func InitConfig() error {
 	}
 
 	if err := LoadConfig(false); err != nil {
-		return err
+		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			fmt.Println("No config file found. Using default config.")
+		} else {
+			return err
+		}
 	}
 
 	return nil

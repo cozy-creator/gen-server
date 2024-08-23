@@ -46,33 +46,6 @@ func startUploadWorker() error {
 		return fmt.Errorf("error getting uploader: %w", err)
 	}
 
-	uploadWorker := worker.NewUploadWorker(uploader, 10)
-	worker.SetUploadWorker(uploadWorker)
-
-	fmt.Println("Starting upload worker...")
-	uploadWorker.Start()
+	worker.InitializeUploadWorker(uploader, 10)
 	return nil
 }
-
-// import (
-// 	"cozy-creator/go-cozy/internal"
-// 	"cozy-creator/go-cozy/internal/config"
-// 	"cozy-creator/go-cozy/internal/services"
-// 	"cozy-creator/go-cozy/internal/worker"
-// 	"fmt"
-// )
-
-// func start(cfg *config.Config) error {
-// 	config.SetConfig(cfg)
-
-// server := internal.NewHTTPServer(cfg)
-// if err := server.SetupEngine(cfg); err != nil {
-// 	return fmt.Errorf("error setting up engine: %w", err)
-// }
-
-// 	go startUploadWorker()
-
-// server.SetupRouter()
-// server.Start()
-// 	return nil
-// }
