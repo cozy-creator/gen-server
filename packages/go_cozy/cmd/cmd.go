@@ -42,7 +42,7 @@ func init() {
 	viper.BindPFlag("config_file", rootCmd.PersistentFlags().Lookup("config-file"))
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
-	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(startCmd, downloadCmd)
 }
 
 func onCommandInit() {

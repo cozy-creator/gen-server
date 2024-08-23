@@ -6,7 +6,7 @@ import (
 	"cozy-creator/go-cozy/internal/types"
 	"cozy-creator/go-cozy/internal/utils"
 	"cozy-creator/go-cozy/internal/worker"
-	"encoding/binary"
+	"cozy-creator/go-cozy/tools"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,7 +16,10 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
+
+var mapChan = tools.DefaultBytesMap()
 
 func UploadFile(c *gin.Context) (*types.HandlerResponse, error) {
 	file, err := c.FormFile("file")
@@ -55,26 +58,32 @@ func GetFile(c *gin.Context) (*types.HandlerResponse, error) {
 }
 
 func GenerateImageSync(c *gin.Context) {
-	data := types.GenerateData{}
+	data := make(map[string]any)
 	if err := c.BindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 	}
 
-	imageChan := make(chan []byte)
-	go generateImage(data, imageChan)
+	requestId := uuid.NewString()
+	data["request_id"] = requestId
+
+	mapChan.Set(requestId, make(chan []byte))
+	go generateImage(data)
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
 
-	Loop:
+		responseChan := mapChan.Get(requestId)
+
 		for {
-			image, ok := <-imageChan
+			image, ok := <-responseChan
+			fmt.Println("responseChan->", "image received")
 			if !ok {
-				break Loop
+				break
 			}
 
 			uploadUrl := make(chan string)
 			go func() {
+				fmt.Println("uploadUrl->", "uploading image")
 				imageHash := utils.Blake3Hash(image)
 				fileMeta := services.NewFileMeta(hex.EncodeToString(imageHash[:]), ".png", image, false)
 
@@ -84,9 +93,10 @@ func GenerateImageSync(c *gin.Context) {
 
 			url, ok := <-uploadUrl
 			if !ok {
-				break Loop
+				break
 			}
 
+			fmt.Println("url", url)
 			c.Writer.Write([]byte(fmt.Sprintf(`{"status": "pending", "url": "%s"}\n`, url)))
 		}
 
@@ -97,17 +107,18 @@ func GenerateImageSync(c *gin.Context) {
 }
 
 func GenerateImageAsync(c *gin.Context) (*types.HandlerResponse, error) {
-	data := types.GenerateData{}
+	data := map[string]any{}
 	if err := c.BindJSON(&data); err != nil {
 		return types.NewErrorResponse("failed to parse request body: %w", err)
 	}
 
 	go func() {
 		imageChan := make(chan []byte)
-		go generateImage(data, imageChan)
+		go generateImage(data)
 
 		for {
 			image, ok := <-imageChan
+			fmt.Println("imageChan->", "image received")
 			if !ok {
 				break
 			}
@@ -127,7 +138,7 @@ func GenerateImageAsync(c *gin.Context) (*types.HandlerResponse, error) {
 			}
 
 			response, err := http.Post(
-				*data.WebhookUrl,
+				data["webhook_url"].(string),
 				"application/json",
 				bytes.NewBuffer([]byte(fmt.Sprintf(`{"status": "pending", "url": "%s"}`, url))),
 			)
@@ -145,6 +156,27 @@ func GenerateImageAsync(c *gin.Context) (*types.HandlerResponse, error) {
 	return types.NewJSONResponse(map[string]interface{}{"status": "pending"})
 }
 
+func GenerationCallback(c *gin.Context) {
+	fmt.Println("GenerationCallback")
+	image, err := io.ReadAll(c.Request.Body)
+	fmt.Println("image len", len(image))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to read request body"})
+		return
+	}
+
+	requestId := c.Param("request_id")
+	fmt.Println("requestId", requestId)
+	if requestId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "request_id is required"})
+		return
+	}
+
+	mapChan.Send(requestId, image)
+	fmt.Println("mapChan->", "image sent")
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
 func readFileContent(file *multipart.FileHeader) ([]byte, error) {
 	content, err := file.Open()
 	if err != nil {
@@ -155,7 +187,7 @@ func readFileContent(file *multipart.FileHeader) ([]byte, error) {
 	return io.ReadAll(content)
 }
 
-func generateImage(data types.GenerateData, responseChan chan []byte) error {
+func generateImage(data map[string]any) error {
 	endpointUrl := ("http://127.0.0.1:8881/generate")
 
 	jsonData, err := json.Marshal(data)
@@ -176,43 +208,8 @@ func generateImage(data types.GenerateData, responseChan chan []byte) error {
 	}
 
 	defer response.Body.Close()
-	defer close(responseChan)
-
-	lengthBuf := make([]byte, 4)
-	for {
-		_, err := io.ReadFull(response.Body, lengthBuf)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("EOF reached")
-				break // End of stream
-			}
-			fmt.Printf("Error reading length prefix: %v\n", err)
-			break
-		}
-
-		contentLength := binary.BigEndian.Uint32(lengthBuf)
-		if contentLength == 0 {
-			fmt.Println("Received a chunk with length 0, skipping")
-			continue
-		}
-
-		contentBytes := make([]byte, contentLength)
-		_, err = io.ReadFull(response.Body, contentBytes)
-		if err != nil {
-			if err == io.ErrUnexpectedEOF {
-				fmt.Printf("Error: expected %d bytes but got fewer\n", contentLength)
-			}
-
-			if err == io.EOF {
-				fmt.Println("EOF reached while reading chunk", err)
-				break // End of stream
-			}
-
-			fmt.Printf("Error reading chunk data: %v\n", err)
-			break
-		}
-
-		responseChan <- contentBytes
+	if response.StatusCode != 200 {
+		return fmt.Errorf("non-200 status code: %d", response.StatusCode)
 	}
 
 	return nil

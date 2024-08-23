@@ -11,6 +11,7 @@ from typing import (
 )
 
 from multiprocessing import managers
+import requests
 from requests.packages.urllib3.util.retry import Retry
 from PIL import PngImagePlugin
 import torch
@@ -61,6 +62,21 @@ async def upload_batch(
         yield file_url
 
 
+def send_image(url: str, image: bytes):
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+    logger.info("Sending image to %s", url)
+
+    try:
+        response = session.post(url, data=image, timeout=10)
+        response.raise_for_status()
+        logger.info("Image sent successfully! Response: %s", response.text)
+    except requests.exceptions.RequestException as e:
+        logger.error("Request error occurred: %s", e)
+
+
 async def start_gpu_worker_non_io(
     task_queue: queue.Queue,
     cancel_registry: managers.DictProxy,
@@ -77,8 +93,6 @@ async def start_gpu_worker_non_io(
     update_architectures(architectures)
     update_checkpoint_files(checkpoint_files)
     set_available_torch_device(device)
-
-    file_handler = get_file_handler(cozy_config)
 
     logger.info("GPU worker started")
 
@@ -115,22 +129,27 @@ async def start_gpu_worker_non_io(
 
                     image_bytes = tensor_to_bytes(images)
                     for image_bytes in image_bytes:
-                        if response_conn is not None:
-                            print("bytes sent", len(image_bytes))
-                            header = struct.pack("!I", len(image_bytes))
-                            response_conn.send(header + image_bytes)
+                        send_image(
+                            f"http://127.0.0.1:8181/api/v1/callback/{request_id}",
+                            image_bytes,
+                        )
+                        # if response_conn is not None:
+                        # print("bytes sent", len(image_bytes))
+                        # header = struct.pack("!I", len(image_bytes))
+                        # response_conn.send(header + image_bytes)
+
             except asyncio.CancelledError:
                 logger.info("Task was cancelled... Cancelling...")
-                if response_conn is not None:
-                    response_conn.send(None)
+                # if response_conn is not None:
+                #     response_conn.send(None)
             except Exception as e:
                 logger.error(f"Error in image generation: {str(e)}")
-                if response_conn is not None:
-                    response_conn.send(None)
-            finally:
-                if response_conn is not None:
-                    response_conn.send(None)
-                    response_conn.close()
+                # if response_conn is not None:
+                # response_conn.send(None)
+            # finally:
+            # if response_conn is not None:
+            # response_conn.send(None)
+            # response_conn.close()
         except queue.Empty:
             continue
         except Exception as e:

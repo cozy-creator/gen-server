@@ -2,7 +2,7 @@ package worker
 
 var uploadWorker *UploadWorker
 
-func SetUploadWorker(worker *UploadWorker) {
+func cacheUploadWorker(worker *UploadWorker) {
 	if worker != nil {
 		uploadWorker = worker
 	}
