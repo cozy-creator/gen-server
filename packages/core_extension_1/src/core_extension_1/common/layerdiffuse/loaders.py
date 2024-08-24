@@ -5,7 +5,7 @@ from diffusers.models.attention_processor import (
     IPAdapterAttnProcessor2_0,
     AttnProcessor2_0,
 )
-from packages.core_extension_1.src.core_extension_1.common.layerdiffuse.models import (
+from .models import (
     LoraLoader,
     AttentionSharingProcessor,
     IPAdapterAttnShareProcessor,

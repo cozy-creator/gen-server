@@ -1,18 +1,13 @@
 package cmd
 
 import (
-	"cozy-creator/go-cozy/internal/config"
-	"cozy-creator/go-cozy/internal/utils"
+	"cozy-creator/gen-server/internal/config"
+	"cozy-creator/gen-server/internal/utils"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-const (
-	CommandStart  = "start"
-	CommandUpload = "upload"
 )
 
 const (
@@ -42,7 +37,7 @@ func init() {
 	viper.BindPFlag("config_file", rootCmd.PersistentFlags().Lookup("config-file"))
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
-	rootCmd.AddCommand(startCmd, downloadCmd)
+	rootCmd.AddCommand(runCmd, downloadCmd)
 }
 
 func onCommandInit() {
@@ -82,14 +77,14 @@ func GetRootCmd() *cobra.Command {
 // }
 
 // func (c *CLI) runStartCommand(args []string) error {
-// 	startCmd := flag.NewFlagSet(CommandStart, flag.ExitOnError)
+// 	runCmd := flag.NewFlagSet(CommandStart, flag.ExitOnError)
 
-// 	configFile := startCmd.String("config-file", "", "Path to the config file")
-// 	port := startCmd.Int("port", 0, "Port to run the server on")
-// 	host := startCmd.String("host", "", "Host to run the server on")
-// 	environment := startCmd.String("environment", "development", "Environment to run the server in")
+// 	configFile := runCmd.String("config-file", "", "Path to the config file")
+// 	port := runCmd.Int("port", 0, "Port to run the server on")
+// 	host := runCmd.String("host", "", "Host to run the server on")
+// 	environment := runCmd.String("environment", "development", "Environment to run the server in")
 
-// 	if err := startCmd.Parse(args); err != nil {
+// 	if err := runCmd.Parse(args); err != nil {
 // 		return fmt.Errorf("failed to parse %s command: %w", CommandStart, err)
 // 	}
 

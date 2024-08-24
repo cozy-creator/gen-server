@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"cozy-creator/go-cozy/internal/config"
+	"cozy-creator/gen-server/internal/config"
 	"fmt"
 	"os"
 	"path/filepath"

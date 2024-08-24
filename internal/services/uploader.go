@@ -3,8 +3,8 @@ package services
 import (
 	"bytes"
 	"context"
-	cozyConfig "cozy-creator/go-cozy/internal/config"
-	"cozy-creator/go-cozy/internal/utils"
+	cozyConfig "cozy-creator/gen-server/internal/config"
+	"cozy-creator/gen-server/internal/utils"
 	"fmt"
 	"io"
 	"os"

@@ -2,11 +2,11 @@ package api
 
 import (
 	"bytes"
-	"cozy-creator/go-cozy/internal/services"
-	"cozy-creator/go-cozy/internal/types"
-	"cozy-creator/go-cozy/internal/utils"
-	"cozy-creator/go-cozy/internal/worker"
-	"cozy-creator/go-cozy/tools"
+	"cozy-creator/gen-server/internal/services"
+	"cozy-creator/gen-server/internal/types"
+	"cozy-creator/gen-server/internal/utils"
+	"cozy-creator/gen-server/internal/worker"
+	"cozy-creator/gen-server/tools"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"

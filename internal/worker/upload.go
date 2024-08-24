@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"cozy-creator/go-cozy/internal/services"
+	"cozy-creator/gen-server/internal/services"
 	"fmt"
 
 	"github.com/gammazero/workerpool"

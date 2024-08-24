@@ -1,8 +1,8 @@
 package internal
 
 import (
-	"cozy-creator/go-cozy/internal/api"
-	"cozy-creator/go-cozy/internal/types"
+	"cozy-creator/gen-server/internal/api"
+	"cozy-creator/gen-server/internal/types"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

@@ -5,7 +5,7 @@ from gen_server.base_types.architecture import SpandrelArchitectureAdapter, Arch
 from spandrel.architectures.ESRGAN import ESRGANArch
 
 from gen_server.utils import load_models
-from packages.core_extension_1.src.core_extension_1.architectures.sd3_archs import (
+from ..architectures.sd3_archs import (
     SD3UNet,
 )
 

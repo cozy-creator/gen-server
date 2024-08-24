@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"cozy-creator/go-cozy/internal/config"
+	"cozy-creator/gen-server/internal/config"
 	"fmt"
 
 	"github.com/gin-contrib/cors"

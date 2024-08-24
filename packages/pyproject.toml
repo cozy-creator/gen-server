@@ -1,6 +1,6 @@
 [tool.pyright]
-include = ["packages/*/src"]
-extraPaths = ["packages/*/src"]
+include = ["*/src"]
+extraPaths = ["*/src"]
 
 pythonVersion = "3.11"
 

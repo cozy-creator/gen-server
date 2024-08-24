@@ -41,11 +41,11 @@ RUN pip install --no-cache-dir jupyterlab
 # Install the latest version of diffusers straight from GitHub; the release branch may be out of date
 RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 
-# Install the gen_server package and its plugin-packages
-COPY packages/ ./packages
-RUN pip install ./packages/gen_server[performance] && \
-    pip install ./packages/image_utils && \
-    pip install ./packages/core_extension_1
+# Install the gen_server package and its plugin-python_packages
+COPY python_packages/ ./python_packages
+RUN pip install ./python_packages/gen_server[performance] && \
+    pip install ./python_packages/image_utils && \
+    pip install ./python_packages/core_extension_1
 
 # start script
 COPY scripts/start.sh .

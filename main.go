@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cozy-creator/go-cozy/cmd"
+	cmd "cozy-creator/gen-server/cmd/cozy"
 	"fmt"
 	"os"
 )

@@ -1,6 +1,6 @@
-module cozy-creator/go-cozy
+module cozy-creator/gen-server
 
-go 1.22.6
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.30.3 // indirect
@@ -29,6 +29,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.22.0 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -46,6 +47,7 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/samber/mo v1.13.0 // indirect
 	github.com/schollz/progressbar/v3 v3.14.6 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
@@ -72,7 +74,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.3
-	github.com/cozy-creator/hf-hub v0.0.0
+	github.com/cozy-creator/hf-hub v0.0.0-20240823175603-e756e062242e
 	github.com/gabriel-vasile/mimetype v1.4.5
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-contrib/cors v1.7.2
@@ -86,4 +88,4 @@ require (
 	lukechampine.com/blake3 v1.3.0
 )
 
-replace github.com/cozy-creator/hf-hub => ../../../hf-model-hub
+// replace github.com/cozy-creator/hf-hub => ../../../hf-model-hub
