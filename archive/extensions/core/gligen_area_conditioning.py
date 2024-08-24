@@ -1,1 +1,0 @@
-# Called 'GLIGENTextBoxApply' in ComfyUI
