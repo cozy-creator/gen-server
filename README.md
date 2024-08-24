@@ -1,5 +1,24 @@
+### Install Prebuilt Binaries
+
+???
+
+### Build From Source
+
+To build the executable from source and then install it (include it in your system path), you must first have [Golang installed](https://go.dev/doc/install), and then in the root of this repo run:
+
+```sh
+go build -o $GOPATH/bin/cozy
+```
+
+### Running Cozy Gen-Server
+
+In your terminal, run:
+
+`cozy run`
+
+
 ### Cozy Creator
-Cozy Creator is a generative AI engine that allows you to create and run generative AI models on your own computer or in the cloud. It is designed to be easy to use and accessible to everyone, regardless of their technical expertise.
+Cozy Creator is a generative AI engine that allows you to create and run generative AI models on your own computer or in the cloud.
 
 This repository contains the source code for Cozy Creator, which includes the following packages:
 
