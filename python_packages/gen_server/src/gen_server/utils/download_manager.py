@@ -6,6 +6,7 @@ import os
 from .hf_model_manager import HFModelManager
 from ..base_types.pydantic_models import ModelConfig
 from ..utils.paths import get_models_dir
+import json
 
 
 class DownloadManager:

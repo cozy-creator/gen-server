@@ -4,7 +4,7 @@ import json
 import multiprocessing
 from threading import Event
 import traceback
-from typing import Callable, Optional, Tuple, Any, Iterable, Type
+from typing import Callable, Optional, Tuple, Any, Iterable, Type, Union
 from uuid import uuid4
 from aiohttp import web, BodyPartReader
 from aiohttp_middlewares.cors import cors_middleware
@@ -44,10 +44,16 @@ class GenerateData(BaseModel):
     lora_scale: float = 1.0,
     input_image: str = None
     controlnet_preprocessor: str = None
-    controlnet_model_id: str = None
+    controlnet_model_ids: Union[str, list[str]] = None
     controlnet_conditioning_scale: float = None
     canny_threshold1: int = None
     canny_threshold2: int = None
+    pose_image: str = None
+    depth_image: str = None
+    style_image: str = None
+    face_prompt: str = None
+    face_mask_feather_iterations: int = None
+    background_prompt: str = None
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead

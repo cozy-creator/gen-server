@@ -27,7 +27,7 @@ from ..globals import (
     update_custom_nodes,
     set_available_torch_device,
 )
-from .workflows import generate_images_non_io, generate_images_with_lora
+from .workflows import generate_images_non_io, generate_images_with_lora, poseable_character_workflow
 from ..config import set_config
 from ..utils.file_handler import FileHandler, get_file_handler, FileURL
 from ..utils.image import tensor_to_pil, tensor_to_bytes
@@ -123,7 +123,7 @@ async def start_gpu_worker_non_io(
             try:
                 # Choose the appropriate generation function based on whether LoRA is being used
                 # generation_function = generate_images_with_lora if data.get("lora_path") else generate_images_non_io
-                async for images in generate_images_with_lora(data, cancel_event):
+                async for images in poseable_character_workflow(data, cancel_event):
                     if cancel_event is not None and cancel_event.is_set():
                         raise asyncio.CancelledError("Operation was cancelled.")
 

@@ -6,11 +6,13 @@ import traceback
 
 import torch
 import logging
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Dict, Generator, Optional, AsyncGenerator, Union
 from multiprocessing.connection import Connection
 from diffusers.callbacks import PipelineCallback
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
-
+from PIL import Image
+from pathlib import Path
+from gen_server.utils.paths import get_assets_dir
 from queue import Queue
 
 from ..globals import (
@@ -105,6 +107,121 @@ def generate_images(
 
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))
+
+
+async def poseable_character_workflow(
+    task_data: Dict[str, Any],
+    cancel_event: Optional[asyncio.Event]
+) -> AsyncGenerator[torch.Tensor, None]:
+    custom_nodes = get_custom_nodes()
+    
+    # Initialize nodes
+    openpose_node = custom_nodes["core_extension_1.openpose_node"]()
+    depth_map_node = custom_nodes["core_extension_1.depth_map_node"]()
+    # ip_adapter_node = custom_nodes["core_extension_1.ip_adapter_embeddings_node"]()
+    image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+    select_face_node = custom_nodes["core_extension_1.select_area_node"]()
+    image_regen_node = custom_nodes["core_extension_1.image_regen_node"]()
+    remove_bg_node = custom_nodes["core_extension_1.remove_background_node"]()
+    # composite_node = custom_nodes["core_extension_1.composite_images_node"]()
+
+    
+    
+    final_images = []
+    try:
+
+        # Helper function to load image
+        def load_image(image: Union[Image.Image, Path, str]) -> Image.Image:
+            assets_dir = get_assets_dir()
+            if isinstance(image, Image.Image):
+                return image
+            elif isinstance(image, (str, Path)):
+                path = Path(image)
+                if not path.is_absolute():
+                    print("here")
+                    # If the path is relative, assume it's in the assets directory
+                    path = assets_dir / path
+                if path.is_file():
+                    return Image.open(path).convert("RGB")
+                else:
+                    raise ValueError(f"Image file not found: {path}")
+            else:
+                raise ValueError(f"Unsupported image input type: {type(image)}")
+            
+        print(f"\n\n\n{task_data}\n\n\n")
+
+        # Extract features
+        openpose_image = await openpose_node(load_image(task_data["pose_image"]))
+        print("Done with openpose")
+        depth_map = await depth_map_node(load_image(task_data["depth_image"]))
+        print("Done with depth map")
+        # ip_adapter_embeds = await ip_adapter_node(task_data["style_image"], task_data["model_id"])
+
+        for model_id, num_images in task_data["models"].items():
+            if cancel_event is not None and cancel_event.is_set():
+                raise asyncio.CancelledError("Operation was cancelled.")
+
+            try:
+        
+                # Generate initial image
+                initial_images = await image_gen_node(
+                    model_id=model_id,
+                    positive_prompt=task_data["positive_prompt"],
+                    negative_prompt=task_data["negative_prompt"],
+                    aspect_ratio=task_data["aspect_ratio"],
+                    num_images=num_images,
+                    random_seed=task_data["random_seed"],
+                    openpose_image=openpose_image["openpose_image"],
+                    depth_map=depth_map["depth_map"],
+                    controlnet_model_ids=task_data.get("controlnet_model_ids"),
+                    # ip_adapter_embeds=ip_adapter_embeds["ip_adapter_embeds"],
+                    # lora_info=task_data.get("lora_info")
+                )
+            
+                for initial_image in initial_images["images"]:
+                    # Select face area and regenerate
+                    face_mask = await select_face_node(
+                        initial_image,
+                        feather_iterations=task_data["face_mask_feather_iterations"]
+                    )
+                    regenerated_image = await image_regen_node(
+                        image=initial_image,
+                        mask=face_mask["face_mask"],
+                        prompt=task_data["face_prompt"],
+                        model_id=model_id,
+                        strength=task_data["strength"]
+                    )
+                    
+                    # Remove background
+                    foreground = await remove_bg_node(regenerated_image["regenerated_image"])
+                    
+                    # Generate new background
+                    background = await image_gen_node(
+                        repo_id=model_id,
+                        positive_prompt=task_data["background_prompt"],
+                        aspect_ratio=task_data["aspect_ratio"],
+                        num_images=1
+                    )
+                    
+                    # Composite final image
+                    # final_image = await composite_node(foreground["foreground"], background["images"][0])
+                    # yield final_image["composite_image"]
+
+                    yield regenerated_image["regenerated_image"]
+                    
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                
+            except Exception as e:
+                logger.error(f"Error generating images for model '{model_id}': {str(e)}")
+                raise
+        
+    except asyncio.CancelledError:
+        print("Task was cancelled.")
+        raise
+    except Exception as e:
+        print(f"Error in poseable character workflow: {str(e)}")
+        raise
 
 
 class CancelCallback(PipelineCallback):
@@ -223,7 +340,7 @@ def generate_images_non_io(
 async def generate_images_with_lora(
     task_data: dict[str, Any],
     cancel_event: Optional[Event],
-) -> Generator[torch.Tensor, None, None]:
+) -> AsyncGenerator[torch.Tensor, None]:
     """Generates images based on the provided task data, with LoRA support."""
     start = time.time()
 

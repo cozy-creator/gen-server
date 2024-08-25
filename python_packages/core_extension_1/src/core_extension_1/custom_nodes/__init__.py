@@ -8,3 +8,5 @@ from .select_area_node import SelectAreaNode
 from .openpose_node import OpenPoseNode
 from .load_lora import LoadLoraNode
 from .controlnet_feature_detector import ControlNetFeatureDetector
+from .composite_node import CompositeImagesNode
+from .removebg_node import RemoveBackgroundNode

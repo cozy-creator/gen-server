@@ -78,7 +78,7 @@ class HFModelManager:
             return None
         
 
-    def is_downloaded(self, model_id: str) -> (bool, Optional[str]):
+    def is_downloaded(self, model_id: str) -> tuple[bool, Optional[str]]:
         """
         Checks if a model is fully downloaded in the cache.
         Returns True if at least one variant is completely downloaded.
@@ -109,7 +109,7 @@ class HFModelManager:
                 return False, None
 
             # Check components if model_index is present
-            if "components" in model_info:
+            if "components" in model_info and model_info["components"] is not None:
                 for component_name, source in model_info["components"].items():
                     if isinstance(source, list):
                         component_repo = source[0]
