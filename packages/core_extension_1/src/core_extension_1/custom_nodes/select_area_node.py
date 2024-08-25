@@ -9,16 +9,20 @@ import numpy as np
 import scipy.ndimage
 import os
 import json
+from huggingface_hub.constants import HF_HUB_CACHE
 
 class SelectAreaNode(CustomNode):
     """Selects an area in an image based on a text prompt using GroundingDino and SAM."""
 
     def __init__(self):
         super().__init__()
+        self.cache_dir = HF_HUB_CACHE
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.sam_predictor = self.load_sam()
         self.grounding_dino_model = self.load_groundingdino()
+        
 
-    def __call__(self, image: torch.Tensor, text_prompt: str, feather_radius: int = 0) -> dict[str, Image.Image]:
+    async def __call__(self, image: torch.Tensor, text_prompt: str = "face", feather_radius: int = 0) -> dict[str, Image.Image]: # type: ignore
         """
         Args:
             image: Input image tensor (C, H, W) or PIL Image.
@@ -65,18 +69,24 @@ class SelectAreaNode(CustomNode):
             raise ValueError(f"Error selecting area: {e}")
 
     def load_sam(self) -> SamPredictor:
-        sam_checkpoint = "models/sam_vit_h_4b8939.pth"  # Update path if necessary
+        component_repo = "HCMUE-Research/SAM-vit-h"
+
+        sam_checkpoint = self.get_model_path(component_repo, "sam_vit_h_4b8939.pth")
         model_type = "vit_h"
-        device = self.DEVICE
+        device = self.device
         sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
         sam.to(device=device)
         return SamPredictor(sam)
 
     def load_groundingdino(self) -> torch.nn.Module:
         config_file = "GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"  # Update path
-        checkpoint_file = "models/groundingdino_swint_ogc.pth"  # Update path
+
+        component_repo = "alexgenovese/background-workflow"
+
+        checkpoint_file = self.get_model_path(component_repo, "groundingdino_swint_ogc.pth")
+
         model = load_model(config_file, checkpoint_file)
-        model.to(self.DEVICE)
+        model.to(self.device)
         return model
 
     def transform_image(self, image: Image.Image) -> torch.Tensor:
@@ -110,9 +120,33 @@ class SelectAreaNode(CustomNode):
             mask = scipy.ndimage.gaussian_filter(mask, sigma=1)
             mask[mask > 0] = 1
         return mask
+    
+    def get_model_path(self, component_repo: str, model_name: str) -> str:
+        storage_folder = os.path.join(
+            self.cache_dir, "models--" + component_repo.replace("/", "--")
+        )
+
+        if not os.path.exists(storage_folder):
+            raise FileNotFoundError(
+                f"Model {component_repo} not found"
+            )
+
+        # Get the latest commit hash
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            return FileNotFoundError(f"No commit hash found")
+
+        with open(refs_path, "r") as f:
+            commit_hash = f.read().strip()
+
+        checkpoint = os.path.join(
+            storage_folder, "snapshots", commit_hash, model_name
+        )
+
+        return checkpoint
 
     @staticmethod
-    def get_spec():
+    def get_spec(): # type: ignore
         """Returns the node specification."""
         spec_file = os.path.join(os.path.dirname(__file__), 'select_area_node.json')
         with open(spec_file, 'r', encoding='utf-8') as f:

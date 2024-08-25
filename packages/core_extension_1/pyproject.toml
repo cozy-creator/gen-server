@@ -54,6 +54,8 @@ flux_text_encoder_1 = "core_extension_1.architectures.flux_archs:FluxTextEncoder
 flux_text_encoder_2 = "core_extension_1.architectures.flux_archs:FluxTextEncoder2"
 flux_vae = "core_extension_1.architectures.flux_archs:FluxVAEArch"
 
+
+
 spandrel_architectures = "core_extension_1.architectures.spandrel:architectures"
 briarmbg = "core_extension_1.architectures.briarmbg_arch:BriaRMBG"
 ormbg = "core_extension_1.architectures.ormbg_arch:ORMBG"
@@ -72,6 +74,8 @@ select_area_node = "core_extension_1.custom_nodes:SelectAreaNode"
 openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
 load_lora_node = "core_extension_1.custom_nodes:LoadLoraNode"
 controlnet_preprocessor_node = "core_extension_1.custom_nodes:ControlNetPreprocessorNode"
+remove_background_node = "core_extension_1.custom_nodes:RemoveBackgroundNode"
+composite_images_node = "core_extension_1.custom_nodes:CompositeImagesNode"
 
 
 [project.entry-points."cozy_creator.api"]
