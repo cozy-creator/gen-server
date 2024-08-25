@@ -71,7 +71,7 @@ image_regen_node = "core_extension_1.custom_nodes:ImageRegenNode"
 select_area_node = "core_extension_1.custom_nodes:SelectAreaNode"
 openpose_node = "core_extension_1.custom_nodes:OpenPoseNode"
 load_lora_node = "core_extension_1.custom_nodes:LoadLoraNode"
-controlnet_preprocessor_node = "core_extension_1.custom_nodes:ControlNetPreprocessorNode"
+controlnet_feature_detector = "core_extension_1.custom_nodes:ControlNetFeatureDetector"
 
 
 [project.entry-points."cozy_creator.api"]

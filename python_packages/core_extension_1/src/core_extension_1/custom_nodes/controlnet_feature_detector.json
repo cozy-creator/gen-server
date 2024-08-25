@@ -1,0 +1,89 @@
+{
+    "display_name": {
+      "en": "Controlnet Feature Detector",
+      "zh": "Controlnet 特征检测器"
+    },
+    "description": {
+      "en": "Detects features from an image using ControlNet.",
+      "zh": "使用 ControlNet 从图像中检测特征。"
+    },
+    "category": "feature-extractor",
+    "inputs": {
+      "image": {
+        "display_name": "Image",
+        "description": {
+          "en": "The input image.",
+          "zh": "输入图像。"
+        },
+        "type": "PIL.Image.Image"
+      },
+      "feature_type": {
+        "display_name": "Feature Type",
+        "description": {
+          "en": "Select the feature detection model.",
+          "zh": "选择特征检测模型。"
+        },
+        "type": "Enum",
+        "widgets": [
+            {
+                "type": "dropdown", 
+                "options": [
+                    {"label": "ControlNet OpenPose", "value": "openpose"},
+                    {"label": "ControlNet Canny", "value": "canny"},
+                    {"label": "ControlNet HED", "value": "hed"},
+                    {"label": "ControlNet M-LSD", "value": "mlsd"},
+                    {"label": "ControlNet NormalBae", "value": "normalbae"},
+                    {"label": "ControlNet Scribble", "value": "scribble"},
+                    {"label": "ControlNet SoftEdge", "value": "softedge"},
+                    {"label": "ControlNet Lineart", "value": "lineart"},
+                    {"label": "ControlNet Lineart Anime", "value": "lineart_anime"}
+                ]
+            }
+        ]
+      },
+      "threshold1": {
+        "display_name": "Threshold 1",
+        "description": {
+          "en": "Lower Threshold for Canny edge detection.",
+          "zh": "Canny 边缘检测的阈值 1。"
+        },
+        "type": "Int",
+        "widgets": [
+          {
+            "type": "integer",
+            "min": 0,
+            "default": 100,
+            "max": 300,
+            "step": 1
+          }
+        ]
+      },
+      "threshold2": {
+        "display_name": "Threshold 2",
+        "description": {
+          "en": "Upper Threshold for Canny edge detection.",
+          "zh": "Canny 边缘检测的阈值 2。"
+        },
+        "type": "Int",
+        "widgets": [
+          {
+            "type": "integer",
+            "min": 0,
+            "default": 200,
+            "max": 300,
+            "step": 1
+          }
+        ]
+      }
+    },
+    "outputs": {
+      "control_image": {
+        "display_name": "Control Image",
+        "description": {
+          "en": "Image for ControlNet.", 
+          "zh": "用于 ControlNet 的图像。"
+        },
+        "type": "PIL.Image.Image"
+      }
+    }
+  }

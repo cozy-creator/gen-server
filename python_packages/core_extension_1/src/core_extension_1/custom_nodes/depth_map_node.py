@@ -1,7 +1,7 @@
 import torch
 from gen_server.base_types import CustomNode
 import os
-
+from typing import Union
 from transformers import pipeline
 from controlnet_aux import MidasDetector
 import cv2
@@ -24,11 +24,13 @@ class DepthMapNode(CustomNode):
     def __init__(self):
         super().__init__()
         self.DEVICE = get_torch_device()
-        self.midas_detector = None
+        self.midas_detector = MidasDetector.from_pretrained("lllyasviel/ControlNet")
         self.depth_anything_model = None
 
     def __call__(
-        self, image: torch.Tensor, model_type: str = "depth_anything_v2"
+        self,
+        image: Union[torch.Tensor, np.ndarray, Image.Image],
+        model_type: str = "depth_anything_v2",
     ) -> dict[str, Image.Image]:
         """
         Args:
@@ -39,25 +41,29 @@ class DepthMapNode(CustomNode):
         """
         try:
             if isinstance(image, torch.Tensor):
-                image = Image.fromarray(
+                pil_image = Image.fromarray(
                     (image * 255).permute(1, 2, 0).numpy().astype(np.uint8)
                 )
             elif isinstance(image, np.ndarray):
-                image = Image.fromarray(image)
+                pil_image = Image.fromarray(image)
             elif not isinstance(image, Image.Image):
                 raise TypeError(
                     "Input image must be a torch.Tensor, np.ndarray or PIL Image."
                 )
+            else:
+                pil_image = image
 
             if model_type.lower() == "midas":
-                if self.midas_detector is None:
-                    self.midas_detector = MidasDetector.from_pretrained(
-                        "lllyasviel/ControlNet"
-                    )
-                depth_map = self.midas_detector(image)
+                ## TO DO: make sure the output is a PIL Image
+                depth_map = self.midas_detector(pil_image)
+
             elif model_type.lower() == "depth_anything_v2":
                 if self.depth_anything_model is None:
-                    depth_map = self.extract_depth_map_depth_anything(image)
+                    depth_map = self.extract_depth_map_depth_anything(pil_image)
+                else:
+                    # TO DO: do we ever set a depth-anything-model?
+                    raise ValueError("Depth Anything model not set")
+
             else:
                 raise ValueError(
                     "Invalid model_type. Choose either 'midas' or 'depth_anything_v2'."
