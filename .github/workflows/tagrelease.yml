@@ -42,7 +42,7 @@ jobs:
           echo "GOARCH=${GOARCH}" >> $GITHUB_ENV
 
       - name: Build the Go project
-        run: go build -o myapp-${{ matrix.os }}-${{ env.GOARCH }} ./cmd/myapp  # Adjust the path
+        run: go build -o cozy-${{ matrix.os }}-${{ env.GOARCH }} ./cmd/cozy  # Adjust the path
 
       - name: Create a Git tag
         if: github.event_name == 'workflow_dispatch'
@@ -53,8 +53,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: myapp-${{ matrix.os }}-${{ env.GOARCH }}
-          path: myapp-${{ matrix.os }}-${{ env.GOARCH }}
+          name: cozy-${{ matrix.os }}-${{ env.GOARCH }}
+          path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
 
       - name: Create GitHub Release
         if: github.event_name == 'workflow_dispatch'
@@ -70,6 +70,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: myapp-${{ matrix.os }}-${{ env.GOARCH }}
-          asset_name: myapp-${{ matrix.os }}-${{ env.GOARCH }}.exe
+          asset_path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
+          asset_name: cozy-${{ matrix.os }}-${{ env.GOARCH }}.exe
           asset_content_type: application/octet-stream
