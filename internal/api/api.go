@@ -177,6 +177,18 @@ func GenerationCallback(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func CompleteGeneration(c *gin.Context) {
+	fmt.Println("CompleteGeneration")
+	requestId := c.Param("request_id")
+	if requestId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "request_id is required"})
+		return
+	}
+
+	mapChan.Delete(requestId)
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
 func readFileContent(file *multipart.FileHeader) ([]byte, error) {
 	content, err := file.Open()
 	if err != nil {
