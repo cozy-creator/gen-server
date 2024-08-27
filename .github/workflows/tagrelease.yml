@@ -59,8 +59,9 @@ jobs:
       - name: Create GitHub Release
         if: github.event_name == 'workflow_dispatch'
         uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
         with:
-          token: ${{ secrets.BUILD_RELEASE }}
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: Release ${{ github.event.inputs.tag_name }}
           draft: false
@@ -68,8 +69,9 @@ jobs:
 
       - name: Upload binaries to release
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
         with:
-          token: ${{ secrets.BUILD_RELEASE }}
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
           asset_name: cozy-${{ matrix.os }}-${{ env.GOARCH }}.exe
