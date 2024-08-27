@@ -67,7 +67,7 @@ jobs:
         github_token: ${{ secrets.BUILD_RELEASE }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
-        goversion: "https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz"
+        goversion: "https://dl.google.com/go/go1.23.0.linux-amd64.tar.gz"
         project_path: "./cmd/cozy"
         binary_name: "cozy"
         release_tag: ${{ needs.create-release.outputs.release_tag }}
