@@ -118,7 +118,7 @@ func NewS3Uploader() (*S3Uploader, error) {
 	}
 
 	s3Client := s3.NewFromConfig(awsConfig, func(o *s3.Options) {
-		o.BaseEndpoint = &cfg.S3.EndpointUrl
+		o.BaseEndpoint = &cfg.S3.PublicUrl
 	})
 
 	return &S3Uploader{
@@ -167,7 +167,6 @@ func (u *S3Uploader) Upload(file FileMeta) (string, error) {
 	}
 
 	mtype := mimetype.Detect(file.Content).String()
-	// contentType := "image/png"
 	input := s3.PutObjectInput{
 		Key:         &key,
 		Bucket:      &cfg.S3.Bucket,
@@ -180,7 +179,7 @@ func (u *S3Uploader) Upload(file FileMeta) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s/%s/%s", cfg.S3.EndpointUrl, cfg.S3.Bucket, key), nil
+	return fmt.Sprintf("%s/%s/%s", cfg.S3.PublicUrl, cfg.S3.Bucket, key), nil
 }
 
 func (u *S3Uploader) UploadMultiple(files []FileMeta) ([]string, error) {

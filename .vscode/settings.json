@@ -9,5 +9,8 @@
     "[typescript]": {
         "editor.formatOnSave": true
     },
+    "[json]": {
+        "editor.formatOnSave": true
+    },
     "mypy.runUsingActiveInterpreter": true
 }

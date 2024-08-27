@@ -5,6 +5,7 @@ import traceback
 from typing import (
     Any,
     AsyncGenerator,
+    Optional,
     Type,
     TypeVar,
     Dict,
@@ -62,7 +63,7 @@ async def upload_batch(
         yield file_url
 
 
-def send_image(url: str, image: bytes):
+def send_request(url: str, image: Optional[bytes]):
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
@@ -129,7 +130,7 @@ async def start_gpu_worker_non_io(
 
                     image_bytes = tensor_to_bytes(images)
                     for image_bytes in image_bytes:
-                        send_image(
+                        send_request(
                             f"http://127.0.0.1:8181/api/v1/callback/{request_id}",
                             image_bytes,
                         )
@@ -146,7 +147,10 @@ async def start_gpu_worker_non_io(
                 logger.error(f"Error in image generation: {str(e)}")
                 # if response_conn is not None:
                 # response_conn.send(None)
-            # finally:
+            finally:
+                send_request(
+                    f"http://127.0.0.1:8181/api/v1/complete/{request_id}", None
+                )
             # if response_conn is not None:
             # response_conn.send(None)
             # response_conn.close()

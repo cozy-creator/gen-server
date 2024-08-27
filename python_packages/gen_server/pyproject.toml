@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "requests"]
+build-backend = "hatchling.build"
 
 [project]
 name = "gen_server"
@@ -8,7 +8,7 @@ description = "Generative-AI server for content production"
 version = "0.2.2"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" },
-    { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" }
+    { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" },
 ]
 
 dependencies = [
@@ -43,21 +43,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-performance = [
-    "accelerate",
-    "triton",
-    "xformers"
-]
+performance = ["accelerate", "triton", "xformers"]
 
-[project.scripts]
-cozy = "gen_server.main:main"
-cozy-creator = "gen_server.main:main"
+# [tool.setuptools.packages.find]
+# where = ["src"]
+# include = ["gen_server*"]
+# exclude = ["tests", "tests.*"]
+# namespaces = false
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["gen_server*"]
-exclude = ["tests", "tests.*"]
-namespaces = false
+# [tool.setuptools.package-data]
+# "gen_server" = ["py.typed"]
 
-[tool.setuptools.package-data]
-"gen_server" = ["py.typed"]
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel.hooks.custom]

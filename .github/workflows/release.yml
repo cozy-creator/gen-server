@@ -1,36 +1,72 @@
-name: goreleaser
+name: Build and Release
 
 on:
+  # release:
+  #   types: [created]
   push:
     tags:
-      - "*"
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: 'v0.0.0'
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  goreleaser:
+  create-release:
+    name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_tag: ${{ steps.get_version.outputs.release_tag }}
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4
+      - name: Get release version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "release_tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            echo "release_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "release_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          fetch-depth: 0
-      -
-        name: Fetch all tags
-        run: git fetch --force --tags
-      -
-        name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.23
-      -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
-        with:
-          distribution: goreleaser
-          version: ${{ env.GITHUB_REF_NAME }}
-          args: release --rm-dist
+          tag_name: ${{ steps.get_version.outputs.release_tag }}
+          name: Release ${{ steps.get_version.outputs.release_tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.PUBLISHER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
+
+  releases-matrix:
+    name: Release Go Binary
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goarch: arm64
+            goos: windows
+    steps:
+    - uses: actions/checkout@v4
+    - uses: wangyoucao577/go-release-action@master
+      with:
+        github_token: ${{ secrets.BUILD_RELEASE }}
+        md5sum: false
+        goos: ${{ matrix.goos }}
+        goarch: ${{ matrix.goarch }}
+        # goversion: "https://dl.google.com/go/go1.23.0.linux-amd64.tar.gz"
+        # project_path: "./cmd/cozy"
+        binary_name: "cozy"
+        release_tag: ${{ needs.create-release.outputs.release_tag }}
