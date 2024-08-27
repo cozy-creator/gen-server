@@ -56,17 +56,17 @@ jobs:
           name: cozy-${{ matrix.os }}-${{ env.GOARCH }}
           path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
 
-      - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
-        with:
-          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
-          tag_name: ${{ github.event.inputs.tag_name }}
-          release_name: Release ${{ github.event.inputs.tag_name }}
-          draft: false
-          prerelease: false
+      # - name: Create GitHub Release
+      #   if: github.event_name == 'workflow_dispatch'
+      #   uses: actions/create-release@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
+      #   with:
+      #     GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
+      #     tag_name: ${{ github.event.inputs.tag_name }}
+      #     release_name: Release ${{ github.event.inputs.tag_name }}
+      #     draft: false
+      #     prerelease: false
 
       - name: Upload binaries to release
         uses: actions/upload-release-asset@v1
