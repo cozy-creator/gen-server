@@ -109,36 +109,24 @@ import torchvision.transforms as T
 from diffusers import StableDiffusionXLInpaintPipeline, StableDiffusionInpaintPipeline
 from gen_server.utils.model_config_manager import ModelConfigManager
 from typing import Union, Dict
+from gen_server.globals import get_model_memory_manager
 
 class ImageRegenNode(CustomNode):
     def __init__(self):
         super().__init__()
         self.config_manager = ModelConfigManager()
         self.inpaint_pipelines = {}
+        self.model_memory_manager = get_model_memory_manager()
 
-    def _get_inpaint_pipeline(self, model_id: str):
-        if model_id not in self.inpaint_pipelines:
-            model_config = self.config_manager.get_model_config(model_id)
-            
-            if model_config['category'] == 'sdxl':
-                inpaint_pipeline = StableDiffusionXLInpaintPipeline.from_pretrained(
-                    "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
-                    torch_dtype=torch.float16,
-                    variant="fp16",
-                    use_safetensors=True
-                )
-            else:  # Assuming SD1.5 for non-SDXL models
-                inpaint_pipeline = StableDiffusionInpaintPipeline.from_pretrained(
-                    "runwayml/stable-diffusion-inpainting",
-                    torch_dtype=torch.float16,
-                    variant="fp16",
-                    use_safetensors=True
-                )
-            
-            inpaint_pipeline.to("cuda")
-            self.inpaint_pipelines[model_id] = inpaint_pipeline
+        # sdxl-inpainting-1
 
-        return self.inpaint_pipelines[model_id]
+    async def _get_inpaint_pipeline(self, model_id: str):
+
+        inpaint_pipeline = await self.model_memory_manager.load(model_id)
+        if inpaint_pipeline is None:
+            raise ValueError(f"Model {model_id} not found in memory manager")
+
+        return inpaint_pipeline
 
     async def __call__(self,    # type: ignore
                        image: Union[Image.Image, torch.Tensor], 
@@ -146,10 +134,12 @@ class ImageRegenNode(CustomNode):
                        prompt: str, 
                        model_id: str, 
                        negative_prompt: str = "",
-                       num_inference_steps: int = 30,
+                       num_inference_steps: int = 25,
                        strength: float = 0.7) -> Dict[str, torch.Tensor]:
         
-        pipeline = self._get_inpaint_pipeline(model_id)
+        pipeline = await self._get_inpaint_pipeline(model_id)
+
+        class_name = pipeline.__class__.__name__
         
         # Convert inputs to PIL Images if they're tensors
         if isinstance(image, torch.Tensor):
@@ -157,7 +147,9 @@ class ImageRegenNode(CustomNode):
         if isinstance(mask, torch.Tensor):
             mask = T.ToPILImage()(mask.squeeze(0).cpu())
 
-        model_config = self.config_manager.get_model_config(model_id)
+        model_config = self.config_manager.get_model_config(model_id, class_name)
+
+        self.model_memory_manager.apply_optimizations(pipeline)
         
         with torch.no_grad():
             output = pipeline(

@@ -15,6 +15,7 @@ class RemoveBackgroundNode(CustomNode):
 
     def _load_model(self):
         architectures = get_architectures()
+        print(architectures)
         BriaRMBG = architectures["core_extension_1.briarmbg"]
         
         device = self._get_device()
@@ -34,6 +35,8 @@ class RemoveBackgroundNode(CustomNode):
 
     async def __call__(self, image: Union[Image.Image, torch.Tensor]) -> Dict[str, Image.Image]: # type: ignore
         device = self._get_device()
+
+        print("RemoveBackgroundNode: __call__")
         
         if isinstance(image, Image.Image):
             original_image = image
@@ -43,10 +46,13 @@ class RemoveBackgroundNode(CustomNode):
                 image = image.unsqueeze(0)
             original_image = T.ToPILImage()(image.squeeze(0))
         
-        image = image.to(device)
+        # image = image.to(device)
+
+        print("RemoveBackgroundNode: before torch.no_grad()")
         
         with torch.no_grad():
-            output = self.model(image)
+            print("RemoveBackgroundNode: inside torch.no_grad()")
+            output = self.model.model(image)
             if isinstance(output, list):
                 mask = output[0][0]
             elif isinstance(output, tuple):

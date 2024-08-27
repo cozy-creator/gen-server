@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import PreTrainedModel
 from .config import RMBGConfig
-from core_extension_1.architectures.isnet_arch.isnet import (
+from ...isnet_arch.isnet import (
     RSU7,
     upsample_like,
     RSU6,
@@ -58,7 +58,7 @@ class BriaRMBG(PreTrainedModel):
 
         # self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
 
-    def forward(self, x):
+    def __call__(self, x):
         hx = x
 
         hxin = self.conv_in(hx)

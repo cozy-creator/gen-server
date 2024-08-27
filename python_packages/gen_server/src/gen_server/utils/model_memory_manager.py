@@ -268,6 +268,7 @@ class ModelMemoryManager:
     def apply_optimizations(self, pipeline: DiffusionPipeline):
         device = get_available_torch_device()
         optimizations = [
+            ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
             (
                 "enable_xformers_memory_efficient_attention",

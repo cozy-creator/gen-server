@@ -39,7 +39,7 @@ dependencies = [
     "tqdm",
     "typing_extensions",
     "uuid",
-    "diffusers@git+https://github.com/huggingface/diffusers.git"
+    # "diffusers@git+https://github.com/huggingface/diffusers.git"
 ]
 
 [project.optional-dependencies]

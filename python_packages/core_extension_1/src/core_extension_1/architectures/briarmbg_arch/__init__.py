@@ -55,6 +55,6 @@ class BriaRMBG(Architecture[BriaRMBGModel]):
 
         if device is not None:
             self.model.to(device=device)
-        self.model.to(torch.bfloat16)
+        self.model.to(torch.float16)
 
         print(f"BriaRMBG loaded in {time.time() - start} seconds")

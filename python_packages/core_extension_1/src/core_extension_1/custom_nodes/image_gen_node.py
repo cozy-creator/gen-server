@@ -40,6 +40,7 @@ from gen_server.globals import (
 from diffusers import FluxPipeline
 import os
 import json
+from gen_server.utils.image import tensor_to_pil
 
 
 # from gen_server.utils.model_memory_manager import ModelMemoryManager
@@ -160,7 +161,7 @@ class ImageGenNode(CustomNode):
             if pipeline is None:
                 return None
             
-            repo_id = pipeline._name_or_path
+            # repo_id = pipeline._name_or_path
 
             class_name = pipeline.__class__.__name__
 
@@ -232,8 +233,10 @@ class ImageGenNode(CustomNode):
             if ip_adapter_embeds is not None:
                 gen_params["ip_adapter_image_embeds"] = ip_adapter_embeds
 
-            with torch.no_grad():
-                output = pipeline(**gen_params).images
+            # Run inference
+            # with torch.no_grad():
+            output = pipeline(**gen_params).images
+
 
             return {"images": output}
         except Exception as e:

@@ -56,13 +56,14 @@ class OpenPoseNode(CustomNode):
         self.openpose = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
 
     async def __call__(self, image: Union[Image.Image, torch.Tensor]) -> Dict[str, torch.Tensor]: # type: ignore
-        print(type(image))
         # if isinstance(image, Image.Image):
         #     image = T.ToTensor()(image).unsqueeze(0)
         # elif isinstance(image, torch.Tensor) and image.dim() == 3:
         #     image = image.unsqueeze(0)
         
         openpose_image = self.openpose(image)
+        # Save the image to a file
+        openpose_image.save("openpose_image.png")
         print("Done")
         return {"openpose_image": openpose_image}
 

@@ -10,6 +10,7 @@ import scipy.ndimage
 import os
 import json
 from huggingface_hub.constants import HF_HUB_CACHE
+from typing import Union
 
 class SelectAreaNode(CustomNode):
     """Selects an area in an image based on a text prompt using GroundingDino and SAM."""
@@ -22,7 +23,7 @@ class SelectAreaNode(CustomNode):
         self.grounding_dino_model = self.load_groundingdino()
         
 
-    async def __call__(self, image: torch.Tensor, text_prompt: str = "face", feather_radius: int = 0) -> dict[str, Image.Image]: # type: ignore
+    async def __call__(self, image: Union[torch.Tensor, np.ndarray], text_prompt: str = "face", feather_radius: int = 0) -> dict[str, Image.Image]: # type: ignore
         """
         Args:
             image: Input image tensor (C, H, W) or PIL Image.
@@ -32,6 +33,7 @@ class SelectAreaNode(CustomNode):
         """
         try:
             if isinstance(image, torch.Tensor):
+                image = image.cpu()  # Move the tensor to the CPU
                 image = Image.fromarray((image * 255).permute(1, 2, 0).numpy().astype(np.uint8))
             elif isinstance(image, np.ndarray):
                 image = Image.fromarray(image)
@@ -61,7 +63,12 @@ class SelectAreaNode(CustomNode):
                 combined_mask = self.feather_mask(combined_mask, iterations=feather_radius)  # Adjust iterations as needed
 
                 mask_image = Image.fromarray(combined_mask.astype(np.uint8) * 255)
-                return {"mask": mask_image}
+
+                # Save the mask as a PIL Image
+                mask_image.save("mask_image.png")
+
+
+                return {"face_mask": mask_image}
             else:
                 raise ValueError(f"No objects matching '{text_prompt}' found in the image.")
 

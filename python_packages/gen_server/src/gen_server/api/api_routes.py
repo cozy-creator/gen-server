@@ -38,7 +38,7 @@ class GenerateData(BaseModel):
     positive_prompt: str
     negative_prompt: str
     models: dict[str, int]
-    request_id: str
+    # request_id: str
     webhook_url: Optional[str] = None
     lora_path: Optional[str] = None
     lora_scale: float = 1.0,
@@ -51,9 +51,12 @@ class GenerateData(BaseModel):
     pose_image: str = None
     depth_image: str = None
     style_image: str = None
+    regen_model_id: str = None
     face_prompt: str = None
     face_mask_feather_iterations: int = None
+    strength: float = None
     background_prompt: str = None
+
 
 
 # TO DO: eventually replace checkpoint_files with a database query instead
@@ -158,6 +161,84 @@ def create_aiohttp_app(
     async def get_node_defs(_req: web.Request) -> web.Response:
         return web.Response(text=json.dumps(node_defs), content_type="application/json")
 
+    # @routes.post("/generate")
+    # @with_auth
+    # @validate_models
+    # async def handle_generate(request: web.Request) -> web.StreamResponse:
+    #     """
+    #     Submits generation requests from the user to the queue and streams the results.
+    #     """
+
+    #     data = GenerateData(**(await request.json()))
+
+    #     # response = web.StreamResponse(status=200, reason="OK")
+    #     # await response.prepare(request)
+
+    #     try:
+    #         # Create a pair of connections for inter-process communication
+    #         parent_conn, child_conn = multiprocessing.Pipe()
+
+    #         # Submit the job to the queue
+    #         job_queue.put((data.dict(), child_conn, data.request_id))
+
+    #         print(f"job queue put {data}", flush=True)
+
+    #         # # Set a timeout for the entire operation
+    #         # total_timeout = 300  # 5 minutes, adjust as needed
+    #         # start_time = asyncio.get_event_loop().time()
+
+    #         # while True:
+    #         #     try:
+    #         #         # Use asyncio to make the blocking call non-blocking
+    #         #         # Check if data is available
+    #         #         has_data = await asyncio.get_event_loop().run_in_executor(
+    #         #             None,
+    #         #             parent_conn.poll,
+    #         #             1,  # 1 second timeout
+    #         #         )
+
+    #         #         if has_data:
+    #         #             # Data is available, so let's receive it
+    #         #             image = parent_conn.recv()
+
+    #         #             if image is None:  # Signal for completion
+    #         #                 break
+    #         #             else:
+    #         #                 # We have a valid file URL
+    #         #                 await response.write(image)
+    #         #                 await (
+    #         #                     response.drain()
+    #         #                 )  # Ensure the data is sent immediately
+
+    #         #         # Check if we've exceeded the total timeout
+    #         #         if asyncio.get_event_loop().time() - start_time > total_timeout:
+    #         #             raise TimeoutError("Operation timed out")
+
+    #         # except EOFError:
+    #         #     # Connection was closed
+    #         #     break
+
+    #     # except TimeoutError as e:
+    #     #     logger.error(f"Generation timed out: {str(e)}")
+    #     # await response.write(
+    #     #     "timeout".encode("utf-8")
+    #     #     # json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+    #     # )
+    #     except Exception as e:
+    #         logger.error(f"Error in generation: {str(e)}")
+    #         if isinstance(e, TimeoutError):
+    #             return web.json_response(
+    #                 {"status": "error", "error": "Operation timed out"}
+    #             )
+    #         return web.json_response({"status": "error", "error": str(e)})
+    #         # await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
+    #     finally:
+    #         if "parent_conn" in locals():
+    #             parent_conn.close()
+
+    #     # await response.write_eof()
+    #     return web.json_response({"status": "pending", "job_id": data.request_id})
+
     @routes.post("/generate")
     @with_auth
     @validate_models
@@ -168,73 +249,80 @@ def create_aiohttp_app(
 
         data = GenerateData(**(await request.json()))
 
-        # response = web.StreamResponse(status=200, reason="OK")
-        # await response.prepare(request)
+        if data.webhook_url is not None:
+            return web.json_response(
+                {"error": "webhook_url is not allowed for this endpoint"},
+                status=400,
+            )
+
+        response = web.StreamResponse(
+            status=200, reason="OK", headers={"Content-Type": "application/json"}
+        )
+        await response.prepare(request)
 
         try:
             # Create a pair of connections for inter-process communication
             parent_conn, child_conn = multiprocessing.Pipe()
 
             # Submit the job to the queue
-            job_queue.put((data.dict(), child_conn, data.request_id))
+            job_queue.put((data.dict(), child_conn, None))
 
             print(f"job queue put {data}", flush=True)
 
-            # # Set a timeout for the entire operation
-            # total_timeout = 300  # 5 minutes, adjust as needed
-            # start_time = asyncio.get_event_loop().time()
+            # Set a timeout for the entire operation
+            total_timeout = 120  # 2 minutes, adjust as needed
+            start_time = asyncio.get_event_loop().time()
 
-            # while True:
-            #     try:
-            #         # Use asyncio to make the blocking call non-blocking
-            #         # Check if data is available
-            #         has_data = await asyncio.get_event_loop().run_in_executor(
-            #             None,
-            #             parent_conn.poll,
-            #             1,  # 1 second timeout
-            #         )
+            while True:
+                try:
+                    # Use asyncio to make the blocking call non-blocking
+                    # Check if data is available
+                    has_data = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        parent_conn.poll,
+                        1,  # 1 second timeout
+                    )
 
-            #         if has_data:
-            #             # Data is available, so let's receive it
-            #             image = parent_conn.recv()
+                    if has_data:
+                        # Data is available, so let's receive it
+                        file_url = parent_conn.recv()
 
-            #             if image is None:  # Signal for completion
-            #                 break
-            #             else:
-            #                 # We have a valid file URL
-            #                 await response.write(image)
-            #                 await (
-            #                     response.drain()
-            #                 )  # Ensure the data is sent immediately
+                        if file_url is None:  # Signal for completion
+                            break
+                        else:  # We have a valid file URL
+                            await response.write(
+                                json.dumps({"output": file_url}).encode("utf-8") + b"\n"
+                            )
+                            await (
+                                response.drain()
+                            )  # Ensure the data is sent immediately
 
-            #         # Check if we've exceeded the total timeout
-            #         if asyncio.get_event_loop().time() - start_time > total_timeout:
-            #             raise TimeoutError("Operation timed out")
+                    # Check if we've exceeded the total timeout
+                    if asyncio.get_event_loop().time() - start_time > total_timeout:
+                        raise TimeoutError("Operation timed out")
 
-            # except EOFError:
-            #     # Connection was closed
-            #     break
+                except EOFError:
+                    # Connection was closed
+                    break
 
-        # except TimeoutError as e:
-        #     logger.error(f"Generation timed out: {str(e)}")
-        # await response.write(
-        #     "timeout".encode("utf-8")
-        #     # json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
-        # )
+            await response.write(
+                json.dumps({"status": "finished"}).encode("utf-8") + b"\n"
+            )
+
+        except TimeoutError as e:
+            logger.error(f"Generation timed out: {str(e)}")
+            await response.write(
+                json.dumps({"error": "Operation timed out"}).encode("utf-8") + b"\n"
+            )
         except Exception as e:
             logger.error(f"Error in generation: {str(e)}")
-            if isinstance(e, TimeoutError):
-                return web.json_response(
-                    {"status": "error", "error": "Operation timed out"}
-                )
-            return web.json_response({"status": "error", "error": str(e)})
-            # await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
+            await response.write(json.dumps({"error": str(e)}).encode("utf-8") + b"\n")
         finally:
             if "parent_conn" in locals():
                 parent_conn.close()
 
-        # await response.write_eof()
-        return web.json_response({"status": "pending", "job_id": data.request_id})
+        await response.write_eof()
+        return response
 
     @routes.get("/get_diffusers_models")
     async def get_diffusers_models(request: web.Request) -> web.StreamResponse:

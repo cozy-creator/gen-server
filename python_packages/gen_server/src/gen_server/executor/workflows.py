@@ -15,10 +15,12 @@ from pathlib import Path
 from gen_server.utils.paths import get_assets_dir
 from queue import Queue
 
+
 from ..globals import (
     get_architectures,
     get_checkpoint_files,
     get_custom_nodes,
+    get_model_memory_manager
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +45,7 @@ def generate_images(
     _checkpoint_files = get_checkpoint_files()
 
     try:
+        
         models = task_data.get("models", {})
         positive_prompt = task_data.get("positive_prompt")
         negative_prompt = task_data.get("negative_prompt", "")
@@ -125,6 +128,9 @@ async def poseable_character_workflow(
     remove_bg_node = custom_nodes["core_extension_1.remove_background_node"]()
     # composite_node = custom_nodes["core_extension_1.composite_images_node"]()
 
+    # Free up memory
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     
     
     final_images = []
@@ -148,7 +154,6 @@ async def poseable_character_workflow(
             else:
                 raise ValueError(f"Unsupported image input type: {type(image)}")
             
-        print(f"\n\n\n{task_data}\n\n\n")
 
         # Extract features
         openpose_image = await openpose_node(load_image(task_data["pose_image"]))
@@ -156,6 +161,10 @@ async def poseable_character_workflow(
         depth_map = await depth_map_node(load_image(task_data["depth_image"]))
         print("Done with depth map")
         # ip_adapter_embeds = await ip_adapter_node(task_data["style_image"], task_data["model_id"])
+        
+        # Free up memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         for model_id, num_images in task_data["models"].items():
             if cancel_event is not None and cancel_event.is_set():
@@ -177,23 +186,37 @@ async def poseable_character_workflow(
                     # ip_adapter_embeds=ip_adapter_embeds["ip_adapter_embeds"],
                     # lora_info=task_data.get("lora_info")
                 )
+
+                # Free GPU memory
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                print("Done with initial image generation")
             
                 for initial_image in initial_images["images"]:
                     # Select face area and regenerate
                     face_mask = await select_face_node(
                         initial_image,
-                        feather_iterations=task_data["face_mask_feather_iterations"]
+                        feather_radius=task_data["face_mask_feather_iterations"]
                     )
+                    print("Done with face selection")
+
+                    # Free GPU memory
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        
                     regenerated_image = await image_regen_node(
                         image=initial_image,
                         mask=face_mask["face_mask"],
                         prompt=task_data["face_prompt"],
-                        model_id=model_id,
+                        model_id=task_data["regen_model_id"],
                         strength=task_data["strength"]
                     )
+                    print("Done with image regeneration")
                     
                     # Remove background
                     foreground = await remove_bg_node(regenerated_image["regenerated_image"])
+                    print("Done with background removal")
                     
                     # Generate new background
                     background = await image_gen_node(

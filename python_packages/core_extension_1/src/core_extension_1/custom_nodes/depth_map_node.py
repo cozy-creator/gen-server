@@ -103,5 +103,14 @@ class DepthMapNode(CustomNode):
         
         depth_image = self.depth_estimator(image)["depth"]
         # depth_tensor = torch.from_numpy(depth).unsqueeze(0)
+
+        # Save the depth map as a PIL Image
+        if isinstance(depth_image, np.ndarray):
+            depth_image = Image.fromarray(depth_image)
+        elif isinstance(depth_image, torch.Tensor):
+            depth_image = T.ToPILImage()(depth_image)
+        
+        depth_image.save("depth_map.png")
+
         return {"depth_map": depth_image}
 
