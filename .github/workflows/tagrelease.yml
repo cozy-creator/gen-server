@@ -62,6 +62,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
         with:
+          token: ${{ secrets.BUILD_RELEASE }} 
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: Release ${{ github.event.inputs.tag_name }}
           draft: false
