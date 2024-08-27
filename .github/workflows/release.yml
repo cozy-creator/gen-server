@@ -1,8 +1,8 @@
 name: Build and Release
 
 on:
-  release:
-    types: [created]
+  # release:
+  #   types: [created]
   push:
     tags:
       - 'v*'
@@ -60,12 +60,13 @@ jobs:
             goos: windows
     steps:
     - uses: actions/checkout@v4
-    - uses: wangyoucao577/go-release-action@v1
+    - uses: wangyoucao577/go-release-action@master
       with:
         github_token: ${{ secrets.BUILD_RELEASE }}
+        md5sum: false
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
-        goversion: "https://dl.google.com/go/go1.23.0.linux-amd64.tar.gz"
-        project_path: "./cmd/cozy"
+        # goversion: "https://dl.google.com/go/go1.23.0.linux-amd64.tar.gz"
+        # project_path: "./cmd/cozy"
         binary_name: "cozy"
         release_tag: ${{ needs.create-release.outputs.release_tag }}
