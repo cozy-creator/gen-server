@@ -74,5 +74,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
-          asset_name: cozy-${{ matrix.os }}-${{ env.GOARCH }}.exe
+          asset_name: cozy-${{ matrix.os }}-${{ env.GOARCH }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           asset_content_type: application/octet-stream
