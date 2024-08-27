@@ -44,11 +44,11 @@ jobs:
       - name: Build the Go project
         run: go build -o cozy-${{ matrix.os }}-${{ env.GOARCH }} ./cmd/cozy  # Adjust the path
 
-      - name: Create a Git tag
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git tag ${{ github.event.inputs.tag_name }}
-          git push origin ${{ github.event.inputs.tag_name }}
+      # - name: Create a Git tag
+      #   if: github.event_name == 'workflow_dispatch'
+      #   run: |
+      #     git tag ${{ github.event.inputs.tag_name }}
+      #     git push origin ${{ github.event.inputs.tag_name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -60,7 +60,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/create-release@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: Release ${{ github.event.inputs.tag_name }}
           draft: false
@@ -69,7 +69,7 @@ jobs:
       - name: Upload binaries to release
         uses: actions/upload-release-asset@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: cozy-${{ matrix.os }}-${{ env.GOARCH }}
           asset_name: cozy-${{ matrix.os }}-${{ env.GOARCH }}.exe
