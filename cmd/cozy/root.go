@@ -24,7 +24,6 @@ func init() {
 	cobra.OnInitialize(onCommandInit)
 
 	workspacePath, err := utils.ExpandPath(DefultWorkspacePath)
-	fmt.Println("wwwww", workspacePath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -37,7 +36,7 @@ func init() {
 	viper.BindPFlag("config_file", rootCmd.PersistentFlags().Lookup("config-file"))
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
-	rootCmd.AddCommand(runCmd, downloadCmd)
+	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 }
 

@@ -1,0 +1,5 @@
+include hatch_build.py
+include pyproject.toml
+
+recursive-include src *.py
+recursive-include src *.json
