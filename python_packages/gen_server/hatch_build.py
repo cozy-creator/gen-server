@@ -88,37 +88,60 @@ def get_binary_download_url(version: Union[int, str] = COZY_VERSION) -> str:
 
 
 def install_binary(install_dir: str):
-    binary_name = get_binary_name()
-    install_path = os.path.join(install_dir, binary_name)
-    if os.path.exists(install_path):
-        print(f"Binary already exists at {install_path}")
-        return
-
-    download_url = get_binary_download_url()
-
-    response = requests.get(download_url, stream=True)
-    response.raise_for_status()
-
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        for chunk in response.iter_content(chunk_size=8192):
-            temp_file.write(chunk)
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        extract_file(temp_file.name, temp_dir)
-
-        binary_path = os.path.join(temp_dir, binary_name)
-
-        if not os.path.exists(binary_path):
-            raise ValueError(f"Binary not found at {binary_path}")
-
+    if is_go_installed():
+        try:
+            logger.info("Building cozy binary")
+            output_path = os.path.join(install_dir, get_binary_name())
+            result = subprocess.run(
+                ["go", "build", "-o", output_path, "../.."],
+                check=True,
+            )
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    result.returncode,
+                    result.args,
+                    result.stdout,
+                    result.stderr,
+                )
+            logger.info("Cozy binary built successfully")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error building cozy binary: {e}")
+            raise
+    else:
+        logger.info("Go not installed, downloading cozy binary")
+        binary_name = get_binary_name()
         install_path = os.path.join(install_dir, binary_name)
-        shutil.copyfile(binary_path, install_path)
+        if os.path.exists(install_path):
+            print(f"Binary already exists at {install_path}")
+            return
 
-        mode = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
-        os.chmod(install_path, mode)
-        print(f"Binary installed to {install_path}")
+        download_url = get_binary_download_url()
 
-    os.remove(temp_file.name)
+        response = requests.get(download_url, stream=True)
+        response.raise_for_status()
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                temp_file.write(chunk)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extract_file(temp_file.name, temp_dir)
+
+            binary_path = os.path.join(temp_dir, binary_name)
+
+            if not os.path.exists(binary_path):
+                raise ValueError(f"Binary not found at {binary_path}")
+
+            install_path = os.path.join(install_dir, binary_name)
+            shutil.copyfile(binary_path, install_path)
+
+            mode = (
+                stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+            )
+            os.chmod(install_path, mode)
+            print(f"Binary installed to {install_path}")
+
+        os.remove(temp_file.name)
 
 
 def run_install_binary(install_dir: str):
@@ -129,10 +152,27 @@ def is_node_installed() -> bool:
     try:
         _output = subprocess.check_output(
             ["node", "--version"],
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
         )
         return True
     except FileNotFoundError:
+        return False
+
+
+def is_go_installed() -> bool:
+    try:
+        _output = subprocess.run(
+            ["go", "version"],
+            text=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        return True
+    except FileNotFoundError:
+        return False
+    except subprocess.CalledProcessError:
         return False
 
 
