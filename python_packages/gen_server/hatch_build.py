@@ -53,12 +53,12 @@ def get_platform() -> Tuple[str, str]:
     system = platform.system().lower()
     machine = platform.machine().lower()
 
-    systems = ["windows", "linux", "darwin"]
     machines_map = {"x86_64": "amd64", "aarch64": "arm64"}
+    if system == "windows":
+        return "windows", "amd64"
 
-    if system not in systems:
+    if system not in ["linux", "darwin"]:
         raise ValueError(f"Unsupported {system.capitalize()} machine: {machine}")
-
     if machine not in ["amd64", "arm64"]:
         machine = machines_map.get(machine)
 
