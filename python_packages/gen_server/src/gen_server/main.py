@@ -3,19 +3,16 @@ import asyncio
 from concurrent.futures import Future, ProcessPoolExecutor
 import json
 import logging
-import multiprocessing
 
-import os
 import struct
 import sys
 import time
 from typing import Any, Callable
 
-from gen_server.base_types.architecture import architecture_validator
 from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.base_types.pydantic_models import RunCommandConfig
 from gen_server.config import init_config
-from gen_server.globals import update_architectures, update_custom_nodes
+from gen_server.globals import update_custom_nodes
 from gen_server.tcp_server import TCPServer, RequestContext
 from gen_server.executor.workflows import generate_images_non_io
 from gen_server.utils.cli_helpers import parse_known_args_wrapper

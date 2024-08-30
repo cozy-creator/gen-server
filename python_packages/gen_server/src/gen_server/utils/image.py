@@ -113,7 +113,7 @@ def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
     return images
 
 
-def tensor_to_bytes(tensor: torch.Tensor, format: str = "PNG"):
+def tensor_to_bytes(tensor: torch.Tensor, format: str = "BMP"):
     tensor = tensor.to(dtype=torch.float16, device="cpu")
 
     images: list[bytes] = []
@@ -196,7 +196,7 @@ def aspect_ratio_to_dimensions(aspect_ratio: str, class_name: str) -> tuple[int,
         "StableDiffusionXLPipeline",
         "AuraFlow",
         "StableDiffusion3Pipeline",
-        "FluxPipeline"
+        "FluxPipeline",
     }
 
     size = "large" if class_name in large_models else "default"
