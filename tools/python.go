@@ -100,11 +100,12 @@ func ResolveGenServerPath(version string) (string, error) {
 			return "", fmt.Errorf("direct_url.json does not contain a url key")
 		}
 
-		genServerPath = filepath.Join(directUrl["url"].(string), "src", "gen_server")
-		if strings.HasPrefix(genServerPath, "file:") {
-			genServerPath = strings.TrimPrefix(genServerPath, "file:")
+		urlPath := directUrl["url"].(string)
+		if strings.HasPrefix(urlPath, "file://") {
+			urlPath = strings.TrimPrefix(urlPath, "file://")
 		}
-
+		
+		genServerPath = filepath.Join(urlPath, "src", "gen_server")
 		if _, err := os.Stat(genServerPath); err != nil {
 			return "", err
 		}
