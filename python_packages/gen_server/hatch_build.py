@@ -122,9 +122,9 @@ def install_binary(install_dir: Path):
             logger.info("Go not installed, downloading cozy binary")
             binary_name = get_binary_name()
             install_path = install_dir / binary_name
-            if install_path.exists():
-                logger.info(f"Binary already exists at {install_path}")
-                return
+            # if install_path.exists():
+            #     logger.info(f"Binary already exists at {install_path}")
+            #     return
 
             download_url = get_binary_download_url()
             response = download_with_retry(download_url)
@@ -189,6 +189,7 @@ def is_go_installed() -> bool:
         return False
 
 
+# npm, yarn, pnpm, jsr, bun
 def install_web(web_dir: Path):
     if not is_node_installed():
         logger.error(

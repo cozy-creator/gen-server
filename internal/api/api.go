@@ -2,18 +2,22 @@ package api
 
 import (
 	"bytes"
+	"cozy-creator/gen-server/internal/config"
 	"cozy-creator/gen-server/internal/services"
 	"cozy-creator/gen-server/internal/types"
 	"cozy-creator/gen-server/internal/utils"
 	"cozy-creator/gen-server/internal/worker"
 	"cozy-creator/gen-server/tools"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -200,29 +204,67 @@ func readFileContent(file *multipart.FileHeader) ([]byte, error) {
 }
 
 func generateImage(data map[string]any) error {
-	endpointUrl := ("http://127.0.0.1:8881/generate")
+	cfg := config.GetConfig()
+	serverAddress := fmt.Sprintf("127.0.0.1:%d", cfg.TcpPort)
+	timeout := time.Duration(cfg.TcpTimeout) * time.Second
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal json data: %w", err)
 	}
 
-	r := bytes.NewReader(jsonData)
-	client, err := http.NewRequest(http.MethodPost, endpointUrl, r)
+	client, err := services.NewTCPClient(serverAddress, timeout)
 	if err != nil {
-		return fmt.Errorf("failed to create http request: %w", err)
+		return err
 	}
 
-	client.Header.Set("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(client)
-	if err != nil {
-		return fmt.Errorf("failed to make http request: %w", err)
+	defer func() {
+		if err := client.Close(); err != nil {
+			fmt.Printf("Failed to close connection: %v\n", err)
+		}
+	}()
+
+	client.Send(string(jsonData))
+	requestId := data["request_id"].(string)
+
+	for {
+		sizeBytes, err := client.ReceiveFullBytes(4)
+		// Receive the size of the incoming data (4 bytes for size)
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("EOF reached")
+				break // End of stream
+			}
+			fmt.Printf("Error reading size header: %v\n", err)
+			break
+		}
+
+		contentsize := binary.BigEndian.Uint32(sizeBytes)
+		if contentsize == 0 {
+			fmt.Println("Received a chunk with size 0, skipping")
+			continue
+		}
+
+		// Receive the actual data based on the size
+		response, err := client.ReceiveFullBytes(int(contentsize))
+		if err != nil {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				fmt.Println("Unexpected EOF reached while reading data")
+				break
+			}
+			if errors.Is(err, io.EOF) {
+				fmt.Println("EOF reached while reading data")
+				break
+			}
+
+			fmt.Println("error receiving data: %w", err)
+			break
+		}
+
+		mapChan.Send(requestId, response)
 	}
 
-	defer response.Body.Close()
-	if response.StatusCode != 200 {
-		return fmt.Errorf("non-200 status code: %d", response.StatusCode)
-	}
+	mapChan.Delete(requestId)
 
 	return nil
 }
