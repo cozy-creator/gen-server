@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -100,11 +102,11 @@ func ResolveGenServerPath(version string) (string, error) {
 			return "", fmt.Errorf("direct_url.json does not contain a url key")
 		}
 
-		urlPath := directUrl["url"].(string)
-		if strings.HasPrefix(urlPath, "file://") {
-			urlPath = strings.TrimPrefix(urlPath, "file://")
+		urlPath, err := StripFilePrefix(directUrl["url"].(string))
+		if err != nil {
+			return "", err
 		}
-		
+
 		genServerPath = filepath.Join(urlPath, "src", "gen_server")
 		if _, err := os.Stat(genServerPath); err != nil {
 			return "", err
@@ -133,4 +135,47 @@ func StartPythonGenServer(version string, cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func StripFilePrefix(uri string) (string, error) {
+	const fileScheme = "file://"
+
+	if !strings.HasPrefix(uri, fileScheme) {
+		return "", fmt.Errorf("invalid file URI: %s", uri)
+	}
+
+	uri = strings.TrimPrefix(uri, fileScheme)
+
+	// Handle Windows paths
+	if runtime.GOOS == "windows" {
+		// Replace forward slashes with backslashes
+		uri = strings.ReplaceAll(uri, "/", "\\")
+
+		// Check if the path starts with a drive letter (e.g., C:)
+		if len(uri) > 2 && uri[1] == ':' {
+			return uri, nil
+		}
+
+		// Handle UNC paths (file://server/share/path)
+		if strings.HasPrefix(uri, "\\\\") {
+			return uri, nil
+		}
+
+		// Remove any leading backslashes that were added unnecessarily
+		uri = strings.TrimPrefix(uri, "\\")
+
+		// Prepend the UNC path prefix for absolute paths
+		if strings.HasPrefix(uri, "\\") {
+			return "\\" + uri, nil
+		}
+	} else {
+		// On Unix-like systems, decode any URL-encoded characters
+		decoded, err := url.PathUnescape(uri)
+		if err != nil {
+			return "", fmt.Errorf("error unescaping path: %w", err)
+		}
+		return decoded, nil
+	}
+
+	return uri, nil
 }
