@@ -30,10 +30,7 @@ func ExecutePythonCommand(args ...string) error {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
-			cmd.Dir = "/Users/abdulrahmanyusuf/Documents/cozy-creator/Gen-Server/python_packages/gen_server/src/gen_server" // Set the working directory as when run directly
 			cmd.Env = os.Environ()
-
-			// cmd.Env = os.Environ()
 
 			err := cmd.Run()
 			if err != nil {
