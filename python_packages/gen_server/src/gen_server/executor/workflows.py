@@ -20,7 +20,7 @@ from ..globals import (
     get_architectures,
     get_checkpoint_files,
     get_custom_nodes,
-    get_model_memory_manager
+    get_model_memory_manager,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -45,7 +45,6 @@ def generate_images(
     _checkpoint_files = get_checkpoint_files()
 
     try:
-        
         models = task_data.get("models", {})
         positive_prompt = task_data.get("positive_prompt")
         negative_prompt = task_data.get("negative_prompt", "")
@@ -113,11 +112,10 @@ def generate_images(
 
 
 async def poseable_character_workflow(
-    task_data: Dict[str, Any],
-    cancel_event: Optional[asyncio.Event]
+    task_data: Dict[str, Any], cancel_event: Optional[asyncio.Event]
 ) -> AsyncGenerator[torch.Tensor, None]:
     custom_nodes = get_custom_nodes()
-    
+
     # Initialize nodes
     openpose_node = custom_nodes["core_extension_1.openpose_node"]()
     depth_map_node = custom_nodes["core_extension_1.depth_map_node"]()
@@ -131,11 +129,9 @@ async def poseable_character_workflow(
     # Free up memory
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    
-    
+
     final_images = []
     try:
-
         # Helper function to load image
         def load_image(image: Union[Image.Image, Path, str]) -> Image.Image:
             assets_dir = get_assets_dir()
@@ -153,7 +149,6 @@ async def poseable_character_workflow(
                     raise ValueError(f"Image file not found: {path}")
             else:
                 raise ValueError(f"Unsupported image input type: {type(image)}")
-            
 
         # Extract features
         openpose_image = await openpose_node(load_image(task_data["pose_image"]))
@@ -161,7 +156,7 @@ async def poseable_character_workflow(
         depth_map = await depth_map_node(load_image(task_data["depth_image"]))
         print("Done with depth map")
         # ip_adapter_embeds = await ip_adapter_node(task_data["style_image"], task_data["model_id"])
-        
+
         # Free up memory
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -171,7 +166,6 @@ async def poseable_character_workflow(
                 raise asyncio.CancelledError("Operation was cancelled.")
 
             try:
-        
                 # Generate initial image
                 initial_images = await image_gen_node(
                     model_id=model_id,
@@ -192,53 +186,57 @@ async def poseable_character_workflow(
                     torch.cuda.empty_cache()
 
                 print("Done with initial image generation")
-            
+
                 for initial_image in initial_images["images"]:
                     # Select face area and regenerate
                     face_mask = await select_face_node(
                         initial_image,
-                        feather_radius=task_data["face_mask_feather_iterations"]
+                        feather_radius=task_data["face_mask_feather_iterations"],
                     )
                     print("Done with face selection")
 
                     # Free GPU memory
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
-                        
+
                     regenerated_image = await image_regen_node(
                         image=initial_image,
                         mask=face_mask["face_mask"],
                         prompt=task_data["face_prompt"],
                         model_id=task_data["regen_model_id"],
-                        strength=task_data["strength"]
+                        strength=task_data["strength"],
                     )
                     print("Done with image regeneration")
-                    
+
                     # Remove background
-                    foreground = await remove_bg_node(regenerated_image["regenerated_image"])
+                    foreground = await remove_bg_node(
+                        regenerated_image["regenerated_image"]
+                    )
                     print("Done with background removal")
-                    
+
                     # Generate new background
                     background = await image_gen_node(
                         repo_id=model_id,
                         positive_prompt=task_data["background_prompt"],
                         aspect_ratio=task_data["aspect_ratio"],
-                        num_images=1
+                        num_images=1,
                     )
-                    
+
                     # Composite final image
                     # final_image = await composite_node(foreground["foreground"], background["images"][0])
                     # yield final_image["composite_image"]
 
                     yield regenerated_image["regenerated_image"]
-                    
+
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
-                
+
             except Exception as e:
-                logger.error(f"Error generating images for model '{model_id}': {str(e)}")
+                logger.error(
+                    f"Error generating images for model '{model_id}': {str(e)}"
+                )
                 raise
-        
+
     except asyncio.CancelledError:
         print("Task was cancelled.")
         raise
@@ -271,10 +269,10 @@ class CancelCallback(PipelineCallback):
         return callback_kwargs
 
 
-def generate_images_non_io(
+async def generate_images_non_io(
     task_data: dict[str, Any],
     cancel_event: Optional[Event],
-) -> Generator[torch.Tensor, None, None]:
+) -> AsyncGenerator[torch.Tensor, None]:
     """Generates images based on the provided task data."""
     start = time.time()
 
@@ -298,18 +296,20 @@ def generate_images_non_io(
                     raise asyncio.CancelledError("Operation was cancelled.")
 
                 # Run the ImageGenNode
-                tensor_images: torch.Tensor = image_gen_node(
-                    repo_id=checkpoint_id,
+                result: torch.Tensor = await image_gen_node(
+                    model_id=checkpoint_id,
                     positive_prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
-                    callback=CancelCallback(cancel_event),
+                    # callback=CancelCallback(cancel_event),
                     # checkpoint_files=checkpoint_files,
                     # architectures=architectures,
                     # device=get_torch_device(),
-                )["images"]
+                )
+
+                images = result["images"]
 
                 if cancel_event is not None and cancel_event.is_set():
                     raise asyncio.CancelledError("Operation was cancelled.")
@@ -323,7 +323,7 @@ def generate_images_non_io(
                 # Stack individual tensors into a single tensor
                 # tensor_images = torch.stack(tensor_batch)
 
-                tensor_images = tensor_images.to("cpu")
+                tensor_images = images.to("cpu")
                 # TO DO: could this problematic if the gpu-worker terminates as this tensor is
                 # still in use?
                 tensor_images.share_memory_()
@@ -384,7 +384,9 @@ async def generate_images_with_lora(
         # Get the LoraPrepNode, ControlNetPrepNode and ImageGenNode
         lora_prep_node = custom_nodes["core_extension_1.load_lora_node"]()
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
-        controlnet_preprocessor_node = custom_nodes["core_extension_1.controlnet_preprocessor_node"]()
+        controlnet_preprocessor_node = custom_nodes[
+            "core_extension_1.controlnet_preprocessor_node"
+        ]()
 
         # Prepare LoRA information
         lora_info = None
@@ -394,7 +396,7 @@ async def generate_images_with_lora(
                 model_scale=model_scale,
                 text_encoder_scale=text_encoder_scale,
                 text_encoder_2_scale=text_encoder_2_scale,
-                adapter_name=adapter_name
+                adapter_name=adapter_name,
             )
 
         # Prepare ControlNet input
@@ -404,14 +406,16 @@ async def generate_images_with_lora(
                 image=task_data["input_image"],
                 preprocessor=task_data["controlnet_preprocessor"],
                 threshold1=task_data.get("canny_threshold1", 100),
-                threshold2=task_data.get("canny_threshold2", 200)
+                threshold2=task_data.get("canny_threshold2", 200),
             )["control_image"]
-            
+
             controlnet_info = {
                 "model_id": task_data["controlnet_model_id"],
                 "control_image": control_image,
-                "conditioning_scale": task_data.get("controlnet_conditioning_scale", 1.0),
-                "guess_mode": task_data.get("controlnet_guess_mode", False)
+                "conditioning_scale": task_data.get(
+                    "controlnet_conditioning_scale", 1.0
+                ),
+                "guess_mode": task_data.get("controlnet_guess_mode", False),
             }
 
         for checkpoint_id, num_images in models.items():
@@ -423,7 +427,7 @@ async def generate_images_with_lora(
                 # model_config_entry = model_config['models'].get(model_id)
                 # if not model_config_entry:
                 #     raise ValueError(f"Model {model_id} not found in configuration.")
-                
+
                 # repo_id = model_config_entry['repo'].replace('hf:', '')
 
                 # Run the ImageGenNode with LoRA information
@@ -436,7 +440,7 @@ async def generate_images_with_lora(
                     random_seed=random_seed,
                     callback=CancelCallback(cancel_event),
                     lora_info=lora_info,
-                    controlnet_info=controlnet_info
+                    controlnet_info=controlnet_info,
                 )
 
                 tensor_images: torch.Tensor = result["images"]
@@ -446,7 +450,9 @@ async def generate_images_with_lora(
 
                 tensor_images = tensor_images.to("cpu")
                 tensor_images.share_memory_()
-                logger.info(f"Generated images for model '{checkpoint_id}' with LoRA. Tensor dimensions: {tensor_images.shape}")
+                logger.info(
+                    f"Generated images for model '{checkpoint_id}' with LoRA. Tensor dimensions: {tensor_images.shape}"
+                )
 
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -460,7 +466,9 @@ async def generate_images_with_lora(
                 logger.info("Task was cancelled during image generation.")
                 raise
             except Exception as e:
-                logger.error(f"Error generating images for model '{checkpoint_id}' with LoRA: {str(e)}")
+                logger.error(
+                    f"Error generating images for model '{checkpoint_id}' with LoRA: {str(e)}"
+                )
                 raise
 
     except asyncio.CancelledError:
@@ -470,4 +478,6 @@ async def generate_images_with_lora(
         logger.error(f"Error in LoRA-enhanced image generation workflow: {str(e)}")
         raise
 
-    logger.info(f"LoRA-enhanced image generation completed in {time.time() - start} seconds")
+    logger.info(
+        f"LoRA-enhanced image generation completed in {time.time() - start} seconds"
+    )

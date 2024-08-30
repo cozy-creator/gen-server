@@ -66,6 +66,7 @@ def find_config_file() -> Optional[str]:
     ]
 
     for location in possible_locations:
+        # expanded_location = os.path.expanduser(location)
         if location is not None and os.path.exists(location):
             print(f"Config file loaded from: {location}")
             return location
