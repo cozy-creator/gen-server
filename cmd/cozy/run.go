@@ -1,16 +1,26 @@
 package cmd
 
 import (
+	"context"
 	"cozy-creator/gen-server/internal"
 	"cozy-creator/gen-server/internal/config"
 	"cozy-creator/gen-server/internal/services"
 	"cozy-creator/gen-server/internal/worker"
+	"cozy-creator/gen-server/pkg/mq"
 	"cozy-creator/gen-server/tools"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+var (
+	mapChan = tools.GetDefaultBytesMap()
+	queue   = mq.GetDefaultInMemoryQueue()
 )
 
 var runCmd = &cobra.Command{
@@ -19,8 +29,11 @@ var runCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.GetConfig()
 
-		// TODO: handle context
-		// ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGINT)
 
 		server := internal.NewHTTPServer(cfg)
 		if err := server.SetupEngine(cfg); err != nil {
@@ -35,14 +48,41 @@ var runCmd = &cobra.Command{
 		}()
 
 		go func() {
-			if err := tools.StartPythonGenServer("0.2.2", cfg); err != nil {
+			if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
 				log.Println("Error starting Python Gen Server:", err)
 				log.Fatal(err)
 			}
 		}()
 
-		server.SetupRoutes()
-		server.Start()
+		go func() {
+			if err := worker.StartGeneration(ctx, queue, mapChan); err != nil {
+				log.Println("Error starting generation worker:", err)
+				log.Fatal(err)
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-signalChan:
+					log.Println("Received signal, shutting down...")
+					cancel()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			server.SetupRoutes()
+			if err := server.Start(); err != nil {
+				log.Fatalf("Server error: %v", err)
+			}
+
+			return
+		}()
+
+		<-ctx.Done()
+		server.Stop(ctx)
 
 		return nil
 	},
