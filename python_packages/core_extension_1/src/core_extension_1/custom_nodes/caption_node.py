@@ -7,6 +7,7 @@ class CustomCaptionNode(CustomNode):
         super().__init__()
         self.captions = {}
 
+
     async def __call__(self, 
                        image_paths: List[str], 
                        captions: Dict[str, str] = None) -> Dict[str, Dict[str, str]]:
@@ -35,3 +36,6 @@ class CustomCaptionNode(CustomNode):
             }
 
         return {"image_captions": result}
+
+
+

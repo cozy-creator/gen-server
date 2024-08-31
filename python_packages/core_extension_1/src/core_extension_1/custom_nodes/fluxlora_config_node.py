@@ -2,6 +2,10 @@ from gen_server.base_types import CustomNode
 from typing import Optional
 import yaml
 
+
+
+
+# Combine this config node with the train node (So they are merged into one node)
 class FLUXLoRAConfigNode(CustomNode):
     def __init__(self):
         super().__init__()

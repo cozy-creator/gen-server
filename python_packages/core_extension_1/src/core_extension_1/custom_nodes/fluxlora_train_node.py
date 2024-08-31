@@ -3,6 +3,8 @@ import subprocess
 import sys
 from gen_server.base_types import CustomNode
 
+
+# Make this node a generator or use callback fucntion to return the output
 class FLUXLoRATrainNode(CustomNode):
     def __init__(self):
         super().__init__()

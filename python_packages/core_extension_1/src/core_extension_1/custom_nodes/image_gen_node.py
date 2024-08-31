@@ -268,6 +268,7 @@ class ImageGenNode(CustomNode):
                 pipeline,
                 controlnet=controlnet
             )
+
         elif isinstance(pipeline, StableDiffusionPipeline):
             new_pipeline = StableDiffusionControlNetPipeline.from_pipe(
                 pipeline,

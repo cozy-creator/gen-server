@@ -8,6 +8,8 @@ from transformers import AutoProcessor, AutoModelForCausalLM
 
 
 
+
+# Move this autocaption node to the caption node
 class FLUXDataPrepNode(CustomNode):
     def __init__(self):
         super().__init__()
