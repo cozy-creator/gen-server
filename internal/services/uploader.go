@@ -3,12 +3,14 @@ package services
 import (
 	"bytes"
 	"context"
+	"cozy-creator/gen-server/internal/config"
 	cozyConfig "cozy-creator/gen-server/internal/config"
 	"cozy-creator/gen-server/internal/utils"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -56,14 +58,15 @@ func GetUploader() (Uploader, error) {
 	}
 
 	cfg := cozyConfig.GetConfig()
-	if cfg.Filesystem == cozyConfig.FilesystemLocal {
+	filesystem := strings.ToLower(cfg.Filesystem)
+	if filesystem == cozyConfig.FilesystemLocal {
 		uploader, err := NewLocalUploader()
 		if err != nil {
 			return nil, err
 		}
 
 		return uploader, nil
-	} else if cfg.Filesystem == cozyConfig.FilesystemS3 {
+	} else if filesystem == cozyConfig.FilesystemS3 {
 		uploader, err := NewS3Uploader()
 		if err != nil {
 			return nil, err
@@ -72,12 +75,12 @@ func GetUploader() (Uploader, error) {
 		return uploader, nil
 	}
 
-	return nil, fmt.Errorf("invalid filesystem type")
+	return nil, fmt.Errorf("invalid filesystem type %s", cfg.Filesystem)
 }
 
 func NewLocalUploader() (*LocalUploader, error) {
 	cfg := cozyConfig.GetConfig()
-	if cfg.Filesystem != cozyConfig.FilesystemLocal {
+	if strings.ToLower(cfg.Filesystem) != cozyConfig.FilesystemLocal {
 		return nil, fmt.Errorf("filesystem is not local")
 	}
 
@@ -99,7 +102,7 @@ func NewLocalUploader() (*LocalUploader, error) {
 
 func NewS3Uploader() (*S3Uploader, error) {
 	cfg := cozyConfig.GetConfig()
-	if cfg.Filesystem != cozyConfig.FilesystemS3 {
+	if strings.ToLower(cfg.Filesystem) != cozyConfig.FilesystemS3 {
 		return nil, fmt.Errorf("filesystem is not s3")
 	}
 	if cfg.S3 == nil {
@@ -139,7 +142,8 @@ func (u *LocalUploader) Upload(file FileMeta) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("http://127.0.0.1:8181/file/%s.png", file.Name), nil
+	cfg := config.GetConfig()
+	return fmt.Sprintf("http://%s:%d/file/%s.png", cfg.Host, cfg.Port, file.Name), nil
 }
 
 func (u *LocalUploader) UploadMultiple(files []FileMeta) ([]string, error) {

@@ -5,6 +5,7 @@ import (
 	"cozy-creator/gen-server/internal/config"
 	"cozy-creator/gen-server/internal/services"
 	"cozy-creator/gen-server/internal/worker"
+	"cozy-creator/gen-server/tools"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -24,6 +25,8 @@ var runCmd = &cobra.Command{
 
 		go startUploadWorker()
 
+		go tools.StartPythonGenServer("0.2.2", cfg)
+
 		server.SetupRoutes()
 		server.Start()
 
@@ -32,8 +35,9 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	runCmd.Flags().Int("port", 8881, "Port to run the server on")
+	runCmd.Flags().Int("port", 9009, "Port to run the server on")
 	runCmd.Flags().String("host", "localhost", "Host to run the server on")
+	runCmd.Flags().Int("tcp-port", 9010, "Port to run the tcp server on")
 	runCmd.Flags().String("environment", "development", "Environment configuration; affects default behavior")
 	runCmd.Flags().String("models-path", "", "The directory where models will be saved to and loaded from by default. The default value is {home}/models")
 	runCmd.Flags().String("aux-models-paths", "", "A list of additional directories containing model-files (serialized state dictionaries), such as .safetensors or .pth files.")
@@ -53,6 +57,7 @@ func init() {
 
 	viper.BindPFlag("port", runCmd.Flags().Lookup("port"))
 	viper.BindPFlag("host", runCmd.Flags().Lookup("host"))
+	viper.BindPFlag("tcp_port", runCmd.Flags().Lookup("tcp-port"))
 	viper.BindPFlag("environment", runCmd.Flags().Lookup("environment"))
 	viper.BindPFlag("models_path", runCmd.Flags().Lookup("models-path"))
 	viper.BindPFlag("assets_path", runCmd.Flags().Lookup("assets-path"))
@@ -71,6 +76,8 @@ func init() {
 
 func startUploadWorker() error {
 	uploader, err := services.GetUploader()
+	fmt.Println("Starting upload worker", err)
+
 	if err != nil {
 		return fmt.Errorf("error getting uploader: %w", err)
 	}

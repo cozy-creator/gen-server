@@ -22,6 +22,8 @@ const cozyPrefix = "COZY"
 type Config struct {
 	Port           int       `mapstructure:"port"`
 	Host           string    `mapstructure:"host"`
+	TcpPort        int       `mapstructure:"tcp_port"`
+	TcpTimeout     int       `mapstructure:"tcp_timeout"`
 	Environment    string    `mapstructure:"environment"`
 	AssetsPath     string    `mapstructure:"assets_path"`
 	ModelsPath     string    `mapstructure:"models_path"`
@@ -41,10 +43,6 @@ type S3Config struct {
 }
 
 var config *Config
-
-// cli flags
-// environment variables
-// config file
 
 func InitConfig() error {
 	envFile := viper.GetString("env_file")
