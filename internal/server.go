@@ -1,8 +1,12 @@
 package internal
 
 import (
+	"context"
 	"cozy-creator/gen-server/internal/config"
 	"fmt"
+	"log"
+	"net/http"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
@@ -13,6 +17,7 @@ import (
 type HTTPServer struct {
 	Port   int
 	Host   string
+	inner  *http.Server
 	engine *gin.Engine
 }
 
@@ -51,6 +56,12 @@ func (s *HTTPServer) SetupEngine(cfg *config.Config) error {
 	r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
 	r.Use(gin.Recovery())
 
+	httpServer := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", s.Host, s.Port),
+		Handler: r,
+	}
+
+	s.inner = httpServer
 	s.engine = r
 
 	return nil
@@ -61,8 +72,23 @@ func (s *HTTPServer) Start() (err error) {
 		return fmt.Errorf("engine is not initialized")
 	}
 
-	err = s.engine.Run(fmt.Sprintf("%s:%d", s.Host, s.Port))
-	return
+	// err = s.engine.Run(fmt.Sprintf("%s:%d", s.Host, s.Port))
+	if err := s.inner.ListenAndServe(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *HTTPServer) Stop(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	log.Println("Shutting down server...")
+	if err := s.inner.Shutdown(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *HTTPServer) GetEngine() *gin.Engine {
