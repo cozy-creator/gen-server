@@ -10,3 +10,5 @@ from .load_lora import LoadLoraNode
 from .controlnet_feature_detector import ControlNetFeatureDetector
 from .composite_node import CompositeImagesNode
 from .removebg_node import RemoveBackgroundNode
+from .caption_node import CustomCaptionNode
+from .fluxlora_train_node import FluxTrainNode

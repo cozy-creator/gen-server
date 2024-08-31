@@ -76,6 +76,8 @@ load_lora_node = "core_extension_1.custom_nodes:LoadLoraNode"
 controlnet_feature_detector = "core_extension_1.custom_nodes:ControlNetFeatureDetector"
 remove_background_node = "core_extension_1.custom_nodes:RemoveBackgroundNode"
 composite_images_node = "core_extension_1.custom_nodes:CompositeImagesNode"
+custom_caption_node = "core_extension_1.custom_nodes:CustomCaptionNode"
+flux_train_node = "core_extension_1.custom_nodes:FluxTrainNode"
 
 
 [project.entry-points."cozy_creator.api"]

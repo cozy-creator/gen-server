@@ -46,6 +46,7 @@ config*.yaml
 # repo dependicies
 /GroundingDINO/
 upload_assets/
+*ai-toolkit/
 
 *.db
 
@@ -71,3 +72,5 @@ go.work
 
 # Go coverage output
 *.coverprofile
+
+

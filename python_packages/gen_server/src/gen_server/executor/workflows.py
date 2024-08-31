@@ -12,7 +12,7 @@ from diffusers.callbacks import PipelineCallback
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from PIL import Image
 from pathlib import Path
-from gen_server.utils.paths import get_assets_dir
+from gen_server.utils.paths import get_assets_dir, get_home_dir
 from queue import Queue
 
 
@@ -358,6 +358,88 @@ async def generate_images_non_io(
 
     # Signal end of generation to IO process
     # tensor_queue.put((None, None))
+
+
+async def flux_train_workflow(
+    task_data: dict[str, Any],
+    cancel_event: Optional[Event],
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Trains a FLUX LoRA model based on the provided task data."""
+    start = time.time()
+
+    custom_nodes = get_custom_nodes()
+
+    try:
+        # Extract task data
+        image_directory = task_data.get("image_directory")
+        lora_name = task_data.get("lora_name")
+        image_paths = task_data.get("image_paths", [])
+        initial_captions = task_data.get("initial_captions", {})
+        use_auto_captioning = task_data.get("use_auto_captioning", False)
+        flux_version = task_data.get("flux_version", "dev")
+        training_steps = task_data.get("training_steps", 2500)
+        resolution = task_data.get("resolution", [1024])
+        batch_size = task_data.get("batch_size", 1)
+        learning_rate = task_data.get("learning_rate", 1e-4)
+        trigger_word = task_data.get("trigger_word")
+        low_vram = task_data.get("low_vram", False)
+        seed = task_data.get("random_seed")
+        walk_seed = task_data.get("walk_seed", True)
+
+        # Get the required nodes
+        caption_node = custom_nodes["core_extension_1.custom_caption_node"]()
+        train_node = custom_nodes["core_extension_1.flux_train_node"]()
+
+        # Step 1: Manage captions and prepare data
+        if cancel_event is not None and cancel_event.is_set():
+            raise asyncio.CancelledError("Operation was cancelled.")
+
+        caption_result = await caption_node(
+            image_paths=image_paths,
+            captions=initial_captions,
+            use_auto_captioning=use_auto_captioning,
+            output_directory=image_directory
+        )
+
+        processed_directory = caption_result["processed_directory"]
+        # yield {"status": "captions_processed", "processed_directory": processed_directory}
+
+        # Step 2: Train LoRA
+        if cancel_event is not None and cancel_event.is_set():
+            raise asyncio.CancelledError("Operation was cancelled.")
+
+        train_result = await train_node(
+            processed_directory=processed_directory,
+            lora_name=lora_name,
+            flux_version=flux_version,
+            training_steps=training_steps,
+            resolution=resolution,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            trigger_word=trigger_word,
+            low_vram=low_vram,
+            seed=seed,
+            walk_seed=walk_seed
+        )
+
+        yield {
+            "status": "training_completed",
+            "lora_path": train_result["lora_path"],
+            "training_output": train_result["training_output"],
+            "processed_directory": processed_directory,
+            "image_captions": caption_result["image_captions"]
+        }
+
+    except asyncio.CancelledError:
+        logger.info("FLUX LoRA training was cancelled.")
+        yield {"status": "cancelled"}
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        logger.error(f"Error in FLUX LoRA training workflow: {e}")
+        yield {"status": "error", "error_message": str(e)}
+
+    logger.info(f"FLUX LoRA training completed in {time.time() - start} seconds")
 
 
 async def generate_images_with_lora(
