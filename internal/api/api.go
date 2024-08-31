@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -21,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/image/bmp"
 )
 
 var mapChan = tools.DefaultBytesMap()
@@ -67,8 +70,13 @@ func GenerateImageSync(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 	}
 
+	if _, ok := data["format"]; !ok {
+		data["format"] = "png"
+	}
+
 	requestId := uuid.NewString()
 	data["request_id"] = requestId
+	format := data["format"].(string)
 
 	mapChan.Set(requestId, make(chan []byte))
 	go generateImage(data)
@@ -89,7 +97,7 @@ func GenerateImageSync(c *gin.Context) {
 			go func() {
 				fmt.Println("uploadUrl->", "uploading image")
 				imageHash := utils.Blake3Hash(image)
-				fileMeta := services.NewFileMeta(hex.EncodeToString(imageHash[:]), ".png", image, false)
+				fileMeta := services.NewFileMeta(hex.EncodeToString(imageHash[:]), fmt.Sprintf(".%s", format), image, false)
 
 				uploader := worker.GetUploadWorker()
 				uploader.Upload(fileMeta, uploadUrl)
@@ -226,6 +234,7 @@ func generateImage(data map[string]any) error {
 
 	client.Send(string(jsonData))
 	requestId := data["request_id"].(string)
+	format := data["format"].(string)
 
 	for {
 		sizeBytes, err := client.ReceiveFullBytes(4)
@@ -246,7 +255,7 @@ func generateImage(data map[string]any) error {
 		}
 
 		// Receive the actual data based on the size
-		response, err := client.ReceiveFullBytes(int(contentsize))
+		response, err := (client.ReceiveFullBytes(int(contentsize)))
 		if err != nil {
 			if errors.Is(err, io.ErrUnexpectedEOF) {
 				fmt.Println("Unexpected EOF reached while reading data")
@@ -261,10 +270,41 @@ func generateImage(data map[string]any) error {
 			break
 		}
 
-		mapChan.Send(requestId, response)
+		imageBytes, err := convertImageFormat(response, format)
+		if err != nil {
+			fmt.Println("Error converting image format: %w", err)
+			continue
+		}
+
+		mapChan.Send(requestId, imageBytes)
 	}
 
 	mapChan.Delete(requestId)
 
 	return nil
+}
+
+func convertImageFormat(bmpBytes []byte, format string) ([]byte, error) {
+	img, err := bmp.Decode(bytes.NewReader(bmpBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	var output bytes.Buffer
+	switch format {
+	case "png":
+		err = png.Encode(&output, img)
+	case "jpg":
+	case "jpeg":
+		options := &jpeg.Options{Quality: 90}
+		err = jpeg.Encode(&output, img, options)
+	default:
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return output.Bytes(), nil
 }

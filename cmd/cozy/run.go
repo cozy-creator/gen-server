@@ -7,6 +7,7 @@ import (
 	"cozy-creator/gen-server/internal/worker"
 	"cozy-creator/gen-server/tools"
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,14 +19,27 @@ var runCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.GetConfig()
 
+		// TODO: handle context
+		// ctx, cancel := context.WithCancel(context.Background())
+
 		server := internal.NewHTTPServer(cfg)
 		if err := server.SetupEngine(cfg); err != nil {
 			return fmt.Errorf("error setting up engine: %w", err)
 		}
 
-		go startUploadWorker()
+		go func() {
+			if err := startUploadWorker(); err != nil {
+				log.Println("Error starting upload worker:", err)
+				log.Fatal(err)
+			}
+		}()
 
-		go tools.StartPythonGenServer("0.2.2", cfg)
+		go func() {
+			if err := tools.StartPythonGenServer("0.2.2", cfg); err != nil {
+				log.Println("Error starting Python Gen Server:", err)
+				log.Fatal(err)
+			}
+		}()
 
 		server.SetupRoutes()
 		server.Start()

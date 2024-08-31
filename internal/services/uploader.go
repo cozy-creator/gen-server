@@ -143,7 +143,7 @@ func (u *LocalUploader) Upload(file FileMeta) (string, error) {
 	}
 
 	cfg := config.GetConfig()
-	return fmt.Sprintf("http://%s:%d/file/%s.png", cfg.Host, cfg.Port, file.Name), nil
+	return fmt.Sprintf("http://%s:%d/file/%s%s", cfg.Host, cfg.Port, file.Name, file.Extension), nil
 }
 
 func (u *LocalUploader) UploadMultiple(files []FileMeta) ([]string, error) {
