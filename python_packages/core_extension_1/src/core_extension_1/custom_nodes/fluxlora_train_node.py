@@ -4,6 +4,8 @@ from collections import OrderedDict
 from typing import List, Optional
 from gen_server.base_types import CustomNode
 from gen_server.utils.paths import get_assets_dir, get_home_dir
+import asyncio
+
 
 class FluxTrainNode(CustomNode):
     def __init__(self):
@@ -38,10 +40,57 @@ class FluxTrainNode(CustomNode):
         os.chdir(self.ai_toolkit_path)
         sys.path.append(self.ai_toolkit_path)
         try:
-            from toolkit.job import run_job # type: ignore
+            from toolkit.job import run_job 
         except ImportError:
             raise ImportError("AI Toolkit not found. Please run the setup script to install it.")
 
+        config = self._prepare_config(processed_directory, lora_name, flux_version, training_steps, resolution, batch_size, learning_rate, trigger_word, low_vram, seed, walk_seed)
+
+        progress_queue = asyncio.Queue()
+        
+        def callback(progress):
+            progress_queue.put_nowait(progress)
+
+        config['config']['process'][0]['callback'] = callback
+        
+
+        # Run the job
+        async def run_job_with_progress():
+            
+            job_task = asyncio.create_task(asyncio.to_thread(run_job, config))
+
+            print(job_task)
+            
+            while True:
+                print("Waiting for progress...")
+                try:
+                    print("Getting progress...")
+                    progress = await progress_queue.get()
+                    yield progress
+                    if progress.get('type') == 'finished':
+                        break
+                except asyncio.CancelledError:
+                    job_task.cancel()
+                    break
+            
+            await job_task
+
+        return run_job_with_progress()
+    
+
+    def _prepare_config(self,
+                        processed_directory: str,
+                        lora_name: str,
+                        flux_version: str,
+                        training_steps: int,
+                        resolution: List[int],
+                        batch_size: int,
+                        learning_rate: float,
+                        trigger_word: Optional[str],
+                        low_vram: bool,
+                        seed: Optional[int],
+                        walk_seed: bool) -> OrderedDict:
+        
         config = OrderedDict({
             "job": "extension",
             "config": {
@@ -100,6 +149,7 @@ class FluxTrainNode(CustomNode):
                             "A portrait of someone in a natural setting",
                             "An abstract representation of emotion"
                         ],
+                        "neg": "",
                         "guidance_scale": 4,
                         "sample_steps": 20,
                         "walk_seed": walk_seed
@@ -127,11 +177,5 @@ class FluxTrainNode(CustomNode):
         if seed is not None:
             config["config"]["process"][0]["sample"]["seed"] = seed
 
-        # Run the job
-        result = run_job(config)
-
-        # Determine the output directory and LoRA path
-        output_dir = os.path.join("output", lora_name)
-        lora_path = os.path.join(output_dir, f"{lora_name}.safetensors")
-
-        return {"lora_path": lora_path, "training_output": str(result)}
+        return config
+        

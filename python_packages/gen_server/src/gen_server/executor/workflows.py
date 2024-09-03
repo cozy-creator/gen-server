@@ -389,6 +389,7 @@ async def flux_train_workflow(
         # Get the required nodes
         caption_node = custom_nodes["core_extension_1.custom_caption_node"]()
         train_node = custom_nodes["core_extension_1.flux_train_node"]()
+        save_node = custom_nodes["core_extension_1.save_lora_node"]()
 
         # Step 1: Manage captions and prepare data
         if cancel_event is not None and cancel_event.is_set():
@@ -402,13 +403,17 @@ async def flux_train_workflow(
         )
 
         processed_directory = caption_result["processed_directory"]
-        # yield {"status": "captions_processed", "processed_directory": processed_directory}
+        yield {"status": "captions_processed", "processed_directory": processed_directory}
 
         # Step 2: Train LoRA
         if cancel_event is not None and cancel_event.is_set():
             raise asyncio.CancelledError("Operation was cancelled.")
+        
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-        train_result = await train_node(
+        print("Starting LoRA training")
+        train_generator = await train_node(
             processed_directory=processed_directory,
             lora_name=lora_name,
             flux_version=flux_version,
@@ -422,13 +427,25 @@ async def flux_train_workflow(
             walk_seed=walk_seed
         )
 
-        yield {
-            "status": "training_completed",
-            "lora_path": train_result["lora_path"],
-            "training_output": train_result["training_output"],
-            "processed_directory": processed_directory,
-            "image_captions": caption_result["image_captions"]
-        }
+        final_result = None
+
+        async for update in save_node(train_generator):
+            if update['type'] == 'sample_images':
+                yield {"status": "sample_generated", "step": update['step'], "sample_paths": update['paths']}
+            elif update['type'] == 'lora_file':
+                yield {"status": "lora_saved", "step": update['step'], "lora_path": update['path']}
+            elif update['type'] == 'step':
+                yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
+            elif update['type'] == 'final_result':
+                final_result = update
+
+        if final_result:
+            yield {
+                "status": "training_completed",
+                "lora_path": final_result["final_lora"],
+                "processed_directory": processed_directory,
+                "image_captions": caption_result["image_captions"]
+            }
 
     except asyncio.CancelledError:
         logger.info("FLUX LoRA training was cancelled.")

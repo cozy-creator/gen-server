@@ -4,7 +4,7 @@ from .common import Language, Category
 import os
 import inspect
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 
 class NodeInterfaceInput(TypedDict):
@@ -86,7 +86,7 @@ class CustomNode(ABC):
     
 
     @abstractmethod
-    def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def __call__(self, *args: Any, **kwargs: Any) -> Union[dict[str, Any]]:
         """
         Runs the node.
         """

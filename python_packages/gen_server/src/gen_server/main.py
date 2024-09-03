@@ -18,6 +18,7 @@ from gen_server.executor.workflows import generate_images_non_io, flux_train_wor
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
 from gen_server.utils.extension_loader import load_extensions
 from gen_server.utils.image import tensor_to_bytes
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,11 +46,10 @@ def request_handler(context: RequestContext):
     json_data = json.loads(data.decode())
 
     async def generate_images():
-        async for images in generate_images_non_io(json_data, None):
-            results = tensor_to_bytes(images)
-            for result in results:
-                result_header = struct.pack("!I", len(result))
-                context.send(result_header + result)
+        async for update in flux_train_workflow(json_data, None):
+            result = json.dumps(update).encode()
+            result_header = struct.pack("!I", len(result))
+            context.send(result_header + result)
 
     asyncio.run(generate_images())
 
@@ -96,5 +96,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\nProcess interrupted by user. Exiting gracefully...")
-        sys.exit(0)
+        # Force quit the entire process
+        os._exit(1)  # This is a "hard" exit that will work on both Windows and Unix. Might want to change this to a more graceful exit later.
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
