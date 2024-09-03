@@ -6,21 +6,16 @@ import (
 	"cozy-creator/gen-server/internal/config"
 	"cozy-creator/gen-server/internal/services"
 	"cozy-creator/gen-server/internal/worker"
-	"cozy-creator/gen-server/pkg/mq"
 	"cozy-creator/gen-server/tools"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	mapChan = tools.GetDefaultBytesMap()
-	queue   = mq.GetDefaultInMemoryQueue()
 )
 
 var runCmd = &cobra.Command{
@@ -32,6 +27,8 @@ var runCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		var wg sync.WaitGroup
+
 		signalChan := make(chan os.Signal, 1)
 		signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGINT)
 
@@ -40,7 +37,10 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("error setting up engine: %w", err)
 		}
 
+		wg.Add(4)
+
 		go func() {
+			defer wg.Done()
 			if err := startUploadWorker(); err != nil {
 				log.Println("Error starting upload worker:", err)
 				log.Fatal(err)
@@ -48,6 +48,7 @@ var runCmd = &cobra.Command{
 		}()
 
 		go func() {
+			defer wg.Done()
 			if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
 				log.Println("Error starting Python Gen Server:", err)
 				log.Fatal(err)
@@ -55,13 +56,15 @@ var runCmd = &cobra.Command{
 		}()
 
 		go func() {
-			if err := worker.StartGeneration(ctx, queue, mapChan); err != nil {
+			defer wg.Done()
+			if err := worker.StartGeneration(ctx); err != nil {
 				log.Println("Error starting generation worker:", err)
 				log.Fatal(err)
 			}
 		}()
 
 		go func() {
+			defer wg.Done()
 			for {
 				select {
 				case <-signalChan:
@@ -73,6 +76,7 @@ var runCmd = &cobra.Command{
 		}()
 
 		go func() {
+			// defer wg.Done()
 			server.SetupRoutes()
 			if err := server.Start(); err != nil {
 				log.Fatalf("Server error: %v", err)
@@ -81,8 +85,7 @@ var runCmd = &cobra.Command{
 			return
 		}()
 
-		<-ctx.Done()
-		server.Stop(ctx)
+		wg.Wait()
 
 		return nil
 	},

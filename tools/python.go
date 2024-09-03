@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -138,9 +139,16 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 	}
 
 	go func() {
-		<-ctx.Done()
-		log.Logger.Println("Stopping Python Gen Server...")
-		cmd.Process.Kill()
+		for {
+			select {
+			case <-ctx.Done():
+				log.Logger.Println("Stopping Python Gen Server...")
+				cmd.Process.Kill()
+				return
+			default:
+				time.Sleep(time.Second)
+			}
+		}
 	}()
 
 	if err := cmd.Wait(); err != nil {
