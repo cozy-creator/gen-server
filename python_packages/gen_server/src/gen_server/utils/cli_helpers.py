@@ -17,17 +17,17 @@ def find_arg_value(arg_name: str) -> Optional[str]:
             return arg.split("=", 1)[1]
         elif arg == arg_name and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
-    
+
     # If not found in command line arguments, check environment variables
     env_var_name = f"COZY_{arg_name.upper()}"
-    
+
     return os.environ.get(env_var_name)
 
 
 def parse_known_args_wrapper(
     parser: argparse.ArgumentParser,
     args: Optional[List[str]] = None,
-    namespace: Optional[argparse.Namespace] = None
+    namespace: Optional[argparse.Namespace] = None,
 ) -> Optional[argparse.Namespace]:
     known_args, _ = parser.parse_known_args(args, namespace)
     return known_args

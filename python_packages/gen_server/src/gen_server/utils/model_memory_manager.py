@@ -13,7 +13,7 @@ import importlib
 from huggingface_hub.constants import HF_HUB_CACHE
 import os
 from huggingface_hub.file_download import repo_folder_name
-from optimum.quanto import freeze, qfloat8, quantize
+# from optimum.quanto import freeze, qfloat8, quantize
 from ..utils.utils import serialize_config
 
 logger = logging.getLogger(__name__)

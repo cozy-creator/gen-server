@@ -14,7 +14,7 @@ from gen_server.base_types.pydantic_models import RunCommandConfig
 from gen_server.config import init_config
 from gen_server.globals import update_custom_nodes
 from gen_server.tcp_server import TCPServer, RequestContext
-from gen_server.executor.workflows import generate_images_non_io
+from gen_server.worker.gpu_worker import generate_images_non_io
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
 from gen_server.utils.extension_loader import load_extensions
 from gen_server.utils.image import tensor_to_bytes
