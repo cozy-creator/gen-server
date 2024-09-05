@@ -437,6 +437,8 @@ async def flux_train_workflow(
             elif update['type'] == 'step':
                 yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
             elif update['type'] == 'final_result':
+                print("Final result received")
+                print(update)
                 final_result = update
 
         if final_result:

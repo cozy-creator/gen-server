@@ -5,7 +5,7 @@ from typing import List, Optional
 from gen_server.base_types import CustomNode
 from gen_server.utils.paths import get_assets_dir, get_home_dir
 import asyncio
-
+import traceback
 
 class FluxTrainNode(CustomNode):
     def __init__(self):
@@ -37,10 +37,10 @@ class FluxTrainNode(CustomNode):
                        walk_seed: bool = True) -> dict[str, str]:
 
         # Ensure we're in the AI Toolkit directory
-        os.chdir(self.ai_toolkit_path)
-        sys.path.append(self.ai_toolkit_path)
+        # os.chdir(self.ai_toolkit_path)
+        # sys.path.append(self.ai_toolkit_path)
         try:
-            from toolkit.job import run_job 
+            from ostris_ai_toolkit.toolkit.job import run_job 
         except ImportError:
             raise ImportError("AI Toolkit not found. Please run the setup script to install it.")
 
@@ -56,24 +56,39 @@ class FluxTrainNode(CustomNode):
 
         # Run the job
         async def run_job_with_progress():
-            
             job_task = asyncio.create_task(asyncio.to_thread(run_job, config))
-
-            print(job_task)
             
-            while True:
-                print("Waiting for progress...")
-                try:
-                    print("Getting progress...")
-                    progress = await progress_queue.get()
-                    yield progress
-                    if progress.get('type') == 'finished':
+            try:
+                while not job_task.done():
+                    try:
+                        progress = await asyncio.wait_for(progress_queue.get(), timeout=0.1)
+                        yield progress
+                        if progress.get('type') == 'finished':
+                            break
+                    except asyncio.TimeoutError:
+                        # This allows for checking cancellation regularly
+                        continue
+                    except asyncio.CancelledError:
+                        job_task.cancel()
+                        yield {"type": "cancelled", "message": "Training was cancelled"}
                         break
-                except asyncio.CancelledError:
+                
+                # Check if the job_task raised an exception
+                if job_task.done() and not job_task.cancelled():
+                    job_task.result()  # This will raise any exception that occurred in run_job
+
+            except Exception as e:
+                error_message = f"An error occurred during training: {str(e)}\n{traceback.format_exc()}"
+                print(error_message)  # Print to console for immediate visibility
+                yield {"type": "error", "message": error_message}
+            finally:
+                if not job_task.done():
                     job_task.cancel()
-                    break
-            
-            await job_task
+                    try:
+                        await job_task
+                    except asyncio.CancelledError:
+                        pass
+                yield {"type": "finished"}
 
         return run_job_with_progress()
     
