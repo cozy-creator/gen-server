@@ -14,6 +14,9 @@ from PIL import Image
 from pathlib import Path
 from gen_server.utils.paths import get_assets_dir, get_home_dir
 from queue import Queue
+import torchvision.transforms as T
+import os
+from gen_server.utils.image import tensor_to_bytes
 
 
 from ..globals import (
@@ -459,6 +462,53 @@ async def flux_train_workflow(
         yield {"status": "error", "error_message": str(e)}
 
     logger.info(f"FLUX LoRA training completed in {time.time() - start} seconds")
+
+
+
+async def image_regen_workflow(task_data: Dict[str, Any], cancel_event: Any = None) -> Dict[str, Any]:
+    custom_nodes = get_custom_nodes()
+    image_regen_node = custom_nodes["core_extension_1.image_regen_node"]()
+    select_area_node = custom_nodes["core_extension_1.select_area_node"]()
+
+    # Convert image and mask to tensors if they're file paths
+    if isinstance(task_data['image'], str):
+        image_path = os.path.join(get_home_dir(), task_data['image'])
+        image = Image.open(image_path).convert('RGB')
+        image_tensor = T.ToTensor()(image).unsqueeze(0)
+    else:
+        image = task_data['image']
+
+    # Generate or load mask
+    if 'mask' in task_data:
+        if isinstance(task_data['mask'], str):
+            mask_path = os.path.join(get_home_dir(), task_data['mask'])
+            mask = Image.open(mask_path).convert('L')
+            # mask = T.ToTensor()(mask).unsqueeze(0)
+        else:
+            mask = task_data['mask']
+    else:
+        # Generate mask using SelectAreaNode
+        select_area_result = await select_area_node(
+            image=image_tensor.squeeze(0),
+            text_prompt=task_data['mask_prompt'],
+            feather_radius=task_data.get('feather_radius', 0)
+        )
+        mask = select_area_result['face_mask']
+
+    result = await image_regen_node(
+        image=image,
+        mask=mask,
+        prompt=task_data['prompt'],
+        model_id=task_data['model_id'],
+        negative_prompt=task_data.get('negative_prompt', ''),
+        num_inference_steps=task_data.get('num_inference_steps', 25),
+        strength=task_data.get('strength', 0.7)
+    )
+
+    # result['regenerated_image'] = tensor_to_bytes(result['regenerated_image'])
+
+
+    return result
 
 
 async def generate_images_with_lora(

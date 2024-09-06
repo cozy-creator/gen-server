@@ -197,6 +197,7 @@ def aspect_ratio_to_dimensions(aspect_ratio: str, class_name: str) -> tuple[int,
         "AuraFlow",
         "StableDiffusion3Pipeline",
         "FluxPipeline",
+        "FluxInpaintPipeline"
     }
 
     size = "large" if class_name in large_models else "default"

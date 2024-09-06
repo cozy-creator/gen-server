@@ -25,7 +25,11 @@ dependencies = [
     "tqdm",
     "transformers",
     "firebase-admin",
-    # "diffusers@git+https://github.com/huggingface/diffusers.git",
+    "ostris-ai-toolkit",
+    "IP-Adapter@git+https://github.com/tencent-ailab/IP-Adapter.git",
+    "sd-scripts@git+https://github.com/cozy-creator/sd-scripts.git",
+    "LECO@git+https://github.com/cozy-creator/LECO.git",
+    "diffusers@git+https://github.com/huggingface/diffusers.git",
 ]
 
 [project.entry-points."cozy_creator.architectures"]

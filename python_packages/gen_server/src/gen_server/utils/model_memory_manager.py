@@ -15,6 +15,7 @@ import os
 from huggingface_hub.file_download import repo_folder_name
 from optimum.quanto import freeze, qfloat8, quantize
 from ..utils.utils import serialize_config
+from diffusers import FluxInpaintPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ class ModelMemoryManager:
             if variant == "":
                 variant = None
 
-            # Temporary: We can use bfloat16 as standard dtype but I just notice that float16 loads the pipeline faster.
+            # Temporary: We can use bfloat16 as standard dtype but I just noticed that float16 loads the pipeline faster.
             # Although, it's compulsory to use bfloat16 for Flux models.
             # Load the pipeline
             pipeline = DiffusionPipeline.from_pretrained(
@@ -270,11 +271,11 @@ class ModelMemoryManager:
         optimizations = [
             ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
-            (
-                "enable_xformers_memory_efficient_attention",
-                "Memory Efficient Attention",
-                {},
-            ),
+            # (
+            #     "enable_xformers_memory_efficient_attention",
+            #     "Memory Efficient Attention",
+            #     {},
+            # ),
             (
                 "enable_model_cpu_offload",
                 "CPU Offloading",

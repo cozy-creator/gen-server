@@ -111,6 +111,7 @@ from gen_server.utils.model_config_manager import ModelConfigManager
 from typing import Union, Dict
 from gen_server.globals import get_model_memory_manager
 
+
 class ImageRegenNode(CustomNode):
     def __init__(self):
         super().__init__()
@@ -140,6 +141,8 @@ class ImageRegenNode(CustomNode):
         pipeline = await self._get_inpaint_pipeline(model_id)
 
         class_name = pipeline.__class__.__name__
+
+        print(f"Using pipeline {class_name}")
         
         # Convert inputs to PIL Images if they're tensors
         if isinstance(image, torch.Tensor):
@@ -154,18 +157,18 @@ class ImageRegenNode(CustomNode):
         with torch.no_grad():
             output = pipeline(
                 prompt=prompt,
-                negative_prompt=negative_prompt,
+                # negative_prompt=negative_prompt,
                 image=image,
                 mask_image=mask,
                 num_inference_steps=num_inference_steps,
                 strength=strength,
                 guidance_scale=model_config.get("guidance_scale", 7.5),
                 output_type="pt",  # Ensure output is a PyTorch tensor
-            ).images[0]
+            ).images
         
         # Ensure the output is a 4D tensor on CPU
-        output = output.cpu()
-        if output.dim() == 3:
-            output = output.unsqueeze(0)
+        # output = output.cpu()
+        # if output.dim() == 3:
+        #     output = output.unsqueeze(0)
         
         return {"regenerated_image": output}
