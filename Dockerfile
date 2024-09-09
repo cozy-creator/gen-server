@@ -3,13 +3,13 @@ FROM node:22-bookworm-slim as builder
 
 WORKDIR /app
 
-# Copy the web folder
-COPY web ./web
+# # Copy the web folder
+# COPY web ./web
 
-# Build the web folder
-RUN cd ./web && \
-    npm install && \
-    npm run build
+# # Build the web folder
+# RUN cd ./web && \
+#     npm install && \
+#     npm run build
 
 
 # Stage 2: production
@@ -54,7 +54,7 @@ RUN chmod +x start.sh
 RUN sed -i 's/\r$//' /app/start.sh
 
 # Move files over from the web-build stage
-COPY --from=builder /app/web/dist /srv/www/cozy/dist
+# COPY --from=builder /app/web/dist /srv/www/cozy/dist
 
 # ENTRYPOINT ["./start.sh"]
 

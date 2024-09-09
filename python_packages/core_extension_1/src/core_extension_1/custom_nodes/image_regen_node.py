@@ -121,9 +121,9 @@ class ImageRegenNode(CustomNode):
 
         # sdxl-inpainting-1
 
-    async def _get_inpaint_pipeline(self, model_id: str):
+    async def _get_inpaint_pipeline(self, model_id: str, type: str):
 
-        inpaint_pipeline = await self.model_memory_manager.load(model_id)
+        inpaint_pipeline = await self.model_memory_manager.load(model_id, type=type)
         if inpaint_pipeline is None:
             raise ValueError(f"Model {model_id} not found in memory manager")
 
@@ -138,7 +138,7 @@ class ImageRegenNode(CustomNode):
                        num_inference_steps: int = 25,
                        strength: float = 0.7) -> Dict[str, torch.Tensor]:
         
-        pipeline = await self._get_inpaint_pipeline(model_id)
+        pipeline = await self._get_inpaint_pipeline(model_id, type="inpaint")
 
         class_name = pipeline.__class__.__name__
 
@@ -153,6 +153,7 @@ class ImageRegenNode(CustomNode):
         model_config = self.config_manager.get_model_config(model_id, class_name)
 
         self.model_memory_manager.apply_optimizations(pipeline)
+        print(image.width)
         
         with torch.no_grad():
             output = pipeline(
@@ -160,11 +161,15 @@ class ImageRegenNode(CustomNode):
                 # negative_prompt=negative_prompt,
                 image=image,
                 mask_image=mask,
-                num_inference_steps=num_inference_steps,
+                width=image.width,
+                height=image.height,
+                # num_inference_steps=num_inference_steps,
                 strength=strength,
-                guidance_scale=model_config.get("guidance_scale", 7.5),
+                # guidance_scale=model_config.get("guidance_scale", 7.5),
                 output_type="pt",  # Ensure output is a PyTorch tensor
             ).images
+
+        self.model_memory_manager.flush_memory()
         
         # Ensure the output is a 4D tensor on CPU
         # output = output.cpu()

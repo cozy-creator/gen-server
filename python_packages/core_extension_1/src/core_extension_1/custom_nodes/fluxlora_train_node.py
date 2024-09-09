@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import OrderedDict
-from typing import List, Optional
+from typing import List, Optional, Any
 from gen_server.base_types import CustomNode
 from gen_server.utils.paths import get_assets_dir, get_home_dir
 import asyncio
@@ -34,7 +34,8 @@ class FluxTrainNode(CustomNode):
                        trigger_word: Optional[str] = None,
                        low_vram: bool = False,
                        seed: Optional[int] = None,
-                       walk_seed: bool = True) -> dict[str, str]:
+                       walk_seed: bool = True,
+                       cancel_event: asyncio.Event = None) -> dict[str, str]:
 
         # Ensure we're in the AI Toolkit directory
         # os.chdir(self.ai_toolkit_path)
@@ -47,48 +48,37 @@ class FluxTrainNode(CustomNode):
         config = self._prepare_config(processed_directory, lora_name, flux_version, training_steps, resolution, batch_size, learning_rate, trigger_word, low_vram, seed, walk_seed)
 
         progress_queue = asyncio.Queue()
+        cancel_queue = asyncio.Queue()
         
-        def callback(progress):
+        def progress_callback(progress: dict[str, Any]):
             progress_queue.put_nowait(progress)
 
-        config['config']['process'][0]['callback'] = callback
+        def check_cancel() -> bool:
+            return not cancel_queue.empty()
+
+        config['config']['process'][0]['progress_callback'] = progress_callback
+        config['config']['process'][0]['check_cancel'] = check_cancel
         
 
         # Run the job
         async def run_job_with_progress():
-            job_task = asyncio.create_task(asyncio.to_thread(run_job, config))
+            cancel_event, thread = await asyncio.to_thread(run_job, config)
             
             try:
-                while not job_task.done():
+                while thread.is_alive():
                     try:
                         progress = await asyncio.wait_for(progress_queue.get(), timeout=0.1)
                         yield progress
                         if progress.get('type') == 'finished':
                             break
                     except asyncio.TimeoutError:
-                        # This allows for checking cancellation regularly
                         continue
-                    except asyncio.CancelledError:
-                        job_task.cancel()
-                        yield {"type": "cancelled", "message": "Training was cancelled"}
-                        break
-                
-                # Check if the job_task raised an exception
-                if job_task.done() and not job_task.cancelled():
-                    job_task.result()  # This will raise any exception that occurred in run_job
-
-            except Exception as e:
-                error_message = f"An error occurred during training: {str(e)}\n{traceback.format_exc()}"
-                print(error_message)  # Print to console for immediate visibility
-                yield {"type": "error", "message": error_message}
+            except asyncio.CancelledError:
+                cancel_event.set()
+                yield {"type": "cancelled", "message": "Training was cancelled"}
             finally:
-                if not job_task.done():
-                    job_task.cancel()
-                    try:
-                        await job_task
-                    except asyncio.CancelledError:
-                        pass
-                yield {"type": "finished"}
+                cancel_event.set()
+                thread.join()
 
         return run_job_with_progress()
     

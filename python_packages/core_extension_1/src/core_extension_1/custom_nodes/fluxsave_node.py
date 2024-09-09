@@ -17,10 +17,19 @@ class SaveLoraNode(CustomNode):
                 yield update
             elif update['type'] == 'finished':
                 break
+            elif update['type'] == 'cancelled':
+                print("In Here")
+                yield update
+                break
+        
+        print(update)
 
-        yield {
-            'type': 'final_result',
-            'sample_images': sample_images,
-            'lora_files': lora_files,
-            'final_lora': lora_files[-1] if lora_files else None
-        }
+        if not update['type'] == 'cancelled':
+            yield {
+                'type': 'final_result',
+                'sample_images': sample_images,
+                'lora_files': lora_files,
+                'final_lora': lora_files[-1] if lora_files else None
+            }
+        else:
+            yield update

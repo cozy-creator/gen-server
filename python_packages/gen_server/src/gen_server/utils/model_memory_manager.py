@@ -16,6 +16,7 @@ from huggingface_hub.file_download import repo_folder_name
 from optimum.quanto import freeze, qfloat8, quantize
 from ..utils.utils import serialize_config
 from diffusers import FluxInpaintPipeline
+import gc
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,14 @@ class ModelMemoryManager:
         self.cache_dir = HF_HUB_CACHE
 
     async def load(
-        self, model_id: str, gpu: Optional[int] = None
+        self, model_id: str, gpu: Optional[int] = None, type: Optional[str] = None
     ) -> Optional[DiffusionPipeline]:
         print(f"Loading model {model_id}")
         if model_id == self.current_model and self.loaded_model is not None:
             logger.info(f"Model {model_id} is already loaded.")
             return self.loaded_model
+        
+        self.flush_memory()
 
         # Unload the current model if it exists and is different
         if self.current_model is not None and self.current_model != model_id:
@@ -95,15 +98,28 @@ class ModelMemoryManager:
             # Temporary: We can use bfloat16 as standard dtype but I just noticed that float16 loads the pipeline faster.
             # Although, it's compulsory to use bfloat16 for Flux models.
             # Load the pipeline
-            pipeline = DiffusionPipeline.from_pretrained(
-                repo_id,
-                torch_dtype=torch.bfloat16
-                if "flux" in model_id.lower()
-                else torch.float16,
-                local_files_only=True,
-                variant=variant,
-                **pipeline_kwargs,
-            )
+            # Check if the model is a Flux model else use DiffusionPipeline
+            if "flux" in model_id.lower() and type == "inpaint":
+                pipeline = FluxInpaintPipeline.from_pretrained(
+                    repo_id,
+                    torch_dtype=torch.bfloat16,
+                    local_files_only=True,
+                    variant=variant,
+                    **pipeline_kwargs,
+                )
+            else:
+                pipeline = DiffusionPipeline.from_pretrained(
+                    repo_id,
+                    torch_dtype=torch.bfloat16
+                    if "flux" in model_id.lower()
+                    else torch.float16,
+                    local_files_only=True,
+                    variant=variant,
+                    **pipeline_kwargs,
+                )
+
+            self.flush_memory()
+            
 
             self.loaded_model = pipeline
             self.current_model = model_id
@@ -142,7 +158,11 @@ class ModelMemoryManager:
             if model_index["_class_name"] == "FluxPipeline":
                 quantized_model_list = ["FluxTransformer2DModel", "T5EncoderModel"]
 
-                if class_name in quantized_model_list:
+
+                # Check if the VRAM is greater than 16gb before quantizing. If it is greater than 16gb, we do not quantize.
+                if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 16:
+                    logger.info(f"VRAM is greater than 16gb. Not quantizing.")
+                elif class_name in quantized_model_list:
                     quantized_class_name = (
                         "QuantizedFluxTransformer2DModel"
                         if class_name == "FluxTransformer2DModel"
@@ -308,16 +328,21 @@ class ModelMemoryManager:
         if device_type == "mps":
             delattr(torch, "mps")
 
+    def flush_memory(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        elif torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+
+        gc.collect()
+
     def unload(self, model_id: str) -> None:
         if model_id == self.current_model and self.loaded_model is not None:
             del self.loaded_model
             self.loaded_model = None
             self.current_model = None
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            elif torch.backends.mps.is_available():
-                torch.mps.empty_cache()
+            self.flush_memory()
 
             logger.info(f"Model {model_id} unloaded.")
         else:

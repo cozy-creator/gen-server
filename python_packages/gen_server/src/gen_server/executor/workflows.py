@@ -427,22 +427,33 @@ async def flux_train_workflow(
             trigger_word=trigger_word,
             low_vram=low_vram,
             seed=seed,
-            walk_seed=walk_seed
+            walk_seed=walk_seed,
+            cancel_event=cancel_event
         )
 
         final_result = None
-
-        async for update in save_node(train_generator):
-            if update['type'] == 'sample_images':
-                yield {"status": "sample_generated", "step": update['step'], "sample_paths": update['paths']}
-            elif update['type'] == 'lora_file':
-                yield {"status": "lora_saved", "step": update['step'], "lora_path": update['path']}
-            elif update['type'] == 'step':
-                yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
-            elif update['type'] == 'final_result':
-                print("Final result received")
-                print(update)
-                final_result = update
+        try:
+            async for update in save_node(train_generator):
+                if update['type'] == 'sample_images':
+                    yield {"status": "sample_generated", "step": update['step'], "sample_paths": update['paths']}
+                elif update['type'] == 'lora_file':
+                    yield {"status": "lora_saved", "step": update['step'], "lora_path": update['path']}
+                elif update['type'] == 'step':
+                    yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
+                elif update['type'] == 'final_result':
+                    print("Final result received")
+                    print(update)
+                    final_result = update
+                elif update['type'] == 'cancelled':
+                    yield update
+                    break
+                    
+                if cancel_event.is_set():
+                    break
+        except asyncio.CancelledError:
+            print("Training was cancelled")
+            yield {"status": "cancelled", "message": "Training was cancelled"}
+            raise
 
         if final_result:
             yield {
@@ -494,6 +505,8 @@ async def image_regen_workflow(task_data: Dict[str, Any], cancel_event: Any = No
             feather_radius=task_data.get('feather_radius', 0)
         )
         mask = select_area_result['face_mask']
+
+    
 
     result = await image_regen_node(
         image=image,

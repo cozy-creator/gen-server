@@ -10,6 +10,16 @@ from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
 import torchvision.transforms as T
 from gen_server.utils.image import tensor_to_pil
+import signal
+import os
+import sys
+# cancel_flag = asyncio.Event()
+
+# def signal_handler(signum, frame):
+#     print("\nCtrl+C pressed. Cancelling training...")
+#     cancel_flag.set()
+
+# signal.signal(signal.SIGINT, signal_handler)
 
 
 
@@ -46,8 +56,25 @@ async def test_flux_train(
         "walk_seed": walk_seed
     }
 
-    async for update in flux_train_workflow(task_data, None):
-        print(update)
+    cancel_event = asyncio.Event()
+
+    def signal_handler(signum, frame):
+        print("\nCtrl+C pressed. Cancelling training...")
+        os._exit(1)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        async for update in flux_train_workflow(task_data, cancel_event):
+            print(update)
+            if cancel_event.is_set():
+                break
+            if update.get('type') == 'finished' or update.get('type') == 'cancelled':
+                break
+    except asyncio.CancelledError:
+        print("Training was cancelled")
+    finally:
+        print("Training process finished")
 
 async def test_image_regen(
     image_path: str,

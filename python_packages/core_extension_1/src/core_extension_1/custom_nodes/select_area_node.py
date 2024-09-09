@@ -11,6 +11,7 @@ import os
 import json
 from huggingface_hub.constants import HF_HUB_CACHE
 from typing import Union
+from gen_server.globals import get_model_memory_manager
 
 class SelectAreaNode(CustomNode):
     """Selects an area in an image based on a text prompt using GroundingDino and SAM."""
@@ -21,7 +22,7 @@ class SelectAreaNode(CustomNode):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.sam_predictor = self.load_sam()
         self.grounding_dino_model = self.load_groundingdino()
-        
+        self.model_memory_manager = get_model_memory_manager()
 
     async def __call__(self, image: Union[torch.Tensor, np.ndarray], text_prompt: str = "face", feather_radius: int = 0) -> dict[str, Image.Image]: # type: ignore
         """
@@ -66,6 +67,8 @@ class SelectAreaNode(CustomNode):
 
                 # Save the mask as a PIL Image
                 mask_image.save("mask_image.png")
+
+                self.model_memory_manager.flush_memory()
 
 
                 return {"face_mask": mask_image}
