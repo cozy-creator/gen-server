@@ -291,11 +291,11 @@ class ModelMemoryManager:
         optimizations = [
             ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
-            # (
-            #     "enable_xformers_memory_efficient_attention",
-            #     "Memory Efficient Attention",
-            #     {},
-            # ),
+            (
+                "enable_xformers_memory_efficient_attention",
+                "Memory Efficient Attention",
+                {},
+            ),
             (
                 "enable_model_cpu_offload",
                 "CPU Offloading",
@@ -304,7 +304,7 @@ class ModelMemoryManager:
         ]
 
         # Check if pipeline is a FluxPipeline so as to not use Xformers optimizations
-        if pipeline.__class__.__name__ == "FluxPipeline":
+        if pipeline.__class__.__name__ in ["FluxPipeline", "FluxInpaintPipeline"]:
             optimizations.remove(
                 (
                     "enable_xformers_memory_efficient_attention",

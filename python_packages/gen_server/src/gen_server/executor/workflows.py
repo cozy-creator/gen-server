@@ -317,15 +317,6 @@ async def generate_images_non_io(
                 if cancel_event is not None and cancel_event.is_set():
                     raise asyncio.CancelledError("Operation was cancelled.")
 
-                # Process the generated images (convert to tensors and put on the queue)
-                # tensor_batch = []
-                # for image in generated_images:
-                #     tensor_image = torch.from_numpy(np.array(image)).permute(2, 0, 1) / 255.0
-                #     tensor_batch.append(tensor_image)
-
-                # Stack individual tensors into a single tensor
-                # tensor_images = torch.stack(tensor_batch)
-
                 tensor_images = images.to("cpu")
                 # TO DO: could this problematic if the gpu-worker terminates as this tensor is
                 # still in use?
@@ -359,8 +350,6 @@ async def generate_images_non_io(
 
     logger.info(f"Image generated in {time.time() - start} seconds")
 
-    # Signal end of generation to IO process
-    # tensor_queue.put((None, None))
 
 
 async def flux_train_workflow(
@@ -442,7 +431,6 @@ async def flux_train_workflow(
                     yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
                 elif update['type'] == 'final_result':
                     print("Final result received")
-                    print(update)
                     final_result = update
                 elif update['type'] == 'cancelled':
                     yield update
@@ -548,9 +536,9 @@ async def generate_images_with_lora(
         # Get the LoraPrepNode, ControlNetPrepNode and ImageGenNode
         lora_prep_node = custom_nodes["core_extension_1.load_lora_node"]()
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
-        controlnet_preprocessor_node = custom_nodes[
-            "core_extension_1.controlnet_preprocessor_node"
-        ]()
+        # controlnet_preprocessor_node = custom_nodes[
+        #     "core_extension_1.controlnet_preprocessor_node"
+        # ]()
 
         # Prepare LoRA information
         lora_info = None
@@ -565,22 +553,22 @@ async def generate_images_with_lora(
 
         # Prepare ControlNet input
         controlnet_info = None
-        if task_data.get("controlnet_preprocessor"):
-            control_image = controlnet_preprocessor_node(
-                image=task_data["input_image"],
-                preprocessor=task_data["controlnet_preprocessor"],
-                threshold1=task_data.get("canny_threshold1", 100),
-                threshold2=task_data.get("canny_threshold2", 200),
-            )["control_image"]
+        # if task_data.get("controlnet_preprocessor"):
+        #     control_image = controlnet_preprocessor_node(
+        #         image=task_data["input_image"],
+        #         preprocessor=task_data["controlnet_preprocessor"],
+        #         threshold1=task_data.get("canny_threshold1", 100),
+        #         threshold2=task_data.get("canny_threshold2", 200),
+        #     )["control_image"]
 
-            controlnet_info = {
-                "model_id": task_data["controlnet_model_id"],
-                "control_image": control_image,
-                "conditioning_scale": task_data.get(
-                    "controlnet_conditioning_scale", 1.0
-                ),
-                "guess_mode": task_data.get("controlnet_guess_mode", False),
-            }
+        #     controlnet_info = {
+        #         "model_id": task_data["controlnet_model_id"],
+        #         "control_image": control_image,
+        #         "conditioning_scale": task_data.get(
+        #             "controlnet_conditioning_scale", 1.0
+        #         ),
+        #         "guess_mode": task_data.get("controlnet_guess_mode", False),
+        #     }
 
         for checkpoint_id, num_images in models.items():
             if cancel_event is not None and cancel_event.is_set():
@@ -602,7 +590,6 @@ async def generate_images_with_lora(
                     aspect_ratio=aspect_ratio,
                     num_images=num_images,
                     random_seed=random_seed,
-                    callback=CancelCallback(cancel_event),
                     lora_info=lora_info,
                     controlnet_info=controlnet_info,
                 )
@@ -645,3 +632,114 @@ async def generate_images_with_lora(
     logger.info(
         f"LoRA-enhanced image generation completed in {time.time() - start} seconds"
     )
+
+
+async def generate_images_unified(
+    task_data: dict[str, Any],
+    cancel_event: Optional[Event],
+) -> AsyncGenerator[torch.Tensor, None]:
+    """Generates images based on the provided task data, supporting normal generation, LoRA, and ControlNet."""
+    start = time.time()
+
+    custom_nodes = get_custom_nodes()
+
+    try:
+        models = task_data.get("models", {})
+        positive_prompt = task_data.get("positive_prompt")
+        negative_prompt = task_data.get("negative_prompt", "")
+        random_seed = task_data.get("random_seed")
+        aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
+        lora_path = task_data.get("lora_path")
+        model_scale = task_data.get("model_scale", 1.0)
+        text_encoder_scale = task_data.get("text_encoder_scale", 1.0)
+        text_encoder_2_scale = task_data.get("text_encoder_2_scale", 1.0)
+        adapter_name = task_data.get("adapter_name", None)
+        controlnet_info_list = task_data.get("controlnet_info_list", [])
+        ip_adapter_embeds = task_data.get("ip_adapter_embeds")
+
+        # Get the ImageGenNode and ControlNetFeatureDetector
+        
+        image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+        controlnet_feature_detector = custom_nodes["core_extension_1.controlnet_feature_detector"]()
+        for model_id, num_images in models.items():
+            if cancel_event is not None and cancel_event.is_set():
+                raise asyncio.CancelledError("Operation was cancelled.")
+
+            try:
+
+                lora_info = None
+                if lora_path:
+                    lora_prep_node = custom_nodes["core_extension_1.load_lora_node"]()
+                    lora_info = lora_prep_node(
+                        lora_path=lora_path,
+                        model_scale=model_scale,
+                        text_encoder_scale=text_encoder_scale,
+                        text_encoder_2_scale=text_encoder_2_scale,
+                        adapter_name=adapter_name,
+                    )
+                
+                # Prepare ControlNet inputs
+                controlnet_model_ids = []
+                openpose_image = None
+                depth_map = None
+                for controlnet_info in controlnet_info_list:
+                    controlnet_model_ids.append(controlnet_info["model_id"])
+                    control_image = controlnet_info["control_image"]
+                    feature_type = controlnet_info["feature_type"]
+                    
+                    # Generate control image
+                    control_result = controlnet_feature_detector(
+                        image=control_image,
+                        feature_type=feature_type,
+                        threshold1=controlnet_info.get("threshold1", 100),
+                        threshold2=controlnet_info.get("threshold2", 200)
+                    )
+                    processed_control_image = control_result["control_image"]
+                    
+                    # Assign the processed image to the correct variable based on feature type
+                    if feature_type.lower() == "openpose":
+                        openpose_image = processed_control_image
+                    elif feature_type.lower() in ["canny", "depth"]:  # Assuming depth uses the same slot as canny
+                        depth_map = processed_control_image
+
+                # Run the ImageGenNode
+                result = await image_gen_node(
+                    model_id=model_id,
+                    positive_prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
+                    aspect_ratio=aspect_ratio,
+                    num_images=num_images,
+                    random_seed=random_seed,
+                    lora_info=lora_info,
+                    controlnet_model_ids=controlnet_model_ids,
+                    openpose_image=openpose_image,
+                    depth_map=depth_map,
+                    ip_adapter_embeds=ip_adapter_embeds
+                )
+
+                images = result["images"]
+
+                if cancel_event is not None and cancel_event.is_set():
+                    raise asyncio.CancelledError("Operation was cancelled.")
+
+                tensor_images = images.to("cpu")
+                tensor_images.share_memory_()
+                logger.info(f"Generated images for model '{model_id}'. Tensor dimensions: {tensor_images.shape}")
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                yield tensor_images
+
+            except Exception as e:
+                logger.error(f"Error generating images for model '{model_id}': {str(e)}")
+                traceback.print_exc()
+
+    except asyncio.CancelledError:
+        logger.info("Task was cancelled.")
+        raise
+    except Exception as e:
+        logger.error(f"Error in unified image generation workflow: {str(e)}")
+        traceback.print_exc()
+
+    logger.info(f"Image generation completed in {time.time() - start} seconds")

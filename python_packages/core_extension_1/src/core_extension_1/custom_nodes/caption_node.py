@@ -40,6 +40,12 @@ class CustomCaptionNode(CustomNode):
         """
         result = {}
         
+        # Sometimes, user will pass in a single directory that contains images.
+        # If so, we need to get all the images in the directory and process them.
+        if len(image_paths) == 1 and os.path.isdir(f"{self.home_dir}/{image_paths[0]}"):
+            image_paths = [os.path.join(image_paths[0], f) for f in os.listdir(f"{self.home_dir}/{image_paths[0]}") if 
+                           os.path.isfile(os.path.join(f"{self.home_dir}/{image_paths[0]}", f))]
+
         for image_path in image_paths:
             image_path = os.path.join(self.home_dir, image_path)
             image_name = os.path.basename(image_path)

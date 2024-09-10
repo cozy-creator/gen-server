@@ -27,7 +27,7 @@ dependencies = [
     "firebase-admin",
     "ostris-ai-toolkit",
     "IP-Adapter@git+https://github.com/tencent-ailab/IP-Adapter.git",
-    "sd-scripts@git+https://github.com/cozy-creator/sd-scripts.git",
+    "library@git+https://github.com/cozy-creator/sd-scripts.git",
     "LECO@git+https://github.com/cozy-creator/LECO.git",
     "diffusers@git+https://github.com/huggingface/diffusers.git",
 ]

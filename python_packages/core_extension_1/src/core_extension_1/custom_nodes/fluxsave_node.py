@@ -9,10 +9,10 @@ class SaveLoraNode(CustomNode):
         async for update in train_generator:
             if update['type'] == 'sample':
                 sample_images.extend(update['paths'])
-                yield {'type': 'sample_images', 'step': update['step'], 'paths': update['paths']}
+                yield {'type': 'sample_images', 'step': update['current'], 'paths': update['paths']}
             elif update['type'] == 'save':
                 lora_files.append(update['path'])
-                yield {'type': 'lora_file', 'step': update['step'], 'path': update['path']}
+                yield {'type': 'lora_file', 'step': update['current'], 'path': update['path']}
             elif update['type'] == 'step':
                 yield update
             elif update['type'] == 'finished':
@@ -21,8 +21,6 @@ class SaveLoraNode(CustomNode):
                 print("In Here")
                 yield update
                 break
-        
-        print(update)
 
         if not update['type'] == 'cancelled':
             yield {

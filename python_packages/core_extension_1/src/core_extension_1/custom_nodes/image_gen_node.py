@@ -111,6 +111,8 @@ class ImageGenNode(CustomNode):
                     controlnet_id = "xinsir/controlnet-openpose-sdxl-1.0"
                 elif controlnet_type == "depth":
                     controlnet_id = "diffusers/controlnet-depth-sdxl-1.0"
+            elif class_name == "FluxPipeline":
+                controlnet_id = "Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro"
             else:
                 if controlnet_type == "openpose":
                     controlnet_id = "lllyasviel/control_v11p_sd15_openpose"
@@ -119,15 +121,20 @@ class ImageGenNode(CustomNode):
 
             variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
 
+            if class_name == "FluxPipeline":
+                torch_dtype = torch.bfloat16
+            else:
+                torch_dtype = torch.float16
+
             for variant in variants:
                 try:
                     if variant is None:
                         self.controlnets[key] = ControlNetModel.from_pretrained(
-                            controlnet_id, torch_dtype=torch.float16
+                            controlnet_id, torch_dtype=torch_dtype
                         )
                     else:
                         self.controlnets[key] = ControlNetModel.from_pretrained(
-                            controlnet_id, torch_dtype=torch.float16, variant=variant
+                            controlnet_id, torch_dtype=torch_dtype, variant=variant
                         )
 
                     print(
@@ -197,7 +204,7 @@ class ImageGenNode(CustomNode):
                         )
                 elif isinstance(pipeline, FluxPipeline):
                     pipeline = FluxControlNetPipeline.from_pipe(
-                        pipeline, controlnet=controlnets, torch_dtype=torch.float16
+                        pipeline, controlnet=controlnets, torch_dtype=torch.bfloat16
                     )
                 # else:
                 #     pipeline.controlnet = controlnets
@@ -277,7 +284,7 @@ class ImageGenNode(CustomNode):
 
         return new_pipeline
 
-    def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict):
+    def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict = None):
         if lora_info is None:
             # If no LoRA info is provided, disable all LoRAs
             pipeline.unload_lora_weights()

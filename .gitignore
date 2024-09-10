@@ -39,6 +39,7 @@ config*.yaml
 *.jpeg
 *.png
 *.webp
+/generated_images/
 
 # node definitions
 **/node_definitions.json

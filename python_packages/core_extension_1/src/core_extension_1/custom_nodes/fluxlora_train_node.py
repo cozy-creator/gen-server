@@ -10,18 +10,18 @@ import traceback
 class FluxTrainNode(CustomNode):
     def __init__(self):
         super().__init__()
-        self.ai_toolkit_path = self._get_ai_toolkit_path()
+        # self.ai_toolkit_path = self._get_ai_toolkit_path()
         self.home_dir = get_home_dir()
 
-    def _get_ai_toolkit_path(self):
-        # Look for ai-toolkit in the custom_nodes directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        ai_toolkit_path = os.path.join(current_dir, 'ai-toolkit')
+    # def _get_ai_toolkit_path(self):
+    #     # Look for ai-toolkit in the custom_nodes directory
+    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+    #     ai_toolkit_path = os.path.join(current_dir, 'ai-toolkit')
         
-        if os.path.exists(ai_toolkit_path):
-            return ai_toolkit_path
-        else:
-            raise ImportError("AI Toolkit not found. Please run the setup script to install it.")
+    #     if os.path.exists(ai_toolkit_path):
+    #         return ai_toolkit_path
+    #     else:
+    #         raise ImportError("AI Toolkit not found. Please run the setup script to install it.")
 
     async def __call__(self,
                        processed_directory: str,
@@ -57,28 +57,51 @@ class FluxTrainNode(CustomNode):
             return not cancel_queue.empty()
 
         config['config']['process'][0]['progress_callback'] = progress_callback
-        config['config']['process'][0]['check_cancel'] = check_cancel
+        config['config']['process'][0]['check_cancel'] = cancel_event
         
 
         # Run the job
         async def run_job_with_progress():
-            cancel_event, thread = await asyncio.to_thread(run_job, config)
+            job_task = asyncio.create_task(asyncio.to_thread(run_job, config))
             
             try:
-                while thread.is_alive():
+                while not job_task.done():
                     try:
                         progress = await asyncio.wait_for(progress_queue.get(), timeout=0.1)
                         yield progress
                         if progress.get('type') == 'finished':
                             break
                     except asyncio.TimeoutError:
+                        # print("Checking for cancellation")
+                        if cancel_event.is_set():
+                            print("Cancellation requested. Stopping training...")
+                            cancel_queue.put_nowait(True)
+                            job_task.cancel()  # Cancel the task
+                            break
                         continue
+                        
+                # Check if the job_task raised an exception
+                if job_task.done() and not job_task.cancelled():
+                    job_task.result()  # This will raise any exception that occurred in run_job
+
             except asyncio.CancelledError:
-                cancel_event.set()
+                if not job_task.done():
+                    job_task.cancel()
                 yield {"type": "cancelled", "message": "Training was cancelled"}
+
+            except Exception as e:
+                error_message = f"An error occurred during training: {str(e)}\n{traceback.format_exc()}"
+                print(error_message)  # Print to console for immediate visibility
+                yield {"type": "error", "message": error_message}
             finally:
-                cancel_event.set()
-                thread.join()
+                if not job_task.done():
+                    job_task.cancel()
+                    try:
+                        await job_task
+                    except asyncio.CancelledError:
+                        yield {"type": "cancelled", "message": "Training was cancelled"}
+                        pass
+                # yield {"type": "finished"}
 
         return run_job_with_progress()
     
@@ -102,7 +125,7 @@ class FluxTrainNode(CustomNode):
                 "name": lora_name,
                 "process": [{
                     "type": "sd_trainer",
-                    "training_folder": f"{self.home_dir}/lora_output",
+                    "training_folder": f"{self.home_dir}/{lora_name}",
                     "device": "cuda:0",
                     "network": {
                         "type": "lora",

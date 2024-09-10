@@ -3,11 +3,12 @@
 set -e  # Exit the script if any statement returns a non-true return value
 
 # Set up Jupyter runtime directory with correct permissions
-# setup_jupyter_runtime() {
-#     # JUPYTER_RUNTIME_DIR="${JUPYTER_RUNTIME_DIR:-/workspace/.local/share/jupyter/runtime}"
-#     mkdir -p "$JUPYTER_RUNTIME_DIR"
-#     chmod 700 "$JUPYTER_RUNTIME_DIR"
-# }
+setup_jupyter_runtime() {
+    JUPYTER_RUNTIME_DIR="/app/.local/share/jupyter/runtime"  # Customize this path
+    mkdir -p "$JUPYTER_RUNTIME_DIR"
+    chmod 700 "$JUPYTER_RUNTIME_DIR"
+    export JUPYTER_RUNTIME_DIR="$JUPYTER_RUNTIME_DIR"  # Export so JupyterLab knows where to find it
+}
 
 # Start JupyterLab
 start_jupyter() {
@@ -21,14 +22,14 @@ start_jupyter() {
                 --FileContentsManager.delete_to_trash=False \
                 --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \
                 --ServerApp.root_dir='/app' \
-                --ServerApp.runtime_dir='/tmp/jupyter-runtime' \
+                --JupyterApp.runtime_dir="$JUPYTER_RUNTIME_DIR"  # Set runtime dir in Jupyter settings
                 &
     echo "JupyterLab started"
 }
 
-# setup_jupyter_runtime
+setup_jupyter_runtime
 
-cozy run & # Start the Cozy server
+# cozy run & # Start the Cozy server
 start_jupyter
 
 sleep infinity  # This will keep the container running

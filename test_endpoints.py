@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, Any, List
-from gen_server.executor.workflows import flux_train_workflow, image_regen_workflow
+from gen_server.executor.workflows import flux_train_workflow, image_regen_workflow, generate_images_with_lora, generate_images_unified
 # from gen_server.base_types.custom_node import get_custom_nodes
 from gen_server.config import init_config
 from gen_server.globals import update_custom_nodes
@@ -10,9 +10,15 @@ from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
 import torchvision.transforms as T
 from gen_server.utils.image import tensor_to_pil
+from gen_server.utils.paths import get_assets_dir
 import signal
 import os
 import sys
+import json
+from PIL import Image
+import hashlib
+import io
+
 # cancel_flag = asyncio.Event()
 
 # def signal_handler(signum, frame):
@@ -60,7 +66,7 @@ async def test_flux_train(
 
     def signal_handler(signum, frame):
         print("\nCtrl+C pressed. Cancelling training...")
-        os._exit(1)
+        cancel_event.set()
 
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -68,6 +74,7 @@ async def test_flux_train(
         async for update in flux_train_workflow(task_data, cancel_event):
             print(update)
             if cancel_event.is_set():
+                print("Training cancelled")
                 break
             if update.get('type') == 'finished' or update.get('type') == 'cancelled':
                 break
@@ -116,6 +123,164 @@ async def test_image_regen(
     print(f"Regenerated {len(output_images)} image(s) saved as 'regenerated_image_X.png'")
 
 
+async def test_generate_images_with_lora(
+    positive_prompt: str,
+    negative_prompt: str = "",
+    models: Dict[str, int] = {"stabilityai/stable-diffusion-xl-base-1.0": 1},
+    random_seed: int = None,
+    aspect_ratio: str = "1/1",
+    lora_path: str = None,
+    model_scale: float = 1.0,
+    text_encoder_scale: float = 1.0,
+    text_encoder_2_scale: float = 1.0,
+    adapter_name: str = None,
+    input_image: str = None,
+    controlnet_preprocessor: str = None,
+    controlnet_model_id: str = None,
+    canny_threshold1: int = 100,
+    canny_threshold2: int = 200,
+    controlnet_conditioning_scale: float = 1.0,
+    controlnet_guess_mode: bool = False
+) -> None:
+    task_data = {
+        "models": models,
+        "positive_prompt": positive_prompt,
+        "negative_prompt": negative_prompt,
+        "random_seed": random_seed,
+        "aspect_ratio": aspect_ratio,
+        "lora_path": lora_path,
+        "model_scale": model_scale,
+        "text_encoder_scale": text_encoder_scale,
+        "text_encoder_2_scale": text_encoder_2_scale,
+        "adapter_name": adapter_name,
+    }
+
+    if input_image and controlnet_preprocessor and controlnet_model_id:
+        task_data.update({
+            "input_image": input_image,
+            "controlnet_preprocessor": controlnet_preprocessor,
+            "controlnet_model_id": controlnet_model_id,
+            "canny_threshold1": canny_threshold1,
+            "canny_threshold2": canny_threshold2,
+            "controlnet_conditioning_scale": controlnet_conditioning_scale,
+            "controlnet_guess_mode": controlnet_guess_mode
+        })
+
+    cancel_event = asyncio.Event()
+
+    def signal_handler(signum, frame):
+        print("\nCtrl+C pressed. Cancelling image generation...")
+        cancel_event.set()
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        async for tensor_images in generate_images_with_lora(task_data, cancel_event):
+            print(f"Generated images tensor shape: {tensor_images.shape}")
+            
+            # Convert tensor images to PIL images and save them
+            pil_images = tensor_to_pil(tensor_images)
+            for i, img in enumerate(pil_images):
+                img.save(f"generated_image_lora_{i}.png")
+                print(f"Saved image: generated_image_lora_{i}.png")
+
+            if cancel_event.is_set():
+                print("Image generation was cancelled.")
+                break
+    except asyncio.CancelledError:
+        print("Image generation was cancelled.")
+    finally:
+        print("Image generation process finished.")
+
+
+async def test_generate_images_unified(
+    positive_prompt: str,
+    negative_prompt: str = "",
+    models: Dict[str, int] = {"stabilityai/stable-diffusion-xl-base-1.0": 1},
+    random_seed: int = None,
+    aspect_ratio: str = "1/1",
+    lora_path: str = None,
+    model_scale: float = 1.0,
+    text_encoder_scale: float = 1.0,
+    text_encoder_2_scale: float = 1.0,
+    adapter_name: str = None,
+    controlnet_configs: List[Dict[str, Any]] = None,
+    ip_adapter_image_path: str = None,
+    output_dir: str = "generated_images"
+) -> None:
+    task_data = {
+        "models": models,
+        "positive_prompt": positive_prompt,
+        "negative_prompt": negative_prompt,
+        "random_seed": random_seed,
+        "aspect_ratio": aspect_ratio,
+    }
+
+    if lora_path:
+        task_data["lora_path"] = lora_path
+        task_data["model_scale"] = model_scale
+        task_data["text_encoder_scale"] = text_encoder_scale
+        task_data["text_encoder_2_scale"] = text_encoder_2_scale
+        task_data["adapter_name"] = adapter_name
+
+    if controlnet_configs:
+        task_data["controlnet_info_list"] = []
+        for config in controlnet_configs:
+            image_path = f"{get_assets_dir()}/{config['image_path']}"
+            control_image = Image.open(image_path).convert("RGB")
+            task_data["controlnet_info_list"].append({
+                "model_id": config["model_id"],
+                "control_image": control_image,
+                "feature_type": config["feature_type"],
+                "threshold1": config.get("threshold1", 100),
+                "threshold2": config.get("threshold2", 200)
+            })
+
+    if ip_adapter_image_path:
+        ip_image = Image.open(ip_adapter_image_path).convert("RGB")
+        ip_image_tensor = T.ToTensor()(ip_image).unsqueeze(0)
+        task_data["ip_adapter_embeds"] = ip_image_tensor  # Note: In a real scenario, you'd process this through the IP-Adapter first
+
+    cancel_event = asyncio.Event()
+
+    def signal_handler(signum, frame):
+        print("\nCtrl+C pressed. Cancelling image generation...")
+        cancel_event.set()
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        async for tensor_images in generate_images_unified(task_data, cancel_event):
+            print(f"Generated images tensor shape: {tensor_images.shape}")
+            
+            pil_images = tensor_to_pil(tensor_images)
+            for i, img in enumerate(pil_images):
+                # Generate a hash of the image content
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                img_byte_arr = img_byte_arr.getvalue()
+                img_hash = hashlib.sha256(img_byte_arr).hexdigest()[:16]  # Use first 16 characters of the hash
+
+                # Create a filename with the hash
+                filename = f"generated_image_{img_hash}.png"
+                filepath = os.path.join(output_dir, filename)
+
+                # Save the image
+                img.save(filepath)
+                print(f"Saved image: {filepath}")
+
+            if cancel_event.is_set():
+                print("Image generation was cancelled.")
+                break
+
+    except asyncio.CancelledError:
+        print("Image generation was cancelled.")
+    finally:
+        print("Image generation process finished.")
+
+
 # async def test_generate_image(prompt: str, num_images: int = 1, other_params: Dict[str, Any] = {}) -> None:
 #     custom_nodes = get_custom_nodes()
 #     generate_node = custom_nodes["core_extension_1.generate_image_node"]()
@@ -138,7 +303,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Test endpoints for Cozy Creator")
-    parser.add_argument("command", choices=["train", "generate", "regen"], help="Command to run")
+    parser.add_argument("command", choices=["train", "generate", "regen", "generate_lora"], help="Command to run")
     
     # Training arguments
     parser.add_argument("--image_directory", help="Directory with images for training")
@@ -166,6 +331,20 @@ if __name__ == "__main__":
     parser.add_argument("--num_inference_steps", type=int, default=25, help="Number of inference steps")
     parser.add_argument("--strength", type=float, default=0.7, help="Strength of the inpainting effect")
     parser.add_argument("--feather_radius", type=int, default=0, help="Feather radius for the generated mask")
+
+    # New arguments for generate_lora command
+    parser.add_argument("--positive_prompt", required=True, help="Positive prompt for image generation")
+    # parser.add_argument("--negative_prompt", default="", help="Negative prompt for image generation")
+    parser.add_argument("--models", type=json.loads, default='{"stabilityai/stable-diffusion-xl-base-1.0": 1}', help="JSON string of model IDs and number of images to generate")
+    parser.add_argument("--random_seed", type=int, help="Random seed for image generation")
+    parser.add_argument("--aspect_ratio", default="1/1", help="Aspect ratio for generated images")
+    parser.add_argument("--lora_path", help="Path to LoRA file")
+    parser.add_argument("--model_scale", type=float, default=1.0, help="Scale for the model")
+    parser.add_argument("--text_encoder_scale", type=float, default=1.0, help="Scale for the text encoder")
+    parser.add_argument("--text_encoder_2_scale", type=float, default=1.0, help="Scale for the second text encoder")
+    parser.add_argument("--adapter_name", help="Name of the adapter")
+    parser.add_argument("--controlnet_configs", type=json.loads, help="JSON string of ControlNet configurations")
+    parser.add_argument("--ip_adapter_image_path", help="Path to IP-Adapter input image")
 
     args = parser.parse_args()
 
@@ -196,6 +375,41 @@ if __name__ == "__main__":
             num_inference_steps=args.num_inference_steps,
             strength=args.strength,
             feather_radius=args.feather_radius
+        ))
+    elif args.command == "generate_lora":
+        asyncio.run(test_generate_images_with_lora(
+            positive_prompt=args.positive_prompt,
+            negative_prompt=args.negative_prompt,
+            models=args.models,
+            random_seed=args.random_seed,
+            aspect_ratio=args.aspect_ratio,
+            lora_path=args.lora_path,
+            model_scale=args.model_scale,
+            text_encoder_scale=args.text_encoder_scale,
+            text_encoder_2_scale=args.text_encoder_2_scale,
+            adapter_name=args.adapter_name,
+            input_image=args.image_path,
+            controlnet_preprocessor=args.controlnet_preprocessor,
+            controlnet_model_id=args.controlnet_model_id,
+            canny_threshold1=args.canny_threshold1,
+            canny_threshold2=args.canny_threshold2,
+            controlnet_conditioning_scale=args.controlnet_conditioning_scale,
+            controlnet_guess_mode=args.controlnet_guess_mode
+        ))
+    elif args.command == "generate":
+        asyncio.run(test_generate_images_unified(
+            positive_prompt=args.positive_prompt,
+            negative_prompt=args.negative_prompt,
+            models=args.models,
+            random_seed=args.random_seed,
+            aspect_ratio=args.aspect_ratio,
+            lora_path=args.lora_path,
+            model_scale=args.model_scale,
+            text_encoder_scale=args.text_encoder_scale,
+            text_encoder_2_scale=args.text_encoder_2_scale,
+            adapter_name=args.adapter_name,
+            controlnet_configs=args.controlnet_configs,
+            ip_adapter_image_path=args.ip_adapter_image_path
         ))
     # elif args.command == "generate":
     #     asyncio.run(test_generate_image(
