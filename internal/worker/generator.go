@@ -3,12 +3,13 @@ package worker
 import (
 	"context"
 	"cozy-creator/gen-server/internal/config"
+	"cozy-creator/gen-server/internal/equeue"
 	"cozy-creator/gen-server/internal/services"
+	"cozy-creator/gen-server/internal/services/filehandler"
 	"cozy-creator/gen-server/internal/types"
-	"cozy-creator/gen-server/internal/utils"
-	"cozy-creator/gen-server/pkg/mq"
+	"cozy-creator/gen-server/internal/utils/hashutil"
+	"cozy-creator/gen-server/internal/utils/imageutil"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,20 +20,25 @@ import (
 	"github.com/google/uuid"
 )
 
-var inMemoryQueue = mq.GetDefaultInMemoryQueue()
-
-func RequestGenerateImage(data types.GenerateData) (string, error) {
+func RequestGenerateImage(generateParams types.GenerateParams) (string, error) {
 	requestId := uuid.NewString()
+	params, err := json.Marshal(
+		types.RequestGenerateParams{
+			RequestId:      requestId,
+			GenerateParams: generateParams,
+		},
+	)
 
-	bytes, err := json.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal json data: %w", err)
 	}
 
-	err = inMemoryQueue.Publish(context.Background(), "generation", bytes)
-	fmt.Println("message published to queue:", err)
+	// TODO: make this configurable and dynamic
+	queue := equeue.GetQueue("inmemory")
+	topic := config.DefaultGenerateTopic
+	err = queue.Publish(context.Background(), topic, params)
+
 	if err != nil {
-		fmt.Println("failed to publish message to queue:", err)
 		return "", fmt.Errorf("failed to publish message to queue: %w", err)
 	}
 
@@ -40,27 +46,28 @@ func RequestGenerateImage(data types.GenerateData) (string, error) {
 }
 
 func ReceiveGenerateImage(requestId, outputFormat string) (string, error) {
-	uploader := GetUploadWorker()
-	topic := fmt.Sprintf("generation/%s", requestId)
-	image, err := inMemoryQueue.Receive(context.Background(), topic)
+	worker := GetUploadWorker()
+	queue := equeue.GetQueue("inmemory")
 
+	topic := config.DefaultGeneratePrefix + requestId
+	image, err := queue.Receive(context.Background(), topic)
 	if err != nil {
-		fmt.Println("failed to receive message from queue:", err)
-		return "", fmt.Errorf("failed to receive message from queue: %w", err)
-	}
-
-	if image == nil {
-		return "", fmt.Errorf("no image")
+		return "", err
 	}
 
 	uploadUrl := make(chan string)
 
 	go func() {
-		imageHash := utils.Blake3Hash(image)
-		extension := fmt.Sprintf(".%s", outputFormat)
-		fileMeta := services.NewFileMeta(hex.EncodeToString(imageHash[:]), extension, image, false)
+		extension := "." + outputFormat
+		imageHash := hashutil.Blake3Hash(image)
+		fileMeta := filehandler.FileInfo{
+			Name:      imageHash,
+			Extension: extension,
+			Content:   image,
+			IsTemp:    false,
+		}
 
-		uploader.Upload(fileMeta, uploadUrl)
+		worker.Upload(fileMeta, uploadUrl)
 	}()
 
 	url, ok := <-uploadUrl
@@ -72,17 +79,15 @@ func ReceiveGenerateImage(requestId, outputFormat string) (string, error) {
 }
 
 func StartGeneration(ctx context.Context) error {
-	queue := mq.GetDefaultInMemoryQueue()
+	queue := equeue.GetQueue("inmemory")
 
 	for {
-		message, err := queue.Receive(ctx, "generation")
+		message, err := queue.Receive(ctx, config.DefaultGenerateTopic)
 		if err != nil {
-			log.Println("failed to receive message from queue:", err)
+			if errors.Is(err, equeue.ErrNoMessage) {
+				continue
+			}
 			break
-		}
-
-		if message == nil {
-			continue
 		}
 
 		var data map[string]any
@@ -94,10 +99,8 @@ func StartGeneration(ctx context.Context) error {
 		err = generateImage(data)
 		queue.Ack(ctx, "generation", nil)
 		if err != nil {
-			log.Println("failed to generate image:", err)
-			continue
+			return err
 		}
-		fmt.Println("image generated successfully, request id:", data["request_id"])
 	}
 
 	return nil
@@ -105,11 +108,17 @@ func StartGeneration(ctx context.Context) error {
 
 func generateImage(data map[string]any) error {
 	cfg := config.GetConfig()
-	queue := mq.GetDefaultInMemoryQueue()
+	queue := equeue.GetQueue("inmemory")
 	timeout := time.Duration(cfg.TcpTimeout) * time.Second
+	fmt.Println(cfg.TcpPort)
+	if cfg.TcpPort == 0 {
+		cfg.TcpPort = 8881
+		// return fmt.Errorf("tcp port is not set")
+	}
+
 	serverAddress := fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort)
 
-	jsonData, err := json.Marshal(data)
+	jsonData, err := json.Marshal(data["params"])
 	if err != nil {
 		return fmt.Errorf("failed to marshal json data: %w", err)
 	}
@@ -127,58 +136,42 @@ func generateImage(data map[string]any) error {
 
 	client.Send(string(jsonData))
 	requestId := data["request_id"].(string)
-	format := data["format"].(string)
+	format := data["params"].(map[string]any)["output_format"].(string)
 
-	topic := fmt.Sprintf("generation/%s", requestId)
-	// defer queue.CloseTopic(topic)
+	topic := config.DefaultGeneratePrefix + requestId
+	defer queue.CloseTopic(topic)
 
 	for {
 		sizeBytes, err := client.ReceiveFullBytes(4)
-		// Receive the size of the incoming data (4 bytes for size)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("EOF reached")
-				break // End of stream
+				break
 			}
-			fmt.Printf("Error reading size header: %v\n", err)
-			break
+
+			return err
 		}
 
 		contentsize := binary.BigEndian.Uint32(sizeBytes)
 		if contentsize == 0 {
-			fmt.Println("Received a chunk with size 0, skipping")
 			continue
 		}
 
 		// Receive the actual data based on the size
 		response, err := (client.ReceiveFullBytes(int(contentsize)))
 		if err != nil {
-			if errors.Is(err, io.ErrUnexpectedEOF) {
-				fmt.Println("Unexpected EOF reached while reading data")
-				break
-			}
-			if errors.Is(err, io.EOF) {
-				fmt.Println("EOF reached while reading data")
+			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 				break
 			}
 
-			fmt.Println("error receiving data: %w", err)
 			break
 		}
 
-		imageBytes, err := utils.ConvertImageFromBitmap(response, format)
+		imageBytes, err := imageutil.ConvertImageFromBitmap(response, format)
 		if err != nil {
-			fmt.Println("Error converting image format: %w", err)
-			continue
+			return err
 		}
 
 		queue.Publish(context.Background(), topic, imageBytes)
-	}
-	time.Sleep(time.Second * 3)
-	err = queue.CloseTopic(topic)
-	if err != nil {
-		fmt.Println("Error closing topic:", err)
-		return err
 	}
 
 	return nil
