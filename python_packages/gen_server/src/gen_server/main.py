@@ -13,6 +13,7 @@ from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.base_types.pydantic_models import RunCommandConfig
 from gen_server.config import init_config
 from gen_server.globals import update_custom_nodes
+from gen_server.handlers import load_model
 from gen_server.tcp_server import TCPServer, RequestContext
 from gen_server.worker.gpu_worker import generate_images_non_io
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
@@ -29,16 +30,45 @@ logger = logging.getLogger(__name__)
 
 def request_handler(context: RequestContext):
     data = context.data()
-    json_data = json.loads(data.decode())
+
+    json_data = None
+    try:
+        json_data = json.loads(data.decode())
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON data: {e}")
+        return
 
     async def generate_images():
-        async for images in generate_images_non_io(json_data, None):
+        async for images in generate_images_non_io(json_data):
             results = tensor_to_bytes(images)
             for result in results:
                 result_header = struct.pack("!I", len(result))
                 context.send(result_header + result)
 
     asyncio.run(generate_images())
+
+
+# def request_handler(ctx: RequestContext):
+#     data = ctx.data()
+#     json_data = json.loads(data.decode())
+
+#     if "type" not in json_data:
+#         raise ValueError("Invalid request data")
+
+#     async def run_handler():
+#         if json_data["type"] == "load_model":
+#             data = json_data["data"]
+#             model_id = await load_model(data["model_id"])
+#             ctx.send_final(model_id)
+#         elif json_data["type"] == "generate":
+#             data = json_data["data"]
+#             async for images in generate_images_non_io(data):
+#                 results = tensor_to_bytes(images)
+#                 for result in results:
+#                     result_header = struct.pack("!I", len(result))
+#                     ctx.send_final(result_header + result)
+
+#     asyncio.run(run_handler())
 
 
 def run_tcp_server(config: RunCommandConfig):

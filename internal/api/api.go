@@ -1,12 +1,10 @@
 package api
 
 import (
-	"cozy-creator/gen-server/internal/services"
+	"cozy-creator/gen-server/internal/services/filehandler"
 	"cozy-creator/gen-server/internal/types"
-	"cozy-creator/gen-server/internal/utils"
+	"cozy-creator/gen-server/internal/utils/hashutil"
 	"cozy-creator/gen-server/internal/worker"
-	"cozy-creator/gen-server/pkg/mq"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,8 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-var inMemoryQueue = mq.GetDefaultInMemoryQueue()
 
 func UploadFile(c *gin.Context) (*types.HandlerResponse, error) {
 	file, err := c.FormFile("file")
@@ -35,24 +31,29 @@ func UploadFile(c *gin.Context) (*types.HandlerResponse, error) {
 		return types.NewErrorResponse("failed to read file: %w", err)
 	}
 
-	fileHash := utils.Blake3Hash(fileBytes)
-	fileMeta := services.NewFileMeta(hex.EncodeToString(fileHash[:]), filepath.Ext(file.Filename), fileBytes, false)
+	fileHash := hashutil.Blake3Hash(fileBytes)
+	fileInfo := filehandler.FileInfo{
+		Name:      fileHash,
+		Extension: filepath.Ext(file.Filename),
+		Content:   fileBytes,
+		IsTemp:    false,
+	}
 
 	response := make(chan string)
-	uploader := worker.GetUploadWorker()
-	uploader.Upload(fileMeta, response)
+	worker := worker.GetUploadWorker()
+	worker.Upload(fileInfo, response)
 
 	return types.NewJSONResponse(types.UploadResponse{Url: <-response})
 }
 
 func GetFile(c *gin.Context) (*types.HandlerResponse, error) {
 	filename := c.Param("filename")
-	uploader, err := services.GetUploader()
+	handler, err := filehandler.GetFileHandler()
 	if err != nil {
-		return types.NewErrorResponse("failed to get uploader: %w", err)
+		return types.NewErrorResponse("failed to get handler: %w", err)
 	}
 
-	file, err := uploader.ResolveFile(filename, "", false)
+	file, err := handler.ResolveFile(filename, "", false)
 	if err != nil {
 		return types.NewErrorResponse("failed to get file: %w", err)
 	}
@@ -62,7 +63,7 @@ func GetFile(c *gin.Context) (*types.HandlerResponse, error) {
 
 func GenerateImageSync(c *gin.Context) {
 	requestId := uuid.NewString()
-	data := types.GenerateData{OutputFormat: "png"}
+	data := types.GenerateParams{OutputFormat: "png"}
 	if err := c.BindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return

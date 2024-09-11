@@ -18,7 +18,8 @@ class RequestContext:
 
     def data(self) -> bytes:
         try:
-            data = self.connection.recv(1024)
+            # size = self.connection.recv(4)
+            data = self.connection.recv(1024 * 1024)
             if not data:  # Handle case where connection is closed
                 raise ConnectionResetError("Connection closed by client")
             return data
@@ -36,6 +37,12 @@ class RequestContext:
             self.connection.sendall(data)
         except Exception:
             raise
+
+    # def send_final(self, data: Union[bytes, str]):
+    #     if self.closed:
+    #         raise ConnectionError("Cannot send data, connection is closed.")
+    #     self.finished = True
+    #     self.send(data)
 
     def end(self):
         if not self.closed:
