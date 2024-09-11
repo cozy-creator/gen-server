@@ -313,12 +313,18 @@ class ModelMemoryManager:
                 )
             )
 
+
+
         # Patch torch.mps to torch.backends.mps
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
 
         for opt_func, opt_name, kwargs in optimizations:
+            if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 16:
+                print(f"VRAM is greater than 16gb. Not enabling {opt_name}")
+                pipeline.to("cuda")
+                break
             try:
                 getattr(pipeline, opt_func)(**kwargs)
                 print(f"{opt_name} enabled")

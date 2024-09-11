@@ -333,7 +333,7 @@ if __name__ == "__main__":
     parser.add_argument("--feather_radius", type=int, default=0, help="Feather radius for the generated mask")
 
     # New arguments for generate_lora command
-    parser.add_argument("--positive_prompt", required=True, help="Positive prompt for image generation")
+    parser.add_argument("--positive_prompt", default="", help="Positive prompt for image generation")
     # parser.add_argument("--negative_prompt", default="", help="Negative prompt for image generation")
     parser.add_argument("--models", type=json.loads, default='{"stabilityai/stable-diffusion-xl-base-1.0": 1}', help="JSON string of model IDs and number of images to generate")
     parser.add_argument("--random_seed", type=int, help="Random seed for image generation")
