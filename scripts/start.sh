@@ -22,8 +22,7 @@ start_jupyter() {
                 --FileContentsManager.delete_to_trash=False \
                 --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \
                 --ServerApp.root_dir='/app' \
-                --JupyterApp.runtime_dir="$JUPYTER_RUNTIME_DIR" \
-                &
+                --JupyterApp.runtime_dir="$JUPYTER_RUNTIME_DIR" &
     echo "JupyterLab started"
 }
 
