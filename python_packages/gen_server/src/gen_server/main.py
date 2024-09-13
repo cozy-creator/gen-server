@@ -28,30 +28,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# def request_handler(context: RequestContext):
-#     data = context.data()
-#     json_data = json.loads(data.decode())
-
-#     async def generate_images():
-#         async for images in generate_images_non_io(json_data, None):
-#             results = tensor_to_bytes(images)
-#             for result in results:
-#                 result_header = struct.pack("!I", len(result))
-#                 context.send(result_header + result)
-
-#     asyncio.run(generate_images())
-
 def request_handler(context: RequestContext):
     data = context.data()
     json_data = json.loads(data.decode())
 
     async def generate_images():
-        async for update in flux_train_workflow(json_data, None):
-            result = json.dumps(update).encode()
-            result_header = struct.pack("!I", len(result))
-            context.send(result_header + result)
+        async for images in generate_images_non_io(json_data, None):
+            results = tensor_to_bytes(images)
+            for result in results:
+                result_header = struct.pack("!I", len(result))
+                context.send(result_header + result)
 
     asyncio.run(generate_images())
+
+# def request_handler(context: RequestContext):
+#     data = context.data()
+#     json_data = json.loads(data.decode())
+
+#     async def generate_images():
+#         async for update in flux_train_workflow(json_data, None):
+#             result = json.dumps(update).encode()
+#             result_header = struct.pack("!I", len(result))
+#             context.send(result_header + result)
+
+#     asyncio.run(generate_images())
 
 
 def run_tcp_server(config: RunCommandConfig):

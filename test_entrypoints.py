@@ -315,6 +315,8 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for training")
     parser.add_argument("--trigger_word", help="Trigger word for the LoRA")
     parser.add_argument("--low_vram", action="store_true", help="Enable low VRAM mode")
+    parser.add_argument("--use_auto_captioning", action="store_true", help="Enable auto captioning")
+
     
     # Generation arguments
     # parser.add_argument("--prompt", help="Prompt for image generation")
@@ -362,7 +364,8 @@ if __name__ == "__main__":
             batch_size=args.batch_size,
             learning_rate=args.learning_rate,
             trigger_word=args.trigger_word,
-            low_vram=args.low_vram
+            low_vram=args.low_vram,
+            use_auto_captioning=args.use_auto_captioning,
         ))
     elif args.command == "regen":
         asyncio.run(test_image_regen(
