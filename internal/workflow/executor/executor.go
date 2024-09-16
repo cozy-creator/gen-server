@@ -2,8 +2,6 @@ package executor
 
 import (
 	"context"
-	generationnode "cozy-creator/gen-server/internal/workflow/nodes/generation"
-	imagenode "cozy-creator/gen-server/internal/workflow/nodes/image"
 	"fmt"
 	"runtime"
 	"sync"
@@ -14,21 +12,18 @@ type Workflow struct {
 }
 
 type Node struct {
-	Id   string   `json:"id"`
-	Type string   `json:"type"`
-	Data NodeData `json:"data"`
+	Id      string               `json:"id"`
+	Type    string               `json:"type"`
+	Inputs  map[string]PortValue `json:"inputs"`
+	Outputs map[string]PortValue `json:"outputs"`
 }
 
-type NodeData struct {
-	Inputs  map[string]InputValue `json:"inputs"`
-}
-
-type InputValue struct {
+type PortValue struct {
 	Value interface{} `json:"value,omitempty"`
-	Ref   *InputRef   `json:"ref,omitempty"`
+	Ref   *PortRef    `json:"ref,omitempty"`
 }
 
-type InputRef struct {
+type PortRef struct {
 	NodeId     string `json:"node_id"`
 	HandleName string `json:"handle_name"`
 }
@@ -46,12 +41,33 @@ type WorkflowExecutor struct {
 func NewWorkflowExecutor(workflow *Workflow) *WorkflowExecutor {
 	totalNodes := len(workflow.Nodes)
 
-	return &WorkflowExecutor{
+	flow := &WorkflowExecutor{
 		Workflow: workflow,
 		Outputs:  sync.Map{},
 
 		nodesChan:  make(chan *Node, totalNodes),
 		errorsChan: make(chan error, totalNodes),
+	}
+
+	flow.initializeOutputs()
+
+	return flow
+}
+
+func (e *WorkflowExecutor) initializeOutputs() {
+	for _, node := range e.Workflow.Nodes {
+		if len(node.Outputs) == 0 {
+			continue
+		}
+
+		value, _ := e.Outputs.LoadOrStore(node.Id, make(NodeOutput))
+		output := value.(NodeOutput)
+
+		for name, v := range node.Outputs {
+			if _, exists := output[name]; !exists {
+				output[name] = v
+			}
+		}
 	}
 }
 
@@ -136,7 +152,7 @@ func (e *WorkflowExecutor) worker(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (e *WorkflowExecutor) isNodeReadyForExecution(node *Node) bool {
-	for _, input := range node.Data.Inputs {
+	for _, input := range node.Inputs {
 		if input.Ref != nil {
 			dep := e.getNode(input.Ref.NodeId)
 			if dep == nil {
@@ -154,7 +170,8 @@ func (e *WorkflowExecutor) isNodeReadyForExecution(node *Node) bool {
 
 func (e *WorkflowExecutor) resolveInputs(node *Node) (map[string]interface{}, error) {
 	inputs := make(map[string]interface{})
-	for name, input := range node.Data.Inputs {
+
+	for name, input := range node.Inputs {
 		if input.Ref != nil {
 			dep := e.getNode(input.Ref.NodeId)
 			if dep == nil {
@@ -162,7 +179,12 @@ func (e *WorkflowExecutor) resolveInputs(node *Node) (map[string]interface{}, er
 			}
 
 			output := e.getOutput(dep.Id)
-			inputs[name] = output[input.Ref.HandleName]
+			outputValue, ok := output[input.Ref.HandleName].(PortValue)
+			if !ok {
+				return nil, fmt.Errorf("failed to parse output value: %s", input.Ref.HandleName)
+			}
+
+			inputs[name] = outputValue.Value
 		} else if input.Value != nil {
 			inputs[name] = input.Value
 		} else {
@@ -200,7 +222,7 @@ func (e *WorkflowExecutor) orderNodes() ([]Node, error) {
 
 		visiting[node.Id] = true
 
-		for _, input := range node.Data.Inputs {
+		for _, input := range node.Inputs {
 			if input.Ref != nil {
 				dep := e.getNode(input.Ref.NodeId)
 				if dep == nil {
@@ -235,16 +257,16 @@ func executeNode(ctx context.Context, node *Node, inputs map[string]interface{})
 		err    error
 	)
 
-	switch node.Type {
-	case "GenerateImage":
-		output, err = generationnode.GenerateImage(ctx, inputs)
-	case "SaveImage":
-		output, err = imagenode.SaveImage(ctx, inputs)
-	case "LoadImage":
-		output, err = imagenode.LoadImage(ctx, inputs)
-	default:
-		return nil, fmt.Errorf("unsupported node type: %s", node.Type)
-	}
+	// switch node.Type {
+	// case "GenerateImage":
+	// 	output, err = generationnode.GenerateImage(ctx, inputs)
+	// case "SaveImage":
+	// 	output, err = imagenode.SaveImage(ctx, inputs)
+	// case "LoadImage":
+	// 	output, err = imagenode.LoadImage(ctx, inputs)
+	// default:
+	// 	return nil, fmt.Errorf("unsupported node type: %s", node.Type)
+	// }
 
 	fmt.Println("node output:", output)
 
@@ -260,13 +282,19 @@ func (e *WorkflowExecutor) getOutput(nodeId string) NodeOutput {
 }
 
 func (e *WorkflowExecutor) storeOutput(nodeId string, output NodeOutput) {
-	if _, loaded := e.Outputs.Load(nodeId); loaded {
-		fmt.Printf("output already exists for node: %s\n", nodeId)
+	value, _ := e.Outputs.LoadOrStore(nodeId, make(NodeOutput))
+	storedOutput := value.(NodeOutput)
+
+	for name, v := range output {
+		if _, exists := storedOutput[name]; !exists {
+			storedOutput[name] = PortValue{Value: v}
+		}
 	}
-	e.Outputs.Store(nodeId, output)
 }
 
 func (e *WorkflowExecutor) hasOutput(nodeId string) bool {
 	_, loaded := e.Outputs.Load(nodeId)
 	return loaded
 }
+
+// 813549
