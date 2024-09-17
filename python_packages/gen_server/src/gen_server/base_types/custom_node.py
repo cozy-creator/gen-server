@@ -32,27 +32,6 @@ class InputWrapper:
 class OutputWrapper:
     pass
 
-
-# class ICustomNode(Interface):
-#     display_name = Attribute(
-#         "The name of the node.",
-#     )
-
-#     category = Attribute(
-#         "The category of the node.",
-#     )
-
-#     description = Attribute(
-#         "The description of the node.",
-#     )
-
-#     def update_interface(inputs: dict[str, Any]) -> NodeInterface:
-#         pass
-
-#     def __call__(*args, **kwargs) -> Any:
-#         pass
-
-
 # For now, I'm making the node-interface dependent ONLY upon the inputs of
 # the node. If it were to change based on the outputs as well (i.e., other
 # nodes can request new output-types) that means finding a stable network
@@ -83,7 +62,6 @@ class CustomNode(ABC):
         with open(spec_file, "r", encoding="utf-8") as f:
             spec = json.load(f)
         return spec
-    
 
     @abstractmethod
     def __call__(self, *args: Any, **kwargs: Any) -> Union[dict[str, Any]]:

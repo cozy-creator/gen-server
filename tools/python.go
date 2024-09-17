@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"cozy-creator/gen-server/internal/config"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 func CommandExists(command string) (bool, error) {
@@ -21,7 +25,7 @@ func CommandExists(command string) (bool, error) {
 	return true, nil
 }
 
-func ExecutePythonCommand(args ...string) error {
+func ExecutePythonCommand(args ...string) (*exec.Cmd, error) {
 	commands := []string{"python", "python3"}
 
 	for _, pythonBin := range commands {
@@ -36,14 +40,14 @@ func ExecutePythonCommand(args ...string) error {
 
 			err := cmd.Run()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
-			return nil
+			return cmd, nil
 		}
 	}
 
-	return fmt.Errorf("python may not be installed, please check and try again")
+	return nil, fmt.Errorf("python may not be installed, please check and try again")
 }
 
 func ExecutePythonCommandWithOutput(args ...string) (string, error) {
@@ -118,7 +122,7 @@ func ResolveGenServerPath(version string) (string, error) {
 	return "", fmt.Errorf("gen-server not found in site-packages")
 }
 
-func StartPythonGenServer(version string, cfg *config.Config) error {
+func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
 	genServerPath, err := ResolveGenServerPath(version)
 	if err != nil {
 		return err
@@ -129,9 +133,31 @@ func StartPythonGenServer(version string, cfg *config.Config) error {
 		return fmt.Errorf("main.py not found in gen-server path")
 	}
 
-	err = ExecutePythonCommand(mainFilePath, "--environment", cfg.Environment, "--port", strconv.Itoa(cfg.TcpPort))
+	cmd, err := ExecutePythonCommand(mainFilePath, "--environment", cfg.Environment, "--port", strconv.Itoa(cfg.TcpPort))
 	if err != nil {
 		return err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				log.Logger.Println("Stopping Python Gen Server...")
+				cmd.Process.Kill()
+				return
+			default:
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
+			log.Logger.Println("Python Gen Server stopped successfully")
+			return nil
+		}
+
+		return fmt.Errorf("error waiting for Python Gen Server to exit: %w", err)
 	}
 
 	return nil

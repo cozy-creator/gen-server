@@ -15,9 +15,6 @@ func (s *HTTPServer) SetupRoutes() {
 	apiV1 := s.engine.Group("/api/v1")
 	apiV1.POST("/upload", wrapper(api.UploadFile))
 	apiV1.POST("/generate", api.GenerateImageSync)
-	apiV1.POST("/callback/:request_id", api.GenerationCallback)
-	apiV1.POST("/complete/:request_id", api.CompleteGeneration)
-	apiV1.POST("/generate_async", wrapper(api.GenerateImageAsync))
 }
 
 func wrapper(f func(c *gin.Context) (*types.HandlerResponse, error)) gin.HandlerFunc {

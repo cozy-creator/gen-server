@@ -31,6 +31,7 @@ type GenerateData struct {
 	AspectRatio    string         `json:"aspect_ratio"`
 	PositivePrompt string         `json:"positive_prompt"`
 	NegativePrompt string         `json:"negative_prompt"`
+	OutputFormat   string         `json:"output_format"`
 }
 
 func NewJSONResponse(data interface{}) (*HandlerResponse, error) {
