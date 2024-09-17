@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the go-specific source code
-COPY cmd/ internal/ pkg/ tools/ main.go ./
+COPY cmd/ internal/ pkg/ tools/ web/ main.go ./
 
 # Build the Go binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cozy-server .
