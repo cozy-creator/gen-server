@@ -1,0 +1,93 @@
+{
+    "nodes": [
+        {
+            "id": "0",
+            "type": "LoadImage",
+            "data": {
+                "inputs": {
+                    "filenames": {
+                        "value": [
+                            "e2a2301705822f96f1087588bf33aeac07cce7a00b058715fecb84ee92f9f577.png",
+                            "deaeff7e45354c8faf057378e3bdf5327a8f6e90de69e6e7b7a0a4e30b4bb6bf.png"
+                        ]
+                    },
+                    "size_handling": {
+                        "value": 0
+                    },
+                    "target_size": {
+                        "value": {
+                            "x": 512,
+                            "y": 512
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "1",
+            "type": "SaveImage",
+            "data": {
+                "inputs": {
+                    "images": {
+                        "ref": {
+                            "node_id": "0",
+                            "handle_name": "images"
+                        }
+                    },
+                    "format": {
+                        "value": "png"
+                    },
+                    "is_temp": {
+                        "value": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "2",
+            "type": "LoadImage",
+            "data": {
+                "inputs": {
+                    "filenames": {
+                        "value": [
+                            "e2a2301705822f96f1087588bf33aeac07cce7a00b058715fecb84ee92f9f577.png",
+                            "deaeff7e45354c8faf057378e3bdf5327a8f6e90de69e6e7b7a0a4e30b4bb6bf.png"
+                        ]
+                    },
+                    "size_handling": {
+                        "value": 0
+                    },
+                    "target_size": {
+                        "value": {
+                            "x": 512,
+                            "y": 512
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "3",
+            "type": "LoadImage",
+            "data": {
+                "inputs": {
+                    "filenames": {
+                        "value": [
+                            "e2a2301705822f96f1087588bf33aeac07cce7a00b058715fecb84ee92f9f577.png",
+                            "deaeff7e45354c8faf057378e3bdf5327a8f6e90de69e6e7b7a0a4e30b4bb6bf.png"
+                        ]
+                    },
+                    "size_handling": {
+                        "value": 0
+                    },
+                    "target_size": {
+                        "value": {
+                            "x": 512,
+                            "y": 512
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

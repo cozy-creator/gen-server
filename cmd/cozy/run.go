@@ -1,101 +1,179 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
 	"cozy-creator/gen-server/internal"
 	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/services"
+	"cozy-creator/gen-server/internal/services/filehandler"
 	"cozy-creator/gen-server/internal/worker"
 	"cozy-creator/gen-server/tools"
-	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start the cozy gen-server",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := config.GetConfig()
-
-		// TODO: handle context
-		// ctx, cancel := context.WithCancel(context.Background())
-
-		server := internal.NewHTTPServer(cfg)
-		if err := server.SetupEngine(cfg); err != nil {
-			return fmt.Errorf("error setting up engine: %w", err)
-		}
-
-		go func() {
-			if err := startUploadWorker(); err != nil {
-				log.Println("Error starting upload worker:", err)
-				log.Fatal(err)
-			}
-		}()
-
-		go func() {
-			if err := tools.StartPythonGenServer("0.2.2", cfg); err != nil {
-				log.Println("Error starting Python Gen Server:", err)
-				log.Fatal(err)
-			}
-		}()
-
-		server.SetupRoutes()
-		server.Start()
-
-		return nil
-	},
+	RunE:  runServer,
 }
 
 func init() {
-	runCmd.Flags().Int("port", 9009, "Port to run the server on")
-	runCmd.Flags().String("host", "localhost", "Host to run the server on")
-	runCmd.Flags().Int("tcp-port", 9008, "Port to run the tcp server on")
-	runCmd.Flags().String("environment", "development", "Environment configuration; affects default behavior")
-	runCmd.Flags().String("models-path", "", "The directory where models will be saved to and loaded from by default. The default value is {home}/models")
-	runCmd.Flags().String("aux-models-paths", "", "A list of additional directories containing model-files (serialized state dictionaries), such as .safetensors or .pth files.")
-	runCmd.Flags().String("assets-path", "", "Directory for storing assets locally, Default value is {home}/assets")
-	runCmd.Flags().String("enabled-models", "", "Dictionary of models to be downloaded from hugging face on startup and made available for inference.")
-
-	// This to identify the filesystem type to use, either local or s3
-	runCmd.Flags().String("filesystem-type", "local", "If `local`, files will be saved to and served from the {assets_path} folder. If `s3`, files will be saved to and served from the specified S3 bucket and folder.")
-
-	// S3 Credentials
-	runCmd.Flags().String("s3-access-key", "", "Access key for S3 authentication")
-	runCmd.Flags().String("s3-secret-key", "", "Secret key for S3 authentication")
-	runCmd.Flags().String("s3-region-name", "", "Optional region, such as `us-east-1` or `weur`")
-	runCmd.Flags().String("s3-bucket-name", "", "Name of the S3 bucket to read from / write to")
-	runCmd.Flags().String("s3-folder", "", "Folder within the S3 bucket")
-	runCmd.Flags().String("s3-public-url", "", "Url where the S3 files can be publicly accessed from, example: https://storage.cozy.dev. If not specified, the public-url will be used instead")
-
-	viper.BindPFlag("port", runCmd.Flags().Lookup("port"))
-	viper.BindPFlag("host", runCmd.Flags().Lookup("host"))
-	viper.BindPFlag("tcp_port", runCmd.Flags().Lookup("tcp-port"))
-	viper.BindPFlag("environment", runCmd.Flags().Lookup("environment"))
-	viper.BindPFlag("models_path", runCmd.Flags().Lookup("models-path"))
-	viper.BindPFlag("assets_path", runCmd.Flags().Lookup("assets-path"))
-	viper.BindPFlag("enabled_models", runCmd.Flags().Lookup("enabled-models"))
-	viper.BindPFlag("filesystem_type", runCmd.Flags().Lookup("filesystem-type"))
-	viper.BindPFlag("aux_models_paths", runCmd.Flags().Lookup("aux-models-paths"))
-
-	// S3 Credentials
-	viper.BindPFlag("s3.access_key", runCmd.Flags().Lookup("s3-access-key"))
-	viper.BindPFlag("s3.secret_key", runCmd.Flags().Lookup("s3-secret-key"))
-	viper.BindPFlag("s3.region_name", runCmd.Flags().Lookup("s3-region-name"))
-	viper.BindPFlag("s3.bucket_name", runCmd.Flags().Lookup("s3-bucket-name"))
-	viper.BindPFlag("s3.folder", runCmd.Flags().Lookup("s3-folder"))
-	viper.BindPFlag("s3.public_url", runCmd.Flags().Lookup("s3-public-url"))
+	initFlags()
 }
 
-func startUploadWorker() error {
-	uploader, err := services.GetUploader()
-	fmt.Println("Starting upload worker", err)
+func initFlags() {
+	flags := runCmd.Flags()
+	flags.Int("port", 9009, "Port to run the server on")
+	flags.String("host", "localhost", "Host to run the server on")
+	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
+	flags.String("environment", "development", "Environment configuration")
+	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
+	flags.String("aux-models-dirs", "", "Additional directories for model files")
+	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
+	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
+	flags.String("enabled-models", "", "Models to be downloaded and made available")
+	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
+	flags.String("s3-access-key", "", "S3 access key")
+	flags.String("s3-secret-key", "", "S3 secret key")
+	flags.String("s3-region-name", "", "S3 region name")
+	flags.String("s3-bucket-name", "", "S3 bucket name")
+	flags.String("s3-folder", "", "S3 folder")
+	flags.String("s3-public-url", "", "Public URL for S3 files")
 
+	bindFlags()
+}
+
+func bindFlags() {
+	flags := runCmd.Flags()
+
+	viper.BindPFlag("port", flags.Lookup("port"))
+	viper.BindPFlag("host", flags.Lookup("host"))
+	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
+	viper.BindPFlag("environment", flags.Lookup("environment"))
+	viper.BindPFlag("models_path", flags.Lookup("models-path"))
+	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
+	viper.BindPFlag("enabled_models", flags.Lookup("enabled-models"))
+	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
+	viper.BindPFlag("aux_models_paths", flags.Lookup("aux-models-paths"))
+
+	// S3 Credentials
+	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
+	viper.BindPFlag("s3.secret_key", flags.Lookup("s3-secret-key"))
+	viper.BindPFlag("s3.region_name", flags.Lookup("s3-region-name"))
+	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
+	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
+	viper.BindPFlag("s3.public_url", flags.Lookup("s3-public-url"))
+}
+
+func runServer(_ *cobra.Command, _ []string) error {
+	cfg := config.GetConfig()
+	logger, err := initLogger(cfg.Environment)
 	if err != nil {
-		return fmt.Errorf("error getting uploader: %w", err)
+		return fmt.Errorf("failed to initialize logger: %w", err)
+	}
+	defer logger.Sync()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+
+	server := internal.NewHTTPServer(cfg)
+
+	wg.Add(4)
+	go runUploadWorker(&wg, errChan, logger)
+	go runPythonGenServer(ctx, &wg, errChan, cfg, logger)
+	go runGenerationWorker(ctx, &wg, errChan, logger)
+	go handleSignals(ctx, cancel, &wg, logger)
+
+	go runHTTPServer(server, errChan, logger)
+
+	select {
+	case err := <-errChan:
+		cancel()
+		return fmt.Errorf("server error: %w", err)
+	case <-ctx.Done():
+		logger.Info("Shutting down gracefully...")
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		if err := server.Stop(shutdownCtx); err != nil {
+			logger.Error("Error during server shutdown", zap.Error(err))
+		}
 	}
 
-	worker.InitializeUploadWorker(uploader, 10)
+	wg.Wait()
 	return nil
+}
+
+func initLogger(env string) (*zap.Logger, error) {
+	if env == "production" {
+		return zap.NewProduction()
+	}
+	return zap.NewDevelopment()
+}
+
+func runUploadWorker(wg *sync.WaitGroup, errChan chan<- error, logger *zap.Logger) {
+	defer wg.Done()
+	uploader, err := filehandler.GetFileHandler()
+	if err != nil {
+		logger.Error("Failed to get uploader", zap.Error(err))
+		errChan <- fmt.Errorf("error getting uploader: %w", err)
+		return
+	}
+	worker.InitializeUploadWorker(uploader, 10)
+	logger.Info("Upload worker started")
+}
+
+func runPythonGenServer(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error, cfg *config.Config, logger *zap.Logger) {
+	defer wg.Done()
+	if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
+		logger.Error("Failed to start Python Gen Server", zap.Error(err))
+		errChan <- fmt.Errorf("error starting Python Gen Server: %w", err)
+	}
+}
+
+func runGenerationWorker(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error, logger *zap.Logger) {
+	defer wg.Done()
+	if err := worker.StartGeneration(ctx); err != nil {
+		logger.Error("Failed to start generation worker", zap.Error(err))
+		errChan <- fmt.Errorf("error starting generation worker: %w", err)
+	}
+}
+
+func handleSignals(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, logger *zap.Logger) {
+	defer wg.Done()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case <-signalChan:
+		logger.Info("Received shutdown signal")
+		cancel()
+	case <-ctx.Done():
+	}
+}
+
+func runHTTPServer(server *internal.HTTPServer, errChan chan<- error, logger *zap.Logger) {
+	cfg := config.GetConfig()
+	if err := server.SetupEngine(cfg); err != nil {
+		logger.Error("Failed to set up server engine", zap.Error(err))
+		errChan <- fmt.Errorf("error setting up engine: %w", err)
+		return
+	}
+
+	server.SetupRoutes()
+	if err := server.Start(); err != nil {
+		logger.Error("Server error", zap.Error(err))
+		errChan <- fmt.Errorf("server error: %w", err)
+	}
 }

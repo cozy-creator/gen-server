@@ -99,7 +99,7 @@ class LoadImageNode(CustomNode):
 
         image_batches = [self.process_images(batch) for batch in size_batches.values()]
         return image_batches
-    
+
     @staticmethod
     def get_spec():
         """Returns the node specification."""

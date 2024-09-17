@@ -8,7 +8,7 @@ type MapChan[T any] struct {
 
 var bytesChan *MapChan[[]byte]
 
-func DefaultBytesMap() *MapChan[[]byte] {
+func GetDefaultBytesMap() *MapChan[[]byte] {
 	if bytesChan == nil {
 		bytesChan = &MapChan[[]byte]{data: make(map[string]chan []byte)}
 	}

@@ -1,0 +1,53 @@
+{
+    "nodes": [
+        {
+            "id": "1",
+            "type": "SaveImage",
+            "data": {
+                "inputs": {
+                    "images": {
+                        "ref": {
+                            "node_id": "0",
+                            "handle_name": "images"
+                        }
+                    },
+                    "format": {
+                        "value": "png"
+                    },
+                    "is_temp": {
+                        "value": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "0",
+            "type": "GenerateImage",
+            "data": {
+                "inputs": {
+                    "positive_prompt": {
+                        "value": "In a hyper-realistic living room, a chubby Pikachu lounges lazily on a well-worn leather sofa, exuding an air of comfort and relaxation. The room is softly illuminated by the warm glow of a vintage floor lamp, casting gentle shadows that enhance the details of the space. Pikachu's belly is noticeably round, spilling slightly over its waistband, giving it an endearing, relatable quality. Its fur is depicted with incredible detail; each individual hair is visible, showcasing a rich palette of deep yellows and soft browns, with the occasional hint of gray around its ears and cheeks—signs of its middle age. Pikachu's eyes sparkle with satisfaction as it holds a chilled can of Coca-Cola, condensation glistening on the surface, emphasizing the refreshing beverage's coldness.The coffee table is cluttered with snacks: a mix of colorful candies, chips, and an open bag of popcorn, scattered across the surface and Pikachu's belly, creating a casual, lived-in vibe. The television in the background is playing a classic scene from 'Pokémon,' with familiar characters and vibrant animations flashing across the screen, captivating Pikachu's attention. It occasionally glances at the screen with a happy smile, fully immersed in the enjoyment."
+                    },
+                    "negative_prompt": {
+                        "value": "low quality, bad anatomy, distorted face, blurry"
+                    },
+                    "model": {
+                        "value": "playground2.5"
+                    },
+                    "num_images": {
+                        "value": 1
+                    },
+                    "random_seed": {
+                        "value": 67
+                    },
+                    "aspect_ratio": {
+                        "value": "1/1"
+                    },
+                    "output_format": {
+                        "value": "png"
+                    }
+                }
+            }
+        }
+    ]
+}

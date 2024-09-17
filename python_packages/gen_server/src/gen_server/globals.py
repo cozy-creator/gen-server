@@ -1,8 +1,7 @@
-import os
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
 from .base_types.pydantic_models import ModelConfig
-from .utils.download_manager import DownloadManager
+
 
 from .base_types import (
     Architecture,
@@ -23,9 +22,6 @@ _HF_MODEL_MANAGER = None
 
 # Model Memory Manager
 _MODEL_MEMORY_MANAGER = None
-
-# Download Manager
-_download_manager: Optional[DownloadManager] = None
 
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
@@ -129,25 +125,6 @@ def update_api_authenticator(api_authenticator: Optional[Type["ApiAuthenticator"
 def get_api_authenticator() -> Optional[Type["ApiAuthenticator"]]:
     global _api_authenticator
     return _api_authenticator
-
-
-# def get_hf_model_manager() -> HFModelManager:
-#     global _HF_MODEL_MANAGER
-#     return _HF_MODEL_MANAGER
-
-# def get_model_memory_manager() -> ModelMemoryManager:
-#     global _MODEL_MEMORY_MANAGER
-#     return _MODEL_MEMORY_MANAGER
-
-
-def get_download_manager() -> Optional[DownloadManager]:
-    global _download_manager
-    return _download_manager
-
-
-def set_download_manager(download_manager: DownloadManager):
-    global _download_manager
-    _download_manager = download_manager
 
 
 def get_available_torch_device():
