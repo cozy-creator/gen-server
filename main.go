@@ -35,8 +35,8 @@ func main() {
 	go worker.InitializeUploadWorker(handler, 10)
 	go worker.StartGeneration(context.TODO())
 
-	workflow, err := loadWorkflowFromFile("generate_images.json")
-	// workflow, err := loadWorkflowFromFile("load_save_flow.json")
+	// workflow, err := loadWorkflowFromFile("generate_images.json")
+	workflow, err := loadWorkflowFromFile("load_save_flow.json")
 	if err != nil {
 		fmt.Println(err)
 		return

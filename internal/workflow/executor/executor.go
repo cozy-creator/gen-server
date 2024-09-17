@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"cozy-creator/gen-server/internal/workflow/nodes"
 	"fmt"
 	"runtime"
 	"sync"
@@ -12,10 +13,16 @@ type Workflow struct {
 }
 
 type Node struct {
-	Id      string               `json:"id"`
-	Type    string               `json:"type"`
-	Inputs  map[string]PortValue `json:"inputs"`
-	Outputs map[string]PortValue `json:"outputs"`
+	Id            string               `json:"id"`
+	Type          string               `json:"type"`
+	Inputs        map[string]PortValue `json:"inputs"`
+	Outputs       map[string]PortValue `json:"outputs"`
+	IterationData *IterationData       `json:"iteration_data,omitempty"`
+}
+
+type IterationData struct {
+	ConditionNodeId string   `json:"condition_node_id"`
+	BodyNodeIds     []string `json:"body_node_ids"`
 }
 
 type PortValue struct {
@@ -152,6 +159,28 @@ func (e *WorkflowExecutor) worker(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (e *WorkflowExecutor) isNodeReadyForExecution(node *Node) bool {
+	if node.Type == nodes.IterationNodeType {
+		conditionNode := e.getNode(node.IterationData.ConditionNodeId)
+		if conditionNode == nil {
+			return false
+		}
+
+		if !e.isNodeReadyForExecution(conditionNode) {
+			return false
+		}
+
+		for _, id := range node.IterationData.BodyNodeIds {
+			bodyNode := e.getNode(id)
+			if bodyNode == nil {
+				return false
+			}
+			if !e.isNodeReadyForExecution(bodyNode) {
+				return false
+			}
+		}
+		return true
+	}
+
 	for _, input := range node.Inputs {
 		if input.Ref != nil {
 			dep := e.getNode(input.Ref.NodeId)
@@ -271,6 +300,66 @@ func executeNode(ctx context.Context, node *Node, inputs map[string]interface{})
 	fmt.Println("node output:", output)
 
 	return output, err
+}
+
+func (e *WorkflowExecutor) executeIterationNode(ctx context.Context, node *Node) {
+	if node.IterationData == nil {
+		e.errorsChan <- fmt.Errorf("iteration node %s has no iteration data", node.Id)
+		return
+	}
+
+	for {
+		conditionNode := e.getNode(node.IterationData.ConditionNodeId)
+		if conditionNode == nil {
+			e.errorsChan <- fmt.Errorf("condition node %s not found", node.IterationData.ConditionNodeId)
+			return
+		}
+
+		conditionInputs, err := e.resolveInputs(conditionNode)
+		if err != nil {
+			e.errorsChan <- err
+			return
+		}
+
+		conditionOutput, err := executeNode(ctx, conditionNode, conditionInputs)
+		if err != nil {
+			e.errorsChan <- err
+			return
+		}
+
+		shouldContinue, ok := conditionOutput["continue"].(bool)
+		if !ok {
+			e.errorsChan <- fmt.Errorf("condition node %s did not return a boolean 'continue' value", conditionNode.Id)
+			return
+		}
+
+		if !shouldContinue {
+			break
+		}
+
+		// Execute body nodes
+		for _, bodyNodeId := range node.IterationData.BodyNodeIds {
+			bodyNode := e.getNode(bodyNodeId)
+			if bodyNode == nil {
+				e.errorsChan <- fmt.Errorf("body node %s not found", bodyNodeId)
+				return
+			}
+
+			bodyInputs, err := e.resolveInputs(bodyNode)
+			if err != nil {
+				e.errorsChan <- err
+				return
+			}
+
+			bodyOutput, err := executeNode(ctx, bodyNode, bodyInputs)
+			if err != nil {
+				e.errorsChan <- err
+				return
+			}
+
+			e.storeOutput(bodyNodeId, bodyOutput)
+		}
+	}
 }
 
 func (e *WorkflowExecutor) getOutput(nodeId string) NodeOutput {

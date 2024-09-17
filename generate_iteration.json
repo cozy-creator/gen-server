@@ -1,0 +1,81 @@
+{
+    "nodes": [
+        {
+            "id": "0",
+            "type": "MultiGenerateImageCondition",
+            "inputs": {
+                "prompts": {
+                    "value": [
+                        "A beautiful anime girl with long blue hair, wearing a white dress, standing in a field of flowers",
+                        "A portrait of someone in a natural setting",
+                        "An abstract representation of emotion"
+                    ]
+                }
+            }
+        },
+
+        {
+            "id": "1",
+            "type": "MultiGenerateImage",
+            "iteration_data": {
+                "body_node_ids": [
+                    "2",
+                    "3"
+                ]
+            }
+        },
+
+        {
+            "id": "2",
+            "type": "GenerateImage",
+            "data": {
+                "inputs": {
+                    "positive_prompt": {
+                        "ref": {
+                            "node_id": "0",
+                            "handle_name": "prompt"
+                        }
+                    },
+                    "negative_prompt": {
+                        "value": "low quality, bad anatomy, distorted face, blurry"
+                    },
+                    "model": {
+                        "value": "playground2.5"
+                    },
+                    "num_images": {
+                        "value": 1
+                    },
+                    "random_seed": {
+                        "value": 67
+                    },
+                    "aspect_ratio": {
+                        "value": "1/1"
+                    },
+                    "output_format": {
+                        "value": "png"
+                    }
+                }
+            }
+        },
+        {
+            "id": "3",
+            "type": "SaveImage",
+            "data": {
+                "inputs": {
+                    "images": {
+                        "ref": {
+                            "node_id": "0",
+                            "handle_name": "images"
+                        }
+                    },
+                    "format": {
+                        "value": "png"
+                    },
+                    "is_temp": {
+                        "value": true
+                    }
+                }
+            }
+        }
+    ]
+}

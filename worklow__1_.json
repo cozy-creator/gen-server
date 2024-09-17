@@ -1,0 +1,119 @@
+{
+  "nodes": [
+    {
+      "id": "c244a676-05bf-4d64-9864-7ddd41cac8cd",
+      "type": "LoadImage",
+      "data": {
+        "inputs": {
+          "file": {
+            "value": [
+              "http://localhost:9009/file/acb1f85e90895be2ce3c28a5be09fd8d4926a0e4f3d880b498e8b0ecc50006cf.jpeg"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "e257e15b-d1a6-4605-9658-ee00c92d0862",
+      "type": "TextEncoder",
+      "data": {
+        "inputs": {
+          "text": {
+            "value": "A man pointing to a star"
+          }
+        }
+      }
+    },
+    {
+      "id": "438700bd-4be1-4432-a65f-7dadf16084a1",
+      "type": "FeatureExtractor",
+      "data": {
+        "inputs": {
+          "image": {
+            "ref": {
+              "nodeId": "c244a676-05bf-4d64-9864-7ddd41cac8cd",
+              "handleName": "image"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "e19b2651-9dd4-492b-89ea-d25ad1f7accf",
+      "type": "IPAdapterEmbedding",
+      "data": {
+        "inputs": {
+          "image": {
+            "ref": {
+              "nodeId": "c244a676-05bf-4d64-9864-7ddd41cac8cd",
+              "handleName": "image"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "428967d4-5daf-4ce7-b14e-739a0117c985",
+      "type": "FeatureExtractor",
+      "data": {
+        "inputs": {
+          "image": {
+            "ref": {
+              "nodeId": "c244a676-05bf-4d64-9864-7ddd41cac8cd",
+              "handleName": "image"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cbf6b6e8-b073-4767-9737-a8b4b35a7b30",
+      "type": "ImageGenerator",
+      "data": {
+        "inputs": {
+          "positive embedding": {
+            "ref": {
+              "nodeId": "e257e15b-d1a6-4605-9658-ee00c92d0862",
+              "handleName": "embedding"
+            }
+          },
+          "openpose image": {
+            "ref": {
+              "nodeId": "438700bd-4be1-4432-a65f-7dadf16084a1",
+              "handleName": "image"
+            }
+          },
+          "depth image": {
+            "ref": {
+              "nodeId": "428967d4-5daf-4ce7-b14e-739a0117c985",
+              "handleName": "image"
+            }
+          },
+          "ipadapter embedding": {
+            "ref": {
+              "nodeId": "e19b2651-9dd4-492b-89ea-d25ad1f7accf",
+              "handleName": "embedding"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c922df71-d8ca-4a46-99cf-aac1166dfd67",
+      "type": "SaveImage",
+      "data": {
+        "inputs": {
+          "image": {
+            "ref": {
+              "nodeId": "cbf6b6e8-b073-4767-9737-a8b4b35a7b30",
+              "handleName": "image"
+            }
+          },
+          "temp?": {
+            "value": true
+          }
+        }
+      }
+    }
+  ]
+}
