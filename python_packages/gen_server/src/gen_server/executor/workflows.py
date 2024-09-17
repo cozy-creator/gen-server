@@ -424,9 +424,9 @@ async def flux_train_workflow(
         try:
             async for update in save_node(train_generator):
                 if update['type'] == 'sample_images':
-                    yield {"status": "sample_generated", "step": update['step'], "sample_paths": update['paths']}
+                    yield {"status": "sample_generated", "current_step": update['step'], "sample_paths": update['paths']}
                 elif update['type'] == 'lora_file':
-                    yield {"status": "lora_saved", "step": update['step'], "lora_path": update['path']}
+                    yield {"status": "lora_saved", "current_step": update['step'], "lora_path": update['path']}
                 elif update['type'] == 'step':
                     yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
                 elif update['type'] == 'final_result':

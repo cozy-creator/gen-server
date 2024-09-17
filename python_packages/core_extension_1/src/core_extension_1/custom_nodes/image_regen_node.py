@@ -110,6 +110,7 @@ from diffusers import StableDiffusionXLInpaintPipeline, StableDiffusionInpaintPi
 from gen_server.utils.model_config_manager import ModelConfigManager
 from typing import Union, Dict
 from gen_server.globals import get_model_memory_manager
+from gen_server.utils.image import aspect_ratio_to_dimensions
 
 
 class ImageRegenNode(CustomNode):
@@ -161,9 +162,9 @@ class ImageRegenNode(CustomNode):
                 # negative_prompt=negative_prompt,
                 image=image,
                 mask_image=mask,
-                width=image.width,
-                height=image.height,
-                # num_inference_steps=num_inference_steps,
+                # width=image.width,
+                # height=image.height,
+                num_inference_steps=num_inference_steps,
                 strength=strength,
                 # guidance_scale=model_config.get("guidance_scale", 7.5),
                 output_type="pt",  # Ensure output is a PyTorch tensor
