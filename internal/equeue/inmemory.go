@@ -1,8 +1,7 @@
-package mq
+package equeue
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -37,63 +36,57 @@ func (q *InMemoryQueue) Publish(ctx context.Context, topic string, message []byt
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-q.closeCh:
-		return fmt.Errorf("queue closed")
+		return ErrQueueClosed
 	case ch <- message:
 		return nil
 	default:
-		return fmt.Errorf("cannot publish message, queue is full")
+		return ErrQueueFull
 	}
 }
 
 func (q *InMemoryQueue) Receive(ctx context.Context, topic string) ([]byte, error) {
 	value, _ := q.topics.LoadOrStore(topic, make(chan []byte, q.maxSize))
 	ch := value.(chan []byte)
-
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-q.closeCh:
-		return nil, fmt.Errorf("queue closed")
+		return nil, ErrQueueClosed
 	case data, ok := <-ch:
 		if !ok {
-			return nil, fmt.Errorf("topic closed")
+			return nil, ErrTopicClosed
 		}
 		return data, nil
 	default:
-		return nil, nil
+		return nil, ErrNoMessage
 	}
 }
 
 func (q *InMemoryQueue) CloseTopic(topic string) error {
 	value, ok := q.topics.Load(topic)
+	ch := value.(chan []byte)
 	if !ok {
-		return fmt.Errorf("topic not found")
+		return ErrTopicNotExists
 	}
 
-	ch := value.(chan []byte)
-
-	// Ensure no new messages can be sent to this channel
-	q.topics.Delete(topic)
-
-	// Close the channel to signal to receivers that no more messages will be sent
 	close(ch)
-	fmt.Println("Closing topic", topic)
+	q.topics.Delete(topic)
 	return nil
 }
 
 func (q *InMemoryQueue) Ack(ctx context.Context, topic string, messageID *string) error {
 	_, ok := q.topics.Load(topic)
 	if !ok {
-		return fmt.Errorf("topic not found")
+		return ErrTopicNotExists
 	}
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-q.closeCh:
-		return fmt.Errorf("queue closed")
+		return ErrQueueClosed
 	case <-time.After(time.Second * 5):
-		return fmt.Errorf("timeout")
+		return ErrTimeout
 	default:
 		return nil
 	}

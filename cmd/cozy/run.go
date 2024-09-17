@@ -11,7 +11,7 @@ import (
 
 	"cozy-creator/gen-server/internal"
 	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/services"
+	"cozy-creator/gen-server/internal/services/filehandler"
 	"cozy-creator/gen-server/internal/worker"
 	"cozy-creator/gen-server/tools"
 
@@ -36,9 +36,10 @@ func initFlags() {
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
 	flags.String("environment", "development", "Environment configuration")
-	flags.String("models-path", "", "Directory for models (default: {home}/models)")
-	flags.String("aux-models-paths", "", "Additional directories for model files")
-	flags.String("assets-path", "", "Directory for assets (default: {home}/assets)")
+	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
+	flags.String("aux-models-dirs", "", "Additional directories for model files")
+	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
+	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
 	flags.String("enabled-models", "", "Models to be downloaded and made available")
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 	flags.String("s3-access-key", "", "S3 access key")
@@ -123,7 +124,7 @@ func initLogger(env string) (*zap.Logger, error) {
 
 func runUploadWorker(wg *sync.WaitGroup, errChan chan<- error, logger *zap.Logger) {
 	defer wg.Done()
-	uploader, err := services.GetUploader()
+	uploader, err := filehandler.GetFileHandler()
 	if err != nil {
 		logger.Error("Failed to get uploader", zap.Error(err))
 		errChan <- fmt.Errorf("error getting uploader: %w", err)
