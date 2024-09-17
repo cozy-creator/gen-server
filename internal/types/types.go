@@ -31,6 +31,7 @@ type GenerateParams struct {
 	PositivePrompt string         `json:"positive_prompt"`
 	NegativePrompt string         `json:"negative_prompt"`
 	OutputFormat   string         `json:"output_format"`
+	WebhookUrl     string         `json:"webhook_url"`
 }
 
 type RequestGenerateParams struct {
