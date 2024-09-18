@@ -3,13 +3,15 @@ package filehandler
 import (
 	"bytes"
 	"context"
-	"cozy-creator/gen-server/internal/config"
-	cozyConfig "cozy-creator/gen-server/internal/config"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cozy-creator/gen-server/internal/config"
+	cozyConfig "github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/utils"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"

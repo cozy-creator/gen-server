@@ -1,8 +1,6 @@
 package tools
 
 import (
-	"context"
-	"cozy-creator/gen-server/internal/config"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,9 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/cozy-creator/gen-server/internal/config"
 )
 
 func CommandExists(command string) (bool, error) {

@@ -1,15 +1,10 @@
 package main
 
 import (
-	"context"
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/services/logger"
-	"cozy-creator/gen-server/internal/worker"
-	"cozy-creator/gen-server/internal/workflow/executor"
-	"encoding/json"
 	"fmt"
 	"os"
+
+	cmd "github.com/cozy-creator/gen-server/cmd/cozy"
 )
 
 func main() {

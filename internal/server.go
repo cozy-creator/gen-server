@@ -1,12 +1,9 @@
 package internal
 
 import (
-	"context"
-	"cozy-creator/gen-server/internal/config"
 	"fmt"
-	"log"
-	"net/http"
-	"time"
+
+	"github.com/cozy-creator/gen-server/internal/config"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
