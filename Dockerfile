@@ -7,9 +7,9 @@ WORKDIR /app
 COPY web ./web
 
 # Build the web folder
-RUN cd ./web && \
-    npm install && \
-    npm run build
+# RUN cd ./web && \
+#     npm install && \
+#     npm run build
 
 
 # Stage 2: Build the Go binary
