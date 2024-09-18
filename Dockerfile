@@ -18,13 +18,17 @@ FROM golang:1.23 AS go-builder
 WORKDIR /app
 
 # Copy go mod and sum files
-COPY go.mod go.sum ./
+COPY go.mod go.sum .
 
 # Download all dependencies
 RUN go mod download
 
 # Copy only the the Golang source code needed for the build
-COPY cmd/ internal/ pkg/ tools/ ./
+# COPY cmd/ internal/ pkg/ tools/ .
+COPY cmd cmd
+COPY pkg pkg
+COPY tools tools
+COPY internal internal
 COPY main.go .
 
 # Build the Go binary
