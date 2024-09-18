@@ -223,16 +223,17 @@ You can also use any other package manager of your choice to install the graph e
 After you have built the Cozy graph editor and generated the `tgz` file, you can build the Docker image by running:
 
 ```
-docker build -t cozycreator/gen-server:<VERSION> .
+docker buildx build --platform linux/amd64,linux/arm64,windows/amd64,darwin/amd64,darwin/arm64 -t cozycreator/gen-server:<VERSION> .
 ```
-You can replace `<VERSION>` with the version of the Cozy Creator you want to build, e.g:
+Where `<VERSION>` is a label assigned to the docker image, which should match the version of Cozy-Creator being built, such as `0.2.5.`.
 
-```
-docker build -t cozycreator/gen-server:0.2.5 .
-```
-This will build the image and tag it as `cozycreator/gen-server:0.2.5`.
-
-> **Note:** If you're building the image on a Mac, you should add the --platform flag to the docker build command, like this: `docker build --platform=linux/amd64 -t cozycreator/gen-server:<VERSION> .`
+> **Note:** You can exclude `buildx` and `--platform` if you're only building for one architecture. For example:
+> 
+> ```
+> docker build -t cozycreator/gen-server:0.2.5 .
+> ```
+> 
+> This will build for your system's current architecture. In the example above, we're building for both `linux/amd64` and `linux/arm64` architectures, which gives the docker image better compatibility with different systems.
 
 <!-- 
 Build the Cozy Graph editor, and place it inside of `/web/`, like `cozy-graph-editor-0.0.1.tgz`. This will be used as a dependency when building the front-end. You can install it by running `yarn add file:cozy-graph-editor-0.0.1.tgz` in the `/web` directory, or wherever you placed it the file. In your package.json file you'll see a dependency like this:
