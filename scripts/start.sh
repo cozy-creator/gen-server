@@ -28,7 +28,7 @@ start_jupyter() {
 
 setup_jupyter_runtime
 
-./cozy-server run & # Start the Cozy server
+cozy-server run & # Start the Cozy server
 start_jupyter
 
 sleep infinity  # This will keep the container running
