@@ -2,14 +2,15 @@ package generationnode
 
 import (
 	"context"
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/equeue"
-	"cozy-creator/gen-server/internal/types"
-	"cozy-creator/gen-server/internal/worker"
-	imagenode "cozy-creator/gen-server/internal/workflow/nodes/image"
 	"errors"
 	"fmt"
 	"image"
+
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/equeue"
+	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/gen-server/internal/worker"
+	imagenode "github.com/cozy-creator/gen-server/internal/workflow/nodes/image"
 )
 
 type GenerateImageInputs struct {

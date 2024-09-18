@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/templates"
+	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"

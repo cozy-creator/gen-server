@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/utils"
+	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

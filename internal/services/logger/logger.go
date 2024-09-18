@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/config"
 
 	"go.uber.org/zap"
 )

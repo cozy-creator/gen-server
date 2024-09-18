@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 )
@@ -139,7 +141,6 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		for {
 			select {
 			case <-ctx.Done():
-				log.Logger.Println("Stopping Python Gen Server...")
 				cmd.Process.Kill()
 				return
 			default:
@@ -150,7 +151,6 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
-			log.Logger.Println("Python Gen Server stopped successfully")
 			return nil
 		}
 

@@ -1,12 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/cozy-creator/gen-server/internal"
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/services"
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
 	"github.com/cozy-creator/gen-server/internal/worker"
 	"github.com/cozy-creator/gen-server/tools"
 

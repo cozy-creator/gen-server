@@ -1,4 +1,4 @@
-package filehandler
+package services
 
 import (
 	"bytes"
@@ -18,33 +18,33 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 )
 
-type FileInfo struct {
+type FileMeta struct {
 	Name      string
 	Extension string
 	Content   []byte
 	IsTemp    bool
 }
 
-type FileHandler interface {
-	Upload(file FileInfo) (string, error)
-	UploadMultiple(files []FileInfo) ([]string, error)
-	GetFile(filename string) (*FileInfo, error)
+type Uploader interface {
+	Upload(file FileMeta) (string, error)
+	UploadMultiple(files []FileMeta) ([]string, error)
+	GetFile(filename string) (*FileMeta, error)
 	ResolveFile(filename string, subfolder string, isTemp bool) (string, error)
 }
 
-type LocalFileHandler struct {
+type LocalUploader struct {
 	assetsDir string
 	tempDir   string
 }
 
-type S3FileHandler struct {
+type S3Uploader struct {
 	client *s3.Client
 }
 
-var handler FileHandler
+var uploader Uploader
 
-func NewFileInfo(name string, extension string, content []byte, isTemp bool) FileInfo {
-	return FileInfo{
+func NewFileMeta(name string, extension string, content []byte, isTemp bool) FileMeta {
+	return FileMeta{
 		Name:      name,
 		Extension: extension,
 		Content:   content,
@@ -52,45 +52,45 @@ func NewFileInfo(name string, extension string, content []byte, isTemp bool) Fil
 	}
 }
 
-func GetFileHandler() (FileHandler, error) {
-	if handler != nil {
-		return handler, nil
+func GetUploader() (Uploader, error) {
+	if uploader != nil {
+		return uploader, nil
 	}
 
 	cfg := cozyConfig.GetConfig()
 	filesystem := strings.ToLower(cfg.Filesystem)
 	if filesystem == cozyConfig.FilesystemLocal {
-		handler, err := NewLocalFileHandler()
+		uploader, err := NewLocalUploader()
 		if err != nil {
 			return nil, err
 		}
 
-		return handler, nil
+		return uploader, nil
 	} else if filesystem == cozyConfig.FilesystemS3 {
-		handler, err := NewS3FileHandler()
+		uploader, err := NewS3Uploader()
 		if err != nil {
 			return nil, err
 		}
 
-		return handler, nil
+		return uploader, nil
 	}
 
 	return nil, fmt.Errorf("invalid filesystem type %s", cfg.Filesystem)
 }
 
-func NewLocalFileHandler() (*LocalFileHandler, error) {
+func NewLocalUploader() (*LocalUploader, error) {
 	cfg := cozyConfig.GetConfig()
 	if strings.ToLower(cfg.Filesystem) != cozyConfig.FilesystemLocal {
 		return nil, fmt.Errorf("filesystem is not local")
 	}
 
-	return &LocalFileHandler{
+	return &LocalUploader{
 		assetsDir: cfg.AssetsDir,
 		tempDir:   cfg.TempDir,
 	}, nil
 }
 
-func NewS3FileHandler() (*S3FileHandler, error) {
+func NewS3Uploader() (*S3Uploader, error) {
 	cfg := cozyConfig.GetConfig()
 	if strings.ToLower(cfg.Filesystem) != cozyConfig.FilesystemS3 {
 		return nil, fmt.Errorf("filesystem is not s3")
@@ -114,12 +114,12 @@ func NewS3FileHandler() (*S3FileHandler, error) {
 		o.BaseEndpoint = &cfg.S3.PublicUrl
 	})
 
-	return &S3FileHandler{
+	return &S3Uploader{
 		client: s3Client,
 	}, nil
 }
 
-func (u *LocalFileHandler) Upload(file FileInfo) (string, error) {
+func (u *LocalUploader) Upload(file FileMeta) (string, error) {
 	var filedest string
 	if file.IsTemp {
 		filedest = filepath.Join(u.tempDir, fmt.Sprintf("%s%s", file.Name, file.Extension))
@@ -127,11 +127,8 @@ func (u *LocalFileHandler) Upload(file FileInfo) (string, error) {
 		filedest = filepath.Join(u.assetsDir, fmt.Sprintf("%s%s", file.Name, file.Extension))
 	}
 
-	if err := os.MkdirAll(filepath.Dir(filedest), os.ModePerm); err != nil {
-		return "", err
-	}
-
-	if err := os.WriteFile(filedest, file.Content, os.FileMode(0644)); err != nil {
+	fmt.Println(filedest)
+	if err := os.WriteFile(filedest, file.Content, 0644); err != nil {
 		return "", err
 	}
 
@@ -139,7 +136,7 @@ func (u *LocalFileHandler) Upload(file FileInfo) (string, error) {
 	return fmt.Sprintf("http://%s:%d/file/%s%s", cfg.Host, cfg.Port, file.Name, file.Extension), nil
 }
 
-func (u *LocalFileHandler) UploadMultiple(files []FileInfo) ([]string, error) {
+func (u *LocalUploader) UploadMultiple(files []FileMeta) ([]string, error) {
 	var uploadedFiles []string
 	for _, file := range files {
 		destination, err := u.Upload(file)
@@ -153,7 +150,7 @@ func (u *LocalFileHandler) UploadMultiple(files []FileInfo) ([]string, error) {
 	return uploadedFiles, nil
 }
 
-func (u *S3FileHandler) Upload(file FileInfo) (string, error) {
+func (u *S3Uploader) Upload(file FileMeta) (string, error) {
 	cfg := cozyConfig.GetConfig()
 
 	var key string
@@ -179,7 +176,7 @@ func (u *S3FileHandler) Upload(file FileInfo) (string, error) {
 	return fmt.Sprintf("%s/%s/%s", cfg.S3.PublicUrl, cfg.S3.Bucket, key), nil
 }
 
-func (u *S3FileHandler) UploadMultiple(files []FileInfo) ([]string, error) {
+func (u *S3Uploader) UploadMultiple(files []FileMeta) ([]string, error) {
 	var uploadedFiles []string
 	for _, file := range files {
 		destination, err := u.Upload(file)
@@ -193,35 +190,11 @@ func (u *S3FileHandler) UploadMultiple(files []FileInfo) ([]string, error) {
 	return uploadedFiles, nil
 }
 
-func (u *S3FileHandler) GetFile(filename string) (*FileInfo, error) {
-	ctx := context.TODO()
-	cfg := config.GetConfig()
-
-	params := &s3.GetObjectInput{
-		Bucket: &cfg.S3.Bucket,
-		Key:    &filename,
-	}
-
-	object, err := u.client.GetObject(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	content := make([]byte, *object.ContentLength)
-	_, err = io.ReadFull(object.Body, content)
-	if err != nil {
-		return nil, err
-	}
-
-	return &FileInfo{
-		Name:      filename,
-		Extension: filepath.Ext(filename),
-		Content:   content,
-		IsTemp:    false,
-	}, nil
+func (u *S3Uploader) GetFile(filename string) (*FileMeta, error) {
+	return nil, nil
 }
 
-func (u *LocalFileHandler) GetFile(filename string) (*FileInfo, error) {
+func (u *LocalUploader) GetFile(filename string) (*FileMeta, error) {
 	file, err := os.Open(filepath.Join(u.assetsDir, filename))
 	if err != nil {
 		return nil, err
@@ -233,7 +206,7 @@ func (u *LocalFileHandler) GetFile(filename string) (*FileInfo, error) {
 		return nil, err
 	}
 
-	return &FileInfo{
+	return &FileMeta{
 		Name:      filename,
 		Extension: filepath.Ext(filename),
 		Content:   content,
@@ -241,11 +214,11 @@ func (u *LocalFileHandler) GetFile(filename string) (*FileInfo, error) {
 	}, nil
 }
 
-func (u *S3FileHandler) ResolveFile(filename string, subfolder string, isTemp bool) (string, error) {
+func (u *S3Uploader) ResolveFile(filename string, subfolder string, isTemp bool) (string, error) {
 	return "", nil
 }
 
-func (u *LocalFileHandler) ResolveFile(filename string, subfolder string, isTemp bool) (string, error) {
+func (u *LocalUploader) ResolveFile(filename string, subfolder string, isTemp bool) (string, error) {
 	var resolvedFilename string
 	if isTemp {
 		resolvedFilename = filepath.Join(u.tempDir, subfolder, filename)

@@ -21,20 +21,20 @@ var downloadCmd = &cobra.Command{
 			return err
 		}
 
-		subFolder, err := cmd.Flags().GetString("sub-folder")
-		if err != nil {
-			return err
-		}
+		// subFolder, err := cmd.Flags().GetString("sub-folder")
+		// if err != nil {
+		// 	return err
+		// }
 
 		repoType, err := cmd.Flags().GetString("repo-type")
 		if err != nil {
 			return err
 		}
 
-		forceDownload, err := cmd.Flags().GetBool("force-download")
-		if err != nil {
-			return err
-		}
+		// forceDownload, err := cmd.Flags().GetBool("force-download")
+		// if err != nil {
+		// 	return err
+		// }
 
 		cacheDir, err := cmd.Flags().GetString("cache-dir")
 		if err != nil {
@@ -51,7 +51,7 @@ var downloadCmd = &cobra.Command{
 			client.WithCacheDir(cacheDir)
 		}
 
-		repo := hub.NewHfRepo(repoId).WithType(repoType)
+		repo := hub.NewRepo(repoId).WithType(repoType)
 
 		if revision != "" {
 			repo = repo.WithRevision(revision)
@@ -59,10 +59,11 @@ var downloadCmd = &cobra.Command{
 
 		var filePath string
 		if fileName != "" {
-			file := repo.File(fileName).WithSubFolder(subFolder)
-			filePath, err = client.FileDownload(file, forceDownload, false)
+
+			// file := repo.File(fileName).WithSubFolder(subFolder)
+			// filePath, err = client.FileDownload(file, forceDownload, false)
 		} else {
-			filePath, err = client.SnapshotDownload(repo, forceDownload, false)
+			// filePath, err = client.SnapshotDownload(repo, forceDownload, false)
 		}
 
 		if err != nil {
