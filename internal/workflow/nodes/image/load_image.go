@@ -3,10 +3,11 @@ package imagenode
 import (
 	"bytes"
 	"context"
-	"cozy-creator/gen-server/internal/services/filehandler"
 	"errors"
 	"fmt"
 	"image"
+
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
 
 	"github.com/anthonynsimon/bild/transform"
 

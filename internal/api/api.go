@@ -1,14 +1,15 @@
 package api
 
 import (
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/types"
-	"cozy-creator/gen-server/internal/utils/hashutil"
-	"cozy-creator/gen-server/internal/worker"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
+	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
+	"github.com/cozy-creator/gen-server/internal/worker"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

@@ -3,12 +3,13 @@ package imagenode
 import (
 	"bytes"
 	"context"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/services/logger"
-	"cozy-creator/gen-server/internal/utils/hashutil"
-	"cozy-creator/gen-server/internal/worker"
 	"fmt"
 	"image"
+
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
+	"github.com/cozy-creator/gen-server/internal/services/logger"
+	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
+	"github.com/cozy-creator/gen-server/internal/worker"
 
 	"image/gif"
 	"image/jpeg"

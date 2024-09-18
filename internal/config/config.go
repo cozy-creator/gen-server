@@ -1,13 +1,14 @@
 package config
 
 import (
-	"cozy-creator/gen-server/internal/templates"
-	"cozy-creator/gen-server/internal/utils/pathutil"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cozy-creator/gen-server/internal/templates"
+	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"

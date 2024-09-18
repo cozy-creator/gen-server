@@ -2,13 +2,6 @@ package worker
 
 import (
 	"context"
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/equeue"
-	"cozy-creator/gen-server/internal/services"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/types"
-	"cozy-creator/gen-server/internal/utils/hashutil"
-	"cozy-creator/gen-server/internal/utils/imageutil"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -16,6 +9,14 @@ import (
 	"io"
 	"log"
 	"time"
+
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/equeue"
+	"github.com/cozy-creator/gen-server/internal/services"
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
+	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
+	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 
 	"github.com/google/uuid"
 )

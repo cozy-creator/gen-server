@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"cozy-creator/gen-server/internal"
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/worker"
-	"cozy-creator/gen-server/tools"
+	"github.com/cozy-creator/gen-server/internal"
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/services/filehandler"
+	"github.com/cozy-creator/gen-server/internal/worker"
+	"github.com/cozy-creator/gen-server/tools"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
