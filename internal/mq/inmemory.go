@@ -1,7 +1,8 @@
-package equeue
+package mq
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -10,15 +11,6 @@ type InMemoryQueue struct {
 	topics  sync.Map
 	closeCh chan struct{}
 	maxSize int
-}
-
-var inMemoryQueue *InMemoryQueue
-
-func GetDefaultInMemoryQueue() *InMemoryQueue {
-	if inMemoryQueue == nil {
-		inMemoryQueue = NewInMemoryQueue(1)
-	}
-	return inMemoryQueue
 }
 
 func NewInMemoryQueue(maxSize int) *InMemoryQueue {
@@ -54,8 +46,10 @@ func (q *InMemoryQueue) Receive(ctx context.Context, topic string) ([]byte, erro
 		return nil, ErrQueueClosed
 	case data, ok := <-ch:
 		if !ok {
+			q.topics.Delete(topic)
 			return nil, ErrTopicClosed
 		}
+		fmt.Println("Message received from topic:", string(topic))
 		return data, nil
 	default:
 		return nil, ErrNoMessage
@@ -70,7 +64,6 @@ func (q *InMemoryQueue) CloseTopic(topic string) error {
 	}
 
 	close(ch)
-	q.topics.Delete(topic)
 	return nil
 }
 

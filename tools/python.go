@@ -151,8 +151,11 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
+			fmt.Println("Python Gen Server stopped successfully")
 			return nil
 		}
+
+		fmt.Println("Python Gen Server stopped unexpectedly")
 
 		return fmt.Errorf("error waiting for Python Gen Server to exit: %w", err)
 	}

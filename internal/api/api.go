@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cozy-creator/gen-server/internal/equeue"
+	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filehandler"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
@@ -87,10 +87,13 @@ func GenerateImageSync(c *gin.Context) {
 		c.Header("Content-Type", "application/json")
 		for {
 			imageUrl, err := worker.ReceiveGenerateImage(requestId, data.OutputFormat)
+			// fmt.Println("Received image from queue:", imageUrl)
 			if err != nil {
-				if errors.Is(err, equeue.ErrNoMessage) {
+				if errors.Is(err, mq.ErrNoMessage) {
 					continue
 				}
+
+				fmt.Println("Error receiving image from queue:", err)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 				return false
@@ -110,8 +113,7 @@ func GenerateImageSync(c *gin.Context) {
 }
 
 func GenerateImageAsync(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
-	defer cancel()
+	// ctx, _ := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 
 	data := types.GenerateParams{OutputFormat: "png"}
 	if err := c.BindJSON(&data); err != nil {
@@ -130,8 +132,11 @@ func GenerateImageAsync(c *gin.Context) {
 		return
 	}
 
+	ctx := context.Background()
 	go func() {
-		defer invokeWebhook(ctx, data.WebhookUrl, "error", "", "Generation process ended unexpectedly")
+		// defer cancel()
+
+		// defer invokeWebhook(ctx, data.WebhookUrl, "error", "", "Generation process ended unexpectedly")
 
 		for {
 			select {
@@ -140,8 +145,9 @@ func GenerateImageAsync(c *gin.Context) {
 				return
 			default:
 				imageUrl, err := worker.ReceiveGenerateImage(requestId, data.OutputFormat)
+				fmt.Println("Received image from queue:", imageUrl)
 				if err != nil {
-					if errors.Is(err, equeue.ErrNoMessage) {
+					if errors.Is(err, mq.ErrNoMessage) {
 						time.Sleep(time.Second) // Avoid tight loop
 						continue
 					}
