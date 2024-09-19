@@ -38,6 +38,9 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+
+	// Initialize flags
+	initRunFlags()
 }
 
 func onCommandInit() {

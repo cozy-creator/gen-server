@@ -1,4 +1,4 @@
-package equeue
+package mq
 
 import (
 	"context"
@@ -14,18 +14,10 @@ var (
 	ErrTimeout        = errors.New("timeout")
 )
 
-type Queue interface {
+type MQueue interface {
 	Publish(ctx context.Context, topic string, message []byte) error
 	Receive(ctx context.Context, topic string) ([]byte, error)
 	Ack(ctx context.Context, topic string, messageID *string) error
 	CloseTopic(topic string) error
-}
-
-func GetQueue(kind string) Queue {
-	switch kind {
-	case "inmemory":
-		return GetDefaultInMemoryQueue()
-	default:
-		return nil
-	}
+	Close() error
 }

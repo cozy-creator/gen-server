@@ -1,13 +1,9 @@
 package imagenode
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"image"
-
-	"github.com/cozy-creator/gen-server/internal/services/filehandler"
 
 	"github.com/anthonynsimon/bild/transform"
 
@@ -147,25 +143,25 @@ func groupImagesBySize(images []image.Image) ([]image.Image, error) {
 }
 
 func loadImageFromFile(filename string) (image.Image, error) {
-	handler, err := filehandler.GetFileHandler()
-	if err != nil {
-		return nil, err
-	}
+	// handler, err := filehandler.GetFileHandler()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	file, err := handler.GetFile(filename)
-	if err != nil {
-		fmt.Println("error decoding config0:", err)
-		return nil, err
-	}
+	// file, err := handler.GetFile(filename)
+	// if err != nil {
+	// 	fmt.Println("error decoding config0:", err)
+	// 	return nil, err
+	// }
 
-	reader := bytes.NewReader(file.Content)
-	image, _, err := image.Decode(reader)
-	if err != nil {
-		fmt.Println("error decoding config2:", err)
-		return nil, err
-	}
+	// reader := bytes.NewReader(file.Content)
+	// image, _, err := image.Decode(reader)
+	// if err != nil {
+	// 	fmt.Println("error decoding config2:", err)
+	// 	return nil, err
+	// }
 
-	return image, nil
+	return nil, nil
 }
 
 func getFilenames(inputs map[string]interface{}) ([]string, error) {
