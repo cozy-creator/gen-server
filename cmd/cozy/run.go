@@ -105,19 +105,20 @@ func runApp(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
+	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
+
+	errc2 := make(chan error, 1)
 	select {
 	case err := <-errc:
 		fmt.Println("App error:", err)
-		return err
+		errc2 <- err
 	case <-signalc:
 		server.Stop(app.GetContext())
-		app.Close()
-		return nil
-	default:
-		signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
-		wg.Wait()
-		return nil
+		errc2 <- nil
 	}
+
+	wg.Wait()
+	return <-errc2
 }
 
 func createNewApp() (*app.App, error) {

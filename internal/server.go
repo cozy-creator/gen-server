@@ -71,6 +71,8 @@ func (s *Server) Stop(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
+	fmt.Println("Stopping server...")
+
 	if err := s.inner.Shutdown(ctx); err != nil {
 		return err
 	}
