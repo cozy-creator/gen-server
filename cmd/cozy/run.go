@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,13 +12,11 @@ import (
 	"github.com/cozy-creator/gen-server/internal"
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/services/filehandler"
 	"github.com/cozy-creator/gen-server/internal/worker"
 	"github.com/cozy-creator/gen-server/tools"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 var runCmd = &cobra.Command{
@@ -73,35 +70,32 @@ func bindFlags() {
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var wg sync.WaitGroup
+	errc := make(chan error, 3)
+	signalc := make(chan os.Signal, 1)
 
-	app, err := app.NewApp(ctx, config.GetConfig())
+	app, err := createNewApp()
 	if err != nil {
 		return err
 	}
 	defer app.Close()
 
-	var wg sync.WaitGroup
-	errc := make(chan error, 3)
-	signalc := make(chan os.Signal, 1)
+	wg.Add(2)
 
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		if err := runUploadWorker(app); err != nil {
-			errc <- err
+	server, err := runServer(app)
+	if err != nil {
+		if errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("Server stopped successfully")
 		}
-	}()
+
+		return err
+	}
 
 	go func() {
 		defer wg.Done()
 		if err := runPythonGenServer(app); err != nil {
 			errc <- err
 		}
-
-		fmt.Println("Python Gen Server stopped successfully")
 	}()
 
 	go func() {
@@ -109,26 +103,15 @@ func runApp(_ *cobra.Command, _ []string) error {
 		if err := runGenerationWorker(app); err != nil {
 			errc <- err
 		}
-
-		fmt.Println("Generation worker stopped successfully")
-	}()
-
-	go func() {
-		defer wg.Done()
-		if err := runServer(app, signalc); err != nil {
-			if errors.Is(err, http.ErrServerClosed) {
-				fmt.Println("Server stopped successfully")
-			}
-
-			errc <- err
-		}
 	}()
 
 	select {
 	case err := <-errc:
+		fmt.Println("App error:", err)
 		return err
 	case <-signalc:
-		cancel()
+		server.Stop(app.GetContext())
+		app.Close()
 		return nil
 	default:
 		signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
@@ -137,15 +120,17 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}
 }
 
-func runUploadWorker(app *app.App) error {
-	uploader, err := filehandler.GetFileHandler()
+func createNewApp() (*app.App, error) {
+	app, err := app.NewApp(config.GetConfig())
 	if err != nil {
-		app.Logger.Error("Failed to get uploader", zap.Error(err))
-		return err
+		return nil, err
 	}
 
-	worker.InitializeUploadWorker(uploader, 10)
-	return nil
+	if err := app.InitializeFileHandler(); err != nil {
+		return nil, err
+	}
+
+	return app, nil
 }
 
 func runPythonGenServer(app *app.App) error {
@@ -167,23 +152,24 @@ func runGenerationWorker(app *app.App) error {
 	return nil
 }
 
-func runServer(app *app.App, signalc chan os.Signal) error {
-	server := internal.NewServer(app)
-
-	if err := server.SetupEngine(); err != nil {
-		return err
+func runServer(app *app.App) (*internal.Server, error) {
+	server, err := internal.NewServer(app)
+	if err != nil {
+		return nil, err
 	}
 
-	// Setup a goroutine to handle server shutdown gracefully
+	// Setup the server routes
+	server.SetupRoutes()
+
+	errc := make(chan error, 1)
 	go func() {
-		<-signalc
-		server.Stop(app.GetContext())
+		errc <- server.Start()
 	}()
 
-	server.SetupRoutes()
-	if err := server.Start(); err != nil {
-		return err
+	select {
+	case err := <-errc:
+		return nil, err
+	default:
+		return server, nil
 	}
-
-	return nil
 }

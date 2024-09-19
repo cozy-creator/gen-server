@@ -41,8 +41,6 @@ type S3FileHandler struct {
 	client *s3.Client
 }
 
-var handler FileHandler
-
 func NewFileInfo(name string, extension string, content []byte, isTemp bool) FileInfo {
 	return FileInfo{
 		Name:      name,
@@ -52,27 +50,12 @@ func NewFileInfo(name string, extension string, content []byte, isTemp bool) Fil
 	}
 }
 
-func GetFileHandler() (FileHandler, error) {
-	if handler != nil {
-		return handler, nil
-	}
-
-	cfg := cozyConfig.GetConfig()
+func NewFileHandler(cfg *config.Config) (FileHandler, error) {
 	filesystem := strings.ToLower(cfg.Filesystem)
 	if filesystem == cozyConfig.FilesystemLocal {
-		handler, err := NewLocalFileHandler()
-		if err != nil {
-			return nil, err
-		}
-
-		return handler, nil
+		return NewLocalFileHandler()
 	} else if filesystem == cozyConfig.FilesystemS3 {
-		handler, err := NewS3FileHandler()
-		if err != nil {
-			return nil, err
-		}
-
-		return handler, nil
+		return NewS3FileHandler()
 	}
 
 	return nil, fmt.Errorf("invalid filesystem type %s", cfg.Filesystem)

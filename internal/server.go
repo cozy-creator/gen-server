@@ -17,24 +17,13 @@ import (
 type Server struct {
 	Port   int
 	Host   string
-	inner  *http.Server
 	engine *gin.Engine
-	app    *app.App
+	inner  *http.Server
 }
 
-func NewServer(app *app.App) *Server {
-	cfg := app.GetConfig()
-
-	return &Server{
-		Port: cfg.Port,
-		Host: cfg.Host,
-		app:  app,
-	}
-}
-
-func (s *Server) SetupEngine() error {
+func NewServer(app *app.App) (*Server, error) {
 	r := gin.New()
-	cfg := s.app.GetConfig()
+	cfg := app.GetConfig()
 
 	// Set gin mode
 	gin.SetMode(getGinMode(cfg.Environment))
@@ -61,30 +50,25 @@ func (s *Server) SetupEngine() error {
 	r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
 	r.Use(gin.Recovery())
 
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", s.Host, s.Port),
-		Handler: r,
-	}
-
-	s.inner = httpServer
-	s.engine = r
-
-	return nil
+	return &Server{
+		engine: r,
+		inner: &http.Server{
+			Handler: r,
+			Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		},
+	}, nil
 }
 
 func (s *Server) Start() (err error) {
-	if s.engine == nil {
-		return fmt.Errorf("engine is not initialized")
-	}
-
 	if err := s.inner.ListenAndServe(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	if err := s.inner.Shutdown(ctx); err != nil {
@@ -94,18 +78,12 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) GetEngine() *gin.Engine {
-	return s.engine
-}
-
 func getGinMode(env string) string {
 	switch env {
 	case "development":
 		return gin.DebugMode
 	case "test":
 		return gin.TestMode
-	case "production":
-		return gin.ReleaseMode
 	default:
 		return gin.ReleaseMode
 	}

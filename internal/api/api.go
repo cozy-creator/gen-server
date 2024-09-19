@@ -55,18 +55,20 @@ func UploadFile(c *gin.Context) (*types.HandlerResponse, error) {
 }
 
 func GetFile(c *gin.Context) (*types.HandlerResponse, error) {
-	filename := c.Param("filename")
-	handler, err := filehandler.GetFileHandler()
-	if err != nil {
-		return types.NewErrorResponse("failed to get handler: %w", err)
-	}
+	// filename := c.Param("filename")
+	// handler, err := filehandler.NewFileHandler()
+	// if err != nil {
+	// 	return types.NewErrorResponse("failed to get handler: %w", err)
+	// }
 
-	file, err := handler.ResolveFile(filename, "", false)
-	if err != nil {
-		return types.NewErrorResponse("failed to get file: %w", err)
-	}
+	// file, err := handler.ResolveFile(filename, "", false)
+	// if err != nil {
+	// 	return types.NewErrorResponse("failed to get file: %w", err)
+	// }
 
-	return types.NewFileResponse(file)
+	// return types.NewFileResponse(file)
+
+	return nil, nil
 }
 
 func GenerateImageSync(c *gin.Context) {

@@ -141,6 +141,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		for {
 			select {
 			case <-ctx.Done():
+				fmt.Println("Stopping Python Gen Server...")
 				cmd.Process.Kill()
 				return
 			default:
