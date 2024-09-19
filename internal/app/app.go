@@ -10,7 +10,7 @@ import (
 )
 
 type App struct {
-	mq          mq.MQueue
+	mq          mq.MQ
 	config      *config.Config
 	ctx         context.Context
 	cancelFunc  context.CancelFunc
@@ -44,8 +44,14 @@ func (app *App) GetContext() context.Context {
 	return app.ctx
 }
 
-func (app *App) SetMq(mq mq.MQueue) {
+func (app *App) InitializeMQ() error {
+	mq, err := mq.NewMQ(app.config)
+	if err != nil {
+		return err
+	}
+
 	app.mq = mq
+	return nil
 }
 
 func (app *App) InitializeFileHandler() error {

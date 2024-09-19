@@ -13,6 +13,10 @@ func (s *Server) SetupRoutes() {
 	// Not an API, just a simple file server
 	s.engine.GET("/file/:filename", wrapper(api.GetFile))
 
+	s.engine.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	apiV1 := s.engine.Group("/api/v1")
 	apiV1.POST("/upload", wrapper(api.UploadFile))
 	apiV1.POST("/generate", api.GenerateImageSync)

@@ -22,18 +22,20 @@ const (
 const cozyPrefix = "COZY"
 
 type Config struct {
-	Port          int       `mapstructure:"port"`
-	Host          string    `mapstructure:"host"`
-	TcpPort       int       `mapstructure:"tcp_port"`
-	CozyHome      string    `mapstructure:"cozy_home"`
-	TcpTimeout    int       `mapstructure:"tcp_timeout"`
-	Environment   string    `mapstructure:"environment"`
-	AssetsDir     string    `mapstructure:"assets_dir"`
-	ModelsDir     string    `mapstructure:"models_dir"`
-	TempDir       string    `mapstructure:"temp_dir"`
-	AuxModelsDirs []string  `mapstructure:"aux_models_dirs"`
-	Filesystem    string    `mapstructure:"filesystem_type"`
-	S3            *S3Config `mapstructure:"s3"`
+	Port          int           `mapstructure:"port"`
+	Host          string        `mapstructure:"host"`
+	TcpPort       int           `mapstructure:"tcp_port"`
+	CozyHome      string        `mapstructure:"cozy_home"`
+	TcpTimeout    int           `mapstructure:"tcp_timeout"`
+	Environment   string        `mapstructure:"environment"`
+	AssetsDir     string        `mapstructure:"assets_dir"`
+	ModelsDir     string        `mapstructure:"models_dir"`
+	TempDir       string        `mapstructure:"temp_dir"`
+	AuxModelsDirs []string      `mapstructure:"aux_models_dirs"`
+	Filesystem    string        `mapstructure:"filesystem_type"`
+	MQType        string        `mapstructure:"mq_type"`
+	S3            *S3Config     `mapstructure:"s3"`
+	Pulsar        *PulsarConfig `mapstructure:"pulsar"`
 }
 
 type S3Config struct {
@@ -43,6 +45,13 @@ type S3Config struct {
 	AccessKey string `mapstructure:"access_key"`
 	SecretKey string `mapstructure:"secret_key"`
 	PublicUrl string `mapstructure:"public_url"`
+}
+
+type PulsarConfig struct {
+	URL                    string `mapstructure:"url"`
+	OperationTimeout       int    `mapstructure:"operation_timeout"`
+	ConnectionTimeout      int    `mapstructure:"connection_timeout"`
+	MaxConcurrentConsumers int    `mapstructure:"max_concurrent_consumers"`
 }
 
 var config *Config

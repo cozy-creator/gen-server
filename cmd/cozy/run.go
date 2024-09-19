@@ -30,6 +30,7 @@ func initRunFlags() {
 	flags.Int("port", 9009, "Port to run the server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
+	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("environment", "development", "Environment configuration")
 	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
 	flags.String("aux-models-dirs", "", "Additional directories for model files")
@@ -53,6 +54,7 @@ func bindFlags() {
 	viper.BindPFlag("port", flags.Lookup("port"))
 	viper.BindPFlag("host", flags.Lookup("host"))
 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
+	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
 	viper.BindPFlag("environment", flags.Lookup("environment"))
 	viper.BindPFlag("models_path", flags.Lookup("models-path"))
 	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
@@ -110,7 +112,6 @@ func runApp(_ *cobra.Command, _ []string) error {
 	errc2 := make(chan error, 1)
 	select {
 	case err := <-errc:
-		fmt.Println("App error:", err)
 		errc2 <- err
 	case <-signalc:
 		server.Stop(app.GetContext())
@@ -128,6 +129,10 @@ func createNewApp() (*app.App, error) {
 	}
 
 	if err := app.InitializeFileHandler(); err != nil {
+		return nil, err
+	}
+
+	if err := app.InitializeMQ(); err != nil {
 		return nil, err
 	}
 
