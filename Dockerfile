@@ -73,10 +73,10 @@ RUN pip install ./python_packages/gen_server[performance] && \
     pip install ./python_packages/core_extension_1
 
 # Copy the web bundle we built in stage-1
-COPY --from=web-builder ./web/dist /srv/www/cozy/dist
+# COPY --from=web-builder ./web/dist /srv/www/cozy/dist
 
 # Copy the binary we built in stage-2
-# COPY --from=go-builder ./cozy-server /usr/local/bin/cozy-server
+COPY --from=go-builder ./cozy-server /usr/local/bin/cozy-server
 
 # Copy start script
 COPY scripts/start.sh .
