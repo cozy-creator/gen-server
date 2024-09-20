@@ -84,6 +84,6 @@ RUN chmod +x start.sh
 # remove any Windows line endings, just in case
 RUN sed -i 's/\r$//' /app/start.sh
 
-# EXPOSE 8888 8881
+EXPOSE 9009 9008
 
 CMD ["./start.sh"]
