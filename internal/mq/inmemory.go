@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -47,6 +48,7 @@ func (q *InMemoryMQ) Receive(ctx context.Context, topic string) ([]byte, error) 
 		case data, ok := <-ch:
 			if !ok {
 				q.topics.Delete(topic)
+				fmt.Println("closed...")
 				return nil, ErrTopicClosed
 			}
 			return data, nil
@@ -61,6 +63,7 @@ func (q *InMemoryMQ) CloseTopic(topic string) error {
 		return ErrTopicNotExists
 	}
 
+	fmt.Errorf("Closing topic %s", topic)
 	close(ch)
 	return nil
 }

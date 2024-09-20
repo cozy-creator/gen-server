@@ -6,6 +6,15 @@ import (
 	"go.uber.org/zap"
 )
 
+type Logger interface {
+	Info(msg string, fields ...interface{})
+	Error(msg string, fields ...interface{})
+	Warn(msg string, fields ...interface{})
+	Debug(msg string, fields ...any)
+	Fatal(msg string, fields ...interface{})
+	Panic(msg string, fields ...interface{})
+}
+
 var logger *zap.Logger
 
 func NewLoogger(cfg *config.Config) (*zap.Logger, error) {
