@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,10 +10,12 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cozy-creator/gen-server/internal"
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/worker"
+	"github.com/cozy-creator/gen-server/internal/mq"
+	"github.com/cozy-creator/gen-server/internal/server"
+	"github.com/cozy-creator/gen-server/internal/services/filestorage"
+	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/tools"
 
 	"github.com/spf13/cobra"
@@ -30,6 +33,7 @@ func initRunFlags() {
 	flags.Int("port", 9009, "Port to run the server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
+	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("environment", "development", "Environment configuration")
 	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
 	flags.String("aux-models-dirs", "", "Additional directories for model files")
@@ -53,6 +57,7 @@ func bindFlags() {
 	viper.BindPFlag("port", flags.Lookup("port"))
 	viper.BindPFlag("host", flags.Lookup("host"))
 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
+	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
 	viper.BindPFlag("environment", flags.Lookup("environment"))
 	viper.BindPFlag("models_path", flags.Lookup("models-path"))
 	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
@@ -80,6 +85,9 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}
 	defer app.Close()
 
+	cfg := app.Config()
+	ctx := app.Context()
+
 	wg.Add(2)
 
 	server, err := runServer(app)
@@ -93,31 +101,31 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := runPythonGenServer(app); err != nil {
+		if err := runPythonGenServer(ctx, cfg); err != nil {
 			errc <- err
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		if err := runGenerationWorker(app); err != nil {
+		if err := runGenerationWorker(ctx, cfg, app.MQ()); err != nil {
 			errc <- err
 		}
 	}()
 
+	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
+
+	errc2 := make(chan error, 1)
 	select {
 	case err := <-errc:
-		fmt.Println("App error:", err)
-		return err
+		errc2 <- err
 	case <-signalc:
-		server.Stop(app.GetContext())
-		app.Close()
-		return nil
-	default:
-		signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
-		wg.Wait()
-		return nil
+		server.Stop(ctx)
+		errc2 <- nil
 	}
+
+	wg.Wait()
+	return <-errc2
 }
 
 func createNewApp() (*app.App, error) {
@@ -126,17 +134,20 @@ func createNewApp() (*app.App, error) {
 		return nil, err
 	}
 
-	if err := app.InitializeFileHandler(); err != nil {
+	if err := app.InitializeMQ(); err != nil {
 		return nil, err
 	}
+
+	filestorage, err := filestorage.NewFileStorage(app.Config())
+	if err != nil {
+		return nil, err
+	}
+	app.InitializeUploadWorker(filestorage)
 
 	return app, nil
 }
 
-func runPythonGenServer(app *app.App) error {
-	ctx := app.GetContext()
-	cfg := app.GetConfig()
-
+func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
 	if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
 		return err
 	}
@@ -144,22 +155,22 @@ func runPythonGenServer(app *app.App) error {
 	return nil
 }
 
-func runGenerationWorker(app *app.App) error {
-	if err := worker.StartGeneration(app.GetContext()); err != nil {
+func runGenerationWorker(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
+	if err := generation.StartGenerationRequestProcessor(ctx, cfg, mq); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func runServer(app *app.App) (*internal.Server, error) {
-	server, err := internal.NewServer(app)
+func runServer(app *app.App) (*server.Server, error) {
+	server, err := server.NewServer(app.Config())
 	if err != nil {
 		return nil, err
 	}
 
 	// Setup the server routes
-	server.SetupRoutes()
+	server.SetupRoutes(app)
 
 	errc := make(chan error, 1)
 	go func() {

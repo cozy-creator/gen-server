@@ -5,16 +5,18 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/filehandler"
+	"github.com/cozy-creator/gen-server/internal/services/filestorage"
+	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	mq          mq.MQueue
-	config      *config.Config
-	ctx         context.Context
-	cancelFunc  context.CancelFunc
-	filehandler filehandler.FileHandler
+	config *config.Config
+
+	mq           mq.MQ
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+	fileuploader *fileuploader.Uploader
 
 	Logger *zap.Logger
 }
@@ -36,38 +38,42 @@ func NewApp(config *config.Config) (*App, error) {
 	}, nil
 }
 
-func (app *App) GetConfig() *config.Config {
-	return app.config
-}
-
-func (app *App) GetContext() context.Context {
-	return app.ctx
-}
-
-func (app *App) SetMq(mq mq.MQueue) {
-	app.mq = mq
-}
-
-func (app *App) InitializeFileHandler() error {
-	filehandler, err := filehandler.NewFileHandler(app.config)
+func (app *App) InitializeMQ() error {
+	mq, err := mq.NewMQ(app.config)
 	if err != nil {
 		return err
 	}
 
-	app.filehandler = filehandler
+	app.mq = mq
 	return nil
+}
+
+func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
+	app.fileuploader = fileuploader.NewFileUploader(filestorage, 10)
 }
 
 func (app *App) Close() {
 	app.cancelFunc()
-	// fmt.Println("App closed")
-
-	// err := app.ctx.Err()
-	// fmt.Println("App context error:", err)
 
 	if app.mq != nil {
 		app.mq.Close()
 	}
+}
+
+func (app *App) Config() *config.Config {
+	return app.config
+}
+
+func (app *App) Context() context.Context {
+	return app.ctx
+}
+
+func (app *App) MQ() mq.MQ {
+	return app.mq
+}
+
+func (app *App) Uploader() *fileuploader.Uploader {
+	return app.fileuploader
 }
 
 func initLogger(env string) (*zap.Logger, error) {

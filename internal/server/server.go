@@ -1,4 +1,4 @@
-package internal
+package server
 
 import (
 	"context"
@@ -6,8 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cozy-creator/gen-server/internal/app"
-
+	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
 	"github.com/gin-contrib/static"
@@ -15,15 +14,13 @@ import (
 )
 
 type Server struct {
-	Port   int
-	Host   string
-	engine *gin.Engine
-	inner  *http.Server
+	listenAddr string
+	ginEngine  *gin.Engine
+	inner      *http.Server
 }
 
-func NewServer(app *app.App) (*Server, error) {
+func NewServer(cfg *config.Config) (*Server, error) {
 	r := gin.New()
-	cfg := app.GetConfig()
 
 	// Set gin mode
 	gin.SetMode(getGinMode(cfg.Environment))
@@ -51,7 +48,7 @@ func NewServer(app *app.App) (*Server, error) {
 	r.Use(gin.Recovery())
 
 	return &Server{
-		engine: r,
+		ginEngine: r,
 		inner: &http.Server{
 			Handler: r,
 			Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
@@ -70,6 +67,8 @@ func (s *Server) Start() (err error) {
 func (s *Server) Stop(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
+
+	fmt.Println("Stopping server...")
 
 	if err := s.inner.Shutdown(ctx); err != nil {
 		return err

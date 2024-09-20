@@ -122,6 +122,7 @@ func ResolveGenServerPath(version string) (string, error) {
 }
 
 func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
+	ctx = context.WithoutCancel(ctx)
 	genServerPath, err := ResolveGenServerPath(version)
 	if err != nil {
 		return err
