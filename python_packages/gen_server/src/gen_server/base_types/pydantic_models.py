@@ -32,9 +32,9 @@ def get_default_home_dir():
     """
     Returns the default home directory for the Cozy Creator.
     """
-    cozy_home_dir = os.environ.get("COZY_HOME_DIR")
-    if cozy_home_dir:
-        return cozy_home_dir
+    cozy_home = os.environ.get("COZY_HOME")
+    if cozy_home:
+        return cozy_home
 
     xdg_data_home = os.environ.get("XDG_DATA_HOME")
     if xdg_data_home:
