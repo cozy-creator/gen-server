@@ -7,9 +7,9 @@ WORKDIR /app
 COPY web ./web
 
 # Build the web folder
-# RUN cd ./web && \
-#     npm install && \
-#     npm run build
+RUN cd ./web && \
+    npm install && \
+    npm run build
 
 
 # Stage 2: Build the Go binary
@@ -73,7 +73,7 @@ RUN pip install ./python_packages/gen_server[performance] && \
     pip install ./python_packages/core_extension_1
 
 # Copy the web bundle we built in stage-1
-# COPY --from=web-builder ./web/dist /srv/www/cozy/dist
+COPY --from=web-builder ./web/dist /srv/www/cozy/dist
 
 # Copy the binary we built in stage-2
 COPY --from=go-builder /app/cozy-server /usr/local/bin/cozy-server
