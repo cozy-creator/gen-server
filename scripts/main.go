@@ -1,12 +1,12 @@
-package main
+package scripts
 
 import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
-	"io"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -24,7 +24,7 @@ func getAPIKey() string {
 	return strings.TrimSpace(apiKey)
 }
 
-func main() {
+func run() {
 	apiKey := getAPIKey()
 
 	if apiKey == "" {

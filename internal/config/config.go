@@ -62,6 +62,10 @@ func InitConfig() error {
 		return err
 	}
 
+	if err = createCozyHomeDirs(cozyHome); err != nil {
+		return err
+	}
+
 	assetsDir, err := getAssetsDir(cozyHome)
 	if err != nil {
 		return err

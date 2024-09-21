@@ -1,6 +1,6 @@
 import React from 'react';
 import * as ReactDOM from 'react-dom/client';
-// import './index.css';
+import './index.css';
 import GraphEditor from '@cozy-creator/graph-editor';
 import "@cozy-creator/graph-editor/css";
 
