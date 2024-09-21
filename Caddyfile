@@ -16,7 +16,7 @@
 # 	}
 # }
 
-:5905 {
+http:// {
 	reverse_proxy {
 		to https://h4plsgignao9y5-9009.proxy.runpod.net:443
 
