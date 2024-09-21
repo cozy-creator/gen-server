@@ -8,7 +8,7 @@ COPY web ./web
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git wget unzip && apt-get clean && \
+    git wget unzip ca-certificates && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # temporarily download the dist folder from the web-builder stage as the build is currently broken
