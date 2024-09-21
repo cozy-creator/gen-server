@@ -6,9 +6,14 @@ WORKDIR /app
 # Copy the web folder
 COPY web ./web
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git wget unzip && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # temporarily download the dist folder from the web-builder stage as the build is currently broken
-RUN wget https://github.com/user-attachments/files/17084728/dist.zip -O /app/web/dist.zip \
-    && unzip /app/web/dist.zip -d /app/web/dist
+RUN wget https://github.com/user-attachments/files/17084728/dist.zip -O /app/web/dist.zip && \
+    unzip /app/web/dist.zip -d /app/web/dist
 
 # Build the web folder
 # RUN cd ./web && \
