@@ -44,7 +44,11 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	))
 
 	// Serve static files
-	r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
+	if cfg.Environment == "production" {
+		r.Use(static.Serve("/", static.LocalFile("/srv/www/cozy/dist", true)))
+	} else {
+		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
+	}
 	r.Use(gin.Recovery())
 
 	return &Server{
