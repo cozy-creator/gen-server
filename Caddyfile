@@ -1,7 +1,7 @@
 104.248.7.107.nip.io {
-	# tls {
-	# 	on_demand
-	# }
+	tls {
+		on_demand
+	}
 
 	reverse_proxy https://h4plsgignao9y5-9009.proxy.runpod.net:443 {
 		lb_policy first
