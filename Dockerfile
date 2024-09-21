@@ -6,10 +6,14 @@ WORKDIR /app
 # Copy the web folder
 COPY web ./web
 
+# temporarily download the dist folder from the web-builder stage as the build is currently broken
+RUN wget https://github.com/user-attachments/files/17084728/dist.zip -O /app/web/dist.zip \
+    && unzip /app/web/dist.zip -d /app/web/dist
+
 # Build the web folder
-RUN cd ./web && \
-    npm install && \
-    npm run build
+# RUN cd ./web && \
+#     npm install && \
+#     npm run build
 
 
 # Stage 2: Build the Go binary
