@@ -5,9 +5,9 @@ cozy.dev {
 
 	reverse_proxy https://h4plsgignao9y5-9009.proxy.runpod.net:443 {
 		lb_policy first
-
 		header_up X-Real-IP {remote}
-		header_up Host {upstream_hostport}
+		header_up X-Forwarded-Proto {scheme}
+		header_up Host {host}
 		header_up User-Agent "Caddy"
 	}
 
@@ -16,4 +16,8 @@ cozy.dev {
 		X-Frame-Options SAMEORIGIN
 		X-Content-Type-Options nosniff
 	}
+}
+
+http://cozy.dev {
+	redir https://cozy.dev{uri}
 }
