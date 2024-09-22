@@ -10,11 +10,7 @@
 		header_up Host {upstream_hostport}
 		header_up X-Forwarded-For {remote}
 		header_up X-Forwarded-Proto {scheme}
-		header_up User-Agent "CaddyReverseProxy"
-
-		# transport http {
-		# 	tls_insecure_skip_verify
-		# }
+		header_up User-Agent "Caddy"
 	}
 
 	encode gzip
