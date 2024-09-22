@@ -1,6 +1,6 @@
 cozy.dev {
 	tls {
-		on_demand
+		dns cloudflare
 	}
 
 	reverse_proxy https://h4plsgignao9y5-9009.proxy.runpod.net:443 {
