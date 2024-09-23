@@ -1,4 +1,4 @@
-:443 {
+:80 {
 	# tls {
 	# 	dns cloudflare {env.CF_DNS_TOKEN}
 	# }
@@ -7,7 +7,7 @@
 		lb_policy first
 		header_up X-Real-IP {remote}
 		header_up X-Forwarded-Proto {scheme}
-		header_up Host {host}
+		header_up Host {upstream_hostport}
 		header_up User-Agent "Caddy"
 	}
 
