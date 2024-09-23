@@ -1,23 +1,26 @@
-:80 {
-	# tls {
-	# 	dns cloudflare {env.CF_DNS_TOKEN}
-	# }
+{
+	debug
+}
 
+:80 {
 	reverse_proxy https://h4plsgignao9y5-9009.proxy.runpod.net:443 {
 		lb_policy first
+
 		header_up X-Real-IP {remote}
 		header_up X-Forwarded-Proto {scheme}
 		header_up Host {upstream_hostport}
-		header_up User-Agent "Caddy"
+
+		transport http {
+			tls_insecure_skip_verify
+		}
 	}
 
 	encode gzip
+
 	header {
 		X-Frame-Options SAMEORIGIN
 		X-Content-Type-Options nosniff
+		X-XSS-Protection "1; mode=block"
+		Cache-Control "no-store"
 	}
 }
-
-# http://cozy.dev {
-# 	redir https://cozy.dev{uri}
-# }
