@@ -1,7 +1,7 @@
-cozy.dev {
-	tls {
-		dns cloudflare {env.CF_DNS_TOKEN}
-	}
+:80 {
+	# tls {
+	# 	dns cloudflare {env.CF_DNS_TOKEN}
+	# }
 
 	reverse_proxy https://h4plsgignao9y5-9009.proxy.runpod.net:443 {
 		lb_policy first
@@ -18,6 +18,6 @@ cozy.dev {
 	}
 }
 
-http://cozy.dev {
-	redir https://cozy.dev{uri}
-}
+# http://cozy.dev {
+# 	redir https://cozy.dev{uri}
+# }
