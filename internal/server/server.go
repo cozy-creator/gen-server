@@ -1,34 +1,25 @@
-package internal
+package server
 
 import (
 	"context"
-	"cozy-creator/gen-server/internal/config"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 )
 
-type HTTPServer struct {
-	Port   int
-	Host   string
-	inner  *http.Server
-	engine *gin.Engine
+type Server struct {
+	listenAddr string
+	ginEngine  *gin.Engine
+	inner      *http.Server
 }
 
-func NewHTTPServer(cfg *config.Config) *HTTPServer {
-	return &HTTPServer{
-		Port: cfg.Port,
-		Host: cfg.Host,
-	}
-}
-
-func (s *HTTPServer) SetupEngine(cfg *config.Config) error {
+func NewServer(cfg *config.Config) (*Server, error) {
 	r := gin.New()
 
 	// Set gin mode
@@ -53,46 +44,41 @@ func (s *HTTPServer) SetupEngine(cfg *config.Config) error {
 	))
 
 	// Serve static files
-	r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
+	if cfg.Environment == "production" {
+		r.Use(static.Serve("/", static.LocalFile("/srv/www/cozy/dist", true)))
+	} else {
+		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
+	}
 	r.Use(gin.Recovery())
 
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", s.Host, s.Port),
-		Handler: r,
-	}
-
-	s.inner = httpServer
-	s.engine = r
-
-	return nil
+	return &Server{
+		ginEngine: r,
+		inner: &http.Server{
+			Handler: r,
+			Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		},
+	}, nil
 }
 
-func (s *HTTPServer) Start() (err error) {
-	if s.engine == nil {
-		return fmt.Errorf("engine is not initialized")
-	}
-
-	// err = s.engine.Run(fmt.Sprintf("%s:%d", s.Host, s.Port))
+func (s *Server) Start() (err error) {
 	if err := s.inner.ListenAndServe(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func (s *HTTPServer) Stop(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+func (s *Server) Stop(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	log.Println("Shutting down server...")
+	fmt.Println("Stopping server...")
+
 	if err := s.inner.Shutdown(ctx); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (s *HTTPServer) GetEngine() *gin.Engine {
-	return s.engine
 }
 
 func getGinMode(env string) string {
@@ -101,8 +87,6 @@ func getGinMode(env string) string {
 		return gin.DebugMode
 	case "test":
 		return gin.TestMode
-	case "production":
-		return gin.ReleaseMode
 	default:
 		return gin.ReleaseMode
 	}

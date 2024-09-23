@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/utils/pathutil"
 	"fmt"
 	"os"
+
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -37,6 +38,9 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+
+	// Initialize flags
+	initRunFlags()
 }
 
 func onCommandInit() {

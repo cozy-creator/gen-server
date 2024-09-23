@@ -3,16 +3,14 @@ package imagenode
 import (
 	"bytes"
 	"context"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/services/logger"
-	"cozy-creator/gen-server/internal/utils/hashutil"
-	"cozy-creator/gen-server/internal/worker"
 	"fmt"
 	"image"
 
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+
+	"github.com/cozy-creator/gen-server/pkg/logger"
 )
 
 type SaveImageInputs struct {
@@ -29,7 +27,7 @@ func SaveImage(ctx context.Context, input map[string]interface{}) (map[string]in
 	log := logger.GetLogger()
 	images := input["images"].([]image.Image)
 	format := input["format"].(string)
-	isTemp := input["is_temp"].(bool)
+	// isTemp := input["is_temp"].(bool)
 
 	var (
 		urls []string
@@ -54,19 +52,19 @@ func SaveImage(ctx context.Context, input map[string]interface{}) (map[string]in
 			return nil, err
 		}
 
-		extension := "." + format
-		contentBytes := content.Bytes()
-		contentHash := hashutil.Blake3Hash(contentBytes)
-		fileMeta := filehandler.FileInfo{
-			Name:      contentHash,
-			Extension: extension,
-			Content:   contentBytes,
-			IsTemp:    isTemp,
-		}
+		// extension := "." + format
+		// contentBytes := content.Bytes()
+		// contentHash := hashutil.Blake3Hash(contentBytes)
+		// _ := filehandler.FileInfo{
+		// 	Name:      contentHash,
+		// 	Extension: extension,
+		// 	Content:   contentBytes,
+		// 	IsTemp:    isTemp,
+		// }
 
 		response := make(chan string)
-		worker := worker.GetUploadWorker()
-		go worker.Upload(fileMeta, response)
+		// worker := worker.GetUploadWorker()
+		// go worker.Upload(fileMeta, response)
 
 		url := <-response
 		urls = append(urls, url)

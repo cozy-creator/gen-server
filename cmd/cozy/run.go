@@ -2,39 +2,38 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
-	"cozy-creator/gen-server/internal"
-	"cozy-creator/gen-server/internal/config"
-	"cozy-creator/gen-server/internal/services/filehandler"
-	"cozy-creator/gen-server/internal/worker"
-	"cozy-creator/gen-server/tools"
+	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/mq"
+	"github.com/cozy-creator/gen-server/internal/server"
+	"github.com/cozy-creator/gen-server/internal/services/filestorage"
+	"github.com/cozy-creator/gen-server/internal/services/generation"
+	"github.com/cozy-creator/gen-server/tools"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start the cozy gen-server",
-	RunE:  runServer,
+	RunE:  runApp,
 }
 
-func init() {
-	initFlags()
-}
-
-func initFlags() {
+func initRunFlags() {
 	flags := runCmd.Flags()
 	flags.Int("port", 9009, "Port to run the server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
+	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("environment", "development", "Environment configuration")
 	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
 	flags.String("aux-models-dirs", "", "Additional directories for model files")
@@ -58,6 +57,7 @@ func bindFlags() {
 	viper.BindPFlag("port", flags.Lookup("port"))
 	viper.BindPFlag("host", flags.Lookup("host"))
 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
+	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
 	viper.BindPFlag("environment", flags.Lookup("environment"))
 	viper.BindPFlag("models_path", flags.Lookup("models-path"))
 	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
@@ -74,106 +74,113 @@ func bindFlags() {
 	viper.BindPFlag("s3.public_url", flags.Lookup("s3-public-url"))
 }
 
-func runServer(_ *cobra.Command, _ []string) error {
-	cfg := config.GetConfig()
-	logger, err := initLogger(cfg.Environment)
-	if err != nil {
-		return fmt.Errorf("failed to initialize logger: %w", err)
-	}
-	defer logger.Sync()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func runApp(_ *cobra.Command, _ []string) error {
 	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
+	errc := make(chan error, 3)
+	signalc := make(chan os.Signal, 1)
 
-	server := internal.NewHTTPServer(cfg)
+	app, err := createNewApp()
+	if err != nil {
+		return err
+	}
+	defer app.Close()
 
-	wg.Add(4)
-	go runUploadWorker(&wg, errChan, logger)
-	go runPythonGenServer(ctx, &wg, errChan, cfg, logger)
-	go runGenerationWorker(ctx, &wg, errChan, logger)
-	go handleSignals(ctx, cancel, &wg, logger)
+	cfg := app.Config()
+	ctx := app.Context()
 
-	go runHTTPServer(server, errChan, logger)
+	wg.Add(2)
 
-	select {
-	case err := <-errChan:
-		cancel()
-		return fmt.Errorf("server error: %w", err)
-	case <-ctx.Done():
-		logger.Info("Shutting down gracefully...")
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownCancel()
-		if err := server.Stop(shutdownCtx); err != nil {
-			logger.Error("Error during server shutdown", zap.Error(err))
+	server, err := runServer(app)
+	if err != nil {
+		if errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("Server stopped successfully")
 		}
+
+		return err
+	}
+
+	go func() {
+		defer wg.Done()
+		if err := runPythonGenServer(ctx, cfg); err != nil {
+			errc <- err
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := runGenerationWorker(ctx, cfg, app.MQ()); err != nil {
+			errc <- err
+		}
+	}()
+
+	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
+
+	errc2 := make(chan error, 1)
+	select {
+	case err := <-errc:
+		errc2 <- err
+	case <-signalc:
+		server.Stop(ctx)
+		errc2 <- nil
 	}
 
 	wg.Wait()
+	return <-errc2
+}
+
+func createNewApp() (*app.App, error) {
+	app, err := app.NewApp(config.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := app.InitializeMQ(); err != nil {
+		return nil, err
+	}
+
+	filestorage, err := filestorage.NewFileStorage(app.Config())
+	if err != nil {
+		return nil, err
+	}
+	app.InitializeUploadWorker(filestorage)
+
+	return app, nil
+}
+
+func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
+	if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func initLogger(env string) (*zap.Logger, error) {
-	if env == "production" {
-		return zap.NewProduction()
+func runGenerationWorker(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
+	if err := generation.StartGenerationRequestProcessor(ctx, cfg, mq); err != nil {
+		return err
 	}
-	return zap.NewDevelopment()
+
+	return nil
 }
 
-func runUploadWorker(wg *sync.WaitGroup, errChan chan<- error, logger *zap.Logger) {
-	defer wg.Done()
-	uploader, err := filehandler.GetFileHandler()
+func runServer(app *app.App) (*server.Server, error) {
+	server, err := server.NewServer(app.Config())
 	if err != nil {
-		logger.Error("Failed to get uploader", zap.Error(err))
-		errChan <- fmt.Errorf("error getting uploader: %w", err)
-		return
+		return nil, err
 	}
-	worker.InitializeUploadWorker(uploader, 10)
-	logger.Info("Upload worker started")
-}
 
-func runPythonGenServer(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error, cfg *config.Config, logger *zap.Logger) {
-	defer wg.Done()
-	if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
-		logger.Error("Failed to start Python Gen Server", zap.Error(err))
-		errChan <- fmt.Errorf("error starting Python Gen Server: %w", err)
-	}
-}
+	// Setup the server routes
+	server.SetupRoutes(app)
 
-func runGenerationWorker(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error, logger *zap.Logger) {
-	defer wg.Done()
-	if err := worker.StartGeneration(ctx); err != nil {
-		logger.Error("Failed to start generation worker", zap.Error(err))
-		errChan <- fmt.Errorf("error starting generation worker: %w", err)
-	}
-}
-
-func handleSignals(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, logger *zap.Logger) {
-	defer wg.Done()
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- server.Start()
+	}()
 
 	select {
-	case <-signalChan:
-		logger.Info("Received shutdown signal")
-		cancel()
-	case <-ctx.Done():
-	}
-}
-
-func runHTTPServer(server *internal.HTTPServer, errChan chan<- error, logger *zap.Logger) {
-	cfg := config.GetConfig()
-	if err := server.SetupEngine(cfg); err != nil {
-		logger.Error("Failed to set up server engine", zap.Error(err))
-		errChan <- fmt.Errorf("error setting up engine: %w", err)
-		return
-	}
-
-	server.SetupRoutes()
-	if err := server.Start(); err != nil {
-		logger.Error("Server error", zap.Error(err))
-		errChan <- fmt.Errorf("server error: %w", err)
+	case err := <-errc:
+		return nil, err
+	default:
+		return server, nil
 	}
 }

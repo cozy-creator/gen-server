@@ -1,10 +1,19 @@
 package logger
 
 import (
-	"cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/config"
 
 	"go.uber.org/zap"
 )
+
+type Logger interface {
+	Info(msg string, fields ...interface{})
+	Error(msg string, fields ...interface{})
+	Warn(msg string, fields ...interface{})
+	Debug(msg string, fields ...any)
+	Fatal(msg string, fields ...interface{})
+	Panic(msg string, fields ...interface{})
+}
 
 var logger *zap.Logger
 

@@ -30,12 +30,14 @@ type GenerateParams struct {
 	AspectRatio    string         `json:"aspect_ratio"`
 	PositivePrompt string         `json:"positive_prompt"`
 	NegativePrompt string         `json:"negative_prompt"`
+	WebhookUrl     string         `json:"webhook_url"`
 	OutputFormat   string         `json:"output_format"`
 }
 
 type RequestGenerateParams struct {
-	RequestId      string         `json:"request_id"`
 	GenerateParams GenerateParams `json:"params"`
+	RequestId      string         `json:"request_id"`
+	OutputFormat   string         `json:"output_format,omitempty"`
 }
 
 func NewJSONResponse(data interface{}) (*HandlerResponse, error) {
