@@ -7,7 +7,6 @@
 		lb_policy first
 
 		header_up X-Real-IP {remote}
-		header_up X-Forwarded-Proto {scheme}
 		header_up Host {upstream_hostport}
 
 		transport http {
