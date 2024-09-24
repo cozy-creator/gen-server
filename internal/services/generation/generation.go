@@ -27,10 +27,6 @@ func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq
 			return err
 		}
 
-		if message == nil {
-			continue
-		}
-
 		request, err := parseRequestData(message)
 		if err != nil {
 			continue

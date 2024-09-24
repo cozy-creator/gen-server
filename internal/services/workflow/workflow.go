@@ -1,10 +1,11 @@
-package executor
+package workflow
 
 import (
 	"context"
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type Workflow struct {
@@ -69,6 +70,19 @@ func (e *WorkflowExecutor) initializeOutputs() {
 			}
 		}
 	}
+}
+
+func (e *WorkflowExecutor) ExecuteAsync(ctx context.Context) <-chan error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	errc := make(chan error, 1)
+	go func() {
+		errc <- e.Execute(ctx)
+	}()
+
+	
+	return errc
 }
 
 func (e *WorkflowExecutor) Execute(ctx context.Context) error {

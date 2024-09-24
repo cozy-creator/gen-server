@@ -18,7 +18,9 @@ func (s *Server) SetupRoutes(app *app.App) {
 	s.ginEngine.GET("/file/:filename", routeWrapper(app, api.GetFile))
 
 	apiV1 := s.ginEngine.Group("/api/v1")
+
 	apiV1.POST("/upload", routeWrapper(app, api.UploadFile))
+	apiV1.POST("/execute", routeWrapper(app, api.ExecuteWorkflow))
 	apiV1.POST("/generate", routeWrapper(app, api.GenerateImageSync))
 	apiV1.POST("/generate_async", routeWrapper(app, api.GenerateImageAsync))
 }
