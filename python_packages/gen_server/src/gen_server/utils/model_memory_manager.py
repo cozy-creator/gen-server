@@ -17,8 +17,17 @@ from huggingface_hub.file_download import repo_folder_name
 from ..utils.utils import serialize_config
 from diffusers import FluxInpaintPipeline
 import gc
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+
+class GPUTier(Enum):
+    LOW = 1     # 2-4 GB VRAM
+    MEDIUM = 2  # 6-8 GB VRAM
+    HIGH = 3    # 12-16 GB VRAM
+    VERY_HIGH = 4  # 24+ GB VRAM
 
 
 class ModelMemoryManager:
@@ -27,6 +36,96 @@ class ModelMemoryManager:
         self.loaded_model: Optional[DiffusionPipeline] = None
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
+        self.gpu_tier = self._determine_gpu_tier()
+
+
+    def _determine_gpu_tier(self) -> GPUTier:
+        if torch.cuda.is_available():
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if vram_gb >= 24:
+                return GPUTier.VERY_HIGH
+            elif vram_gb >= 12:
+                return GPUTier.HIGH
+            elif vram_gb >= 6:
+                return GPUTier.MEDIUM
+            # Check if the GPU is an Apple Silicon GPU
+            elif torch.backends.mps.is_available():
+                return GPUTier.HIGH
+
+        return GPUTier.LOW
+    
+
+    def _get_model_size(self, model_config: dict[str, Any]) -> int:
+        total_size = 0
+        repo_id = model_config["source"].replace("hf:", "")
+        
+        def get_size_for_repo(repo_id: str, component_name: Optional[str] = None) -> int:
+            size = 0
+            storage_folder = os.path.join(self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model"))
+            if not os.path.exists(storage_folder):
+                logger.warning(f"Storage folder for {repo_id} not found.")
+                return 0
+
+            refs_path = os.path.join(storage_folder, "refs", "main")
+            if not os.path.exists(refs_path):
+                logger.warning(f"No commit hash found for {repo_id}")
+                return 0
+
+            with open(refs_path, "r") as f:
+                commit_hash = f.read().strip()
+
+            snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+            if component_name:
+                snapshot_folder = os.path.join(snapshot_folder, component_name)
+
+            variants = ["bf16", "fp8", "fp16", ""]  # Empty string for default variant
+            
+            def check_variant_files(folder: str, variant: str) -> bool:
+                for root, _, files in os.walk(folder):
+                    for file in files:
+                        if file.endswith(f"{variant}.safetensors") or \
+                        file.endswith(f"{variant}.bin") or \
+                        (variant == "" and (file.endswith(".safetensors") or file.endswith(".bin") or file.endswith(".ckpt"))):
+                            return True
+                return False
+
+            selected_variant = next((v for v in variants if check_variant_files(snapshot_folder, v)), None)
+            
+            if selected_variant is not None:
+                for root, _, files in os.walk(snapshot_folder):
+                    for file in files:
+                        if (selected_variant and (file.endswith(f"{selected_variant}.safetensors") or file.endswith(f"{selected_variant}.bin"))) or \
+                        (selected_variant == "" and (file.endswith(".safetensors") or file.endswith(".bin") or file.endswith(".ckpt"))):
+                            size += os.path.getsize(os.path.join(root, file))
+
+            return size
+
+        # Calculate size of the main model
+        total_size += get_size_for_repo(repo_id)
+
+        # Calculate size of replacement components
+        if "components" in model_config and model_config["components"]:
+            for _, component in model_config["components"].items():
+                if isinstance(component, dict) and "source" in component:
+                    if "source" in component and isinstance(component["source"], str):
+                        # Diffusers format
+                        if not component["source"].endswith(
+                            (".safetensors", ".bin", ".ckpt", ".pt")
+                        ):
+                            # Split the source by '/' and get the last element
+                            component_name = component["source"].split("/")[-1]
+
+                            # Component repo is the source without the last element, join it with '/'
+                            component_repo = "/".join(
+                                component["source"].split("/")[:-1]
+                            ).replace("hf:", "")
+                    
+                    component_size = get_size_for_repo(component_repo, component_name)
+                    total_size += component_size
+                    # Subtract the size of the replaced component from the main model
+                    total_size -= get_size_for_repo(repo_id, component_name)
+
+        return total_size
 
     async def load(
         self, model_id: str, gpu: Optional[int] = None, type: Optional[str] = None
@@ -34,7 +133,7 @@ class ModelMemoryManager:
         print(f"Loading model {model_id}")
         if model_id == self.current_model and self.loaded_model is not None:
             logger.info(f"Model {model_id} is already loaded.")
-            return self.loaded_model
+            return self.loaded_model, False
         
         self.flush_memory()
 
