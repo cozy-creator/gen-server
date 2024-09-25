@@ -102,7 +102,6 @@ def startup_extensions():
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
     )
 
-
 def main():
     run_parser = argparse.ArgumentParser(description="Cozy Creator")
     config = init_config(run_parser, parse_known_args_wrapper)

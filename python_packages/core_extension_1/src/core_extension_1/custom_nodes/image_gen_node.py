@@ -175,9 +175,11 @@ class ImageGenNode(CustomNode):
 
             # Already handled by the method
             self.handle_lora(pipeline, lora_info)
+            print("DONE HANDLING LORA")
 
             controlnet_inputs = []
             if controlnet_model_ids:
+                print(f"Controlnet model ids: {controlnet_model_ids}")
                 controlnets = []
                 for model_id in controlnet_model_ids:
                     if "openpose" in model_id.lower():
@@ -212,7 +214,14 @@ class ImageGenNode(CustomNode):
             if ip_adapter_embeds is not None:
                 self.setup_ip_adapter(pipeline, model_config["category"])
 
-            self.model_memory_manager.apply_optimizations(pipeline)
+                print("DONE SETTING UP IP ADAPTER")
+
+
+            # Apply optimizations
+            force_full_optimization = num_images > 1  
+            self.model_memory_manager.apply_optimizations(pipeline, force_full_optimization)
+            print(f"{'Full' if force_full_optimization else 'Standard'} optimizations applied")
+                
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 

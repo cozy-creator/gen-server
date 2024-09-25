@@ -682,25 +682,26 @@ async def generate_images_unified(
                 controlnet_model_ids = []
                 openpose_image = None
                 depth_map = None
-                for controlnet_info in controlnet_info_list:
-                    controlnet_model_ids.append(controlnet_info["model_id"])
-                    control_image = controlnet_info["control_image"]
-                    feature_type = controlnet_info["feature_type"]
-                    
-                    # Generate control image
-                    control_result = controlnet_feature_detector(
-                        image=control_image,
-                        feature_type=feature_type,
-                        threshold1=controlnet_info.get("threshold1", 100),
-                        threshold2=controlnet_info.get("threshold2", 200)
-                    )
-                    processed_control_image = control_result["control_image"]
-                    
-                    # Assign the processed image to the correct variable based on feature type
-                    if feature_type.lower() == "openpose":
-                        openpose_image = processed_control_image
-                    elif feature_type.lower() in ["canny", "depth"]:  # Assuming depth uses the same slot as canny
-                        depth_map = processed_control_image
+                if controlnet_info_list:
+                    for controlnet_info in controlnet_info_list:
+                        controlnet_model_ids.append(controlnet_info["model_id"])
+                        control_image = controlnet_info["control_image"]
+                        feature_type = controlnet_info["feature_type"]
+                        
+                        # Generate control image
+                        control_result = controlnet_feature_detector(
+                            image=control_image,
+                            feature_type=feature_type,
+                            threshold1=controlnet_info.get("threshold1", 100),
+                            threshold2=controlnet_info.get("threshold2", 200)
+                        )
+                        processed_control_image = control_result["control_image"]
+                        
+                        # Assign the processed image to the correct variable based on feature type
+                        if feature_type.lower() == "openpose":
+                            openpose_image = processed_control_image
+                        elif feature_type.lower() in ["canny", "depth"]:  # Assuming depth uses the same slot as canny
+                            depth_map = processed_control_image
 
                 # Run the ImageGenNode
                 result = await image_gen_node(
@@ -718,6 +719,8 @@ async def generate_images_unified(
                 )
 
                 images = result["images"]
+
+                print("Done!")
 
                 if cancel_event is not None and cancel_event.is_set():
                     raise asyncio.CancelledError("Operation was cancelled.")

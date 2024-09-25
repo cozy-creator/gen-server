@@ -419,3 +419,6 @@ if __name__ == "__main__":
     #         prompt=args.prompt,
     #         num_images=args.num_images
     #     ))
+
+# command for testing generate_images_unified
+# python test_entrypoints.py generate --positive_prompt="a beautiful landscape with a river and mountains" --negative_prompt="no animals" --models="{\"stabilityai/stable-diffusion-xl-base-1.0\": 1}" --random_seed=123456 --aspect_ratio="1/1" --lora_path="lora_path" --model_scale=1.0 --text_encoder_scale=1.0 --text_encoder_2_scale=1.0 --adapter_name="adapter_name" --controlnet_configs="[{\"model_id\": \"controlnet_model_id\", \"image_path\": \"image_path\", \"feature_type\": \"canny\", \"threshold1\": 100, \"threshold2\": 200}]" --ip_adapter_image_path="ip_adapter_image_path"

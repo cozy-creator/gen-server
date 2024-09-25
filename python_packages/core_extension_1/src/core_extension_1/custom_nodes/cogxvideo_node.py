@@ -23,7 +23,7 @@ class CogVideoXNode(CustomNode):
         output_path: Optional[str] = None,
     ) -> List[torch.Tensor]:
         try:
-            pipeline, should_optimize = await self.model_memory_manager.load(model_id, None)
+            pipeline = await self.model_memory_manager.load(model_id, None)
 
             if pipeline is None:
                 raise ValueError(f"Failed to load model {model_id}")
@@ -31,8 +31,7 @@ class CogVideoXNode(CustomNode):
             if not isinstance(pipeline, CogVideoXPipeline):
                 raise ValueError(f"Model {model_id} is not a CogVideoXPipeline")
 
-            if should_optimize:
-                self.model_memory_manager.apply_optimizations(pipeline)
+            self.model_memory_manager.apply_optimizations(pipeline)
 
             video_frames = pipeline(
                 prompt=prompt,

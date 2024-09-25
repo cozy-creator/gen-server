@@ -23,11 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 
-class GPUTier(Enum):
-    LOW = 1     # 2-4 GB VRAM
-    MEDIUM = 2  # 6-8 GB VRAM
-    HIGH = 3    # 12-16 GB VRAM
-    VERY_HIGH = 4  # 24+ GB VRAM
+# safety margin (in GB)
+VRAM_SAFETY_MARGIN_GB = 2.0
 
 
 class ModelMemoryManager:
@@ -36,24 +33,14 @@ class ModelMemoryManager:
         self.loaded_model: Optional[DiffusionPipeline] = None
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
-        self.gpu_tier = self._determine_gpu_tier()
 
 
-    def _determine_gpu_tier(self) -> GPUTier:
+    def _get_available_vram(self) -> int:
         if torch.cuda.is_available():
-            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            if vram_gb >= 24:
-                return GPUTier.VERY_HIGH
-            elif vram_gb >= 12:
-                return GPUTier.HIGH
-            elif vram_gb >= 6:
-                return GPUTier.MEDIUM
-            # Check if the GPU is an Apple Silicon GPU
-            elif torch.backends.mps.is_available():
-                return GPUTier.HIGH
-
-        return GPUTier.LOW
-    
+            return torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()
+        elif torch.backends.mps.is_available():
+            return 0  # MPS doesn't provide VRAM info, so we'll assume it needs optimization
+        return 0
 
     def _get_model_size(self, model_config: dict[str, Any]) -> int:
         total_size = 0
@@ -133,7 +120,7 @@ class ModelMemoryManager:
         print(f"Loading model {model_id}")
         if model_id == self.current_model and self.loaded_model is not None:
             logger.info(f"Model {model_id} is already loaded.")
-            return self.loaded_model, False
+            return self.loaded_model
         
         self.flush_memory()
 
@@ -149,6 +136,7 @@ class ModelMemoryManager:
         if not model_config:
             logger.error(f"Model {model_id} not found in configuration.")
             return None
+        
 
         repo_id = model_config["source"].replace("hf:", "")
 
@@ -385,42 +373,36 @@ class ModelMemoryManager:
 
         return architecture.model
 
-    def apply_optimizations(self, pipeline: DiffusionPipeline):
+    def apply_optimizations(self, pipeline: DiffusionPipeline, force_full_optimization: bool = False):
         device = get_available_torch_device()
+        config = get_config()
+        config = serialize_config(config)
+
+        model_config = config["enabled_models"][self.current_model]
+
+        model_size_gb = self._get_model_size(model_config) / (1024**3)
+        available_vram_gb = self._get_available_vram() / (1024**3) - VRAM_SAFETY_MARGIN_GB
+        print(f"Model size: {model_size_gb} GB, Available VRAM: {available_vram_gb} GB")
+
+
         optimizations = [
             ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
-            (
-                "enable_xformers_memory_efficient_attention",
-                "Memory Efficient Attention",
-                {},
-            ),
-            (
-                "enable_model_cpu_offload",
-                "CPU Offloading",
-                {"device": device},
-            ),
         ]
 
-        # Check if pipeline is a FluxPipeline so as to not use Xformers optimizations
-        if pipeline.__class__.__name__ in ["FluxPipeline", "FluxInpaintPipeline"]:
-            optimizations.remove(
-                (
-                    "enable_xformers_memory_efficient_attention",
-                    "Memory Efficient Attention",
-                    {},
-                )
+        if pipeline.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
+            optimizations.append(
+                ("enable_xformers_memory_efficient_attention", "Memory Efficient Attention", {})
             )
 
-        # Patch torch.mps to torch.backends.mps
+        if force_full_optimization or model_size_gb > available_vram_gb:
+            optimizations.append(
+                ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
+            )
+
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
-
-        if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 16:
-            print(f"VRAM is greater than 16gb. Not enabling optimizations")
-            pipeline.to("cuda")
-            return
 
         for opt_func, opt_name, kwargs in optimizations:
             try:
@@ -431,6 +413,9 @@ class ModelMemoryManager:
 
         if device_type == "mps":
             delattr(torch, "mps")
+
+        if not force_full_optimization and model_size_gb <= available_vram_gb:
+            pipeline.to(device)
 
     def flush_memory(self):
         if torch.cuda.is_available():
