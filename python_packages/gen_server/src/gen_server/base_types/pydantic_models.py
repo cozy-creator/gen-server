@@ -17,6 +17,7 @@ class ModelConfig(BaseModel):
     source: str
     arch: Optional[str] = None
     components: Optional[dict[str, "ModelConfig"]] = None
+    type: Optional[str] = None
 
     @field_validator("components")
     def validate_components(cls, v: Any) -> Optional[dict[str, "ModelConfig"]]:

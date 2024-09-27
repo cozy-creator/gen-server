@@ -1,6 +1,7 @@
 import torch
 from typing import Optional, Any
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers.loaders import FromSingleFileMixin
 from ..globals import (
     get_hf_model_manager,
     get_architectures,
@@ -15,7 +16,7 @@ import os
 from huggingface_hub.file_download import repo_folder_name
 # from optimum.quanto import freeze, qfloat8, quantize
 from ..utils.utils import serialize_config
-from diffusers import FluxInpaintPipeline
+from diffusers import FluxInpaintPipeline, StableDiffusionPipeline, StableDiffusionXLPipeline, FluxPipeline
 import gc
 from enum import Enum
 
@@ -25,6 +26,22 @@ logger = logging.getLogger(__name__)
 
 # safety margin (in GB)
 VRAM_SAFETY_MARGIN_GB = 2.0
+
+# Define model type constants
+MODEL_COMPONENTS = {
+    "flux": ["vae", "transformer", "text_encoder", "text_encoder_2", "scheduler", "tokenizer", "tokenizer_2"],
+    "sdxl": ["vae", "unet", "text_encoder", "text_encoder_2", "scheduler", "tokenizer", "tokenizer_2"],
+    "sd": ["vae", "unet", "text_encoder", "scheduler", "tokenizer"],
+    # Add other model types as needed
+}
+
+# Define pipeline mapping
+PIPELINE_MAPPING = {
+    "sdxl": StableDiffusionXLPipeline,
+    "sd": StableDiffusionPipeline,
+    "flux": FluxPipeline,
+    # Add other mappings as needed
+}
 
 
 class ModelMemoryManager:
@@ -44,6 +61,11 @@ class ModelMemoryManager:
 
     def _get_model_size(self, model_config: dict[str, Any]) -> int:
         total_size = 0
+
+        # Check if the model is a single file model by checking if the string is ct or fd
+        if "ct:" in model_config["source"] or "fd:" in model_config["source"]:
+            return os.path.getsize(model_config["source"].replace("ct:", "").replace("fd:", ""))
+        
         repo_id = model_config["source"].replace("hf:", "")
         
         def get_size_for_repo(repo_id: str, component_name: Optional[str] = None) -> int:
@@ -86,6 +108,7 @@ class ModelMemoryManager:
                             size += os.path.getsize(os.path.join(root, file))
 
             return size
+        
 
         # Calculate size of the main model
         total_size += get_size_for_repo(repo_id)
@@ -137,18 +160,50 @@ class ModelMemoryManager:
             logger.error(f"Model {model_id} not found in configuration.")
             return None
         
+        source = model_config["source"]
+        prefix, path = source.split(":", 1)
 
-        repo_id = model_config["source"].replace("hf:", "")
+        print(f"Model config: {model_config}")
 
-        category = model_config.get("category", None)
+        type = model_config["type"]
 
-        is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
-        if not is_downloaded:
-            logger.info(
-                f"Model {model_id} not downloaded. Please ensure the model is downloaded first."
-            )
+        # repo_id = model_config["source"].replace("hf:", "")
+
+        # category = model_config.get("category", None)
+
+        if prefix == "hf":
+            is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
+            if not is_downloaded:
+                logger.info(
+                    f"Model {model_id} not downloaded. Please ensure the model is downloaded first."
+                )
+                return None
+        else:
+            path = os.path.join(get_config().models_path, path)
+            if not os.path.exists(path):
+                logger.error(f"Model file not found: {path}")
+                return None
+        
+        if prefix == "hf":
+            return await self.load_huggingface_model(model_id, path, gpu, type, variant, model_config)
+        elif prefix in ["fd", "ct"]:
+            return await self.load_single_file_model(model_id, path, prefix, gpu, type)
+        else:
+            logger.error(f"Unsupported model source prefix: {prefix}")
             return None
 
+        
+    async def load_huggingface_model(
+            self, 
+            model_id: str, 
+            repo_id: str, 
+            gpu: Optional[int] = None, 
+            type: Optional[str] = None,
+            variant: Optional[str] = None,
+            model_config: Optional[dict[str, Any]] = None,
+            category: Optional[str] = None,
+        ) -> Optional[DiffusionPipeline]:
+        
         try:
             pipeline_kwargs = {}
             if "components" in model_config and model_config["components"]:
@@ -217,6 +272,73 @@ class ModelMemoryManager:
             logger.error(f"Failed to load model {model_id}: {str(e)}")
             return None
 
+
+    async def load_single_file_model(self, model_id: str, path: str, prefix: str, gpu: Optional[int] = None, type: Optional[str] = None) -> Optional[DiffusionPipeline]:
+        
+        print(f"\n\n === Loading single file model {model_id} === \n\n")
+
+        if type is None:
+            logger.error(f"Model type must be specified for single file models.")
+            return None
+
+        pipeline_class = PIPELINE_MAPPING.get(type)
+        if not pipeline_class:
+            logger.error(f"Unsupported model type: {type}")
+            return None
+
+        if prefix == "ct":
+            # check if the file is an http or https link is so, get just the file name which is the last element after the last '/'
+            if "http" in path or "https" in path:
+                path = path.split("/")[-1]
+            
+            # For now, we'll assume the file is already downloaded
+            path = os.path.join(get_config().models_path, path)
+
+        if not os.path.exists(path):
+            logger.error(f"Model file not found: {path}")
+            return None
+
+        if issubclass(pipeline_class, FromSingleFileMixin):
+            try:
+                pipeline = pipeline_class.from_single_file(path, torch_dtype=torch.bfloat16 if "flux" in model_id.lower() else torch.float16)
+                self.loaded_model = pipeline
+                self.current_model = model_id
+                return pipeline
+            except Exception as e:
+                logger.error(f"Error loading model using from_single_file: {str(e)}")
+                # Fall back to custom architecture loading
+        
+        # Custom architecture loading
+        try:
+            state_dict = load_state_dict_from_file(path)
+            pipeline = pipeline_class()
+            
+            for component_name in MODEL_COMPONENTS[type]:
+                if component_name in ["scheduler", "tokenizer", "tokenizer_2"]:
+                    # These components are not in the state dict. Should I handle here or in the architecture?
+                    continue
+                
+                arch_key = f"core_extension_1.{type}_{component_name}"
+                architecture_class = get_architectures().get(arch_key)
+                
+                if not architecture_class:
+                    logger.error(f"Architecture not found for {arch_key}")
+                    continue
+                
+                architecture = architecture_class()
+                architecture.load(state_dict)
+                
+                setattr(pipeline, component_name, architecture.model)
+            
+            self.loaded_model = pipeline
+            self.current_model = model_id
+            return pipeline
+        except Exception as e:
+            logger.error(f"Error loading model using custom architecture: {str(e)}")
+            return None
+        
+    
+
     async def _load_diffusers_component(
         self, repo_id: str, component_repo: str, component_name: str
     ) -> Any:
@@ -246,9 +368,9 @@ class ModelMemoryManager:
                 quantized_model_list = ["FluxTransformer2DModel", "T5EncoderModel"]
 
 
-                # Check if the VRAM is greater than 16gb before quantizing. If it is greater than 16gb, we do not quantize.
-                if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 16:
-                    logger.info(f"VRAM is greater than 16gb. Not quantizing.")
+                # Check if the VRAM is greater than 24gb before quantizing. If it is greater than 24gb, we do not quantize.
+                if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 24:
+                    logger.info(f"VRAM is greater than 24gb. Not quantizing.")
                 elif class_name in quantized_model_list:
                     quantized_class_name = (
                         "QuantizedFluxTransformer2DModel"
