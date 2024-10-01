@@ -36,6 +36,7 @@ type Config struct {
 	MQType        string        `mapstructure:"mq_type"`
 	S3            *S3Config     `mapstructure:"s3"`
 	Pulsar        *PulsarConfig `mapstructure:"pulsar"`
+	DB            *DBConfig     `mapstructure:"db"`
 }
 
 type S3Config struct {
@@ -52,6 +53,11 @@ type PulsarConfig struct {
 	OperationTimeout       int    `mapstructure:"operation_timeout"`
 	ConnectionTimeout      int    `mapstructure:"connection_timeout"`
 	MaxConcurrentConsumers int    `mapstructure:"max_concurrent_consumers"`
+}
+
+type DBConfig struct {
+	Driver string `mapstructure:"driver"`
+	DSN    string `mapstructure:"dsn"`
 }
 
 var config *Config

@@ -40,7 +40,12 @@ func initRunFlags() {
 	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
 	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
 	flags.String("enabled-models", "", "Models to be downloaded and made available")
+
+	flags.String("db-driver", "sqlite3", "Database driver")
+	flags.String("db-dsn", ":memory:", "Database DSN (Connection URL or Path)")
+
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
+
 	flags.String("s3-access-key", "", "S3 access key")
 	flags.String("s3-secret-key", "", "S3 secret key")
 	flags.String("s3-region-name", "", "S3 region name")
@@ -65,6 +70,10 @@ func bindFlags() {
 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 	viper.BindPFlag("aux_models_paths", flags.Lookup("aux-models-paths"))
 
+	// Database
+	viper.BindPFlag("db.driver", flags.Lookup("db-driver"))
+	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
+
 	// S3 Credentials
 	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
 	viper.BindPFlag("s3.secret_key", flags.Lookup("s3-secret-key"))
@@ -75,6 +84,12 @@ func bindFlags() {
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("Recovered from panic:", err)
+		}
+	}()
+
 	var wg sync.WaitGroup
 	errc := make(chan error, 3)
 	signalc := make(chan os.Signal, 1)
@@ -135,6 +150,10 @@ func createNewApp() (*app.App, error) {
 	}
 
 	if err := app.InitializeMQ(); err != nil {
+		return nil, err
+	}
+
+	if err := app.InitializeDB(); err != nil {
 		return nil, err
 	}
 

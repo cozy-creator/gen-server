@@ -1,7 +1,5 @@
 package types
 
-import "fmt"
-
 const (
 	FileResponseType = "file"
 	JSONResponseType = "json"
@@ -25,6 +23,7 @@ type HandlerResponse struct {
 }
 
 type GenerateParams struct {
+	ID             string          `json:"id"`
 	Models         map[string]int `json:"models"`
 	RandomSeed     int            `json:"random_seed"`
 	AspectRatio    string         `json:"aspect_ratio"`
@@ -38,24 +37,4 @@ type RequestGenerateParams struct {
 	GenerateParams GenerateParams `json:"params"`
 	RequestId      string         `json:"request_id"`
 	OutputFormat   string         `json:"output_format,omitempty"`
-}
-
-func NewJSONResponse(data interface{}) (*HandlerResponse, error) {
-	return &HandlerResponse{
-		Type: JSONResponseType,
-		Data: data,
-	}, nil
-}
-
-func NewFileResponse(path string) (*HandlerResponse, error) {
-	return &HandlerResponse{
-		Type: FileResponseType,
-		Data: FileResponse{
-			Path: path,
-		},
-	}, nil
-}
-
-func NewErrorResponse(message string, a ...any) (*HandlerResponse, error) {
-	return nil, fmt.Errorf(message, a...)
 }
