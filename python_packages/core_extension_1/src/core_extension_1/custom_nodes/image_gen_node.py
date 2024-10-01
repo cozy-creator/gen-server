@@ -242,7 +242,8 @@ class ImageGenNode(CustomNode):
                 gen_params["guidance_scale"] = 0.0
                 gen_params["max_sequence_length"] = 256
             else:
-                gen_params["negative_prompt"] = negative_prompt
+                # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
+                # gen_params["negative_prompt"] = negative_prompt
                 gen_params["guidance_scale"] = model_config["guidance_scale"]
 
             if controlnet_inputs:
@@ -250,6 +251,7 @@ class ImageGenNode(CustomNode):
 
             if ip_adapter_embeds is not None:
                 gen_params["ip_adapter_image_embeds"] = ip_adapter_embeds
+
 
             # Run inference
             # with torch.no_grad():
