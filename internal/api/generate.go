@@ -33,6 +33,7 @@ func GenerateImageSync(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
+	
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
@@ -79,13 +80,14 @@ func GenerateImageAsync(c *gin.Context) {
 	}
 
 	go generateImageAsync(app, &data, requestId)
-	c.JSON(http.StatusOK, gin.H{"status": "pending", "request_id": requestId})
+	c.JSON(http.StatusOK, gin.H{"status": "pending", "id": requestId})
 }
 
 func generateImageAsync(app *app.App, data *types.GenerateParams, requestId string) {
 	ctx, _ := context.WithTimeout(app.Context(), 5*time.Minute)
 	// defer cancel()
 
+	index := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,6 +96,7 @@ func generateImageAsync(app *app.App, data *types.GenerateParams, requestId stri
 			url, err := generation.ReceiveImage(requestId, app.Uploader(), app.MQ())
 			if err != nil {
 				if errors.Is(err, mq.ErrTopicClosed) {
+					invokeWebhook(ctx, data.WebhookUrl, "success", "", "", requestId, 0)
 					break
 				}
 
@@ -102,22 +105,27 @@ func generateImageAsync(app *app.App, data *types.GenerateParams, requestId stri
 			}
 
 			if url != "" {
-				invokeWebhook(ctx, data.WebhookUrl, "success", url, "")
+				invokeWebhook(ctx, data.WebhookUrl, "", url, "", requestId, index)
+				index++
 			}
 		}
 	}
 }
 
-func invokeWebhook(ctx context.Context, url, status, imageUrl, message string) {
+func invokeWebhook(ctx context.Context, url, status, imageUrl, message, requestId string, index int) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	respData := struct {
-		Status   string `json:"status"`
-		ImageURL string `json:"image_url,omitempty"`
-		Message  string `json:"message,omitempty"`
+		ID      string `json:"id"`
+		Status  string `json:"status,omitempty"`
+		URL     string `json:"url,omitempty"`
+		Index   int    `json:"index,omitempty"`
+		Message string `json:"message,omitempty"`
 	}{
-		Status:   status,
-		ImageURL: imageUrl,
-		Message:  message,
+		ID:      requestId,
+		Status:  status,
+		URL:     imageUrl,
+		Message: message,
+		Index:   index,
 	}
 
 	jsonData, err := json.Marshal(respData)

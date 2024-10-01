@@ -49,6 +49,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
 	}
+
 	r.Use(gin.Recovery())
 
 	return &Server{

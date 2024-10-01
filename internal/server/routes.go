@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/cozy-creator/gen-server/internal/api"
+	"github.com/cozy-creator/gen-server/internal/api/middleware"
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/gin-gonic/gin"
 )
@@ -15,17 +16,22 @@ func (s *Server) SetupRoutes(app *app.App) {
 	})
 
 	// Not an API, just a simple file server endpoint
-	s.ginEngine.GET("/file/:filename", routeWrapper(app, api.GetFile))
+	s.ginEngine.GET("/file/:filename", handlerWrapper(app, api.GetFile))
 
 	apiV1 := s.ginEngine.Group("/api/v1")
-	apiV1.POST("/upload", routeWrapper(app, api.UploadFile))
-	apiV1.POST("/generate", routeWrapper(app, api.GenerateImageSync))
-	apiV1.POST("/generate_async", routeWrapper(app, api.GenerateImageAsync))
+
+	// Authentication middleware
+	apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
+
+	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))
+	apiV1.POST("/execute", handlerWrapper(app, api.ExecuteWorkflow))
+	apiV1.POST("/generate", handlerWrapper(app, api.GenerateImageSync))
+	apiV1.POST("/generate_async", handlerWrapper(app, api.GenerateImageAsync))
 }
 
-func routeWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("app", app)
-		f(c)
+func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.Set("app", app)
+		f(ctx)
 	}
 }
