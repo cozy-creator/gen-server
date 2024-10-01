@@ -22,8 +22,7 @@ func StartWorkflowExecutor(ctx context.Context, queue mq.MQ) error {
 			continue
 		}
 
-		executor := NewWorkflowExecutor(&workflow)
-		errc := executor.ExecuteAsync(ctx)
+		errc := NewWorkflowExecutor(&workflow).ExecuteAsync(ctx)
 
 		select {
 		case err := <-errc:

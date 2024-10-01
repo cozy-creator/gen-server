@@ -22,7 +22,7 @@ import (
 
 func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 	for {
-		message, err := mq.Receive(ctx, "generation")
+		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
 		if err != nil {
 			return err
 		}
@@ -37,11 +37,9 @@ func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq
 
 		select {
 		case err := <-errorc:
-			fmt.Println("Error:", err)
 			mq.CloseTopic(topic)
 			return err
 		case <-ctx.Done():
-			mq.CloseTopic(topic)
 			break
 		default:
 			for output := range outputs {
@@ -49,10 +47,9 @@ func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq
 				mq.Publish(context.Background(), topic, image)
 			}
 		}
-		mq.CloseTopic(topic)
-		return nil
-	}
 
+		mq.CloseTopic(topic)
+	}
 }
 
 func requestHandler(ctx context.Context, cfg *config.Config, data types.GenerateParams) (chan []byte, chan error) {
@@ -120,9 +117,11 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 }
 
 func NewRequest(params types.GenerateParams, mq mq.MQ) (string, error) {
-	requestId := uuid.NewString()
+	if params.ID == "" {
+		params.ID = uuid.NewString()
+	}
 	request := types.RequestGenerateParams{
-		RequestId:      requestId,
+		RequestId:      params.ID,
 		GenerateParams: params,
 		OutputFormat:   "png",
 	}
@@ -132,14 +131,13 @@ func NewRequest(params types.GenerateParams, mq mq.MQ) (string, error) {
 		return "", fmt.Errorf("failed to marshal json data: %w", err)
 	}
 
-	topic := config.DefaultGenerateTopic
-	err = mq.Publish(context.Background(), topic, data)
+	err = mq.Publish(context.Background(), config.DefaultGenerateTopic, data)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to publish message to queue: %w", err)
 	}
 
-	return requestId, nil
+	return params.ID, nil
 }
 
 func ReceiveImage(requestId string, uploader *fileuploader.Uploader, mq mq.MQ) (string, error) {

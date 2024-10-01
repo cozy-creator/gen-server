@@ -9,24 +9,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ExecuteWorkflow(c *gin.Context) {
+func ExecuteWorkflow(ctx *gin.Context) {
 	var workflow workflow.Workflow
-	if err := c.BindJSON(&workflow); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+	if err := ctx.BindJSON(&workflow); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return
 	}
 
 	data, err := json.Marshal(workflow)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to marshal workflow data"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "failed to marshal workflow data"})
 		return
 	}
 
-	app := c.MustGet("app").(*app.App)
-	if err := app.MQ().Publish(c.Request.Context(), "workflows", data); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to publish message to queue"})
+	app := ctx.MustGet("app").(*app.App)
+	if err := app.MQ().Publish(app.Context(), "workflows", data); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "failed to publish message to queue"})
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{"status": "pending"})
+	ctx.JSON(http.StatusAccepted, gin.H{"status": "pending"})
 }

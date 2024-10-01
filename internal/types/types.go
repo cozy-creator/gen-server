@@ -23,6 +23,7 @@ type HandlerResponse struct {
 }
 
 type GenerateParams struct {
+	ID             string          `json:"id"`
 	Models         map[string]int `json:"models"`
 	RandomSeed     int            `json:"random_seed"`
 	AspectRatio    string         `json:"aspect_ratio"`

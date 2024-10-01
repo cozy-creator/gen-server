@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
@@ -13,6 +14,7 @@ import (
 type App struct {
 	config *config.Config
 
+	db           *db.Queries
 	mq           mq.MQ
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
@@ -21,7 +23,16 @@ type App struct {
 	Logger *zap.Logger
 }
 
-func NewApp(config *config.Config) (*App, error) {
+type OptionFunc func(app *App)
+
+func WithDB(db *db.Queries) OptionFunc {
+	return func(app *App) {
+		app.db = db
+	}
+}
+
+
+func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	logger, err := initLogger(config.Environment)
@@ -52,6 +63,16 @@ func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
 	app.fileuploader = fileuploader.NewFileUploader(filestorage, 10)
 }
 
+func (app *App) InitializeDB() error {
+	db, err := db.NewConnection(app.config)
+	if err != nil {
+		return err
+	}
+
+	app.db = db
+	return nil
+}
+
 func (app *App) Close() {
 	app.cancelFunc()
 
@@ -70,6 +91,10 @@ func (app *App) Context() context.Context {
 
 func (app *App) MQ() mq.MQ {
 	return app.mq
+}
+
+func (app *App) DB() *db.Queries {
+	return app.db
 }
 
 func (app *App) Uploader() *fileuploader.Uploader {
