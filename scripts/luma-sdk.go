@@ -1,4 +1,4 @@
-package lumaai
+package scripts
 
 import (
 	"bytes"
