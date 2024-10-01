@@ -1,4 +1,4 @@
-package openainode
+package scripts
 
 import (
 	"context"
