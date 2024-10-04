@@ -52,6 +52,7 @@ func initRunFlags() {
 	flags.String("s3-bucket-name", "", "S3 bucket name")
 	flags.String("s3-folder", "", "S3 folder")
 	flags.String("s3-public-url", "", "Public URL for S3 files")
+	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
 
 	bindFlags()
 }
@@ -81,6 +82,7 @@ func bindFlags() {
 	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
 	viper.BindPFlag("s3.public_url", flags.Lookup("s3-public-url"))
+	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
 }
 
 func runApp(_ *cobra.Command, _ []string) error {

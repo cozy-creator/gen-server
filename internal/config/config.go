@@ -40,12 +40,13 @@ type Config struct {
 }
 
 type S3Config struct {
-	Folder    string `mapstructure:"folder"`
-	Region    string `mapstructure:"region_name"`
-	Bucket    string `mapstructure:"bucket_name"`
-	AccessKey string `mapstructure:"access_key"`
-	SecretKey string `mapstructure:"secret_key"`
-	PublicUrl string `mapstructure:"public_url"`
+	Folder      string `mapstructure:"folder"`
+	Region      string `mapstructure:"region_name"`
+	Bucket      string `mapstructure:"bucket_name"`
+	AccessKey   string `mapstructure:"access_key"`
+	SecretKey   string `mapstructure:"secret_key"`
+	PublicUrl   string `mapstructure:"public_url"`
+	EndpointUrl string `mapstructure:"endpoint_url"`
 }
 
 type PulsarConfig struct {
