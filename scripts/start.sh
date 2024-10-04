@@ -28,7 +28,7 @@ start_jupyter() {
 
 download_test_db() {
     wget https://github.com/user-attachments/files/17260326/test.db.zip
-    unzip test.db.zip -o
+    unzip -o test.db.zip
 }
 
 setup_jupyter_runtime
