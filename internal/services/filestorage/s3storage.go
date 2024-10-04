@@ -17,10 +17,11 @@ import (
 )
 
 type S3FileStorage struct {
-	client    *s3.Client
-	PublicUrl string
-	Bucket    string
-	Folder    string
+	client      *s3.Client
+	PublicUrl   string
+	EndpointUrl string
+	Bucket      string
+	Folder      string
 }
 
 func NewS3FileStorage(cfg *config.Config) (*S3FileStorage, error) {
@@ -43,13 +44,14 @@ func NewS3FileStorage(cfg *config.Config) (*S3FileStorage, error) {
 	}
 
 	s3Client := s3.NewFromConfig(awsConfig, func(o *s3.Options) {
-		o.BaseEndpoint = &cfg.S3.PublicUrl
+		o.BaseEndpoint = &cfg.S3.EndpointUrl
 	})
 
 	return &S3FileStorage{
-		client:    s3Client,
-		Bucket:    cfg.S3.Bucket,
-		PublicUrl: cfg.S3.PublicUrl,
+		client:      s3Client,
+		Bucket:      cfg.S3.Bucket,
+		PublicUrl:   cfg.S3.PublicUrl,
+		EndpointUrl: cfg.S3.EndpointUrl,
 	}, nil
 }
 
@@ -65,9 +67,9 @@ func (u *S3FileStorage) Upload(file FileInfo) (string, error) {
 	mtype := mimetype.Detect(file.Content).String()
 	input := s3.PutObjectInput{
 		Key:         &key,
+		ContentType: &mtype,
 		Bucket:      &u.Bucket,
 		Body:        bytes.NewReader(file.Content),
-		ContentType: &mtype,
 	}
 
 	_, err := u.client.PutObject(context.TODO(), &input)
@@ -75,7 +77,7 @@ func (u *S3FileStorage) Upload(file FileInfo) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s/%s/%s", u.PublicUrl, u.Bucket, key), nil
+	return fmt.Sprintf("%s/%s", u.PublicUrl, key), nil
 }
 
 func (u *S3FileStorage) UploadMultiple(files []FileInfo) ([]string, error) {
