@@ -32,9 +32,11 @@ func NewFileInfo(name string, extension string, content []byte, isTemp bool) Fil
 
 func NewFileStorage(cfg *config.Config) (FileStorage, error) {
 	filesystem := strings.ToLower(cfg.Filesystem)
-	if filesystem == config.FilesystemLocal {
+	fmt.Println("filesystem: ", filesystem)
+
+	if filesystem == strings.ToLower(config.FilesystemLocal) {
 		return NewLocalFileStorage(cfg)
-	} else if filesystem == config.FilesystemS3 {
+	} else if filesystem == strings.ToLower(config.FilesystemS3) {
 		return NewS3FileStorage(cfg)
 	}
 
