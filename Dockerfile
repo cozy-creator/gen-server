@@ -59,7 +59,7 @@ ENV PYTHONUNBUFFERED=1
 # Install Linux build and runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git curl build-essential libssl-dev libffi-dev wget ca-certificates \
+    git curl build-essential libssl-dev libffi-dev wget unzip ca-certificates \
     libgl1-mesa-glx libglib2.0-0 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
