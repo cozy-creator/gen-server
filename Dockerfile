@@ -8,7 +8,7 @@ COPY web ./web
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git wget unzip ca-certificates && apt-get clean && \
+    wget unzip ca-certificates && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # temporarily download the dist folder from the web-builder stage as the build is currently broken
@@ -23,6 +23,12 @@ RUN wget https://github.com/user-attachments/files/17084728/dist.zip -O /app/web
 
 # Stage 2: Build the Go binary
 FROM golang:1.23 AS go-builder
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libsqlite3-dev ca-certificates && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 
 WORKDIR /app
 
@@ -42,7 +48,7 @@ COPY main.go .
 
 # Build the Go binary
 ARG GOARCH=amd64
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -o cozy-server .
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=$GOARCH go build -o cozy-server .
 
 
 # Stage 3: Build Python environment and final image
