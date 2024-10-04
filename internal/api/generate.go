@@ -33,7 +33,6 @@ func GenerateImageSync(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
@@ -113,12 +112,12 @@ func generateImageAsync(app *app.App, data *types.GenerateParams, requestId stri
 }
 
 func invokeWebhook(ctx context.Context, url, status, imageUrl, message, requestId string, index int) {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
+	httpClient := &http.Client{Timeout: time.Minute}
 	respData := struct {
 		ID      string `json:"id"`
+		Index   int    `json:"index"`
 		Status  string `json:"status,omitempty"`
 		URL     string `json:"url,omitempty"`
-		Index   int    `json:"index,omitempty"`
 		Message string `json:"message,omitempty"`
 	}{
 		ID:      requestId,
