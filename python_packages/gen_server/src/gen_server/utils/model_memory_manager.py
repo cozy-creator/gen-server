@@ -62,9 +62,9 @@ class ModelMemoryManager:
     def _get_model_size(self, model_config: dict[str, Any]) -> int:
         total_size = 0
 
-        # Check if the model is a single file model by checking if the string is ct or fd
-        if "ct:" in model_config["source"] or "fd:" in model_config["source"]:
-            return os.path.getsize(model_config["source"].replace("ct:", "").replace("fd:", ""))
+        # Check if the model is a single file model by checking if the string is ct or file
+        if "ct:" in model_config["source"] or "file:" in model_config["source"]:
+            return os.path.getsize(model_config["source"].replace("ct:", "").replace("file:", ""))
         
         repo_id = model_config["source"].replace("hf:", "")
         
@@ -186,7 +186,7 @@ class ModelMemoryManager:
         
         if prefix == "hf":
             return await self.load_huggingface_model(model_id, path, gpu, type, variant, model_config)
-        elif prefix in ["fd", "ct"]:
+        elif prefix in ["file", "ct"]:
             return await self.load_single_file_model(model_id, path, prefix, gpu, type)
         else:
             logger.error(f"Unsupported model source prefix: {prefix}")
