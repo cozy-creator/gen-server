@@ -26,9 +26,15 @@ start_jupyter() {
     echo "JupyterLab started"
 }
 
-setup_jupyter_runtime
+download_test_db() {
+    wget https://github.com/user-attachments/files/17260326/test.db.zip
+    unzip test.db.zip
+}
 
-cozy-server run & # Start the Cozy server
+setup_jupyter_runtime
+download_test_db
+
+cozy-server run --db-dsn test.db & # Start the Cozy server
 start_jupyter
 
 sleep infinity  # This will keep the container running
