@@ -234,6 +234,9 @@ class ModelMemoryManager:
                     elif component["source"] is None:
                         pipeline_kwargs[key] = None
 
+            if "custom_pipeline" in model_config and model_config["custom_pipeline"]:
+                pipeline_kwargs["custom_pipeline"] = model_config["custom_pipeline"]
+
             if variant == "":
                 variant = None
 
