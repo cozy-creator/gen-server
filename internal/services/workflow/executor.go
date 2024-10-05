@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cozy-creator/gen-server/internal/mq"
+	"github.com/cozy-creator/gen-server/internal/app"
 )
 
-func StartWorkflowExecutor(ctx context.Context, queue mq.MQ) error {
+func RunProcessor(app *app.App) error {
+	ctx := app.Context()
+	queue := app.MQ()
 	for {
 		message, err := queue.Receive(ctx, "workflows")
 		if err != nil {
@@ -22,7 +24,7 @@ func StartWorkflowExecutor(ctx context.Context, queue mq.MQ) error {
 			continue
 		}
 
-		errc := NewWorkflowExecutor(&workflow).ExecuteAsync(ctx)
+		errc := NewWorkflowExecutor(&workflow, app).ExecuteAsync()
 
 		select {
 		case err := <-errc:

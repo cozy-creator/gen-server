@@ -2,7 +2,6 @@ package imagenode
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"image"
 
@@ -10,7 +9,7 @@ import (
 	"image/jpeg"
 	"image/png"
 
-	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/cozy-creator/gen-server/internal/app"
 )
 
 type SaveImageInputs struct {
@@ -23,11 +22,10 @@ type SaveImageOutput struct {
 	Urls []string `json:"urls"`
 }
 
-func SaveImage(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-	log := logger.GetLogger()
+func SaveImage(app *app.App, input map[string]interface{}) (map[string]interface{}, error) {
 	images := input["images"].([]image.Image)
 	format := input["format"].(string)
-	// isTemp := input["is_temp"].(bool)
+	isTemp := input["is_temp"].(bool)
 
 	var (
 		urls []string
@@ -52,29 +50,17 @@ func SaveImage(ctx context.Context, input map[string]interface{}) (map[string]in
 			return nil, err
 		}
 
-		// extension := "." + format
-		// contentBytes := content.Bytes()
-		// contentHash := hashutil.Blake3Hash(contentBytes)
-		// _ := filehandler.FileInfo{
-		// 	Name:      contentHash,
-		// 	Extension: extension,
-		// 	Content:   contentBytes,
-		// 	IsTemp:    isTemp,
-		// }
-
 		response := make(chan string)
-		// worker := worker.GetUploadWorker()
-		// go worker.Upload(fileMeta, response)
+		extension := "." + format
+		go app.Uploader().UploadBytes(content.Bytes(), extension, isTemp, response)
 
-		url := <-response
+		url, ok := <-response
+		if !ok {
+			return nil, fmt.Errorf("failed to upload image")
+		}
+
 		urls = append(urls, url)
 	}
-
-	// return &SaveImageOutput{
-	// 	Urls: urls,
-	// }, nil
-
-	log.Info(fmt.Sprintf("%d images saved successfully", len(urls)))
 
 	return map[string]interface{}{
 		"urls": urls,

@@ -7,6 +7,9 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+
+	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
+	"golang.org/x/image/bmp"
 )
 
 var (
@@ -20,7 +23,10 @@ func DecodeImage(data []byte, format string) (image.Image, error) {
 	)
 
 	reader := bytes.NewReader(data)
+	imageutil.ConvertImageFromBitmap(data, format)
 	switch format {
+	case "bmp":
+		output, err = bmp.Decode(reader)
 	case "png":
 		output, err = png.Decode(reader)
 	case "gif":

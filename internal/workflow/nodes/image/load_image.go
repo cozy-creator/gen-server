@@ -1,11 +1,11 @@
 package imagenode
 
 import (
-	"context"
 	"errors"
 	"image"
 
 	"github.com/anthonynsimon/bild/transform"
+	"github.com/cozy-creator/gen-server/internal/app"
 
 	_ "image/gif"
 	_ "image/jpeg"
@@ -35,7 +35,7 @@ type ImageNodeOutput struct {
 	Images []image.Image `json:"images"`
 }
 
-func LoadImage(ctx context.Context, inputs map[string]interface{}) (map[string]interface{}, error) {
+func LoadImage(app *app.App, inputs map[string]interface{}) (map[string]interface{}, error) {
 	filenames, err := getFilenames(inputs)
 	if err != nil {
 		return nil, err

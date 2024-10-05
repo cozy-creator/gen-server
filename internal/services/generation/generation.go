@@ -11,16 +11,35 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/filestorage"
-	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
 	"github.com/cozy-creator/gen-server/internal/types"
-	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
-	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
 )
 
-func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
+const (
+	StatusInProgress = "IN_PROGRESS"
+	StatusCompleted  = "COMPLETED"
+	StatusInQueue    = "IN_QUEUE"
+	StatusFailed     = "FAILED"
+)
+
+const (
+	MaxWebhookAttempts = 3
+)
+
+type AsyncGenerateResponse struct {
+	ID     string                        `json:"id"`
+	Index  int                           `json:"index"`
+	Output []AsyncGenerateResponseOutput `json:"output"`
+	Status string                        `json:"status,omitempty"`
+}
+
+type AsyncGenerateResponseOutput struct {
+	Format string `json:"format"`
+	URL    string `json:"url"`
+}
+
+func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 	for {
 		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
 		if err != nil {
@@ -43,8 +62,7 @@ func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq
 			break
 		default:
 			for output := range outputs {
-				image, _ := imageutil.ConvertImageFromBitmap(output, request.OutputFormat)
-				mq.Publish(context.Background(), topic, image)
+				mq.Publish(context.Background(), topic, output)
 			}
 		}
 
@@ -98,7 +116,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 			}
 
 			// Receive the actual data based on the size
-			imageBytes, err := (client.ReceiveFullBytes(ctx, int(size)))
+			outputBytes, err := (client.ReceiveFullBytes(ctx, int(size)))
 			if err != nil {
 				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 					break
@@ -108,7 +126,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 				break
 			}
 
-			output <- imageBytes
+			output <- outputBytes
 		}
 
 	}()
@@ -116,13 +134,13 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 	return output, errorc
 }
 
-func NewRequest(params types.GenerateParams, mq mq.MQ) (string, error) {
+func NewRequest(params *types.GenerateParams, saveOutput bool, mq mq.MQ) (string, error) {
 	if params.ID == "" {
 		params.ID = uuid.NewString()
 	}
 	request := types.RequestGenerateParams{
 		RequestId:      params.ID,
-		GenerateParams: params,
+		GenerateParams: *params,
 		OutputFormat:   "png",
 	}
 
@@ -138,37 +156,6 @@ func NewRequest(params types.GenerateParams, mq mq.MQ) (string, error) {
 	}
 
 	return params.ID, nil
-}
-
-func ReceiveImage(requestId string, uploader *fileuploader.Uploader, mq mq.MQ) (string, error) {
-	topic := config.DefaultGeneratePrefix + requestId
-	image, err := mq.Receive(context.Background(), topic)
-	if err != nil {
-		fmt.Println("Error receiving image from queue:", err)
-		return "", err
-	}
-
-	uploadUrl := make(chan string)
-
-	go func() {
-		extension := "." + "png"
-		imageHash := hashutil.Blake3Hash(image)
-		fileMeta := filestorage.FileInfo{
-			Name:      imageHash,
-			Extension: extension,
-			Content:   image,
-			IsTemp:    false,
-		}
-
-		uploader.Upload(fileMeta, uploadUrl)
-	}()
-
-	url, ok := <-uploadUrl
-	if !ok {
-		return "", nil
-	}
-
-	return url, nil
 }
 
 func parseRequestData(message []byte) (types.RequestGenerateParams, error) {
