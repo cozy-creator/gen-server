@@ -120,7 +120,6 @@ func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploa
 				response := AsyncGenerateResponse{
 					Index:  index,
 					ID:     params.ID,
-					Status: StatusInProgress,
 					Output: []AsyncGenerateResponseOutput{{Format: "png", URL: url}},
 				}
 
