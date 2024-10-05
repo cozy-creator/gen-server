@@ -43,6 +43,7 @@ RUN go mod download
 COPY cmd cmd
 COPY pkg pkg
 COPY tools tools
+COPY scripts scripts
 COPY internal internal
 COPY main.go .
 
