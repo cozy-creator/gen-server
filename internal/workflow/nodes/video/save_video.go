@@ -30,7 +30,10 @@ func SaveVideo(app *app.App, inputs map[string]interface{}) (map[string]interfac
 		return nil, ErrInvalidVideoKind
 	}
 
+	url := <-urlc
+	fmt.Println("Video URL:", url)
+
 	return map[string]interface{}{
-		"url": <-urlc,
+		"url": url,
 	}, nil
 }
