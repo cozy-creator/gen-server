@@ -16,9 +16,9 @@ type LumaAI struct {
 }
 
 type Generation struct {
-	ID        string `json:"id"`
-	State     string `json:"state"`
-	Assets    struct {
+	ID     string `json:"id"`
+	State  string `json:"state"`
+	Assets struct {
 		Video string `json:"video"`
 	} `json:"assets"`
 }
@@ -168,7 +168,6 @@ func (l *LumaAI) DownloadVideo(url, filename string) error {
 
 	return nil
 }
-
 
 func (l *LumaAI) ExtendVideo(prompt string, generationID string, isReverse bool) (*Generation, error) {
 	keyframes := make(map[string]interface{})
