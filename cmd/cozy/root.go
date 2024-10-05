@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,13 +19,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	cobra.OnInitialize(onCommandInit)
 
-	defaultCozyHome, err := pathutil.ExpandPath(config.DefaultCozyHome)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	rootCmd.PersistentFlags().String("cozy-home", defaultCozyHome, "Path to the cozy home directory")
+	rootCmd.PersistentFlags().String("cozy-home", "", "Path to the cozy home directory")
 	rootCmd.PersistentFlags().String("config-file", "", "Path to the config file")
 	rootCmd.PersistentFlags().String("env-file", "", "Path to the env file")
 
