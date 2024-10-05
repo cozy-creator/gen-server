@@ -6,6 +6,11 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/cozy-creator/gen-server/internal/app"
+	generationnode "github.com/cozy-creator/gen-server/internal/workflow/nodes/generation"
+	imagenode "github.com/cozy-creator/gen-server/internal/workflow/nodes/image"
+	videonode "github.com/cozy-creator/gen-server/internal/workflow/nodes/video"
 )
 
 type Workflow struct {
@@ -35,17 +40,19 @@ type WorkflowExecutor struct {
 	Workflow *Workflow
 	Outputs  sync.Map
 
+	app        *app.App
 	nodesChan  chan *Node
 	errorsChan chan error
 }
 
-func NewWorkflowExecutor(workflow *Workflow) *WorkflowExecutor {
+func NewWorkflowExecutor(workflow *Workflow, app *app.App) *WorkflowExecutor {
 	totalNodes := len(workflow.Nodes)
 
 	flow := &WorkflowExecutor{
 		Workflow: workflow,
 		Outputs:  sync.Map{},
 
+		app:        app,
 		nodesChan:  make(chan *Node, totalNodes),
 		errorsChan: make(chan error, totalNodes),
 	}
@@ -72,16 +79,14 @@ func (e *WorkflowExecutor) initializeOutputs() {
 	}
 }
 
-func (e *WorkflowExecutor) ExecuteAsync(ctx context.Context) <-chan error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+func (e *WorkflowExecutor) ExecuteAsync() chan error {
+	ctx, _ := context.WithTimeout(e.app.Context(), 5*time.Minute)
 
 	errc := make(chan error, 1)
 	go func() {
 		errc <- e.Execute(ctx)
 	}()
 
-	
 	return errc
 }
 
@@ -93,7 +98,7 @@ func (e *WorkflowExecutor) Execute(ctx context.Context) error {
 	}
 
 	defer close(e.nodesChan)
-	e.startExecutorWorkers(ctx, &wg, runtime.NumCPU())
+	e.startExecutorWorkers(&wg, runtime.NumCPU())
 
 	for len(nodes) > 0 {
 		for i := 0; i < len(nodes); i++ {
@@ -123,6 +128,7 @@ func (e *WorkflowExecutor) Execute(ctx context.Context) error {
 	for {
 		select {
 		case err := <-e.errorsChan:
+			fmt.Println("Error: ", err)
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
@@ -132,17 +138,17 @@ func (e *WorkflowExecutor) Execute(ctx context.Context) error {
 	}
 }
 
-func (e *WorkflowExecutor) startExecutorWorkers(ctx context.Context, wg *sync.WaitGroup, numWorkers int) {
+func (e *WorkflowExecutor) startExecutorWorkers(wg *sync.WaitGroup, numWorkers int) {
 	if numWorkers == 0 {
 		numWorkers = runtime.NumCPU()
 	}
 
 	for i := 0; i < numWorkers; i++ {
-		go e.worker(ctx, wg)
+		go e.worker(wg)
 	}
 }
 
-func (e *WorkflowExecutor) worker(ctx context.Context, wg *sync.WaitGroup) {
+func (e *WorkflowExecutor) worker(wg *sync.WaitGroup) {
 	for node := range e.nodesChan {
 		inputs, err := e.resolveInputs(node)
 		if err != nil {
@@ -151,7 +157,7 @@ func (e *WorkflowExecutor) worker(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		}
 
-		output, err := executeNode(ctx, node, inputs)
+		output, err := executeNode(e.app, node, inputs)
 		if err != nil {
 			e.errorsChan <- err
 			wg.Done()
@@ -161,8 +167,6 @@ func (e *WorkflowExecutor) worker(ctx context.Context, wg *sync.WaitGroup) {
 		e.storeOutput(node.Id, output)
 		wg.Done()
 	}
-
-	fmt.Println("worker done")
 }
 
 func (e *WorkflowExecutor) isNodeReadyForExecution(node *Node) bool {
@@ -265,24 +269,29 @@ func (e *WorkflowExecutor) orderNodes() ([]Node, error) {
 	return ordered, nil
 }
 
-func executeNode(ctx context.Context, node *Node, inputs map[string]interface{}) (NodeOutput, error) {
+func executeNode(app *app.App, node *Node, inputs map[string]interface{}) (NodeOutput, error) {
 	var (
 		output = make(map[string]interface{})
 		err    error
 	)
 
-	// switch node.Type {
-	// case "GenerateImage":
-	// 	output, err = generationnode.GenerateImage(ctx, inputs)
-	// case "SaveImage":
-	// 	output, err = imagenode.SaveImage(ctx, inputs)
-	// case "LoadImage":
-	// 	output, err = imagenode.LoadImage(ctx, inputs)
-	// default:
-	// 	return nil, fmt.Errorf("unsupported node type: %s", node.Type)
-	// }
-
-	fmt.Println("node output:", output)
+	switch node.Type {
+	case "GenerateImage":
+		fmt.Println("Generating image")
+		output, err = generationnode.GenerateImage(app, inputs)
+	case "GenerateVideo":
+		fmt.Println("Generating video")
+		output, err = generationnode.GenerateVideo(app, inputs)
+	case "SaveImage":
+		fmt.Println("Saving image")
+		output, err = imagenode.SaveImage(app, inputs)
+	case "LoadImage":
+		output, err = imagenode.LoadImage(app, inputs)
+	case "SaveVideo":
+		output, err = videonode.SaveVideo(app, inputs)
+	default:
+		return nil, fmt.Errorf("unsupported node type: %s", node.Type)
+	}
 
 	return output, err
 }
@@ -310,5 +319,3 @@ func (e *WorkflowExecutor) hasOutput(nodeId string) bool {
 	_, loaded := e.Outputs.Load(nodeId)
 	return loaded
 }
-
-// 813549

@@ -2,6 +2,7 @@ package imageutil
 
 import (
 	"bytes"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 
@@ -18,7 +19,11 @@ func ConvertImageFromBitmap(bmpBytes []byte, format string) ([]byte, error) {
 	switch format {
 	case "png":
 		err = png.Encode(&output, img)
+	case "gif":
+		err = gif.Encode(&output, img, nil)
 	case "jpg":
+		options := &jpeg.Options{Quality: 90}
+		err = jpeg.Encode(&output, img, options)
 	case "jpeg":
 		options := &jpeg.Options{Quality: 90}
 		err = jpeg.Encode(&output, img, options)

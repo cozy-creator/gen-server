@@ -16,6 +16,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/server"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
+	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
 
 	"github.com/spf13/cobra"
@@ -54,6 +55,8 @@ func initRunFlags() {
 	flags.String("s3-public-url", "", "Public URL for S3 files")
 	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
 
+	flags.String("luma-ai-api-key", "", "Luma AI API key")
+
 	bindFlags()
 }
 
@@ -83,6 +86,9 @@ func bindFlags() {
 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
 	viper.BindPFlag("s3.public_url", flags.Lookup("s3-public-url"))
 	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
+
+	// Luma AI
+	viper.BindPFlag("luma_ai.api_key", flags.Lookup("luma-ai-api-key"))
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
@@ -125,24 +131,30 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := runGenerationWorker(ctx, cfg, app.MQ()); err != nil {
+		if err := runGenerationProcessessor(ctx, cfg, app.MQ()); err != nil {
+			errc <- err
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := runWorkflowProcessor(app); err != nil {
 			errc <- err
 		}
 	}()
 
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 
-	errc2 := make(chan error, 1)
 	select {
 	case err := <-errc:
-		errc2 <- err
+		return err
 	case <-signalc:
 		server.Stop(ctx)
-		errc2 <- nil
+		return nil
+	default:
+		wg.Wait()
+		return nil
 	}
-
-	wg.Wait()
-	return <-errc2
 }
 
 func createNewApp() (*app.App, error) {
@@ -176,8 +188,16 @@ func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func runGenerationWorker(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
-	if err := generation.StartGenerationRequestProcessor(ctx, cfg, mq); err != nil {
+func runGenerationProcessessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
+	if err := generation.RunProcessor(ctx, cfg, mq); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runWorkflowProcessor(app *app.App) error {
+	if err := workflow.RunProcessor(app); err != nil {
 		return err
 	}
 

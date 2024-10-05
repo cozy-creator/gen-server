@@ -38,8 +38,17 @@ func (u *LocalFileStorage) Upload(file FileInfo) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(filedest, file.Content, os.FileMode(0644)); err != nil {
-		return "", err
+	if file.Kind == FileKindBytes {
+		if err := os.WriteFile(filedest, file.Content.([]byte), os.FileMode(0644)); err != nil {
+			return "", err
+		}
+	} else if file.Kind == FileKindStream {
+		content := file.Content.(io.Reader)
+		if err := writeStreamFile(filedest, content, os.FileMode(0644)); err != nil {
+			return "", err
+		}
+	} else {
+		return "", ErrUnknownFileKind
 	}
 
 	cfg := config.GetConfig()
@@ -94,4 +103,19 @@ func (u *LocalFileStorage) ResolveFile(filename string, subfolder string, isTemp
 	}
 
 	return resolvedFilename, nil
+}
+
+func writeStreamFile(filedest string, content io.Reader, mode os.FileMode) error {
+	file, err := os.Create(filedest)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, content)
+	if err != nil {
+		return fmt.Errorf("failed to save content to file: %w", err)
+	}
+
+	return nil
 }

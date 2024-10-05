@@ -1,17 +1,28 @@
 package filestorage
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 )
 
+const (
+	FileKindBytes  = "bytes"
+	FileKindStream = "stream"
+)
+
+var (
+	ErrUnknownFileKind = errors.New("unknown file kind")
+)
+
 type FileInfo struct {
+	IsTemp    bool
 	Name      string
 	Extension string
-	Content   []byte
-	IsTemp    bool
+	Kind      string
+	Content   interface{}
 }
 
 type FileStorage interface {
@@ -19,15 +30,6 @@ type FileStorage interface {
 	UploadMultiple(files []FileInfo) ([]string, error)
 	GetFile(filename string) (*FileInfo, error)
 	ResolveFile(filename string, subfolder string, isTemp bool) (string, error)
-}
-
-func NewFileInfo(name string, extension string, content []byte, isTemp bool) FileInfo {
-	return FileInfo{
-		Name:      name,
-		Extension: extension,
-		Content:   content,
-		IsTemp:    isTemp,
-	}
 }
 
 func NewFileStorage(cfg *config.Config) (FileStorage, error) {

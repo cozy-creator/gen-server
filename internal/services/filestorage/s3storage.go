@@ -49,6 +49,7 @@ func NewS3FileStorage(cfg *config.Config) (*S3FileStorage, error) {
 
 	return &S3FileStorage{
 		client:      s3Client,
+		Folder:      cfg.S3.Folder,
 		Bucket:      cfg.S3.Bucket,
 		PublicUrl:   cfg.S3.PublicUrl,
 		EndpointUrl: cfg.S3.EndpointUrl,
@@ -64,14 +65,32 @@ func (u *S3FileStorage) Upload(file FileInfo) (string, error) {
 		key = fmt.Sprintf("%s/%s%s", folder, file.Name, file.Extension)
 	}
 
-	mtype := mimetype.Detect(file.Content).String()
+	var (
+		mtype   string
+		content io.Reader
+	)
+	if file.Kind == FileKindBytes {
+		mtype = mimetype.Detect(file.Content.([]byte)).String()
+		content = bytes.NewReader(file.Content.([]byte))
+	} else if file.Kind == FileKindStream {
+		buff := bytes.NewBuffer(nil)
+		content = io.TeeReader(file.Content.(io.Reader), buff)
+		value, err := mimetype.DetectReader(buff)
+		if err != nil {
+			return "", err
+		}
+
+		mtype = value.String()
+	} else {
+		return "", ErrUnknownFileKind
+	}
+
 	input := s3.PutObjectInput{
 		Key:         &key,
 		ContentType: &mtype,
 		Bucket:      &u.Bucket,
-		Body:        bytes.NewReader(file.Content),
+		Body:        content,
 	}
-
 	_, err := u.client.PutObject(context.TODO(), &input)
 	if err != nil {
 		return "", err

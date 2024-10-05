@@ -37,6 +37,7 @@ type Config struct {
 	S3            *S3Config     `mapstructure:"s3"`
 	Pulsar        *PulsarConfig `mapstructure:"pulsar"`
 	DB            *DBConfig     `mapstructure:"db"`
+	LumaAI        *LumaAIConfig `mapstructure:"luma_ai"`
 }
 
 type S3Config struct {
@@ -61,6 +62,10 @@ type DBConfig struct {
 	DSN    string `mapstructure:"dsn"`
 }
 
+type LumaAIConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
 var config *Config
 
 func InitConfig() error {
@@ -68,6 +73,8 @@ func InitConfig() error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("cozy home: ", cozyHome)
 
 	if err = createCozyHomeDirs(cozyHome); err != nil {
 		return err
@@ -95,10 +102,9 @@ func InitConfig() error {
 	viper.Set("temp_dir", tempDir)
 
 	envFile := viper.GetString("env_file")
-	configFile := viper.GetString("config_file")
-
-	envFile = filepath.Join(cozyHome, ".env")
-	configFile = filepath.Join(cozyHome, "config.yaml")
+	if envFile == "" {
+		envFile = filepath.Join(cozyHome, ".env")
+	}
 
 	if _, err := os.Stat(envFile); err != nil {
 		if !os.IsNotExist(err) {
@@ -114,6 +120,13 @@ func InitConfig() error {
 		}
 	}
 
+	configFile := viper.GetString("config_file")
+	fmt.Println("config file", configFile)
+	if configFile == "" {
+		configFile = filepath.Join(cozyHome, "config.yaml")
+	}
+
+	fmt.Println("config file", configFile)
 	if _, err := os.Stat(configFile); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("failed to stat config.yaml file: %w", err)
@@ -121,12 +134,6 @@ func InitConfig() error {
 
 		if err := templates.WriteConfig(configFile); err != nil {
 			return fmt.Errorf("failed to create config.yaml file: %w", err)
-		}
-	}
-
-	if envFile != "" {
-		if err := godotenv.Load(envFile); err != nil {
-			return fmt.Errorf("failed to load env file: %w", err)
 		}
 	}
 

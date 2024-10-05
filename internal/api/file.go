@@ -34,7 +34,7 @@ func UploadFile(c *gin.Context) {
 
 	url := make(chan string)
 	app := c.MustGet("app").(*app.App)
-	app.Uploader().UploadBytes(fileBytes, filepath.Ext(file.Filename), url)
+	app.Uploader().UploadBytes(fileBytes, filepath.Ext(file.Filename), false, url)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
@@ -70,7 +70,8 @@ func GetFile(c *gin.Context) {
 			return
 		}
 
-		mimeType := mimetype.Detect(file.Content).String()
-		c.Data(http.StatusOK, mimeType, file.Content)
+		content := file.Content.([]byte)
+		mimeType := mimetype.Detect(content).String()
+		c.Data(http.StatusOK, mimeType, content)
 	}
 }

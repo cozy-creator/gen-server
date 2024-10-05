@@ -1,6 +1,8 @@
 package fileuploader
 
 import (
+	"io"
+
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
 	"github.com/gammazero/workerpool"
@@ -32,13 +34,32 @@ func (w *Uploader) Upload(file filestorage.FileInfo, response chan string) {
 	w.wp.Submit(upload)
 }
 
-func (w *Uploader) UploadBytes(file []byte, extension string, response chan string) {
+func (w *Uploader) UploadBytes(file []byte, extension string, isTemp bool, response chan string) {
 	fileHash := hashutil.Blake3Hash(file)
 	fileInfo := filestorage.FileInfo{
 		Name:      fileHash,
 		Extension: extension,
 		Content:   file,
-		IsTemp:    false,
+		IsTemp:    isTemp,
+		Kind:      filestorage.FileKindBytes,
+	}
+
+	w.Upload(fileInfo, response)
+}
+
+func (w *Uploader) UploadReader(reader io.Reader, extension string, isTemp bool, response chan string) {
+	file, err := io.ReadAll(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	fileHash := hashutil.Blake3Hash(file)
+	fileInfo := filestorage.FileInfo{
+		Content:   file,
+		IsTemp:    isTemp,
+		Name:      fileHash,
+		Extension: extension,
+		Kind:      filestorage.FileKindBytes,
 	}
 
 	w.Upload(fileInfo, response)

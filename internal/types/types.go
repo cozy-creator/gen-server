@@ -5,25 +5,14 @@ const (
 	JSONResponseType = "json"
 )
 
-type FileResponse struct {
-	Path string `json:"path"`
-}
-
-type ErrorResponse struct {
-	Message string `json:"message"`
-}
-
-type UploadResponse struct {
-	Url string `json:"url"`
-}
-
-type HandlerResponse struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
-}
+const (
+	ContentKindReader = "reader"
+	ContentKindString = "string"
+	ContentKindBytes  = "bytes"
+)
 
 type GenerateParams struct {
-	ID             string          `json:"id"`
+	ID             string         `json:"id"`
 	Models         map[string]int `json:"models"`
 	RandomSeed     int            `json:"random_seed"`
 	AspectRatio    string         `json:"aspect_ratio"`
@@ -36,5 +25,11 @@ type GenerateParams struct {
 type RequestGenerateParams struct {
 	GenerateParams GenerateParams `json:"params"`
 	RequestId      string         `json:"request_id"`
+	SaveOutput     bool           `json:"save_output"`
 	OutputFormat   string         `json:"output_format,omitempty"`
+}
+
+type Video struct {
+	Content interface{}
+	Kind    string
 }
