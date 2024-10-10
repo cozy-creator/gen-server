@@ -79,3 +79,4 @@ go.work
 *.zip
 
 .ignore
+x.txt
