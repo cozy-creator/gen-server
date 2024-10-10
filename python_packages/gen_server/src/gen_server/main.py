@@ -40,13 +40,16 @@ def request_handler(context: RequestContext):
         return
 
     async def generate_images():
-        async for images in generate_images_non_io(json_data):
-            results = tensor_to_bytes(images)
-            for result in results:
-                result_header = struct.pack("!I", len(result))
-                context.send(result_header + result)
+        async for [model_id, images] in generate_images_non_io(json_data):
+            outputs = tensor_to_bytes(images)
+            model_id_bytes = model_id.encode("utf-8")
+            model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+            for output in outputs:
+                total_size = struct.pack("!I", len(model_id_header) + len(output))
+                context.send(total_size + model_id_header + output)
 
     asyncio.run(generate_images())
+
 
 # def request_handler(context: RequestContext):
 #     data = context.data()
@@ -102,6 +105,7 @@ def startup_extensions():
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
     )
 
+
 def main():
     run_parser = argparse.ArgumentParser(description="Cozy Creator")
     config = init_config(run_parser, parse_known_args_wrapper)
@@ -126,7 +130,9 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         # Force quit the entire process
-        os._exit(1)  # This is a "hard" exit that will work on both Windows and Unix. Might want to change this to a more graceful exit later.
+        os._exit(
+            1
+        )  # This is a "hard" exit that will work on both Windows and Unix. Might want to change this to a more graceful exit later.
     except Exception as e:
         print(f"An error occurred: {e}")
         sys.exit(1)
