@@ -526,6 +526,7 @@ class ModelMemoryManager:
                     ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
             )
             else:
+                force_full_optimization = False
                 print(f"Available VRAM: {available_vram_gb} GB is greater than 30GB. Not applying CPU offloading.")
 
         device_type = device if isinstance(device, str) else device.type
