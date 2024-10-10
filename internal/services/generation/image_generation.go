@@ -1,7 +1,9 @@
 package generation
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -14,14 +16,30 @@ import (
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 )
 
-func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, error) {
+type GeneratedImage struct {
+	URLs      []string `json:"urls"`
+	Index     int8     `json:"index"`
+	ID        string   `json:"id,omitempty"`
+	Status    string   `json:"status,omitempty"`
+	ModelName string   `json:"model_name,omitempty"`
+}
+
+func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, string, error) {
 	topic := config.DefaultGeneratePrefix + requestId
 	output, err := mq.Receive(context.Background(), topic)
-	image, _ := imageutil.ConvertImageFromBitmap(output, outputFormat)
-
 	if err != nil {
-		fmt.Println("Error receiving image from queue:", err)
-		return "", err
+		return "", "", err
+	}
+
+	outputBuffer := bytes.NewBuffer(output)
+	modelName, err := readModelName(outputBuffer)
+	if err != nil {
+		return "", "", err
+	}
+
+	image, err := imageutil.ConvertImageFromBitmap(outputBuffer.Bytes(), outputFormat)
+	if err != nil {
+		return "", "", err
 	}
 
 	uploadUrl := make(chan string)
@@ -32,37 +50,37 @@ func receiveImage(requestId string, outputFormat string, uploader *fileuploader.
 	}()
 
 	url, ok := <-uploadUrl
+	fmt.Println("URL--: ", url)
 	if !ok {
-		return "", nil
+		return "", "", nil
 	}
 
-	return url, nil
+	return url, modelName, nil
 }
 
-func GenerateImageSync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) (chan string, error) {
-	urlc := make(chan string)
+func GenerateImageSync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) (chan GeneratedImage, error) {
+	outputc := make(chan GeneratedImage)
 	errc := make(chan error, 1)
+
+	sendResponse := func(urls []string, index int8, currentModel string, status string) {
+		if len(urls) > 0 {
+			outputc <- GeneratedImage{
+				URLs:      urls,
+				Index:     index,
+				Status:    status,
+				ModelName: currentModel,
+			}
+		}
+	}
 
 	go func() {
 		defer func() {
-			close(urlc)
+			close(outputc)
 			close(errc)
 		}()
 
-		for {
-			url, err := receiveImage(params.ID, params.OutputFormat, uploader, queue)
-			if err != nil {
-				if errors.Is(err, mq.ErrTopicClosed) {
-					errc <- nil
-				}
-
-				errc <- err
-				break
-			}
-
-			if url != "" {
-				urlc <- url
-			}
+		if err := processImageGen(ctx, params, uploader, queue, sendResponse); err != nil {
+			errc <- err
 		}
 	}()
 
@@ -72,59 +90,105 @@ func GenerateImageSync(ctx context.Context, params *types.GenerateParams, upload
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
-		return urlc, nil
+		return outputc, nil
 	}
 }
 
 func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) {
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
-	// defer cancel()
 
-	invoke := func(response AsyncGenerateResponse) {
+	invoke := func(response GeneratedImage) {
 		if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
 			fmt.Println("Failed to invoke webhook:", err)
 		}
 	}
 
-	index := 0
+	sendResponse := func(urls []string, index int8, currentModel, status string) {
+		response := GeneratedImage{
+			ID:        params.ID,
+			URLs:      urls,
+			Index:     index,
+			ModelName: currentModel,
+			Status:    status,
+		}
+
+		invoke(response)
+	}
+
+	if err := processImageGen(ctx, params, uploader, queue, sendResponse); err != nil {
+		if !errors.Is(err, mq.ErrTopicClosed) {
+			response := GeneratedImage{
+				Status: StatusFailed,
+			}
+
+			invoke(response)
+		}
+	}
+}
+
+func readModelName(buffer *bytes.Buffer) (string, error) {
+	var modelNameSize uint32
+	if err := binary.Read(buffer, binary.BigEndian, &modelNameSize); err != nil {
+		return "", err
+	}
+
+	if buffer.Len() < int(modelNameSize) {
+		return "", fmt.Errorf("buffer does not contain enough data")
+	}
+
+	modelName := make([]byte, modelNameSize)
+	if err := binary.Read(buffer, binary.BigEndian, &modelName); err != nil {
+		return "", err
+	}
+	return string(modelName), nil
+}
+
+func processImageGen(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ, callback func(urls []string, index int8, currentModel, status string)) error {
+	var (
+		index        int8
+		currentModel string
+		urls         []string
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			if len(urls) > 0 {
+				callback(urls, index, currentModel, StatusCancelled)
+			}
+			return ctx.Err()
 		default:
-			url, err := receiveImage(params.ID, params.OutputFormat, uploader, queue)
+			url, model, err := receiveImage(params.ID, params.OutputFormat, uploader, queue)
 			if err != nil {
 				if errors.Is(err, mq.ErrTopicClosed) {
-					response := AsyncGenerateResponse{
-						ID:     params.ID,
-						Status: StatusCompleted,
-						Output: []AsyncGenerateResponseOutput{},
-					}
-
-					go invoke(response)
-					break
-				} else {
-					response := AsyncGenerateResponse{
-						ID:     params.ID,
-						Status: StatusFailed,
-						Output: []AsyncGenerateResponseOutput{},
-					}
-
-					go invoke(response)
+					// sleep
+					time.Sleep(time.Second)
+					callback(urls, index, currentModel, StatusCompleted)
+					return nil
 				}
 
-				return
+				return err
 			}
 
-			if url != "" {
-				response := AsyncGenerateResponse{
-					Index:  index,
-					ID:     params.ID,
-					Output: []AsyncGenerateResponseOutput{{Format: "png", URL: url}},
+			if currentModel == model {
+				urls = append(urls, url)
+				if len(urls) == cap(urls) {
+					imgUrls := append([]string(nil), urls...)
+					callback(imgUrls, index, currentModel, StatusInProgress)
+
+					index++
+					urls = nil
+					currentModel = ""
+				}
+			} else if currentModel == "" {
+				numImages, ok := params.Models[model]
+				if !ok {
+					return fmt.Errorf("model %s not found in models", model)
 				}
 
-				go invoke(response)
-				index++
+				urls = make([]string, 0, numImages)
+				urls = append(urls, url)
+				currentModel = model
 			}
 		}
 	}

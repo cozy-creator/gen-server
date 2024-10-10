@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -28,18 +28,17 @@ func GenerateImageSync(c *gin.Context) {
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
-		urlc, err := generation.GenerateImageSync(app.Context(), &data, app.Uploader(), app.MQ())
+		output, err := generation.GenerateImageSync(app.Context(), &data, app.Uploader(), app.MQ())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": "Unable to complete image generation"})
 			return false
 		}
 
-		for url := range urlc {
-			response := fmt.Sprintf(`{"status": "%s", "url": "%s"}`, generation.StatusInProgress, url)
-			c.Writer.Write([]byte(response))
+		for url := range output {
+			urlc, _ := json.Marshal(url)
+			c.Writer.Write(urlc)
 		}
 
-		c.Writer.Write([]byte(fmt.Sprintf(`{"status": "%s"}`, generation.StatusCompleted)))
 		c.Writer.Flush()
 		return false
 	})

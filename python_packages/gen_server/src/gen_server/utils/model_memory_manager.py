@@ -98,8 +98,10 @@ class ModelMemoryManager:
 
         # Check if the model is a single file model by checking if the string is ct or file
         if "ct:" in model_config["source"] or "file:" in model_config["source"]:
-            return os.path.getsize(model_config["source"].replace("ct:", "").replace("file:", ""))
-        
+            return os.path.getsize(
+                model_config["source"].replace("ct:", "").replace("file:", "")
+            )
+
         repo_id = model_config["source"].replace("hf:", "")
 
         def get_size_for_repo(
@@ -251,7 +253,9 @@ class ModelMemoryManager:
                 return None
 
         if prefix == "hf":
-            return await self.load_huggingface_model(model_id, path, gpu, type, variant, model_config)
+            return await self.load_huggingface_model(
+                model_id, path, gpu, type, variant, model_config
+            )
         elif prefix in ["file", "ct"]:
             return await self.load_single_file_model(model_id, path, prefix, gpu, type)
         else:
@@ -625,8 +629,8 @@ class ModelMemoryManager:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
-            setattr(torch, "mps", torch.backends.mps)
-            torch.mps.empty_cache()
+            pass
+            # torch.backends.mps.empty_cache()
 
         gc.collect()
 
