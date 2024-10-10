@@ -515,11 +515,11 @@ class ModelMemoryManager:
         available_vram_gb = self._get_available_vram() / (1024**3) - VRAM_SAFETY_MARGIN_GB
         print(f"Model size: {model_size_gb} GB, Available VRAM: {available_vram_gb} GB")
 
-
-        optimizations = [
-            ("enable_vae_slicing", "VAE Sliced", {}),
-            ("enable_vae_tiling", "VAE Tiled", {}),
-        ]
+        optimizations = []
+        # optimizations = [
+        #     ("enable_vae_slicing", "VAE Sliced", {}),
+        #     ("enable_vae_tiling", "VAE Tiled", {}),
+        # ]
 
         if pipeline.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
             optimizations.append(
@@ -550,6 +550,7 @@ class ModelMemoryManager:
             delattr(torch, "mps")
 
         if not force_full_optimization and model_size_gb <= available_vram_gb:
+            print("moving model to device")
             pipeline.to(device)
 
     def flush_memory(self):
