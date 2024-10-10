@@ -148,6 +148,8 @@ class ModelMemoryManager:
         
         self.flush_memory()
 
+        self.is_in_device = False
+
         # Unload the current model if it exists and is different
         if self.current_model is not None and self.current_model != model_id:
             self.unload(self.current_model)
@@ -555,6 +557,8 @@ class ModelMemoryManager:
             print("moving model to device")
             pipeline.to(device)
             self.is_in_device = True
+
+
     def flush_memory(self):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
