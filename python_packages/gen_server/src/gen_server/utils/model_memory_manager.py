@@ -499,6 +499,12 @@ class ModelMemoryManager:
         return architecture.model
 
     def apply_optimizations(self, pipeline: DiffusionPipeline, force_full_optimization: bool = False):
+
+        # Check if the model is loaded in memory already
+        if self.loaded_model is not None:
+            print(f"Model {self.current_model} is already loaded in memory. Not applying optimizations.")
+            return
+
         device = get_available_torch_device()
         config = get_config()
         config = serialize_config(config)
