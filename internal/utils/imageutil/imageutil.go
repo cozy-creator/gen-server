@@ -2,6 +2,7 @@ package imageutil
 
 import (
 	"bytes"
+	"fmt"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -10,6 +11,7 @@ import (
 )
 
 func ConvertImageFromBitmap(bmpBytes []byte, format string) ([]byte, error) {
+	fmt.Println("Image00: ", len(bmpBytes))
 	img, err := bmp.Decode(bytes.NewReader(bmpBytes))
 	if err != nil {
 		return nil, err
@@ -28,14 +30,19 @@ func ConvertImageFromBitmap(bmpBytes []byte, format string) ([]byte, error) {
 		options := &jpeg.Options{Quality: 90}
 		err = jpeg.Encode(&output, img, options)
 	default:
-		return nil, err
+		fmt.Println("Default: ", "not supported", format)
+		return nil, fmt.Errorf("not supported")
 	}
 
 	if err != nil {
+		fmt.Println("Errrrrr: ", err)
 		return nil, err
 	}
 
-	return output.Bytes(), nil
+	outputBytes := output.Bytes()
+	fmt.Println("Image111: ", len(outputBytes))
+
+	return outputBytes, nil
 }
 
 // func DecodeFromBitmap(bmpBytes []byte, format string) (image.Image, error) {

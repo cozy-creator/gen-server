@@ -1,7 +1,7 @@
 import time
 import logging
 import traceback
-from typing import Any, AsyncGenerator, TypeVar
+from typing import Any, AsyncGenerator, Tuple, TypeVar
 
 import torch
 from requests.adapters import HTTPAdapter
@@ -26,7 +26,7 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 
 async def generate_images_non_io(
     task_data: dict[str, Any],
-) -> AsyncGenerator[torch.Tensor, None]:
+) -> AsyncGenerator[Tuple[str, torch.Tensor], None]:
     """Generates images based on the provided task data."""
     start = time.time()
 
@@ -66,7 +66,7 @@ async def generate_images_non_io(
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                yield tensor_images
+                yield (checkpoint_id, tensor_images)
             except Exception as e:
                 traceback.print_exc()
                 logger.error(

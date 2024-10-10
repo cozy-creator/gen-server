@@ -19,12 +19,13 @@ import (
 const (
 	StatusInProgress = "IN_PROGRESS"
 	StatusCompleted  = "COMPLETED"
+	StatusCancelled  = "CANCELLED"
 	StatusInQueue    = "IN_QUEUE"
 	StatusFailed     = "FAILED"
 )
 
 const (
-	MaxWebhookAttempts = 3
+	MaxWebhookAttempts = 1
 )
 
 type AsyncGenerateResponse struct {
@@ -37,6 +38,11 @@ type AsyncGenerateResponse struct {
 type AsyncGenerateResponseOutput struct {
 	Format string `json:"format"`
 	URL    string `json:"url"`
+}
+
+type GeneratedOutput struct {
+	ModelName string `json:"model_name"`
+	Output    []byte `json:"output"`
 }
 
 func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
@@ -98,37 +104,23 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 		}()
 
 		client.Send(ctx, string(params))
-
 		for {
 			sizeBytes, err := client.ReceiveFullBytes(ctx, 4)
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-					break
-				}
-
-				errorc <- err
+			if handleReceiveError(err, errorc) {
 				break
 			}
 
-			size := binary.BigEndian.Uint32(sizeBytes)
-			if size == 0 {
-				continue
-			}
-
-			// Receive the actual data based on the size
-			outputBytes, err := (client.ReceiveFullBytes(ctx, int(size)))
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+			size := int(binary.BigEndian.Uint32(sizeBytes))
+			if size != 0 {
+				var outputBytes []byte
+				outputBytes, err = client.ReceiveFullBytes(ctx, size)
+				if handleReceiveError(err, errorc) {
 					break
 				}
 
-				errorc <- err
-				break
+				output <- outputBytes
 			}
-
-			output <- outputBytes
 		}
-
 	}()
 
 	return output, errorc
@@ -165,4 +157,29 @@ func parseRequestData(message []byte) (types.RequestGenerateParams, error) {
 	}
 
 	return request, nil
+}
+
+func receiveWithSize(ctx context.Context, client *tcpclient.TCPClient, expectedSize int) ([]byte, error, bool) {
+	data, err := client.ReceiveFullBytes(ctx, expectedSize)
+	if err != nil {
+		// Handle EOF or UnexpectedEOF gracefully
+		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+			return nil, err, true
+		}
+
+		return nil, err, false
+	}
+
+	return data, nil, false
+}
+
+func handleReceiveError(err error, errorc chan error) bool {
+	if err != nil {
+		if !(errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)) {
+			errorc <- err
+		}
+		return true
+	}
+
+	return false
 }

@@ -87,8 +87,10 @@ class ModelMemoryManager:
 
     def _get_model_size(self, model_config: dict[str, Any]) -> int:
         if "ct:" in model_config["source"] or "file:" in model_config["source"]:
-            return os.path.getsize(model_config["source"].replace("ct:", "").replace("file:", "")) / (1024**3)
-        
+            return os.path.getsize(
+                model_config["source"].replace("ct:", "").replace("file:", "")
+            )
+
         repo_id = model_config["source"].replace("hf:", "")
 
         def get_size_for_repo(
@@ -222,7 +224,9 @@ class ModelMemoryManager:
                 return None
 
         if prefix == "hf":
-            return await self.load_huggingface_model(model_id, path, gpu, type, variant, model_config)
+            return await self.load_huggingface_model(
+                model_id, path, gpu, type, variant, model_config
+            )
         elif prefix in ["file", "ct"]:
             pipeline = await self.load_single_file_model(model_id, path, prefix, gpu, type)
         else:
@@ -534,7 +538,9 @@ class ModelMemoryManager:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
-            torch.mps.empty_cache()
+            pass
+            # torch.backends.mps.empty_cache()
+
         gc.collect()
 
     def unload(self, model_id: str) -> None:
