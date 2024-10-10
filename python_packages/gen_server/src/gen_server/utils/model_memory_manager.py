@@ -50,6 +50,7 @@ class ModelMemoryManager:
         self.loaded_model: Optional[DiffusionPipeline] = None
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
+        self.is_in_device = False
 
 
     def _get_available_vram(self) -> int:
@@ -502,8 +503,9 @@ class ModelMemoryManager:
 
         # Check if the model is loaded in memory already
         if self.loaded_model is not None:
-            print(f"Model {self.current_model} is already loaded in memory. Not applying optimizations.")
-            return
+            if self.is_in_device:
+                print(f"Model {self.current_model} is already loaded in memory and in device. Not applying optimizations.")
+                return
 
         device = get_available_torch_device()
         config = get_config()
@@ -552,7 +554,7 @@ class ModelMemoryManager:
         if not force_full_optimization and model_size_gb <= available_vram_gb:
             print("moving model to device")
             pipeline.to(device)
-
+            self.is_in_device = True
     def flush_memory(self):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
