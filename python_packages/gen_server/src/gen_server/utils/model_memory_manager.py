@@ -375,9 +375,9 @@ class ModelMemoryManager:
 
 
                 # Check if the VRAM is greater than 24gb before quantizing. If it is greater than 24gb, we do not quantize.
-                if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 24:
-                    logger.info(f"VRAM is greater than 24gb. Not quantizing.")
-                elif class_name in quantized_model_list:
+                # if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 24:
+                #     logger.info(f"VRAM is greater than 24gb. Not quantizing.")
+                if class_name in quantized_model_list:
                     quantized_class_name = (
                         "QuantizedFluxTransformer2DModel"
                         if class_name == "FluxTransformer2DModel"
