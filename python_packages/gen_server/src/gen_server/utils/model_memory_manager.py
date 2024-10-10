@@ -521,9 +521,12 @@ class ModelMemoryManager:
             )
 
         if force_full_optimization or model_size_gb > available_vram_gb:
-            optimizations.append(
-                ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
+            if available_vram_gb < 30:
+                optimizations.append(
+                    ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
             )
+            else:
+                print(f"Available VRAM: {available_vram_gb} GB is greater than 30GB. Not applying CPU offloading.")
 
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
@@ -546,6 +549,7 @@ class ModelMemoryManager:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
+            setattr(torch, "mps", torch.backends.mps)
             torch.mps.empty_cache()
 
         gc.collect()

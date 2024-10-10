@@ -18,6 +18,9 @@
       },
       "flux.1-schnell": {
         "num_inference_steps": 4
+      },
+      "flux.1-dev": {
+        "num_inference_steps": 20
       }
     },
     "cozy_categories": {
