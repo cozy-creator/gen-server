@@ -66,10 +66,14 @@ ENV PYTHONUNBUFFERED=1
 # Install Linux build and runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git curl build-essential libssl-dev libffi-dev wget unzip ca-certificates \
+    git curl build-essential libssl-dev libffi-dev wget unzip nano ca-certificates software-properties-common \
     libgl1-mesa-glx libglib2.0-0 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && add-apt-repository contrib && \
+    apt-get update && apt-get install -y cuda-toolkit-12-6
 
 # Install PyTorch for CUDA 12.4
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu124 \
