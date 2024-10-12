@@ -12,7 +12,7 @@ from typing import Any, Callable
 from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.base_types.pydantic_models import RunCommandConfig
 from gen_server.config import init_config
-from gen_server.globals import update_custom_nodes
+from gen_server.globals import update_custom_nodes, update_architectures
 from gen_server.handlers import load_model
 from gen_server.tcp_server import TCPServer, RequestContext
 from gen_server.worker.gpu_worker import generate_images_non_io
@@ -96,6 +96,10 @@ def startup_extensions():
 
     update_custom_nodes(
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
+    )
+
+    update_architectures(
+        load_extensions("cozy_creator.architectures")
     )
 
     print(

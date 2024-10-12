@@ -19,16 +19,8 @@ from ..utils.utils import serialize_config
 from diffusers import FluxInpaintPipeline, StableDiffusionPipeline, StableDiffusionXLPipeline, FluxPipeline
 import gc
 from enum import Enum
-from ..utils.quantize_models import quantize_model_fp8
 
 logger = logging.getLogger(__name__)
-
-
-class GPUEnum(Enum):
-    LOW = 7
-    MEDIUM = 14
-    HIGH = 22
-    VERY_HIGH = 30
 
 
 
@@ -59,7 +51,6 @@ class ModelMemoryManager:
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.is_in_device = False
-        self.should_quantize = False
 
 
     def _get_available_vram(self) -> int:
@@ -94,13 +85,9 @@ class ModelMemoryManager:
                 commit_hash = f.read().strip()
 
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
-
             if component_name:
                 snapshot_folder = os.path.join(snapshot_folder, component_name)
 
-            # Check if component name is a folder or file
-            if not os.path.isdir(snapshot_folder):
-                return os.path.getsize(snapshot_folder)
             variants = ["bf16", "fp8", "fp16", ""]  # Empty string for default variant
             
             def check_variant_files(folder: str, variant: str) -> bool:
@@ -129,27 +116,25 @@ class ModelMemoryManager:
 
         # Calculate size of replacement components
         if "components" in model_config and model_config["components"]:
-            for key, component in model_config["components"].items():
+            for _, component in model_config["components"].items():
                 if isinstance(component, dict) and "source" in component:
                     if "source" in component and isinstance(component["source"], str):
                         # Diffusers format
                         if not component["source"].endswith(
                             (".safetensors", ".bin", ".ckpt", ".pt")
                         ):
-                            component_name = key
-
-                            # Component repo is the source without the hf: prefix
-                            component_repo = component["source"].replace("hf:", "")
-                        else:
-                            # last element after the last '/'
+                            # Split the source by '/' and get the last element
                             component_name = component["source"].split("/")[-1]
 
-                            component_repo = "/".join(component["source"].split("/")[:-1]).replace("hf:", "")
+                            # Component repo is the source without the last element, join it with '/'
+                            component_repo = "/".join(
+                                component["source"].split("/")[:-1]
+                            ).replace("hf:", "")
                     
                     component_size = get_size_for_repo(component_repo, component_name)
                     total_size += component_size
                     # Subtract the size of the replaced component from the main model
-                    total_size -= get_size_for_repo(repo_id, key)
+                    total_size -= get_size_for_repo(repo_id, component_name)
 
         return total_size
 
@@ -185,7 +170,9 @@ class ModelMemoryManager:
 
         type = model_config["type"]
 
-        self.should_quantize = model_config.get("quantize", False)
+        # repo_id = model_config["source"].replace("hf:", "")
+
+        # category = model_config.get("category", None)
 
         if prefix == "hf":
             is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
@@ -216,7 +203,8 @@ class ModelMemoryManager:
             gpu: Optional[int] = None, 
             type: Optional[str] = None,
             variant: Optional[str] = None,
-            model_config: Optional[dict[str, Any]] = None
+            model_config: Optional[dict[str, Any]] = None,
+            category: Optional[str] = None,
         ) -> Optional[DiffusionPipeline]:
         
         try:
@@ -226,21 +214,25 @@ class ModelMemoryManager:
                 for key, component in model_config["components"].items():
                     # Check if 'source' key is in the component dict and is a string
                     if "source" in component and isinstance(component["source"], str):
+                        # Diffusers format
                         if not component["source"].endswith(
                             (".safetensors", ".bin", ".ckpt", ".pt")
                         ):
-                            component_name = key
+                            # Split the source by '/' and get the last element
+                            component_name = component["source"].split("/")[-1]
 
-                            # Component repo is the source without the hf: prefix
-                            component_repo = component["source"].replace("hf:", "")
-
+                            # Component repo is the source without the last element, join it with '/'
+                            component_repo = "/".join(
+                                component["source"].split("/")[:-1]
+                            ).replace("hf:", "")
+                            print(component_repo, component_name)
                             pipeline_kwargs[key] = await self._load_diffusers_component(
                                 repo_id, component_repo, component_name
                             )
                         else:
                             # Custom format
                             pipeline_kwargs[key] = self._load_custom_component(
-                                component["source"], type, key
+                                component["source"], category, key
                             )
                     elif component["source"] is None:
                         pipeline_kwargs[key] = None
@@ -354,7 +346,7 @@ class ModelMemoryManager:
     
 
     async def _load_diffusers_component(
-        self, repo_id: str, component_repo: str, component_name: str = None
+        self, repo_id: str, component_repo: str, component_name: str
     ) -> Any:
         print(f"Loading diffusers component {component_name} from {repo_id}")
         try:
@@ -377,21 +369,73 @@ class ModelMemoryManager:
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
 
+            # Check for quantized models
+            if model_index["_class_name"] == "FluxPipeline":
+                quantized_model_list = ["FluxTransformer2DModel", "T5EncoderModel"]
+
+
+                # Check if the VRAM is greater than 24gb before quantizing. If it is greater than 24gb, we do not quantize.
+                # if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / 1024 ** 3 > 24:
+                #     logger.info(f"VRAM is greater than 24gb. Not quantizing.")
+                if class_name in quantized_model_list:
+                    quantized_class_name = (
+                        "QuantizedFluxTransformer2DModel"
+                        if class_name == "FluxTransformer2DModel"
+                        else "QuantizedT5EncoderModelForCausalLM"
+                    )
+                    quantized_module_path = "gen_server.utils.quantize_models"
+                    storage_folder = os.path.join(
+                        self.cache_dir, "models--" + component_repo.replace("/", "--")
+                    )
+
+                    if not os.path.exists(storage_folder):
+                        raise FileNotFoundError(
+                            f"Quantized model {component_repo} not found"
+                        )
+
+                    # Get the latest commit hash
+                    refs_path = os.path.join(storage_folder, "refs", "main")
+                    if not os.path.exists(refs_path):
+                        return FileNotFoundError(f"No commit hash found")
+
+                    with open(refs_path, "r") as f:
+                        commit_hash = f.read().strip()
+
+                    repo_id = os.path.join(
+                        storage_folder, "snapshots", commit_hash, component_name
+                    )
+
+                    # Import the class
+                    quantized_module = importlib.import_module(quantized_module_path)
+                    quantized_model_class = getattr(
+                        quantized_module, quantized_class_name
+                    )
+
+                    if class_name == "T5EncoderModel":
+                        model_class.from_config = lambda config: model_class(config)
+
+                    print(
+                        f"Loading component {component_name} from {repo_id}. Class_name: {quantized_class_name}, module_path: {quantized_module_path}"
+                    )
+
+                    # Load the component
+                    component = quantized_model_class.from_pretrained(
+                        repo_id,
+                    ).to(torch.bfloat16)
+
+                    return component
+
             print(
                 f"Loading component {component_name} from {repo_id}. Class_name: {class_name}, module_path: {module_path}"
             )
 
             # Load the component
             component = model_class.from_pretrained(
-                component_repo,
+                repo_id,
                 subfolder=component_name,
-                # local_files_only=True,
-                torch_dtype=torch.bfloat16 if "flux" in repo_id.lower() else torch.float16,
+                local_files_only=True,
+                torch_dtype=torch.float16,
             )
-
-            if self.should_quantize:
-                print(f"Quantizing component {component_name} from {repo_id}")
-                quantize_model_fp8(component)
 
             return component
 
@@ -401,13 +445,10 @@ class ModelMemoryManager:
             )
             raise
 
-    def _load_custom_component(self, repo_id: str,  category: str, component_name: str):
-        print(f"Loading custom component {component_name} from {repo_id}")
+    def _load_custom_component(self, repo_id: str, category: str, component_name: str):
         file_path = None
         # Keep only the name between and after the first slash including the slash
         repo_folder = os.path.dirname(repo_id)
-
-        repo_folder = repo_folder.replace("hf:", "")
 
         # repo_id, weights_name = _extract_repo_id_and_weights_name(repo_id)
 
@@ -445,28 +486,20 @@ class ModelMemoryManager:
 
         # Get the architectures registry
         architectures = get_architectures()
+        # print(f"Architectures: {architectures}")
 
         # Find the correct architecture class
         arch_key = f"core_extension_1.{category.lower()}_{component_name.lower()}"
-
-        print(f"Arch key: {arch_key}")
 
         architecture_class = architectures.get(arch_key)
 
         # Initialize the architecture
         architecture = architecture_class()
 
-
         # Load the state dict into the architecture
         architecture.load(state_dict)
 
-        model = architecture.model
-
-        if self.should_quantize:
-            print(f"Quantizing component {component_name} from {repo_id}")
-            quantize_model_fp8(model)
-
-        return model
+        return architecture.model
 
     def apply_optimizations(self, pipeline: DiffusionPipeline, force_full_optimization: bool = False):
 
@@ -483,59 +516,28 @@ class ModelMemoryManager:
         model_config = config["enabled_models"][self.current_model]
 
         model_size_gb = self._get_model_size(model_config) / (1024**3)
-        available_vram_gb = self._get_available_vram() / (1024**3)
+        available_vram_gb = self._get_available_vram() / (1024**3) - VRAM_SAFETY_MARGIN_GB
         print(f"Model size: {model_size_gb} GB, Available VRAM: {available_vram_gb} GB")
 
         optimizations = []
-        FULL_OPTIMIZATION = [
-            ("enable_vae_slicing", "VAE Sliced", {}),
-            ("enable_vae_tiling", "VAE Tiled", {}),
-            ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
-        ]
         # optimizations = [
         #     ("enable_vae_slicing", "VAE Sliced", {}),
         #     ("enable_vae_tiling", "VAE Tiled", {}),
         # ]
 
-        # ------------------------------------ DO SOME CHECKS ------------------------------------
+        if pipeline.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
+            optimizations.append(
+                ("enable_xformers_memory_efficient_attention", "Memory Efficient Attention", {})
+            )
 
-        # Check 1: If should quantize and available VRAM equal or greater than High, don't apply optimizations
-        if self.should_quantize:
-            if available_vram_gb >= GPUEnum.HIGH.value:
-                force_full_optimization = False
+        if force_full_optimization or model_size_gb > available_vram_gb:
+            if available_vram_gb < 30:
+                optimizations.append(
+                    ("enable_model_cpu_offload", "CPU Offloading", {"device": device})
+            )
             else:
-                force_full_optimization = True
-                print(f"Available VRAM: {available_vram_gb} GB is less than 24GB. Applying optimizations.")
-
-
-        # Check 2: If available VRAM equal or greater than Very High, don't apply optimizations
-        if available_vram_gb >= GPUEnum.VERY_HIGH.value:
-            force_full_optimization = False
-
-        # Check 3: If available VRAM is greater than model size, apply optimizations if force_full_optimization is True
-        if available_vram_gb > model_size_gb:
-            if force_full_optimization:                    
-                if available_vram_gb >= GPUEnum.HIGH.value:
-                    force_full_optimization = False
-                    print(f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations.")
-                else:
-                    optimizations = FULL_OPTIMIZATION
-                    if pipeline.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
-                        optimizations.append(
-                            ("enable_xformers_memory_efficient_attention", "Memory Efficient Attention", {})
-                        )
-        # Check 4: If should quantize and available VRAM is less than High, apply optimizations
-        else:
-            if self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value:
                 force_full_optimization = False
-                print(f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations.")
-            else:
-                optimizations = FULL_OPTIMIZATION
-                if pipeline.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
-                    optimizations.append(
-                        ("enable_xformers_memory_efficient_attention", "Memory Efficient Attention", {})
-                    )
-            
+                print(f"Available VRAM: {available_vram_gb} GB is greater than 30GB. Not applying CPU offloading.")
 
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
@@ -551,7 +553,7 @@ class ModelMemoryManager:
         if device_type == "mps":
             delattr(torch, "mps")
 
-        if not force_full_optimization:
+        if not force_full_optimization and model_size_gb <= available_vram_gb:
             print("moving model to device")
             pipeline.to(device)
             self.is_in_device = True
@@ -599,3 +601,15 @@ class ModelMemoryManager:
         model = self.get_model(model_id)
         return model.device if model else None
 
+    # Check the current memory usage (method)
+    # def get_memory_usage(self):
+    #     memory_usage = {}
+    #     for model_id, pipeline in self.loaded_models.items():
+    #         memory_usage[model_id] = pipeline.get_memory_usage()
+    #     return memory_usage
+
+    # dynamically unload models
+    # def unload_models(self, max_memory_usage: int):
+    #     for model_id, pipeline in self.loaded_models.items():
+    #         if pipeline.get_memory_usage() > max_memory_usage:
+    #             self.unload(model_id)

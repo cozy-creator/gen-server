@@ -3,7 +3,7 @@ from typing import Dict, Any, List
 from gen_server.executor.workflows import flux_train_workflow, image_regen_workflow, generate_images_with_lora, generate_images_unified
 # from gen_server.base_types.custom_node import get_custom_nodes
 from gen_server.config import init_config
-from gen_server.globals import update_custom_nodes
+from gen_server.globals import update_custom_nodes, update_architectures
 from gen_server.utils.extension_loader import load_extensions
 import time
 from gen_server.base_types.custom_node import custom_node_validator
@@ -294,6 +294,12 @@ def startup_extensions():
     update_custom_nodes(
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
+
+    update_architectures(
+        load_extensions("cozy_creator.architectures")
+    )
+
+    print(f"Architectures loading time: {time.time() - start_time_custom_nodes:.2f} seconds")
 
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"

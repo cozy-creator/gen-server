@@ -31,6 +31,7 @@ dependencies = [
     "library@git+https://github.com/cozy-creator/sd-scripts.git",
     "LECO@git+https://github.com/cozy-creator/LECO.git",
     "diffusers@git+https://github.com/huggingface/diffusers.git",
+    "optimum-quanto@git+https://github.com/huggingface/optimum-quanto.git@65ace79d6af6ccc27afbb3576541cc36b3e3a98b",
 ]
 
 [project.entry-points."cozy_creator.architectures"]
