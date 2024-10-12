@@ -31,7 +31,9 @@ class GPUEnum(Enum):
     HIGH = 22
     VERY_HIGH = 30
 
-VRAM_SAFETY_MARGIN_GB = 4.0
+
+# safety margin (in GB)
+VRAM_SAFETY_MARGIN_GB = 2.0
 
 MODEL_COMPONENTS = {
     "flux": [
@@ -180,8 +182,10 @@ class ModelMemoryManager:
                             # last element after the last '/'
                             component_name = component["source"].split("/")[-1]
 
-                            component_repo = "/".join(component["source"].split("/")[:-1]).replace("hf:", "")
-                    
+                            component_repo = "/".join(
+                                component["source"].split("/")[:-1]
+                            ).replace("hf:", "")
+
                     component_size = get_size_for_repo(component_repo, component_name)
                     total_size += component_size
                     # Subtract the size of the replaced component from the main model
@@ -234,15 +238,14 @@ class ModelMemoryManager:
             return None
 
     async def load_huggingface_model(
-            self, 
-            model_id: str, 
-            repo_id: str, 
-            gpu: Optional[int] = None, 
-            type: Optional[str] = None,
-            variant: Optional[str] = None,
-            model_config: Optional[dict[str, Any]] = None
-        ) -> Optional[DiffusionPipeline]:
-        
+        self,
+        model_id: str,
+        repo_id: str,
+        gpu: Optional[int] = None,
+        type: Optional[str] = None,
+        variant: Optional[str] = None,
+        model_config: Optional[dict[str, Any]] = None,
+    ) -> Optional[DiffusionPipeline]:
         try:
             pipeline_kwargs = {}
             if "components" in model_config and model_config["components"]:
@@ -408,7 +411,10 @@ class ModelMemoryManager:
             component = model_class.from_pretrained(
                 component_repo,
                 subfolder=component_name,
-                torch_dtype=torch.bfloat16 if "flux" in component_repo.lower() else torch.float16,
+                # local_files_only=True,
+                torch_dtype=torch.bfloat16
+                if "flux" in repo_id.lower()
+                else torch.float16,
             )
 
             if self.should_quantize:
@@ -420,8 +426,46 @@ class ModelMemoryManager:
             logger.error(f"Error loading component {component_name} from {component_repo}: {str(e)}")
             raise
 
-    def _load_custom_component(self, repo_id: str, category: str, component_name: str) -> Any:
-        file_path = self._get_component_file_path(repo_id)
+    def _load_custom_component(self, repo_id: str, category: str, component_name: str):
+        print(f"Loading custom component {component_name} from {repo_id}")
+        file_path = None
+        # Keep only the name between and after the first slash including the slash
+        repo_folder = os.path.dirname(repo_id)
+
+        repo_folder = repo_folder.replace("hf:", "")
+
+        # repo_id, weights_name = _extract_repo_id_and_weights_name(repo_id)
+
+        # Load the state dict
+        model_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
+        )
+
+        # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
+        weights_name = repo_id.split("/")[-1]
+
+        # Get the safetensors file
+        if not os.path.exists(model_folder):
+            model_folder = os.path.join(self.cache_dir, repo_folder)
+            if not os.path.exists(model_folder):
+                raise FileNotFoundError(f"Cache folder for {repo_id} not found")
+            else:
+                file_path = os.path.join(model_folder, weights_name)
+
+        if not file_path:
+            # Get the latest commit hash
+            refs_path = os.path.join(model_folder, "refs", "main")
+            if not os.path.exists(refs_path):
+                raise FileNotFoundError(f"refs/main not found for {repo_id}")
+
+            with open(refs_path, "r") as f:
+                commit_hash = f.read().strip()
+
+            # Construct the path to model_index.json
+            file_path = os.path.join(
+                model_folder, "snapshots", commit_hash, weights_name
+            )
+
         state_dict = load_state_dict_from_file(file_path)
 
         architectures = get_architectures()
@@ -432,6 +476,8 @@ class ModelMemoryManager:
             raise ValueError(f"Architecture not found for {arch_key}")
 
         architecture = architecture_class()
+
+        # Load the state dict into the architecture
         architecture.load(state_dict)
         model = architecture.model
 
@@ -440,25 +486,16 @@ class ModelMemoryManager:
 
         return model
 
-    def _get_component_file_path(self, repo_id: str) -> str:
-        repo_folder = os.path.dirname(repo_id.replace("hf:", ""))
-        weights_name = repo_id.split("/")[-1]
-        
-        model_folder = os.path.join(self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model"))
-        
-        if not os.path.exists(model_folder):
-            model_folder = os.path.join(self.cache_dir, repo_folder)
-            if not os.path.exists(model_folder):
-                raise FileNotFoundError(f"Cache folder for {repo_id} not found")
-            return os.path.join(model_folder, weights_name)
-
-        commit_hash = self._get_commit_hash(model_folder)
-        return os.path.join(model_folder, "snapshots", commit_hash, weights_name)
-
-    def apply_optimizations(self, pipeline: DiffusionPipeline, model_id: str, force_full_optimization: bool = False):
-        if self.loaded_model is not None and self.is_in_device:
-            logger.info(f"Model {model_id} is already loaded in memory and in device. Not applying optimizations.")
-            return
+    def apply_optimizations(
+        self, pipeline: DiffusionPipeline, force_full_optimization: bool = False
+    ):
+        # Check if the model is loaded in memory already
+        if self.loaded_model is not None:
+            if self.is_in_device:
+                print(
+                    f"Model {self.current_model} is already loaded in memory and in device. Not applying optimizations."
+                )
+                return
 
         device = get_available_torch_device()
         config = serialize_config(get_config())
@@ -467,9 +504,7 @@ class ModelMemoryManager:
         print(f"\nmodel_config: {model_config}\n")
 
         model_size_gb = self._get_model_size(model_config) / (1024**3)
-        available_vram_gb = (
-            self._get_available_vram() / (1024**3) - VRAM_SAFETY_MARGIN_GB
-        )
+        available_vram_gb = self._get_available_vram() / (1024**3)
         print(f"Model size: {model_size_gb} GB, Available VRAM: {available_vram_gb} GB")
 
         optimizations, force_full_optimization = self._determine_optimizations(available_vram_gb, model_size_gb, force_full_optimization)
@@ -501,15 +536,71 @@ class ModelMemoryManager:
         optimizations = [
             ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
-            ("enable_model_cpu_offload", "CPU Offloading", {"device": get_available_torch_device()})
+            ("enable_model_cpu_offload", "CPU Offloading", {"device": device}),
         ]
-        if self.loaded_model.__class__.__name__ not in ["FluxPipeline", "FluxInpaintPipeline"]:
-            optimizations.append(
-                ("enable_xformers_memory_efficient_attention", "Memory Efficient Attention", {})
-            )
-        return optimizations
+        # optimizations = [
+        #     ("enable_vae_slicing", "VAE Sliced", {}),
+        #     ("enable_vae_tiling", "VAE Tiled", {}),
+        # ]
 
-    def _apply_optimizations(self, pipeline: DiffusionPipeline, optimizations: list, device: torch.device):
+        # ------------------------------------ DO SOME CHECKS ------------------------------------
+
+        # Check 1: If should quantize and available VRAM equal or greater than High, don't apply optimizations
+        if self.should_quantize:
+            if available_vram_gb >= GPUEnum.HIGH.value:
+                force_full_optimization = False
+            else:
+                force_full_optimization = True
+                print(
+                    f"Available VRAM: {available_vram_gb} GB is less than 24GB. Applying optimizations."
+                )
+
+        # Check 2: If available VRAM equal or greater than Very High, don't apply optimizations
+        if available_vram_gb >= GPUEnum.VERY_HIGH.value:
+            force_full_optimization = False
+
+        # Check 3: If available VRAM is greater than model size, apply optimizations if force_full_optimization is True
+        if available_vram_gb > model_size_gb:
+            if force_full_optimization:
+                if available_vram_gb >= GPUEnum.HIGH.value:
+                    force_full_optimization = False
+                    print(
+                        f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations."
+                    )
+                else:
+                    optimizations = FULL_OPTIMIZATION
+                    if pipeline.__class__.__name__ not in [
+                        "FluxPipeline",
+                        "FluxInpaintPipeline",
+                    ]:
+                        optimizations.append(
+                            (
+                                "enable_xformers_memory_efficient_attention",
+                                "Memory Efficient Attention",
+                                {},
+                            )
+                        )
+        # Check 4: If should quantize and available VRAM is less than High, apply optimizations
+        else:
+            if self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value:
+                force_full_optimization = False
+                print(
+                    f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations."
+                )
+            else:
+                optimizations = FULL_OPTIMIZATION
+                if pipeline.__class__.__name__ not in [
+                    "FluxPipeline",
+                    "FluxInpaintPipeline",
+                ]:
+                    optimizations.append(
+                        (
+                            "enable_xformers_memory_efficient_attention",
+                            "Memory Efficient Attention",
+                            {},
+                        )
+                    )
+
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
@@ -521,8 +612,8 @@ class ModelMemoryManager:
             except Exception as e:
                 logger.error(f"Error enabling {opt_name}: {e}")
 
-        # if device_type == "mps":
-        #     delattr(torch, "mps")
+        if device_type == "mps":
+            delattr(torch, "mps")
 
     def _move_model_to_device(self, pipeline: DiffusionPipeline, device: torch.device):
         logger.info("Moving model to device")
@@ -538,8 +629,8 @@ class ModelMemoryManager:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
-            pass
-            # torch.backends.mps.empty_cache()
+            setattr(torch, "mps", torch.backends.mps)
+            torch.mps.empty_cache()
 
         gc.collect()
 
@@ -562,7 +653,6 @@ class ModelMemoryManager:
     def get_model_device(self, model_id: str) -> Optional[torch.device]:
         model = self.get_model(model_id)
         return model.device if model else None
-    
 
 
 
