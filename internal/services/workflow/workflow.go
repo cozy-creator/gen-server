@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -14,6 +15,7 @@ import (
 )
 
 type Workflow struct {
+	ID    string `json:"id"`
 	Nodes []Node `json:"nodes"`
 }
 
@@ -125,6 +127,9 @@ func (e *WorkflowExecutor) Execute(ctx context.Context) error {
 
 	wg.Wait()
 
+	topic := "workflows:" + e.Workflow.ID
+	e.app.MQ().CloseTopic(topic)
+
 	for {
 		select {
 		case err := <-e.errorsChan:
@@ -164,6 +169,7 @@ func (e *WorkflowExecutor) worker(wg *sync.WaitGroup) {
 			return
 		}
 
+		e.queueOutput(node, output)
 		e.storeOutput(node.Id, output)
 		wg.Done()
 	}
@@ -277,13 +283,10 @@ func executeNode(app *app.App, node *Node, inputs map[string]interface{}) (NodeO
 
 	switch node.Type {
 	case "GenerateImage":
-		fmt.Println("Generating image")
 		output, err = generationnode.GenerateImage(app, inputs)
 	case "GenerateVideo":
-		fmt.Println("Generating video")
 		output, err = generationnode.GenerateVideo(app, inputs)
 	case "SaveImage":
-		fmt.Println("Saving image")
 		output, err = imagenode.SaveImage(app, inputs)
 	case "LoadImage":
 		output, err = imagenode.LoadImage(app, inputs)
@@ -318,4 +321,26 @@ func (e *WorkflowExecutor) storeOutput(nodeId string, output NodeOutput) {
 func (e *WorkflowExecutor) hasOutput(nodeId string) bool {
 	_, loaded := e.Outputs.Load(nodeId)
 	return loaded
+}
+
+func (e *WorkflowExecutor) queueOutput(node *Node, output NodeOutput) {
+	queue := e.app.MQ()
+	topic := "workflows:" + e.Workflow.ID
+
+	data := struct {
+		NodeID   string     `json:"id"`
+		NodeType string     `json:"type"`
+		Output   NodeOutput `json:"output"`
+	}{
+		NodeID:   node.Id,
+		NodeType: node.Type,
+		Output:   output,
+	}
+
+	encoded, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+
+	queue.Publish(context.Background(), topic, encoded)
 }
