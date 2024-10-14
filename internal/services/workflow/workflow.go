@@ -38,6 +38,13 @@ type PortRef struct {
 
 type NodeOutput map[string]interface{}
 
+type WorkflowOutput struct {
+	NodeID   string     `json:"id"`
+	NodeType string     `json:"type"`
+	Output   NodeOutput `json:"output,omitempty"`
+	Error    error      `json:"error,omitempty"`
+}
+
 type WorkflowExecutor struct {
 	Workflow *Workflow
 	Outputs  sync.Map
@@ -164,12 +171,13 @@ func (e *WorkflowExecutor) worker(wg *sync.WaitGroup) {
 
 		output, err := executeNode(e.app, node, inputs)
 		if err != nil {
+			e.queueOutput(node, nil, err)
 			e.errorsChan <- err
 			wg.Done()
 			return
 		}
 
-		e.queueOutput(node, output)
+		e.queueOutput(node, output, nil)
 		e.storeOutput(node.Id, output)
 		wg.Done()
 	}
@@ -323,18 +331,15 @@ func (e *WorkflowExecutor) hasOutput(nodeId string) bool {
 	return loaded
 }
 
-func (e *WorkflowExecutor) queueOutput(node *Node, output NodeOutput) {
+func (e *WorkflowExecutor) queueOutput(node *Node, output NodeOutput, err error) {
 	queue := e.app.MQ()
 	topic := "workflows:" + e.Workflow.ID
 
-	data := struct {
-		NodeID   string     `json:"id"`
-		NodeType string     `json:"type"`
-		Output   NodeOutput `json:"output"`
-	}{
+	data := WorkflowOutput{
 		NodeID:   node.Id,
 		NodeType: node.Type,
 		Output:   output,
+		Error:    err,
 	}
 
 	encoded, err := json.Marshal(data)
