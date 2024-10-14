@@ -2,13 +2,12 @@ package imagenode
 
 import (
 	"bytes"
+	"fmt"
 	"image"
-
 	"image/gif"
 	"image/jpeg"
 	"image/png"
 
-	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"golang.org/x/image/bmp"
 )
 
@@ -22,26 +21,18 @@ func DecodeImage(data []byte, format string) (image.Image, error) {
 		err    error
 	)
 
-	reader := bytes.NewReader(data)
-	imageutil.ConvertImageFromBitmap(data, format)
 	switch format {
 	case "bmp":
-		output, err = bmp.Decode(reader)
+		output, err = bmp.Decode(bytes.NewReader(data))
 	case "png":
-		output, err = png.Decode(reader)
+		output, err = png.Decode(bytes.NewReader(data))
+	case "jpg", "jpeg":
+		output, err = jpeg.Decode(bytes.NewReader(data))
 	case "gif":
-		output, err = gif.Decode(reader)
-	case "jpg":
-		output, err = jpeg.Decode(reader)
-	case "jpeg":
-		output, err = jpeg.Decode(reader)
+		output, err = gif.Decode(bytes.NewReader(data))
 	default:
-		return nil, ErrInvalidFormat
+		return nil, fmt.Errorf("unsupported image format: %s", format)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return output, nil
+	return output, err
 }
