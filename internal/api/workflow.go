@@ -35,7 +35,7 @@ func ExecuteWorkflow(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusAccepted, gin.H{"status": "pending"})
+	ctx.JSON(http.StatusAccepted, gin.H{"status": "pending", "id": workflow.ID})
 }
 
 func StreamWorkflow(ctx *gin.Context) {
