@@ -33,7 +33,6 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 	negativePrompt := inputs["negative_prompt"].(string)
 
 	fmt.Println("Output format: ", outputFormat)
-	outputFormat = "png"
 
 	params := types.GenerateParams{
 		RandomSeed:     randomSeed,
@@ -50,7 +49,7 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 	}
 
 	fmt.Println("params: ", params)
-	images, err := receiveImages(params.ID, params.OutputFormat, app.Uploader(), app.MQ())
+	images, err := receiveImages(params.ID, app.Uploader(), app.MQ())
 	if err != nil {
 		return nil, err
 	}
@@ -58,38 +57,12 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 	return map[string]interface{}{
 		"images": images,
 	}, nil
-
-	// images := make([]image.Image, 0, numImages)
-	// for len(images) < numImages {
-	// 	select {
-	// 	case err := <-errChan:
-	// 		return nil, err
-	// 	case <-context.Background().Done():
-	// 		return nil, fmt.Errorf("context cancelled")
-	// 	case out, ok := <-output:
-	// 		if !ok {
-	// 			break
-	// 		}
-
-	// 		// log.Info(fmt.Sprintf("image generated successfully, request id: %s", requestId))
-
-	// 		fmt.Println("Image generated and decoded successfully")
-
-	// 		// log.Info(fmt.Sprintf("image decoded to %s successfully", outputFormat))
-	// 		images = append(images, img)
-	// 	}
-	// }
-
-	// return map[string]interface{}{
-	// 	"images": images,
-	// }, nil
 }
 
-func receiveImages(requestId string, outputFormat string, uploader *fileuploader.Uploader, queue mq.MQ) ([]image.Image, error) {
+func receiveImages(requestId string, uploader *fileuploader.Uploader, queue mq.MQ) ([]image.Image, error) {
 	topic := config.DefaultGeneratePrefix + requestId
 
 	images := make([]image.Image, 0)
-	fmt.Println("topic: ", topic)
 	for {
 		output, err := queue.Receive(context.Background(), topic)
 		if err != nil {
@@ -99,13 +72,13 @@ func receiveImages(requestId string, outputFormat string, uploader *fileuploader
 			return nil, err
 		}
 
+		output, _, err = generation.ParseImageOutput(output)
 		image, err := imagenode.DecodeImage(output, "bmp")
 		if err != nil {
 			fmt.Println("error: ", err)
 			return nil, err
 		}
 
-		fmt.Println("image: ", "decoded image")
 		images = append(images, image)
 	}
 

@@ -31,13 +31,8 @@ func receiveImage(requestId string, outputFormat string, uploader *fileuploader.
 		return "", "", err
 	}
 
-	outputBuffer := bytes.NewBuffer(output)
-	modelName, err := readModelName(outputBuffer)
-	if err != nil {
-		return "", "", err
-	}
-
-	image, err := imageutil.ConvertImageFromBitmap(outputBuffer.Bytes(), outputFormat)
+	output, modelName, err := ParseImageOutput(output)
+	image, err := imageutil.DecodeBmpToFormat(output, outputFormat)
 	if err != nil {
 		return "", "", err
 	}
@@ -141,6 +136,16 @@ func readModelName(buffer *bytes.Buffer) (string, error) {
 		return "", err
 	}
 	return string(modelName), nil
+}
+
+func ParseImageOutput(output []byte) ([]byte, string, error) {
+	outputBuffer := bytes.NewBuffer(output)
+	modelName, err := readModelName(outputBuffer)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return outputBuffer.Bytes(), modelName, nil
 }
 
 func processImageGen(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ, callback func(urls []string, index int8, currentModel, status string)) error {

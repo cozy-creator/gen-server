@@ -46,9 +46,9 @@ func invokeLumaAI(app *app.App, inputs map[string]interface{}) (string, error) {
 	image_ := inputs["images"].([]image.Image)[0]
 
 	imageInput := map[string]interface{}{
-		"images":  []image.Image{image_},
-		"format":  "png",
-		"is_temp": false,
+		"images":        []image.Image{image_},
+		"output_format": "png",
+		"is_temp":       false,
 	}
 
 	output, err := imagenode.SaveImage(app, imageInput)
@@ -57,15 +57,19 @@ func invokeLumaAI(app *app.App, inputs map[string]interface{}) (string, error) {
 		return "", err
 	}
 
+	fmt.Println(">> Saved image: ", output["urls"])
+
 	apiKey := app.Config().LumaAI.APIKey
 	luma := scripts.NewLumaAI(apiKey)
 	gen, err := luma.ImageToVideo(prompt, output["urls"].([]string)[0], "1:1", false)
+	fmt.Println(">> Generated video: ", gen)
 	if err != nil {
 		fmt.Println("Error invoking luma ai: ", err)
 		return "", err
 	}
 
 	gen, err = pollGeneration(apiKey, gen.ID)
+	fmt.Println(">> Polled generation: ", gen)
 	if err != nil {
 		fmt.Println("Error getting video...")
 		return "", err

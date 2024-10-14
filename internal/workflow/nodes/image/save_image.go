@@ -1,15 +1,11 @@
 package imagenode
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 
-	"image/gif"
-	"image/jpeg"
-	"image/png"
-
 	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 )
 
 type SaveImageInputs struct {
@@ -24,35 +20,19 @@ type SaveImageOutput struct {
 
 func SaveImage(app *app.App, input map[string]interface{}) (map[string]interface{}, error) {
 	images := input["images"].([]image.Image)
-	format := input["format"].(string)
+	format := input["output_format"].(string)
 	isTemp := input["is_temp"].(bool)
 
-	var (
-		urls []string
-		err  error
-	)
-
+	var urls []string
 	for _, img := range images {
-		var content bytes.Buffer
-		switch format {
-		case "png":
-			err = png.Encode(&content, img)
-		case "jpg":
-		case "jpeg":
-			err = jpeg.Encode(&content, img, nil)
-		case "gif":
-			err = gif.Encode(&content, img, nil)
-		default:
-			return nil, ErrInvalidFormat
-		}
-
+		content, err := imageutil.EncodeImage(img, format)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encode image: %w", err)
 		}
 
 		response := make(chan string)
 		extension := "." + format
-		go app.Uploader().UploadBytes(content.Bytes(), extension, isTemp, response)
+		go app.Uploader().UploadBytes(content, extension, isTemp, response)
 
 		url, ok := <-response
 		if !ok {

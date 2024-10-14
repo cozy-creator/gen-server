@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/cozy-creator/gen-server/internal/app"
@@ -51,6 +52,7 @@ func StreamWorkflow(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 	ctx.Writer.WriteHeader(http.StatusOK)
+	ctx.Writer.Flush()
 
 	for {
 		select {
@@ -67,7 +69,7 @@ func StreamWorkflow(ctx *gin.Context) {
 				continue
 			}
 
-			if _, err := ctx.Writer.Write(message); err != nil {
+			if _, err = fmt.Fprintf(ctx.Writer, "data: %s\n\n", string(message)); err != nil {
 				continue
 			}
 			ctx.Writer.Flush()
