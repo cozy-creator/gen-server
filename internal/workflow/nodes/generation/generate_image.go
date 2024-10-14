@@ -32,6 +32,9 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 	positivePrompt := inputs["positive_prompt"].(string)
 	negativePrompt := inputs["negative_prompt"].(string)
 
+	fmt.Println("Output format: ", outputFormat)
+	outputFormat = "png"
+
 	params := types.GenerateParams{
 		RandomSeed:     randomSeed,
 		AspectRatio:    aspectRatio,
