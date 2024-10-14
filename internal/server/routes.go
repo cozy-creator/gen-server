@@ -24,9 +24,11 @@ func (s *Server) SetupRoutes(app *app.App) {
 	apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
 
 	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))
-	apiV1.POST("/execute", handlerWrapper(app, api.ExecuteWorkflow))
 	apiV1.POST("/generate", handlerWrapper(app, api.GenerateImageSync))
 	apiV1.POST("/generate_async", handlerWrapper(app, api.GenerateImageAsync))
+
+	apiV1.POST("/workflow/execute", handlerWrapper(app, api.ExecuteWorkflow))
+	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflow))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

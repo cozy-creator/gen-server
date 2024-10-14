@@ -13,7 +13,6 @@ var (
 	ErrQueueFull      = errors.New("queue is full")
 	ErrQueueClosed    = errors.New("queue closed")
 	ErrTopicClosed    = errors.New("topic closed")
-	ErrNoMessage      = errors.New("no message")
 )
 
 const (

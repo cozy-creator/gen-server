@@ -1,7 +1,7 @@
 import os
 import shutil
 import asyncio
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir, snapshot_download
 from huggingface_hub.file_download import repo_folder_name
@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 class HFModelManager:
     def __init__(self, cache_dir: Optional[str] = None):
+        self.hf_api = HfApi()
         self.cache_dir = cache_dir or HF_HUB_CACHE
         self.loaded_models: dict[str, DiffusionPipeline] = {}
-        self.hf_api = HfApi()
 
     def parse_hf_string(
         self, hf_string: str
@@ -74,9 +74,8 @@ class HFModelManager:
             else:
                 return None
         except Exception as e:
-            logger.error(f"Error retrieving model_index.json for {repo_id}: {str(e)}")
+            logger.error(f"Error retrieving model_index.json for {repo_id}: {e}")
             return None
-        
 
     def is_downloaded(self, model_id: str) -> tuple[bool, Optional[str]]:
         """
@@ -136,7 +135,7 @@ class HFModelManager:
             return True, variant
 
         except Exception as e:
-            logger.error(f"Error checking download status for {model_id}: {str(e)}")
+            logger.error(f"Error checking download status for {model_id}: {e}")
             return False, None
 
     def _check_repo_downloaded(self, repo_id: str) -> bool:
@@ -272,7 +271,7 @@ class HFModelManager:
             return False
 
         # Check for any .bin, .safetensors, or .ckpt file in the component folder
-        for root, _, files in os.walk(component_folder):
+        for _, _, files in os.walk(component_folder):
             for file in files:
                 if file.endswith(
                     (".bin", ".safetensors", ".ckpt")
@@ -378,9 +377,7 @@ class HFModelManager:
                 # self.list()  # Refresh the cached list
                 return True
             except Exception as e:
-                logger.error(
-                    f"Failed to download file {file_name} from {repo_id}: {str(e)}"
-                )
+                logger.error(f"Failed to download file {file_name} from {repo_id}: {e}")
                 return False
 
         variants = ["bf16", "fp8", "fp16", None]  # None represents no variant
@@ -414,7 +411,7 @@ class HFModelManager:
                     )
                 else:
                     logger.error(
-                        f"Failed to download default variant for {repo_id}: {str(e)}"
+                        f"Failed to download default variant for {repo_id}: {e}"
                     )
 
         logger.error(f"Failed to download model {repo_id} with any variant.")
@@ -429,5 +426,3 @@ class HFModelManager:
             logger.info(f"Model {repo_id} deleted successfully.")
         else:
             logger.warning(f"Model {repo_id} not found in cache.")
-
-
