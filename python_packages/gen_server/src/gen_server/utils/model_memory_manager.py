@@ -554,6 +554,12 @@ class ModelMemoryManager:
         if not force_full_optimization:
             print("moving model to device")
             pipeline.to(device)
+            if pipeline.__class__.__name__ in ["FluxPipeline", "FluxInpaintPipeline"]:
+                torch.set_float32_matmul_precision("high")
+
+                pipeline.transformer.to(memory_format=torch.channels_last)
+                pipeline.transformer = torch.compile(pipeline.transformer, mode="max-autotune", fullgraph=True)
+            
             self.is_in_device = True
 
 
