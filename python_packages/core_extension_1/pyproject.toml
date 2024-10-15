@@ -70,7 +70,7 @@ isnet = "core_extension_1.architectures.isnet_arch:ISNetDIS"
 
 
 [project.entry-points."cozy_creator.custom_nodes"]
-audio_node = "core_extension_1.custom_nodes:AudioNode"
+# audio_node = "core_extension_1.custom_nodes:AudioNode"
 depth_map_node = "core_extension_1.custom_nodes:DepthMapNode"
 image_gen_node = "core_extension_1.custom_nodes:ImageGenNode"
 video_node = "core_extension_1.custom_nodes:VideoNode"
