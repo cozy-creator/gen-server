@@ -34,7 +34,7 @@ dependencies = [
     "scikit-image",
     "sentencepiece",
     "spandrel",
-    "timm",
+    "timm==0.6.7",
     "transformers>=4.25",
     "tqdm",
     "typing_extensions",
