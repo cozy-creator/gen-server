@@ -12,6 +12,7 @@ import (
 	generationnode "github.com/cozy-creator/gen-server/internal/workflow/nodes/generation"
 	imagenode "github.com/cozy-creator/gen-server/internal/workflow/nodes/image"
 	videonode "github.com/cozy-creator/gen-server/internal/workflow/nodes/video"
+	webhooknode "github.com/cozy-creator/gen-server/internal/workflow/nodes/webhook"
 )
 
 type Workflow struct {
@@ -300,6 +301,8 @@ func executeNode(app *app.App, node *Node, inputs map[string]interface{}) (NodeO
 		output, err = imagenode.LoadImage(app, inputs)
 	case "SaveVideo":
 		output, err = videonode.SaveVideo(app, inputs)
+	case "InvokeWebhook":
+		output, err = webhooknode.InvokeWebhook(app, inputs)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %s", node.Type)
 	}
