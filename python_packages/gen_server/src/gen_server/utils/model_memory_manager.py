@@ -334,6 +334,7 @@ class ModelMemoryManager:
             )
 
             self.flush_memory()
+
             self.loaded_model = pipeline
             self.current_model = model_id
             logger.info(f"Model {model_id} loaded successfully.")
@@ -628,7 +629,10 @@ class ModelMemoryManager:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
-            torch.mps.empty_cache()
+            # print("Emptying MPS cache...")
+            # setattr(torch, "mps", torch.backends.mps)
+            # torch.mps.empty_cache()
+            pass
         gc.collect()
 
     def unload(self, model_id: str) -> None:
