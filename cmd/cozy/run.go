@@ -164,6 +164,7 @@ func createNewApp() (*app.App, error) {
 	}
 
 	if err := app.InitializeMQ(); err != nil {
+		fmt.Println("Error initializing MQ: ", err)
 		return nil, err
 	}
 

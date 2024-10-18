@@ -22,7 +22,9 @@ const (
 
 type MQ interface {
 	Publish(ctx context.Context, topic string, message []byte) error
-	Receive(ctx context.Context, topic string) ([]byte, error)
+	Receive(ctx context.Context, topic string) (interface{}, error)
+	GetMessageData(message interface{}) ([]byte, error)
+	Ack(topic string, message interface{}) error
 	CloseTopic(topic string) error
 	Close() error
 }
@@ -32,7 +34,7 @@ func NewMQ(cfg *config.Config) (MQ, error) {
 	case MQTypeInMemory:
 		return NewInMemoryMQ(10)
 	case MQTypePulsar:
-		return NewPulsarMQ(cfg.Pulsar.URL)
+		return NewPulsarMQ(cfg.Pulsar)
 	default:
 		return nil, fmt.Errorf("unknown MQ type: %s", cfg.MQType)
 	}

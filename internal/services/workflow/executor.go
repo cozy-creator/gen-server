@@ -18,8 +18,13 @@ func RunProcessor(app *app.App) error {
 			return err
 		}
 
+		messageData, err := queue.GetMessageData(message)
+		if err != nil {
+			continue
+		}
+
 		var workflow Workflow
-		if err := json.Unmarshal(message, &workflow); err != nil {
+		if err := json.Unmarshal(messageData, &workflow); err != nil {
 			fmt.Println("failed to unmarshal message:", err)
 			continue
 		}
@@ -37,7 +42,7 @@ func RunProcessor(app *app.App) error {
 					fmt.Println("Error executing workflow", err)
 				}
 
-				queue.CloseTopic("workflows")
+				queue.Publish(ctx, "workflows", []byte("END"))
 				return err
 			}
 		case <-ctx.Done():

@@ -11,44 +11,10 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-// func ConvertImageFromBitmap(bmpBytes []byte, format string) ([]byte, error) {
-// 	img, err := bmp.Decode(bytes.NewReader(bmpBytes))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var output bytes.Buffer
-// 	switch format {
-// 	case "png":
-// 		err = png.Encode(&output, img)
-// 	case "gif":
-// 		err = gif.Encode(&output, img, nil)
-// 	case "jpg":
-// 		options := &jpeg.Options{Quality: 90}
-// 		err = jpeg.Encode(&output, img, options)
-// 	case "jpeg":
-// 		options := &jpeg.Options{Quality: 90}
-// 		err = jpeg.Encode(&output, img, options)
-// 	default:
-// 		fmt.Println("Default: ", "not supported", format)
-// 		return nil, fmt.Errorf("not supported")
-// 	}
-
-// 	if err != nil {
-// 		fmt.Println("Errrrrr: ", err)
-// 		return nil, err
-// 	}
-
-// 	outputBytes := output.Bytes()
-// 	fmt.Println("Image111: ", len(outputBytes))
-
-// 	return outputBytes, nil
-// }
-
 var (
 	ErrInvalidFormat = image.ErrFormat
 )
-
+  
 func DecodeImage(data []byte, format string) (image.Image, error) {
 	var (
 		output image.Image

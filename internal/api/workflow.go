@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,7 +70,15 @@ func StreamWorkflow(ctx *gin.Context) {
 				continue
 			}
 
-			if _, err = fmt.Fprintf(ctx.Writer, "data: %s\n\n", string(message)); err != nil {
+			messageData, err := app.MQ().GetMessageData(message)
+			if err != nil {
+				continue
+			}
+			if bytes.Equal(messageData, []byte("END")) {
+				break
+			}
+
+			if _, err = fmt.Fprintf(ctx.Writer, "data: %s\n\n", string(messageData)); err != nil {
 				continue
 			}
 			ctx.Writer.Flush()

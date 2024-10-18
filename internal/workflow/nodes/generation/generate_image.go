@@ -1,6 +1,7 @@
 package generationnode
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -72,8 +73,18 @@ func receiveImages(requestId string, uploader *fileuploader.Uploader, queue mq.M
 			return nil, err
 		}
 
-		output, _, err = generation.ParseImageOutput(output)
-		image, err := imagenode.DecodeImage(output, "bmp")
+		outputData, err := queue.GetMessageData(output)
+		if err != nil {
+			return nil, err
+		}
+
+		if bytes.Equal(outputData, []byte("END")) {
+			queue.CloseTopic(topic)
+			break
+		}
+
+		outputData, _, err = generation.ParseImageOutput(outputData)
+		image, err := imagenode.DecodeImage(outputData, "bmp")
 		if err != nil {
 			fmt.Println("error: ", err)
 			return nil, err

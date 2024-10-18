@@ -136,12 +136,11 @@ func (e *WorkflowExecutor) Execute(ctx context.Context) error {
 	wg.Wait()
 
 	topic := "workflows:" + e.Workflow.ID
-	e.app.MQ().CloseTopic(topic)
+	e.app.MQ().Publish(ctx, topic, []byte("END"))
 
 	for {
 		select {
 		case err := <-e.errorsChan:
-			fmt.Println("Error: ", err)
 			return err
 		case <-ctx.Done():
 			return ctx.Err()

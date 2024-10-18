@@ -26,26 +26,50 @@ type GeneratedImage struct {
 
 func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, string, error) {
 	topic := config.DefaultGeneratePrefix + requestId
+	fmt.Println("topic....", topic)
 	output, err := mq.Receive(context.Background(), topic)
+	fmt.Println("output....", "len(output)")
 	if err != nil {
+		fmt.Println("Error receiving image00: ", err)
 		return "", "", err
 	}
 
-	output, modelName, err := ParseImageOutput(output)
-	image, err := imageutil.DecodeBmpToFormat(output, outputFormat)
+	outputData, err := mq.GetMessageData(output)
+	fmt.Println("outputData....", len(outputData))
 	if err != nil {
+		fmt.Println("Error getting message data: ", err)
 		return "", "", err
 	}
+
+	if bytes.Equal(outputData, []byte("END")) {
+		mq.CloseTopic(topic)
+		return "", "", nil
+	}
+
+	outputData, modelName, err := ParseImageOutput(outputData)
+	fmt.Println("outputData.... 2", len(outputData))
+	image, err := imageutil.DecodeBmpToFormat(outputData, outputFormat)
+	if err != nil {
+		fmt.Println("Error decoding image: ", err)
+		return "", "", err
+	}
+
+	fmt.Println("image....", len(image))
 
 	uploadUrl := make(chan string)
+	fmt.Println("uploadUrl....", uploadUrl)
 
 	go func() {
 		extension := "." + "png"
 		uploader.UploadBytes(image, extension, false, uploadUrl)
+
+		fmt.Println("uploader....", uploader)
 	}()
 
+	fmt.Println("uploadUrl.... 3", uploadUrl)
 	url, ok := <-uploadUrl
 	fmt.Println("URL--: ", url)
+	fmt.Println("ok....", ok)
 	if !ok {
 		return "", "", nil
 	}
@@ -90,6 +114,7 @@ func GenerateImageSync(ctx context.Context, params *types.GenerateParams, upload
 }
 
 func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) {
+	fmt.Println("ctx....", ctx)
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
 
 	invoke := func(response GeneratedImage) {
@@ -115,6 +140,8 @@ func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploa
 			response := GeneratedImage{
 				Status: StatusFailed,
 			}
+
+			fmt.Println("errrr", err)
 
 			invoke(response)
 		}
@@ -163,8 +190,12 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, uploader
 			}
 			return ctx.Err()
 		default:
+			fmt.Println("Receiving image... iii")
 			url, model, err := receiveImage(params.ID, params.OutputFormat, uploader, queue)
+			fmt.Println("url....", url)
+
 			if err != nil {
+				fmt.Println("Error receiving image111: ", err)
 				if errors.Is(err, mq.ErrTopicClosed) {
 					// sleep
 					time.Sleep(time.Second)
@@ -172,8 +203,17 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, uploader
 					return nil
 				}
 
+				fmt.Println("Error receiving image: ", err)
 				return err
 			}
+
+			if url == "" && model == "" {
+				time.Sleep(time.Second)
+				callback(urls, index, currentModel, StatusCompleted)
+				return nil
+			}
+
+			fmt.Println("Received image: ", url)
 
 			if currentModel == model {
 				urls = append(urls, url)

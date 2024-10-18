@@ -52,7 +52,12 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 			return err
 		}
 
-		request, err := parseRequestData(message)
+		messageData, err := mq.GetMessageData(message)
+		if err != nil {
+			return err
+		}
+
+		request, err := parseRequestData(messageData)
 		if err != nil {
 			continue
 		}
@@ -62,17 +67,18 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 
 		select {
 		case err := <-errorc:
-			mq.CloseTopic(topic)
+			mq.Publish(ctx, topic, []byte("END"))
 			return err
 		case <-ctx.Done():
 			break
 		default:
 			for output := range outputs {
-				mq.Publish(context.Background(), topic, output)
+				mq.Publish(ctx, topic, output)
 			}
 		}
 
-		mq.CloseTopic(topic)
+		// Send a termination message to the queue
+		mq.Publish(ctx, topic, []byte("END"))
 	}
 }
 

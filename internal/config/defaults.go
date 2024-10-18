@@ -5,7 +5,7 @@ import "errors"
 var DefaultCozyHome = "~/.cozy-creator"
 
 var (
-	DefaultGenerateTopic  = "generation"
+	DefaultGenerateTopic  = "cozy-creator/generations/requests"
 	DefaultGeneratePrefix = DefaultGenerateTopic + ":"
 )
 

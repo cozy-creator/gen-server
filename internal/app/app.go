@@ -31,7 +31,6 @@ func WithDB(db *db.Queries) OptionFunc {
 	}
 }
 
-
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
