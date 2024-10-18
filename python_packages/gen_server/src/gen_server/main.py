@@ -42,49 +42,18 @@ def request_handler(context: RequestContext):
         return
 
     async def generate_images():
-        async for images in generate_images_non_io(json_data):
-            results = tensor_to_bytes(images)
-            for result in results:
-                result_header = struct.pack("!I", len(result))
-                context.send(result_header + result)
+        async for [model_id, images] in generate_images_non_io(json_data):
+            outputs = tensor_to_bytes(images)
+            model_id_bytes = model_id.encode("utf-8")
+            model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+            for output in outputs:
+                total_size = struct.pack("!I", len(model_id_header) + len(output))
+                context.send(total_size + model_id_header + output)
 
     asyncio.run(generate_images())
 
 
-# def request_handler(context: RequestContext):
-#     data = context.data()
-#     json_data = json.loads(data.decode())
 
-#     async def generate_images():
-#         async for update in flux_train_workflow(json_data, None):
-#             result = json.dumps(update).encode()
-#             result_header = struct.pack("!I", len(result))
-#             context.send(result_header + result)
-
-#     asyncio.run(generate_images())
-
-
-# def request_handler(ctx: RequestContext):
-#     data = ctx.data()
-#     json_data = json.loads(data.decode())
-
-#     if "type" not in json_data:
-#         raise ValueError("Invalid request data")
-
-#     async def run_handler():
-#         if json_data["type"] == "load_model":
-#             data = json_data["data"]
-#             model_id = await load_model(data["model_id"])
-#             ctx.send_final(model_id)
-#         elif json_data["type"] == "generate":
-#             data = json_data["data"]
-#             async for images in generate_images_non_io(data):
-#                 results = tensor_to_bytes(images)
-#                 for result in results:
-#                     result_header = struct.pack("!I", len(result))
-#                     ctx.send_final(result_header + result)
-
-#     asyncio.run(run_handler())
 
 
 def run_tcp_server(config: RunCommandConfig):
