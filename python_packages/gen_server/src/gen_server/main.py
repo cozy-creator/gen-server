@@ -20,6 +20,8 @@ from gen_server.utils.cli_helpers import parse_known_args_wrapper
 from gen_server.utils.extension_loader import load_extensions
 from gen_server.utils.image import tensor_to_bytes
 import os
+from gen_server.globals import get_model_memory_manager
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,12 +108,44 @@ def startup_extensions():
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
     )
 
-def main():
+async def load_and_warm_up_models():
+    model_memory_manager = get_model_memory_manager()
+    model_ids = model_memory_manager.get_all_model_ids()
+    
+    logger.info(f"Starting to load and warm up {len(model_ids)} models")
+    
+    for model_id in model_ids:
+        try:
+            logger.info(f"Loading and warming up model: {model_id}")
+            await model_memory_manager.load(model_id, None)
+            await model_memory_manager.warm_up_pipeline(model_id)
+        except Exception as e:
+            logger.error(f"Error loading or warming up model {model_id}: {str(e)}")
+    
+    logger.info("Finished loading and warming up models")
+
+async def main_async():
     run_parser = argparse.ArgumentParser(description="Cozy Creator")
     config = init_config(run_parser, parse_known_args_wrapper)
 
     startup_extensions()
+    
+    # Load and warm up models
+    await load_and_warm_up_models()
+    
+    # Run the TCP server
     run_tcp_server(config)
+
+
+def main():
+    try:
+        asyncio.run(main_async())
+    except KeyboardInterrupt:
+        logger.info("Server shutting down...")
+        os._exit(0)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        sys.exit(1)
 
 
 def named_future(
@@ -126,11 +160,4 @@ def named_future(
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        # Force quit the entire process
-        os._exit(1)  # This is a "hard" exit that will work on both Windows and Unix. Might want to change this to a more graceful exit later.
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        sys.exit(1)
+    main()

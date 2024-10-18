@@ -218,9 +218,9 @@ class ImageGenNode(CustomNode):
 
 
             # Apply optimizations
-            force_full_optimization = num_images > 1  
-            self.model_memory_manager.apply_optimizations(pipeline, force_full_optimization)
-            print(f"{'Full' if force_full_optimization else 'Standard'} optimizations applied")
+            # force_full_optimization = num_images > 1  
+            # self.model_memory_manager.apply_optimizations(pipeline, model_id, force_full_optimization)
+            # print(f"{'Full' if force_full_optimization else 'Standard'} optimizations applied")
                 
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
