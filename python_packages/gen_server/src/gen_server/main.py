@@ -42,13 +42,11 @@ def request_handler(context: RequestContext):
         return
 
     async def generate_images():
-        async for [model_id, images] in generate_images_non_io(json_data):
-            outputs = tensor_to_bytes(images)
-            model_id_bytes = model_id.encode("utf-8")
-            model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
-            for output in outputs:
-                total_size = struct.pack("!I", len(model_id_header) + len(output))
-                context.send(total_size + model_id_header + output)
+        async for images in generate_images_non_io(json_data):
+            results = tensor_to_bytes(images)
+            for result in results:
+                result_header = struct.pack("!I", len(result))
+                context.send(result_header + result)
 
     asyncio.run(generate_images())
 
@@ -103,24 +101,39 @@ def startup_extensions():
         load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
     )
 
-    update_architectures(
-        load_extensions("cozy_creator.architectures")
-    )
+    update_architectures(load_extensions("cozy_creator.architectures"))
 
     print(
         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
     )
 
 
-def main():
+async def load_and_warm_up_models():
+    model_memory_manager = get_model_memory_manager()
+    model_ids = model_memory_manager.get_all_model_ids()
+
+    logger.info(f"Starting to load and warm up {len(model_ids)} models")
+
+    for model_id in model_ids:
+        try:
+            logger.info(f"Loading and warming up model: {model_id}")
+            await model_memory_manager.load(model_id, None)
+            await model_memory_manager.warm_up_pipeline(model_id)
+        except Exception as e:
+            logger.error(f"Error loading or warming up model {model_id}: {str(e)}")
+
+    logger.info("Finished loading and warming up models")
+
+
+async def main_async():
     run_parser = argparse.ArgumentParser(description="Cozy Creator")
     config = init_config(run_parser, parse_known_args_wrapper)
 
     startup_extensions()
-    
+
     # Load and warm up models
     await load_and_warm_up_models()
-    
+
     # Run the TCP server
     run_tcp_server(config)
 
@@ -148,13 +161,4 @@ def named_future(
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        # Force quit the entire process
-        os._exit(
-            1
-        )  # This is a "hard" exit that will work on both Windows and Unix. Might want to change this to a more graceful exit later.
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        sys.exit(1)
+    main()

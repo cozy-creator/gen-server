@@ -6,24 +6,29 @@ from enum import Enum
 from typing import Optional, Any, Dict
 
 import torch
-from diffusers import DiffusionPipeline, FluxInpaintPipeline, StableDiffusionPipeline, StableDiffusionXLPipeline, FluxPipeline
-from diffusers.loaders import FromSingleFileMixin
-from huggingface_hub.constants import HF_HUB_CACHE
-from huggingface_hub.file_download import repo_folder_name
-
-# from optimum.quanto import freeze, qfloat8, quantize
-from ..utils.utils import serialize_config
 from diffusers import (
+    DiffusionPipeline,
     FluxInpaintPipeline,
     StableDiffusionPipeline,
     StableDiffusionXLPipeline,
     FluxPipeline,
 )
-import gc
-from enum import Enum
+from diffusers.loaders import FromSingleFileMixin
+from huggingface_hub.constants import HF_HUB_CACHE
+from huggingface_hub.file_download import repo_folder_name
+
+from ..config import get_config
+from ..globals import (
+    get_hf_model_manager,
+    get_architectures,
+    get_available_torch_device,
+)
+from ..utils.load_models import load_state_dict_from_file
+from ..utils.utils import serialize_config
 from ..utils.quantize_models import quantize_model_fp8
 
 logger = logging.getLogger(__name__)
+
 
 class GPUEnum(Enum):
     LOW = 7
@@ -32,8 +37,7 @@ class GPUEnum(Enum):
     VERY_HIGH = 30
 
 
-# safety margin (in GB)
-VRAM_SAFETY_MARGIN_GB = 2.0
+VRAM_SAFETY_MARGIN_GB = 4.0
 
 MODEL_COMPONENTS = {
     "flux": [
@@ -63,6 +67,7 @@ PIPELINE_MAPPING = {
     "flux": FluxPipeline,
 }
 
+
 class ModelMemoryManager:
     def __init__(self):
         self.current_model: Optional[str] = None
@@ -77,34 +82,83 @@ class ModelMemoryManager:
         self.vram_buffer = VRAM_SAFETY_MARGIN_GB
         self.VRAM_THRESHOLD = 1.4
 
+    def _get_total_vram(self) -> int:
+        if torch.cuda.is_available():
+            return torch.cuda.get_device_properties(0).total_memory
+        return 0  # Default to 0 for non-CUDA devices
+
     def _get_available_vram(self) -> int:
         if torch.cuda.is_available():
-            return (
+            available_vram_gb = (
                 torch.cuda.get_device_properties(0).total_memory
                 - torch.cuda.memory_allocated()
-            )
-        elif torch.backends.mps.is_available():
-            return 0  # MPS doesn't provide VRAM info, so we'll assume it needs optimization
-        return 0
+            ) / (1024**3)
+            print(f"available vram: {available_vram_gb}")
+            return available_vram_gb
+        return 0  # Default to 0 for non-CUDA devices
+
+    def _can_load_model(self, model_size: int) -> bool:
+        available_vram = self._get_available_vram()
+
+        if not self.loaded_models:
+            if model_size <= available_vram - self.vram_buffer:
+                return True, False  # Can load without full optimization
+            elif model_size <= available_vram * self.VRAM_THRESHOLD:
+                return True, True  # Can load with full optimization
+            else:
+                return False, False  # Cannot load even with full optimization
+
+        return available_vram - self.vram_buffer >= model_size, False
 
     def _get_model_size(self, model_config: dict[str, Any]) -> int:
         if "ct:" in model_config["source"] or "file:" in model_config["source"]:
             return os.path.getsize(
                 model_config["source"].replace("ct:", "").replace("file:", "")
-            )
+            ) / (1024**3)
 
         repo_id = model_config["source"].replace("hf:", "")
+        return self._calculate_repo_size(repo_id, model_config)
 
-        def get_size_for_repo(
-            repo_id: str, component_name: Optional[str] = None
-        ) -> int:
-            size = 0
-            storage_folder = os.path.join(
-                self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
-            )
-            if not os.path.exists(storage_folder):
-                logger.warning(f"Storage folder for {repo_id} not found.")
-                return 0
+    def _calculate_repo_size(self, repo_id: str, model_config: dict[str, Any]) -> int:
+        total_size = self._get_size_for_repo(repo_id)
+
+        if "components" in model_config and model_config["components"]:
+            for key, component in model_config["components"].items():
+                if isinstance(component, dict) and "source" in component:
+                    if len(component["source"].split("/")) > 2:
+                        component_repo = "/".join(
+                            component["source"].split("/")[0:2]
+                        ).replace("hf:", "")
+                    else:
+                        component_repo = component["source"].replace("hf:", "")
+                    component_name = (
+                        key
+                        if not component["source"].endswith(
+                            (".safetensors", ".bin", ".ckpt", ".pt")
+                        )
+                        else component["source"].split("/")[-1]
+                    )
+                    component_size = self._get_size_for_repo(
+                        component_repo, component_name
+                    )
+                    total_size += component_size
+                    total_size -= self._get_size_for_repo(repo_id, key)
+
+        # Convert total_size to GB
+        total_size_gb = total_size / (1024**3)
+        print(f"total size: {total_size_gb}")
+
+        return total_size_gb
+
+    def _get_size_for_repo(
+        self, repo_id: str, component_name: Optional[str] = None
+    ) -> int:
+        storage_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+        )
+        if not os.path.exists(storage_folder):
+            logger.warning(f"Storage folder for {repo_id} not found.")
+            return 0
 
         commit_hash = self._get_commit_hash(storage_folder)
         if not commit_hash:
@@ -114,94 +168,90 @@ class ModelMemoryManager:
         if component_name:
             snapshot_folder = os.path.join(snapshot_folder, component_name)
 
-            # Check if component name is a folder or file
-            if not os.path.isdir(snapshot_folder):
-                return os.path.getsize(snapshot_folder)
-            variants = ["bf16", "fp8", "fp16", ""]  # Empty string for default variant
+        return self._calculate_folder_size(snapshot_folder)
 
-            def check_variant_files(folder: str, variant: str) -> bool:
-                for root, _, files in os.walk(folder):
-                    for file in files:
-                        if (
-                            file.endswith(f"{variant}.safetensors")
-                            or file.endswith(f"{variant}.bin")
-                            or (
-                                variant == ""
-                                and (
-                                    file.endswith(".safetensors")
-                                    or file.endswith(".bin")
-                                    or file.endswith(".ckpt")
-                                )
-                            )
-                        ):
-                            return True
-                return False
+    def _get_commit_hash(self, storage_folder: str) -> Optional[str]:
+        refs_path = os.path.join(storage_folder, "refs", "main")
+        if not os.path.exists(refs_path):
+            logger.warning(f"No commit hash found for {storage_folder}")
+            return None
+        with open(refs_path, "r") as f:
+            return f.read().strip()
 
-            selected_variant = next(
-                (v for v in variants if check_variant_files(snapshot_folder, v)), None
-            )
+    def _calculate_folder_size(self, folder: str) -> int:
+        if not os.path.isdir(folder):
+            return os.path.getsize(folder)
 
-            if selected_variant is not None:
-                for root, _, files in os.walk(snapshot_folder):
-                    for file in files:
-                        if (
-                            selected_variant
-                            and (
-                                file.endswith(f"{selected_variant}.safetensors")
-                                or file.endswith(f"{selected_variant}.bin")
-                            )
-                        ) or (
-                            selected_variant == ""
-                            and (
-                                file.endswith(".safetensors")
-                                or file.endswith(".bin")
-                                or file.endswith(".ckpt")
-                            )
-                        ):
-                            size += os.path.getsize(os.path.join(root, file))
+        variants = ["bf16", "fp8", "fp16", ""]
+        selected_variant = next(
+            (v for v in variants if self._check_variant_files(folder, v)), None
+        )
 
-            return size
-
-        # Calculate size of the main model
-        total_size += get_size_for_repo(repo_id)
-
-        # Calculate size of replacement components
-        if "components" in model_config and model_config["components"]:
-            for key, component in model_config["components"].items():
-                if isinstance(component, dict) and "source" in component:
-                    if "source" in component and isinstance(component["source"], str):
-                        # Diffusers format
-                        if not component["source"].endswith(
-                            (".safetensors", ".bin", ".ckpt", ".pt")
-                        ):
-                            component_name = key
-
-                            # Component repo is the source without the hf: prefix
-                            component_repo = component["source"].replace("hf:", "")
-                        else:
-                            # last element after the last '/'
-                            component_name = component["source"].split("/")[-1]
-
-                            component_repo = "/".join(
-                                component["source"].split("/")[:-1]
-                            ).replace("hf:", "")
-
-                    component_size = get_size_for_repo(component_repo, component_name)
-                    total_size += component_size
-                    # Subtract the size of the replaced component from the main model
-                    total_size -= get_size_for_repo(repo_id, key)
+        total_size = 0
+        if selected_variant is not None:
+            for root, _, files in os.walk(folder):
+                for file in files:
+                    if self._is_valid_file(file, selected_variant):
+                        total_size += os.path.getsize(os.path.join(root, file))
 
         return total_size
+
+    def _check_variant_files(self, folder: str, variant: str) -> bool:
+        for root, _, files in os.walk(folder):
+            for file in files:
+                if self._is_valid_file(file, variant):
+                    return True
+        return False
+
+    def _is_valid_file(self, file: str, variant: str) -> bool:
+        if variant:
+            return file.endswith(f"{variant}.safetensors") or file.endswith(
+                f"{variant}.bin"
+            )
+        return file.endswith((".safetensors", ".bin", ".ckpt"))
+
+    def get_all_model_ids(self) -> list[str]:
+        config = serialize_config(get_config())
+        return list(config["enabled_models"].keys())
+
+    async def warm_up_pipeline(self, model_id: str):
+        if model_id not in self.loaded_models:
+            logger.warning(f"Model {model_id} is not loaded")
+            return
+
+        pipeline = self.loaded_models[model_id]
+        if pipeline is None:
+            logger.warning(f"Failed to load model {model_id} for warm-up")
+            return
+
+        logger.info(f"Warming up pipeline for model {model_id}")
+        dummy_prompt = "This is a warm-up prompt"
+
+        try:
+            with torch.no_grad():
+                if isinstance(pipeline, (DiffusionPipeline)):
+                    _ = pipeline(
+                        prompt=dummy_prompt, num_inference_steps=1, output_type="pil"
+                    )
+                # elif isinstance(pipeline, FluxPipeline):
+                #     _ = pipeline(prompt=dummy_prompt, num_inference_steps=1, output_type="pil")
+                else:
+                    logger.warning(
+                        f"Unsupported pipeline type for warm-up: {type(pipeline)}"
+                    )
+        except Exception as e:
+            logger.error(f"Error during warm-up for model {model_id}: {str(e)}")
+
+        logger.info(f"Warm-up completed for model {model_id}")
 
     async def load(
         self, model_id: str, gpu: Optional[int] = None, type: Optional[str] = None
     ) -> Optional[DiffusionPipeline]:
-        print(f"Loading model {model_id}")
-        if model_id == self.current_model and self.loaded_model is not None:
-            logger.info(f"Model {model_id} is already loaded.")
-            return self.loaded_model
+        logger.info(f"Loading model {model_id}")
 
-        self.flush_memory()
+        if model_id in self.loaded_models:
+            logger.info(f"Model {model_id} is already loaded.")
+            return self.loaded_models[model_id]
 
         self.is_in_device = False
         config = serialize_config(get_config())
@@ -211,6 +261,21 @@ class ModelMemoryManager:
             logger.error(f"Model {model_id} not found in configuration.")
             return None
 
+        estimated_size = self._get_model_size(model_config)
+
+        can_load, force_full_optimization = self._can_load_model(estimated_size)
+
+        if not can_load:
+            logger.error(
+                f"Not enough VRAM to load model {model_id}, even with full optimizations."
+            )
+            return None
+
+        if force_full_optimization:
+            logger.warning(
+                f"Model {model_id} requires full optimizations to load. This may impact performance."
+            )
+
         source = model_config["source"]
         prefix, path = source.split(":", 1)
         type = model_config["type"]
@@ -219,23 +284,28 @@ class ModelMemoryManager:
         if prefix == "hf":
             is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
             if not is_downloaded:
-                logger.info(f"Model {model_id} not downloaded. Please ensure the model is downloaded first.")
+                logger.info(
+                    f"Model {model_id} not downloaded. Please ensure the model is downloaded first."
+                )
                 return None
-        else:
-            path = os.path.join(get_config().models_path, path)
-            if not os.path.exists(path):
-                logger.error(f"Model file not found: {path}")
-                return None
-
-        if prefix == "hf":
-            return await self.load_huggingface_model(
+            pipeline = await self.load_huggingface_model(
                 model_id, path, gpu, type, variant, model_config
             )
         elif prefix in ["file", "ct"]:
-            pipeline = await self.load_single_file_model(model_id, path, prefix, gpu, type)
+            pipeline = await self.load_single_file_model(
+                model_id, path, prefix, gpu, type
+            )
         else:
             logger.error(f"Unsupported model source prefix: {prefix}")
             return None
+
+        if pipeline is not None:
+            self.loaded_models[model_id] = pipeline
+            self.model_sizes[model_id] = estimated_size
+            self.vram_usage += estimated_size
+            self.apply_optimizations(pipeline, model_id, force_full_optimization)
+
+        return pipeline
 
     async def load_huggingface_model(
         self,
@@ -247,62 +317,23 @@ class ModelMemoryManager:
         model_config: Optional[dict[str, Any]] = None,
     ) -> Optional[DiffusionPipeline]:
         try:
-            pipeline_kwargs = {}
-            if "components" in model_config and model_config["components"]:
-                print(f"Components: {model_config['components']}")
-                for key, component in model_config["components"].items():
-                    # Check if 'source' key is in the component dict and is a string
-                    if "source" in component and isinstance(component["source"], str):
-                        if not component["source"].endswith(
-                            (".safetensors", ".bin", ".ckpt", ".pt")
-                        ):
-                            component_name = key
+            pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
+            variant = None if variant == "" else variant
 
-                            # Component repo is the source without the hf: prefix
-                            component_repo = component["source"].replace("hf:", "")
+            # pipeline_class = FluxInpaintPipeline if "flux" in model_id.lower() and type == "inpaint" else DiffusionPipeline
+            torch_dtype = (
+                torch.bfloat16 if "flux" in model_id.lower() else torch.float16
+            )
 
-                            pipeline_kwargs[key] = await self._load_diffusers_component(
-                                repo_id, component_repo, component_name
-                            )
-                        else:
-                            # Custom format
-                            pipeline_kwargs[key] = self._load_custom_component(
-                                component["source"], type, key
-                            )
-                    elif component["source"] is None:
-                        pipeline_kwargs[key] = None
-
-            if "custom_pipeline" in model_config and model_config["custom_pipeline"]:
-                pipeline_kwargs["custom_pipeline"] = model_config["custom_pipeline"]
-
-            if variant == "":
-                variant = None
-
-            # Temporary: We can use bfloat16 as standard dtype but I just noticed that float16 loads the pipeline faster.
-            # Although, it's compulsory to use bfloat16 for Flux models.
-            # Load the pipeline
-            # Check if the model is a Flux model else use DiffusionPipeline
-            if "flux" in model_id.lower() and type == "inpaint":
-                pipeline = FluxInpaintPipeline.from_pretrained(
-                    repo_id,
-                    torch_dtype=torch.bfloat16,
-                    local_files_only=True,
-                    variant=variant,
-                    **pipeline_kwargs,
-                )
-            else:
-                pipeline = DiffusionPipeline.from_pretrained(
-                    repo_id,
-                    torch_dtype=torch.bfloat16
-                    if "flux" in model_id.lower()
-                    else torch.float16,
-                    local_files_only=True,
-                    variant=variant,
-                    **pipeline_kwargs,
-                )
+            pipeline = DiffusionPipeline.from_pretrained(
+                repo_id,
+                torch_dtype=torch_dtype,
+                local_files_only=True,
+                variant=variant,
+                **pipeline_kwargs,
+            )
 
             self.flush_memory()
-
             self.loaded_model = pipeline
             self.current_model = model_id
             logger.info(f"Model {model_id} loaded successfully.")
@@ -312,6 +343,35 @@ class ModelMemoryManager:
             logger.error(f"Failed to load model {model_id}: {str(e)}")
             return None
 
+    async def _prepare_pipeline_kwargs(self, model_config: dict[str, Any]) -> dict:
+        pipeline_kwargs = {}
+        if "components" in model_config and model_config["components"]:
+            for key, component in model_config["components"].items():
+                if (
+                    isinstance(component, dict)
+                    and "source" in component
+                    and isinstance(component["source"], str)
+                ):
+                    if not component["source"].endswith(
+                        (".safetensors", ".bin", ".ckpt", ".pt")
+                    ):
+                        component_name = key
+                        component_repo = component["source"].replace("hf:", "")
+                        pipeline_kwargs[key] = await self._load_diffusers_component(
+                            component_repo, component_name
+                        )
+                    else:
+                        pipeline_kwargs[key] = self._load_custom_component(
+                            component["source"], model_config["type"], key
+                        )
+                elif component.get("source") is None:
+                    pipeline_kwargs[key] = None
+
+        if "custom_pipeline" in model_config:
+            pipeline_kwargs["custom_pipeline"] = model_config["custom_pipeline"]
+
+        return pipeline_kwargs
+
     async def load_single_file_model(
         self,
         model_id: str,
@@ -320,7 +380,7 @@ class ModelMemoryManager:
         gpu: Optional[int] = None,
         type: Optional[str] = None,
     ) -> Optional[DiffusionPipeline]:
-        print(f"\n\n === Loading single file model {model_id} === \n\n")
+        logger.info(f"Loading single file model {model_id}")
 
         if type is None:
             logger.error("Model type must be specified for single file models.")
@@ -331,76 +391,68 @@ class ModelMemoryManager:
             logger.error(f"Unsupported model type: {type}")
             return None
 
-        if prefix == "ct":
-            # check if the file is an http or https link is so, get just the file name which is the last element after the last '/'
-            if "http" in path or "https" in path:
-                path = path.split("/")[-1]
-
-            # For now, we'll assume the file is already downloaded
-            path = os.path.join(get_config().models_path, path)
-
+        path = self._get_model_path(path, prefix)
         if not os.path.exists(path):
             logger.error(f"Model file not found: {path}")
             return None
 
-        if issubclass(pipeline_class, FromSingleFileMixin):
-            try:
-                pipeline = pipeline_class.from_single_file(
-                    path,
-                    torch_dtype=torch.bfloat16
-                    if "flux" in model_id.lower()
-                    else torch.float16,
-                )
-                self.loaded_model = pipeline
-                self.current_model = model_id
-                return pipeline
-            except Exception as e:
-                logger.error(f"Error loading model using from_single_file: {str(e)}")
-                # Fall back to custom architecture loading
-
-        # Custom architecture loading
         try:
-            state_dict = load_state_dict_from_file(path)
-            pipeline = pipeline_class()
-
-            for component_name in MODEL_COMPONENTS[type]:
-                if component_name in ["scheduler", "tokenizer", "tokenizer_2"]:
-                    # These components are not in the state dict. Should I handle here or in the architecture?
-                    continue
-
-                arch_key = f"core_extension_1.{type}_{component_name}"
-                architecture_class = get_architectures().get(arch_key)
-
-                if not architecture_class:
-                    logger.error(f"Architecture not found for {arch_key}")
-                    continue
-
-                architecture = architecture_class()
-                architecture.load(state_dict)
-
-                setattr(pipeline, component_name, architecture.model)
+            if issubclass(pipeline_class, FromSingleFileMixin):
+                pipeline = self._load_from_single_file(pipeline_class, path, model_id)
+            else:
+                pipeline = self._load_custom_architecture(pipeline_class, path, type)
 
             self.loaded_model = pipeline
             self.current_model = model_id
             return pipeline
         except Exception as e:
-            logger.error(f"Error loading model using custom architecture: {str(e)}")
+            logger.error(f"Error loading model: {str(e)}")
             return None
 
+    def _get_model_path(self, path: str, prefix: str) -> str:
+        if prefix == "ct" and ("http" in path or "https" in path):
+            path = path.split("/")[-1]
+        return os.path.join(get_config().models_path, path)
+
+    def _load_from_single_file(
+        self, pipeline_class, path: str, model_id: str
+    ) -> DiffusionPipeline:
+        torch_dtype = torch.bfloat16 if "flux" in model_id.lower() else torch.float16
+        return pipeline_class.from_single_file(path, torch_dtype=torch_dtype)
+
+    def _load_custom_architecture(
+        self, pipeline_class, path: str, type: str
+    ) -> DiffusionPipeline:
+        state_dict = load_state_dict_from_file(path)
+        pipeline = pipeline_class()
+
+        for component_name in MODEL_COMPONENTS[type]:
+            if component_name in ["scheduler", "tokenizer", "tokenizer_2"]:
+                continue
+
+            arch_key = f"core_extension_1.{type}_{component_name}"
+            architecture_class = get_architectures().get(arch_key)
+
+            if not architecture_class:
+                logger.error(f"Architecture not found for {arch_key}")
+                continue
+
+            architecture = architecture_class()
+            architecture.load(state_dict)
+            setattr(pipeline, component_name, architecture.model)
+
+        return pipeline
+
     async def _load_diffusers_component(
-        self, repo_id: str, component_repo: str, component_name: str = None
+        self, component_repo: str, component_name: str
     ) -> Any:
-        print(f"Loading diffusers component {component_name} from {repo_id}")
         try:
-            # Get the model index using HFModelManager
             model_index = (
                 await self.hf_model_manager.get_diffusers_multifolder_components(
-                    repo_id
+                    component_repo
                 )
             )
-
-            # Get the component info
-            component_info = model_index.get(component_name) if model_index else None
+            component_info = model_index.get(component_name)
             if not component_info:
                 raise ValueError(f"Invalid component info for {component_name}")
 
@@ -411,9 +463,8 @@ class ModelMemoryManager:
             component = model_class.from_pretrained(
                 component_repo,
                 subfolder=component_name,
-                # local_files_only=True,
                 torch_dtype=torch.bfloat16
-                if "flux" in repo_id.lower()
+                if "flux" in component_repo.lower()
                 else torch.float16,
             )
 
@@ -423,49 +474,15 @@ class ModelMemoryManager:
             return component
 
         except Exception as e:
-            logger.error(f"Error loading component {component_name} from {component_repo}: {str(e)}")
+            logger.error(
+                f"Error loading component {component_name} from {component_repo}: {str(e)}"
+            )
             raise
 
-    def _load_custom_component(self, repo_id: str, category: str, component_name: str):
-        print(f"Loading custom component {component_name} from {repo_id}")
-        file_path = None
-        # Keep only the name between and after the first slash including the slash
-        repo_folder = os.path.dirname(repo_id)
-
-        repo_folder = repo_folder.replace("hf:", "")
-
-        # repo_id, weights_name = _extract_repo_id_and_weights_name(repo_id)
-
-        # Load the state dict
-        model_folder = os.path.join(
-            self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
-        )
-
-        # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
-        weights_name = repo_id.split("/")[-1]
-
-        # Get the safetensors file
-        if not os.path.exists(model_folder):
-            model_folder = os.path.join(self.cache_dir, repo_folder)
-            if not os.path.exists(model_folder):
-                raise FileNotFoundError(f"Cache folder for {repo_id} not found")
-            else:
-                file_path = os.path.join(model_folder, weights_name)
-
-        if not file_path:
-            # Get the latest commit hash
-            refs_path = os.path.join(model_folder, "refs", "main")
-            if not os.path.exists(refs_path):
-                raise FileNotFoundError(f"refs/main not found for {repo_id}")
-
-            with open(refs_path, "r") as f:
-                commit_hash = f.read().strip()
-
-            # Construct the path to model_index.json
-            file_path = os.path.join(
-                model_folder, "snapshots", commit_hash, weights_name
-            )
-
+    def _load_custom_component(
+        self, repo_id: str, category: str, component_name: str
+    ) -> Any:
+        file_path = self._get_component_file_path(repo_id)
         state_dict = load_state_dict_from_file(file_path)
 
         architectures = get_architectures()
@@ -476,8 +493,6 @@ class ModelMemoryManager:
             raise ValueError(f"Architecture not found for {arch_key}")
 
         architecture = architecture_class()
-
-        # Load the state dict into the architecture
         architecture.load(state_dict)
         model = architecture.model
 
@@ -486,16 +501,34 @@ class ModelMemoryManager:
 
         return model
 
+    def _get_component_file_path(self, repo_id: str) -> str:
+        repo_folder = os.path.dirname(repo_id.replace("hf:", ""))
+        weights_name = repo_id.split("/")[-1]
+
+        model_folder = os.path.join(
+            self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
+        )
+
+        if not os.path.exists(model_folder):
+            model_folder = os.path.join(self.cache_dir, repo_folder)
+            if not os.path.exists(model_folder):
+                raise FileNotFoundError(f"Cache folder for {repo_id} not found")
+            return os.path.join(model_folder, weights_name)
+
+        commit_hash = self._get_commit_hash(model_folder)
+        return os.path.join(model_folder, "snapshots", commit_hash, weights_name)
+
     def apply_optimizations(
-        self, pipeline: DiffusionPipeline, force_full_optimization: bool = False
+        self,
+        pipeline: DiffusionPipeline,
+        model_id: str,
+        force_full_optimization: bool = False,
     ):
-        # Check if the model is loaded in memory already
-        if self.loaded_model is not None:
-            if self.is_in_device:
-                print(
-                    f"Model {self.current_model} is already loaded in memory and in device. Not applying optimizations."
-                )
-                return
+        if self.loaded_model is not None and self.is_in_device:
+            logger.info(
+                f"Model {model_id} is already loaded in memory and in device. Not applying optimizations."
+            )
+            return
 
         device = get_available_torch_device()
         config = serialize_config(get_config())
@@ -503,18 +536,27 @@ class ModelMemoryManager:
 
         print(f"\nmodel_config: {model_config}\n")
 
-        model_size_gb = self._get_model_size(model_config) / (1024**3)
-        available_vram_gb = self._get_available_vram() / (1024**3)
-        print(f"Model size: {model_size_gb} GB, Available VRAM: {available_vram_gb} GB")
+        model_size_gb = self._get_model_size(model_config)
+        available_vram_gb = self._get_available_vram()
+        logger.info(
+            f"Model size: {model_size_gb:.2f} GB, Available VRAM: {available_vram_gb:.2f} GB"
+        )
 
-        optimizations, force_full_optimization = self._determine_optimizations(available_vram_gb, model_size_gb, force_full_optimization)
+        optimizations, force_full_optimization = self._determine_optimizations(
+            available_vram_gb, model_size_gb, force_full_optimization
+        )
 
         self._apply_optimizations(pipeline, optimizations, device)
 
         if not force_full_optimization:
             self._move_model_to_device(pipeline, device)
 
-    def _determine_optimizations(self, available_vram_gb: float, model_size_gb: float, force_full_optimization: bool) -> tuple[list, bool]:
+    def _determine_optimizations(
+        self,
+        available_vram_gb: float,
+        model_size_gb: float,
+        force_full_optimization: bool,
+    ) -> tuple[list, bool]:
         optimizations = []
 
         if self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value:
@@ -536,71 +578,28 @@ class ModelMemoryManager:
         optimizations = [
             ("enable_vae_slicing", "VAE Sliced", {}),
             ("enable_vae_tiling", "VAE Tiled", {}),
-            ("enable_model_cpu_offload", "CPU Offloading", {"device": device}),
+            (
+                "enable_model_cpu_offload",
+                "CPU Offloading",
+                {"device": get_available_torch_device()},
+            ),
         ]
-        # optimizations = [
-        #     ("enable_vae_slicing", "VAE Sliced", {}),
-        #     ("enable_vae_tiling", "VAE Tiled", {}),
-        # ]
-
-        # ------------------------------------ DO SOME CHECKS ------------------------------------
-
-        # Check 1: If should quantize and available VRAM equal or greater than High, don't apply optimizations
-        if self.should_quantize:
-            if available_vram_gb >= GPUEnum.HIGH.value:
-                force_full_optimization = False
-            else:
-                force_full_optimization = True
-                print(
-                    f"Available VRAM: {available_vram_gb} GB is less than 24GB. Applying optimizations."
+        if self.loaded_model.__class__.__name__ not in [
+            "FluxPipeline",
+            "FluxInpaintPipeline",
+        ]:
+            optimizations.append(
+                (
+                    "enable_xformers_memory_efficient_attention",
+                    "Memory Efficient Attention",
+                    {},
                 )
+            )
+        return optimizations
 
-        # Check 2: If available VRAM equal or greater than Very High, don't apply optimizations
-        if available_vram_gb >= GPUEnum.VERY_HIGH.value:
-            force_full_optimization = False
-
-        # Check 3: If available VRAM is greater than model size, apply optimizations if force_full_optimization is True
-        if available_vram_gb > model_size_gb:
-            if force_full_optimization:
-                if available_vram_gb >= GPUEnum.HIGH.value:
-                    force_full_optimization = False
-                    print(
-                        f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations."
-                    )
-                else:
-                    optimizations = FULL_OPTIMIZATION
-                    if pipeline.__class__.__name__ not in [
-                        "FluxPipeline",
-                        "FluxInpaintPipeline",
-                    ]:
-                        optimizations.append(
-                            (
-                                "enable_xformers_memory_efficient_attention",
-                                "Memory Efficient Attention",
-                                {},
-                            )
-                        )
-        # Check 4: If should quantize and available VRAM is less than High, apply optimizations
-        else:
-            if self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value:
-                force_full_optimization = False
-                print(
-                    f"Available VRAM: {available_vram_gb} GB is greater than 24GB. Not applying optimizations."
-                )
-            else:
-                optimizations = FULL_OPTIMIZATION
-                if pipeline.__class__.__name__ not in [
-                    "FluxPipeline",
-                    "FluxInpaintPipeline",
-                ]:
-                    optimizations.append(
-                        (
-                            "enable_xformers_memory_efficient_attention",
-                            "Memory Efficient Attention",
-                            {},
-                        )
-                    )
-
+    def _apply_optimizations(
+        self, pipeline: DiffusionPipeline, optimizations: list, device: torch.device
+    ):
         device_type = device if isinstance(device, str) else device.type
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
@@ -622,15 +621,14 @@ class ModelMemoryManager:
         #     torch.set_float32_matmul_precision("high")
         #     pipeline.transformer.to(memory_format=torch.channels_last)
         #     pipeline.transformer = torch.compile(pipeline.transformer, mode="max-autotune", fullgraph=True)
-        
+
         self.is_in_device = True
 
     def flush_memory(self):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():
-            pass
-
+            torch.mps.empty_cache()
         gc.collect()
 
     def unload(self, model_id: str) -> None:
@@ -652,11 +650,6 @@ class ModelMemoryManager:
     def get_model_device(self, model_id: str) -> Optional[torch.device]:
         model = self.get_model(model_id)
         return model.device if model else None
-
-
-
-
-
 
 
 # def _determine_optimizations(self, available_vram_gb: float, model_size_gb: float, force_full_optimization: bool) -> tuple[list, bool]:
