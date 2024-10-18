@@ -242,6 +242,8 @@ class ModelMemoryManager:
         except Exception as e:
             logger.error(f"Error during warm-up for model {model_id}: {str(e)}")
 
+        self.flush_memory()
+        
         logger.info(f"Warm-up completed for model {model_id}")
 
     async def load(
