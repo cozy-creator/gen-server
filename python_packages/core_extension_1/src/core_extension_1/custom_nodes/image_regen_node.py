@@ -18,9 +18,9 @@ class ImageRegenNode(CustomNode):
 
         # sdxl-inpainting-1
 
-    async def _get_inpaint_pipeline(self, model_id: str, type: str):
+    async def _get_inpaint_pipeline(self, model_id: str, pipe_type: str):
 
-        inpaint_pipeline = await self.model_memory_manager.load(model_id, type=type)
+        inpaint_pipeline = await self.model_memory_manager.load(model_id, pipe_type=pipe_type)
         if inpaint_pipeline is None:
             raise ValueError(f"Model {model_id} not found in memory manager")
 
@@ -35,7 +35,7 @@ class ImageRegenNode(CustomNode):
                        num_inference_steps: int = 25,
                        strength: float = 0.7) -> Dict[str, torch.Tensor]:
         
-        pipeline = await self._get_inpaint_pipeline(model_id, type="inpaint")
+        pipeline = await self._get_inpaint_pipeline(model_id, pipe_type="inpaint")
 
         class_name = pipeline.__class__.__name__
 

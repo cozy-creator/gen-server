@@ -243,11 +243,11 @@ class ModelMemoryManager:
             logger.error(f"Error during warm-up for model {model_id}: {str(e)}")
 
         self.flush_memory()
-        
+
         logger.info(f"Warm-up completed for model {model_id}")
 
     async def load(
-        self, model_id: str, gpu: Optional[int] = None, type: Optional[str] = None
+        self, model_id: str, gpu: Optional[int] = None, pipe_type: Optional[str] = None
     ) -> Optional[DiffusionPipeline]:
         logger.info(f"Loading model {model_id}")
 

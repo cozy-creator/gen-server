@@ -17,10 +17,14 @@
         "num_inference_steps": 25
       },
       "flux.1-schnell": {
-        "num_inference_steps": 4
+        "num_inference_steps": 4,
+        "max_sequence_length": 256,
+        "guidance_scale": 0.0
       },
       "flux.1-dev": {
-        "num_inference_steps": 20
+        "num_inference_steps": 20,
+        "max_sequence_length": 512,
+        "guidance_scale": 3.5
       }
     },
     "cozy_categories": {

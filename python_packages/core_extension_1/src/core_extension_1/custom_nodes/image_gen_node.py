@@ -26,8 +26,6 @@ from diffusers import (
     StableDiffusion3Pipeline,
 )
 
-StableDiffusion3Pipeline.load_lora_weights
-
 from gen_server.utils.image import aspect_ratio_to_dimensions
 from gen_server.base_types import CustomNode
 from importlib import import_module
@@ -41,6 +39,7 @@ from diffusers import FluxPipeline
 import os
 import json
 from gen_server.utils.image import tensor_to_pil
+from tqdm import tqdm
 
 
 # from gen_server.utils.model_memory_manager import ModelMemoryManager
@@ -85,6 +84,40 @@ poseable_character_task_data = {
     "num_inference_steps": 30,
     "strength": 0.7,  # For face regeneration
 }
+
+
+# images_completed = overall_step // self.num_steps
+        
+# if images_completed < self.num_images:
+#     self.pbar.set_postfix({
+#         "Image": f"{images_completed}/{self.num_images}"
+#     })
+
+class ProgressCallback:
+    def __init__(self, num_steps, num_images):
+        self.num_steps = num_steps
+        self.num_images = num_images
+        self.total_steps = num_steps * num_images
+        self.pbar = tqdm(total=num_steps, desc="Generating images")
+        self.last_update = 0
+
+    def on_step_end(self, pipeline, step_number, timestep, callback_kwargs):
+        overall_step = self.last_update + step_number
+        scaled_step = int((overall_step / self.total_steps) * self.num_steps)
+        
+        if scaled_step > self.pbar.n:
+            self.pbar.update(scaled_step - self.pbar.n)
+
+        # Return the latents unchanged
+        return {"latents": callback_kwargs["latents"]}
+
+    def on_image_complete(self):
+        self.last_update += self.num_steps
+
+    def close(self):
+        self.pbar.n = self.num_steps
+        self.pbar.refresh()
+        self.pbar.close()
 
 
 class ImageGenNode(CustomNode):
@@ -161,6 +194,8 @@ class ImageGenNode(CustomNode):
         lora_info: Optional[dict[str, any]] = None,
         controlnet_model_ids: Optional[List[str]] = None,
     ):
+        
+        print(random_seed)
         try:
             pipeline = await self._get_pipeline(model_id)
 
@@ -229,7 +264,7 @@ class ImageGenNode(CustomNode):
                 "prompt": positive_prompt,
                 "width": width,
                 "height": height,
-                "num_images_per_prompt": num_images,
+                # "num_images_per_prompt": num_images,
                 # "num_inference_steps": 5,
                 "num_inference_steps": model_config["num_inference_steps"],
                 "generator": torch.Generator().manual_seed(random_seed)
@@ -239,8 +274,8 @@ class ImageGenNode(CustomNode):
             }
 
             if isinstance(pipeline, FluxPipeline):
-                gen_params["guidance_scale"] = 0.0
-                gen_params["max_sequence_length"] = 256
+                # gen_params["guidance_scale"] = 0.0
+                gen_params["max_sequence_length"] = model_config["max_sequence_length"]
             else:
                 # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
                 # gen_params["negative_prompt"] = negative_prompt
@@ -252,12 +287,36 @@ class ImageGenNode(CustomNode):
             if ip_adapter_embeds is not None:
                 gen_params["ip_adapter_image_embeds"] = ip_adapter_embeds
 
+            # pipeline.enable_model_cpu_offload()
+
+            # Initialize an empty list to store the image tensors
+            image_tensors = []
+
+            pipeline.set_progress_bar_config(disable=True)
+            callback = ProgressCallback(model_config["num_inference_steps"], num_images)
 
             # Run inference
-            # with torch.no_grad():
-            output = pipeline(**gen_params).images
+            for i in range(num_images):
+                with torch.no_grad():
+                    output = pipeline(
+                        **gen_params, 
+                        callback_on_step_end=callback.on_step_end, 
+                        callback_on_step_end_tensor_inputs=['latents']
+                    ).images
 
-            return {"images": output}
+                image_tensors.append(output[0]) 
+                # Clear CUDA cache after each iteration
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                callback.on_image_complete() # Signal completion of an image
+
+
+            callback.close()  # Close the progress bar
+
+            all_images = torch.stack(image_tensors)
+
+            return {"images": all_images}
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
