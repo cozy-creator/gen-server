@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	MaxWebhookAttempts = 1
+	MaxWebhookAttempts = 3
 )
 
 type AsyncGenerateResponse struct {
