@@ -214,6 +214,10 @@ class ModelMemoryManager:
         config = serialize_config(get_config())
         return list(config["enabled_models"].keys())
 
+    def get_warmup_models(self) -> list[str]:
+        config = serialize_config(get_config())
+        return config["warmup_models"]
+
     async def warm_up_pipeline(self, model_id: str):
         if model_id not in self.loaded_models:
             logger.warning(f"Model {model_id} is not loaded")

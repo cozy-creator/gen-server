@@ -13,7 +13,6 @@ from gen_server.base_types.custom_node import custom_node_validator
 from gen_server.base_types.pydantic_models import RunCommandConfig
 from gen_server.config import init_config
 from gen_server.globals import update_custom_nodes, update_architectures
-from gen_server.handlers import load_model
 from gen_server.tcp_server import TCPServer, RequestContext
 from gen_server.worker.gpu_worker import generate_images_non_io
 from gen_server.utils.cli_helpers import parse_known_args_wrapper
@@ -53,9 +52,6 @@ def request_handler(context: RequestContext):
     asyncio.run(generate_images())
 
 
-
-
-
 def run_tcp_server(config: RunCommandConfig):
     server = TCPServer(port=config.port, host=config.host)
 
@@ -80,16 +76,20 @@ def startup_extensions():
 async def load_and_warm_up_models():
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
+    warmup_models = model_memory_manager.get_warmup_models()
 
     logger.info(f"Starting to load and warm up {len(model_ids)} models")
 
-    for model_id in model_ids:
-        try:
-            logger.info(f"Loading and warming up model: {model_id}")
-            await model_memory_manager.load(model_id, None)
-            await model_memory_manager.warm_up_pipeline(model_id)
-        except Exception as e:
-            logger.error(f"Error loading or warming up model {model_id}: {str(e)}")
+    print(f"Warmup models: {warmup_models}")
+
+    for model_id in warmup_models:
+        if model_id in model_ids:
+            try:
+                logger.info(f"Loading and warming up model: {model_id}")
+                await model_memory_manager.load(model_id, None)
+                await model_memory_manager.warm_up_pipeline(model_id)
+            except Exception as e:
+                logger.error(f"Error loading or warming up model {model_id}: {e}")
 
     logger.info("Finished loading and warming up models")
 

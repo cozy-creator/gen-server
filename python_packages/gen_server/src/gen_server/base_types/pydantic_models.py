@@ -228,6 +228,11 @@ class RunCommandConfig(BaseSettings):
         ),
     )
 
+    warmup_models: Optional[list[str]] = Field(
+        default=None,
+        description="List of models to warm up on startup.",
+    )
+
     s3: Optional[S3Credentials] = Field(
         default=None,
         description="Credentials to read from and write to an S3-compatible API.",
@@ -285,6 +290,26 @@ class RunCommandConfig(BaseSettings):
             return v
         else:
             raise ValueError(f"Unexpected type for S3 credentials: {type(v)}")
+
+    @field_validator("warmup_models", mode="before")
+    @classmethod
+    def parse_and_set_warmup_models(cls, v: Any, info: ValidationInfo) -> list[str]:
+        # If no value provided, return an empty list
+        if v is None or (isinstance(v, list) and len(v) == 0):
+            return []
+
+        # If it's a string, try to parse it
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+            except json.JSONDecodeError:
+                parsed = v.split(",")  # fallback to comma-separated values
+
+            # Ensure each path is expanded
+            return parsed
+
+        # If it's none of the above, return as is
+        return v
 
 
 class BuildWebCommandConfig(BaseSettings):

@@ -182,7 +182,7 @@ def _get_controlnet(self, model_id: str, controlnet_type: str, class_name: str):
                     f"\n\nControlNet {controlnet_id} loaded successfully with variant {variant}\n\n"
                 )
                 break
-            except Exception as e:
+            except Exception:
                 continue
 
         # self.controlnets[key] = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16)
