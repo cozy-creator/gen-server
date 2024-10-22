@@ -25,6 +25,11 @@
         "num_inference_steps": 20,
         "max_sequence_length": 512,
         "guidance_scale": 3.5
+      },
+      "openflux.1": {
+        "num_inference_steps": 20,
+        "max_sequence_length": 512,
+        "guidance_scale": 3.5
       }
     },
     "cozy_categories": {

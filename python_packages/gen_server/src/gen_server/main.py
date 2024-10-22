@@ -20,6 +20,9 @@ from gen_server.utils.extension_loader import load_extensions
 from gen_server.utils.image import tensor_to_bytes
 import os
 from gen_server.globals import get_model_memory_manager
+from gen_server.utils.model_downloader import ModelSource, ModelManager
+from gen_server.config import get_config
+from gen_server.utils.utils import serialize_config
 
 
 logging.basicConfig(
@@ -28,6 +31,40 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+
+async def verify_and_download_models():
+    """Verify and download all models on startup"""
+    config = serialize_config(get_config())
+    async with ModelManager() as manager:
+        for model_id, model_info in config["enabled_models"].items():
+            source = ModelSource(model_info["source"])
+            
+            # Check if downloaded
+            is_downloaded, variant = await manager.is_downloaded(model_id)
+            print(f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}")
+            if not is_downloaded:
+                logger.info(f"Downloading {model_id} from {source.type} source")
+                try:
+                    await manager.download_model(model_id, source)
+                except Exception as e:
+                    logger.error(f"Failed to download {model_id}: {e}")
+                    continue
+
+            # Handle components
+            if "components" in model_info and model_info["components"] is not None:
+                for comp_name, comp_info in model_info["components"].items():
+                    if isinstance(comp_info, dict) and "source" in comp_info:
+                        comp_source = ModelSource(comp_info["source"])
+                        comp_id = f"{model_id}/{comp_name}"
+                        
+                        is_downloaded, _ = await manager.is_downloaded(comp_id)
+                        if not is_downloaded:
+                            try:
+                                await manager.download_model(comp_id, comp_source)
+                            except Exception as e:
+                                logger.error(f"Failed to download component {comp_id}: {e}")
 
 
 def request_handler(context: RequestContext):
@@ -74,6 +111,7 @@ def startup_extensions():
 
 
 async def load_and_warm_up_models():
+    print("Here")
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
     warmup_models = model_memory_manager.get_warmup_models()
@@ -82,14 +120,14 @@ async def load_and_warm_up_models():
 
     print(f"Warmup models: {warmup_models}")
 
-    for model_id in warmup_models:
-        if model_id in model_ids:
-            try:
-                logger.info(f"Loading and warming up model: {model_id}")
-                await model_memory_manager.load(model_id, None)
-                await model_memory_manager.warm_up_pipeline(model_id)
-            except Exception as e:
-                logger.error(f"Error loading or warming up model {model_id}: {e}")
+    for model_id in model_ids:
+        # if model_id in model_ids:
+        try:
+            logger.info(f"Loading and warming up model: {model_id}")
+            await model_memory_manager.load(model_id, None)
+            await model_memory_manager.warm_up_pipeline(model_id)
+        except Exception as e:
+            logger.error(f"Error loading or warming up model {model_id}: {e}")
 
     logger.info("Finished loading and warming up models")
 
@@ -99,6 +137,9 @@ async def main_async():
     config = init_config(run_parser, parse_known_args_wrapper)
 
     startup_extensions()
+
+    # Verify and download models
+    # await verify_and_download_models()
 
     # Load and warm up models
     await load_and_warm_up_models()
