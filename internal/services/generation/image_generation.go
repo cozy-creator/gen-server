@@ -16,14 +16,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 )
 
-type GeneratedImage struct {
-	URLs      []string `json:"urls"`
-	Index     int8     `json:"index"`
-	ID        string   `json:"id,omitempty"`
-	Status    string   `json:"status,omitempty"`
-	ModelName string   `json:"model_name,omitempty"`
-}
-
 func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, string, error) {
 	topic := config.DefaultGeneratePrefix + requestId
 	fmt.Println("topic....", topic)
@@ -77,17 +69,19 @@ func receiveImage(requestId string, outputFormat string, uploader *fileuploader.
 	return url, modelName, nil
 }
 
-func GenerateImageSync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) (chan GeneratedImage, error) {
-	outputc := make(chan GeneratedImage)
+func GenerateImageSync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) (chan types.GenerationResponse, error) {
+	outputc := make(chan types.GenerationResponse)
 	errc := make(chan error, 1)
 
 	sendResponse := func(urls []string, index int8, currentModel string, status string) {
 		if len(urls) > 0 {
-			outputc <- GeneratedImage{
-				URLs:      urls,
-				Index:     index,
-				Status:    status,
-				ModelName: currentModel,
+			outputc <- types.GenerationResponse{
+				Output: types.GeneratedOutput{
+					URLs:  urls,
+					Model: currentModel,
+				},
+				Index:  index,
+				Status: status,
 			}
 		}
 	}
@@ -117,19 +111,22 @@ func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploa
 	fmt.Println("ctx....", ctx)
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
 
-	invoke := func(response GeneratedImage) {
+	invoke := func(response types.GenerationResponse) {
 		if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
 			fmt.Println("Failed to invoke webhook:", err)
 		}
 	}
 
 	sendResponse := func(urls []string, index int8, currentModel, status string) {
-		response := GeneratedImage{
-			ID:        params.ID,
-			URLs:      urls,
-			Index:     index,
-			ModelName: currentModel,
-			Status:    status,
+		response := types.GenerationResponse{
+			Index:  index,
+			Input:  params,
+			Status: status,
+			ID:     params.ID,
+			Output: types.GeneratedOutput{
+				URLs:  urls,
+				Model: currentModel,
+			},
 		}
 
 		invoke(response)
@@ -137,7 +134,7 @@ func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploa
 
 	if err := processImageGen(ctx, params, uploader, queue, sendResponse); err != nil {
 		if !errors.Is(err, mq.ErrTopicClosed) {
-			response := GeneratedImage{
+			response := types.GenerationResponse{
 				Status: StatusFailed,
 			}
 

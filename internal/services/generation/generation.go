@@ -28,23 +28,6 @@ const (
 	MaxWebhookAttempts = 3
 )
 
-type AsyncGenerateResponse struct {
-	ID     string                        `json:"id"`
-	Index  int                           `json:"index"`
-	Output []AsyncGenerateResponseOutput `json:"output"`
-	Status string                        `json:"status,omitempty"`
-}
-
-type AsyncGenerateResponseOutput struct {
-	Format string `json:"format"`
-	URL    string `json:"url"`
-}
-
-type GeneratedOutput struct {
-	ModelName string `json:"model_name"`
-	Output    []byte `json:"output"`
-}
-
 func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 	for {
 		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)

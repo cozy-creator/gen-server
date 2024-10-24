@@ -17,7 +17,7 @@ type GenerateParams struct {
 	RandomSeed     int            `json:"random_seed"`
 	AspectRatio    string         `json:"aspect_ratio"`
 	PositivePrompt string         `json:"positive_prompt"`
-	NegativePrompt string         `json:"negative_prompt"`
+	NegativePrompt string         `json:"negative_prompt,omitempty"`
 	WebhookUrl     string         `json:"webhook_url"`
 	OutputFormat   string         `json:"output_format"`
 }
@@ -32,4 +32,17 @@ type RequestGenerateParams struct {
 type Video struct {
 	Content interface{}
 	Kind    string
+}
+
+type GeneratedOutput struct {
+	URLs  []string `json:"urls"`
+	Model string   `json:"model"`
+}
+
+type GenerationResponse struct {
+	ID     string          `json:"id"`
+	Index  int8            `json:"index"`
+	Status string          `json:"status"`
+	Output GeneratedOutput `json:"output"`
+	Input  *GenerateParams `json:"input,omitempty"`
 }

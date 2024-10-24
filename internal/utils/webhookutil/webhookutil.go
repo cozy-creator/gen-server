@@ -9,17 +9,13 @@ import (
 	"time"
 )
 
-type WebhookData struct {
-	ID     string `json:"id"`
-	Status string `json:"status,omitempty"`
-}
-
 func contains(arr []int, value int) bool {
 	for _, v := range arr {
 		if v == value {
 			return true
 		}
 	}
+
 	return false
 }
 
