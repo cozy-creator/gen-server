@@ -5,21 +5,45 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+
+	"github.com/cozy-creator/gen-server/internal/model"
+	"github.com/cozy-creator/gen-server/pkg/tcpclient"
+	"github.com/cozy-creator/gen-server/internal/mq"
 )
 
 type Server struct {
 	listenAddr string
 	ginEngine  *gin.Engine
 	inner      *http.Server
+	modelManager *model.ModelManager
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
+
+	tcpClient, err := tcpclient.NewTCPClient(
+        fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort),
+        time.Duration(500)*time.Second,
+        1,
+    )
+	
+    if err != nil {
+        return nil, fmt.Errorf("failed to create TCP client: %w", err)
+    }
+
+    mqInstance, err := mq.NewInMemoryMQ(10)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create InMemoryMQ: %w", err)
+    }
+
+    modelManager := model.NewModelManager(tcpClient, mqInstance)
+	
 	r := gin.New()
 
 	// Set gin mode
@@ -52,7 +76,20 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	r.Use(gin.Recovery())
 
+	// // Initialize TCP client for model manager
+    // tcpClient, err := tcpclient.NewTCPClient(
+    //     fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort),
+    //     time.Duration(500)*time.Second,
+    //     1,
+    // )
+    // if err != nil {
+    //     return nil, fmt.Errorf("failed to create TCP client: %w", err)
+    // }
+
+    // modelManager := model.NewModelManager(tcpClient, nil) // or pass your MQ instance
+
 	return &Server{
+		modelManager: modelManager,
 		ginEngine: r,
 		inner: &http.Server{
 			Handler: r,

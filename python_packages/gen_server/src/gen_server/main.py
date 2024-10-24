@@ -67,8 +67,61 @@ async def verify_and_download_models():
                                 logger.error(f"Failed to download component {comp_id}: {e}")
 
 
+async def handle_model_command(data: bytes) -> bytes:
+    """Handle model management commands from Go"""
+    try:
+        request = json.loads(data)
+        command = request["command"]
+        model_id = request["model_id"]
+        
+        model_manager = get_model_memory_manager()
+        
+        response = {"success": True}
+        
+        if command == "LOAD":
+            pipeline = await model_manager.load(model_id)
+            if pipeline is None:
+                response = {
+                    "success": False,
+                    "error": f"Failed to load model {model_id}"
+                }
+            else:
+                # Check where it was loaded
+                if model_id in model_manager.loaded_models:
+                    response["location"] = "GPU"
+                elif model_id in model_manager.cpu_models:
+                    response["location"] = "CPU"
+                
+        elif command == "UNLOAD":
+            model_manager.unload(model_id)
+            
+        elif command == "CHECK":
+            if model_id in model_manager.loaded_models:
+                response["location"] = "GPU"
+            elif model_id in model_manager.cpu_models:
+                response["location"] = "CPU"
+            else:
+                response["location"] = "NONE"
+                
+        return json.dumps(response).encode()
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }).encode()
+
+
 def request_handler(context: RequestContext):
     data = context.data()
+
+    # Check if it's a model command
+    if data.startswith(b"MODEL:"):
+        response = asyncio.run(handle_model_command(data[6:]))  # Skip "MODEL:" prefix
+        # Send response size
+        size = struct.pack("!I", len(response))
+        context.send(size + response)
+        return
 
     json_data = None
     try:
@@ -114,18 +167,20 @@ async def load_and_warm_up_models():
     print("Here")
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
-    warmup_models = model_memory_manager.get_warmup_models()
+    # warmup_models = model_memory_manager.get_warmup_models()
 
     logger.info(f"Starting to load and warm up {len(model_ids)} models")
 
-    print(f"Warmup models: {warmup_models}")
+    # print(f"Warmup models: {warmup_models}")
 
     for model_id in model_ids:
         # if model_id in model_ids:
         try:
             logger.info(f"Loading and warming up model: {model_id}")
+            start_time = time.time()
             await model_memory_manager.load(model_id, None)
             await model_memory_manager.warm_up_pipeline(model_id)
+            logger.info(f"Warming up model {model_id} took {time.time() - start_time:.2f} seconds")
         except Exception as e:
             logger.error(f"Error loading or warming up model {model_id}: {e}")
 

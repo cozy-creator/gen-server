@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"fmt"
+
+	"github.com/cozy-creator/gen-server/internal/model"
+
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
@@ -20,6 +24,24 @@ func GenerateImageSync(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
+
+	// First check and load model if needed
+    for modelID := range data.Models {
+        location, err := app.ModelManager().CheckModel(c.Request.Context(), modelID)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("failed to check model status: %v", err)})
+            return
+        }
+
+        if location == model.None {
+            if err := app.ModelManager().LoadModel(c.Request.Context(), modelID); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("failed to load model: %v", err)})
+                return
+            }
+        }
+    }
+
+	// Continue with your existing generation code
 	_, err := generation.NewRequest(&data, true, app.MQ())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})

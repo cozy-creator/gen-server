@@ -2,13 +2,17 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
+	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"go.uber.org/zap"
+	"github.com/cozy-creator/gen-server/internal/model"
 )
 
 type App struct {
@@ -19,6 +23,7 @@ type App struct {
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
 	fileuploader *fileuploader.Uploader
+	modelManager *model.ModelManager 
 
 	Logger *zap.Logger
 }
@@ -31,6 +36,10 @@ func WithDB(db *db.Queries) OptionFunc {
 	}
 }
 
+func (app *App) ModelManager() *model.ModelManager {
+    return app.modelManager
+}
+
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -40,12 +49,29 @@ func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
 	}
 	defer logger.Sync()
 
-	return &App{
-		ctx:        ctx,
-		config:     config,
-		Logger:     logger,
-		cancelFunc: cancel,
-	}, nil
+	// Create TCP client for model manager
+    tcpClient, err := tcpclient.NewTCPClient(
+        fmt.Sprintf("%s:%d", config.Host, config.TcpPort),
+        time.Duration(500)*time.Second,
+        1,
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to create TCP client: %w", err)
+    }
+
+    app := &App{
+        ctx:          ctx,
+        config:       config,
+        Logger:       logger,
+        cancelFunc:   cancel,
+        modelManager: model.NewModelManager(tcpClient, nil),  // Will get MQ after InitializeMQ
+    }
+
+    for _, opt := range options {
+        opt(app)
+    }
+
+    return app, nil
 }
 
 func (app *App) InitializeMQ() error {
@@ -55,6 +81,7 @@ func (app *App) InitializeMQ() error {
 	}
 
 	app.mq = mq
+	app.modelManager = model.NewModelManager(app.modelManager.TCPClient(), mq)
 	return nil
 }
 
