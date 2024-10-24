@@ -33,17 +33,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
 async def verify_and_download_models():
     """Verify and download all models on startup"""
     config = serialize_config(get_config())
     async with ModelManager() as manager:
         for model_id, model_info in config["enabled_models"].items():
             source = ModelSource(model_info["source"])
-            
+
             # Check if downloaded
             is_downloaded, variant = await manager.is_downloaded(model_id)
-            print(f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}")
+            print(
+                f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}"
+            )
             if not is_downloaded:
                 logger.info(f"Downloading {model_id} from {source.type} source")
                 try:
@@ -58,13 +59,15 @@ async def verify_and_download_models():
                     if isinstance(comp_info, dict) and "source" in comp_info:
                         comp_source = ModelSource(comp_info["source"])
                         comp_id = f"{model_id}/{comp_name}"
-                        
+
                         is_downloaded, _ = await manager.is_downloaded(comp_id)
                         if not is_downloaded:
                             try:
                                 await manager.download_model(comp_id, comp_source)
                             except Exception as e:
-                                logger.error(f"Failed to download component {comp_id}: {e}")
+                                logger.error(
+                                    f"Failed to download component {comp_id}: {e}"
+                                )
 
 
 def request_handler(context: RequestContext):
@@ -116,18 +119,18 @@ async def load_and_warm_up_models():
     model_ids = model_memory_manager.get_all_model_ids()
     warmup_models = model_memory_manager.get_warmup_models()
 
-    logger.info(f"Starting to load and warm up {len(model_ids)} models")
+    logger.info(f"Starting to load and warm up {len(warmup_models)} models")
 
     print(f"Warmup models: {warmup_models}")
 
     for model_id in model_ids:
-        # if model_id in model_ids:
-        try:
-            logger.info(f"Loading and warming up model: {model_id}")
-            await model_memory_manager.load(model_id, None)
-            await model_memory_manager.warm_up_pipeline(model_id)
-        except Exception as e:
-            logger.error(f"Error loading or warming up model {model_id}: {e}")
+        if model_id in warmup_models:
+            try:
+                logger.info(f"Loading and warming up model: {model_id}")
+                await model_memory_manager.load(model_id, None)
+                await model_memory_manager.warm_up_pipeline(model_id)
+            except Exception as e:
+                logger.error(f"Error loading or warming up model {model_id}: {e}")
 
     logger.info("Finished loading and warming up models")
 
