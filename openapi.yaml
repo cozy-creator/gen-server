@@ -1,0 +1,275 @@
+openapi: 3.0.0
+info:
+  title: Cozy Creator
+  version: 1.0.0
+servers:
+  - url: https://cozy.dev
+    description: Primary API server
+  - url: https://cozy.dev/api/v1
+    description: API v1 base path
+tags:
+  - name: generation
+    description: Endpoints related to content generation
+  - name: file
+    description: Endpoints related to file uploads
+  - name: workflow
+    description: Endpoints related to workflow execution
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    GenerateParams:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the generation request
+        models:
+          type: object
+          additionalProperties:
+            type: integer
+          description: A map of models to their respective values
+        random_seed:
+          type: integer
+          description: The random seed to be used for generation
+        aspect_ratio:
+          type: string
+          description: Aspect ratio for the generated content
+        positive_prompt:
+          type: string
+          description: A positive prompt to guide the generation
+        negative_prompt:
+          type: string
+          description: A negative prompt to exclude certain elements
+        output_format:
+          type: string
+          description: The desired output format (e.g., png, jpg)
+      required:
+        - id
+        - models
+        - random_seed
+        - aspect_ratio
+        - positive_prompt
+        - output_format
+    GeneratedOutput:
+      type: object
+      properties:
+        data:
+          type: string
+          format: binary
+          description: The generated output data (e.g., image file, etc.)
+    GenerationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the generation request
+        index:
+          type: integer
+          description: The index of the current part of the response stream
+        status:
+          type: string
+          description: The current status of the request
+        output:
+          $ref: "#/components/schemas/GeneratedOutput"
+    UploadResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Status of the upload request
+        data:
+          type: object
+          properties:
+            url:
+              type: string
+              description: URL of the uploaded file
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the node
+        type:
+          type: string
+          description: The type of the node
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the workflow
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+          description: A list of nodes involved in the workflow
+    WorkflowResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the workflow
+        status:
+          type: string
+          description: The current status of the workflow execution
+    NodeOutput:
+      type: object
+      additionalProperties:
+        type: object
+    WorkflowOutput:
+      type: object
+      properties:
+        nodeID:
+          type: string
+          description: The ID of the node producing the output
+        nodeType:
+          type: string
+          description: The type of the node
+        output:
+          $ref: "#/components/schemas/NodeOutput"
+          description: The output of the node
+        error:
+          type: string
+          nullable: true
+          description: An error message, if any
+paths:
+  /generate_async:
+    post:
+      tags:
+        - generation
+      summary: Initiates asynchronous generation of content
+      description: This endpoint triggers the async generation process with specified parameters.
+      operationId: generateAsync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateParams"
+      responses:
+        "200":
+          description: Async generation initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationResponse"
+        "400":
+          description: Bad request, invalid parameters
+        "401":
+          description: Unauthorized, invalid API key
+        "500":
+          description: Server error
+
+  /generate:
+    post:
+      tags:
+        - generation
+      summary: Initiates synchronous generation of content with a streaming response
+      description: This endpoint initiates the generation process and streams the response as data is generated.
+      operationId: generate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateParams"
+      responses:
+        "200":
+          description: Streamed generation response
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/GenerationResponse"
+        "400":
+          description: Invalid request parameters
+        "401":
+          description: Unauthorized, invalid API key
+        "500":
+          description: Internal server error
+
+  /upload:
+    post:
+      tags:
+        - file
+      summary: Uploads a file to the server
+      description: This endpoint uploads a file using a form-data request with the key `file`.
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          description: Bad request, invalid file upload
+        "500":
+          description: Internal server error
+
+  /workflow/execute:
+    post:
+      tags:
+        - workflow
+      summary: Executes a workflow
+      description: This endpoint executes a workflow consisting of multiple nodes.
+      operationId: executeWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Workflow"
+      responses:
+        "200":
+          description: Workflow execution initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowResponse"
+        "400":
+          description: Invalid request parameters
+        "500":
+          description: Internal server error
+
+  /workflow/{id}/stream:
+    get:
+      tags:
+        - workflow
+      summary: Streams the workflow output for the given workflow ID
+      description: This endpoint returns Server-Sent Events (SSE) for streaming the output of a workflow identified by the given ID.
+      operationId: streamWorkflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique ID of the workflow to stream
+      responses:
+        "200":
+          description: Workflow output stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/WorkflowOutput"
+        "400":
+          description: Invalid request parameters
+        "500":
+          description: Internal server error
+security:
+  - ApiKeyAuth: []
