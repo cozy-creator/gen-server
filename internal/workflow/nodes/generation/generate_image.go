@@ -44,7 +44,7 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 		Models:         map[string]int{model: numImages},
 	}
 
-	_, err := generation.NewRequest(&params, false, app.MQ())
+	_, err := generation.NewRequest(&params, app.MQ())
 	if err != nil {
 		return nil, err
 	}

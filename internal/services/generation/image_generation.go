@@ -8,60 +8,46 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
+	"github.com/cozy-creator/gen-server/pkg/logger"
 )
 
 func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, string, error) {
-	topic := config.DefaultGeneratePrefix + requestId
-	fmt.Println("topic....", topic)
-	output, err := mq.Receive(context.Background(), topic)
-	fmt.Println("output....", "len(output)")
+	generationTopic := getGenerationTopic(requestId)
+	output, err := mq.Receive(context.Background(), generationTopic)
 	if err != nil {
-		fmt.Println("Error receiving image00: ", err)
 		return "", "", err
 	}
 
 	outputData, err := mq.GetMessageData(output)
-	fmt.Println("outputData....", len(outputData))
 	if err != nil {
-		fmt.Println("Error getting message data: ", err)
 		return "", "", err
 	}
 
 	if bytes.Equal(outputData, []byte("END")) {
-		mq.CloseTopic(topic)
+		logger.Info("Received end message...")
+		mq.CloseTopic(generationTopic)
 		return "", "", nil
 	}
 
 	outputData, modelName, err := ParseImageOutput(outputData)
-	fmt.Println("outputData.... 2", len(outputData))
 	image, err := imageutil.DecodeBmpToFormat(outputData, outputFormat)
 	if err != nil {
-		fmt.Println("Error decoding image: ", err)
 		return "", "", err
 	}
 
-	fmt.Println("image....", len(image))
-
 	uploadUrl := make(chan string)
-	fmt.Println("uploadUrl....", uploadUrl)
-
 	go func() {
 		extension := "." + "png"
 		uploader.UploadBytes(image, extension, false, uploadUrl)
-
-		fmt.Println("uploader....", uploader)
 	}()
 
-	fmt.Println("uploadUrl.... 3", uploadUrl)
 	url, ok := <-uploadUrl
-	fmt.Println("URL--: ", url)
-	fmt.Println("ok....", ok)
 	if !ok {
 		return "", "", nil
 	}
@@ -69,9 +55,10 @@ func receiveImage(requestId string, outputFormat string, uploader *fileuploader.
 	return url, modelName, nil
 }
 
-func GenerateImageSync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) (chan types.GenerationResponse, error) {
-	outputc := make(chan types.GenerationResponse)
+func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.GenerationResponse, error) {
+	ctx := app.Context()
 	errc := make(chan error, 1)
+	outputc := make(chan types.GenerationResponse)
 
 	sendResponse := func(urls []string, index int8, currentModel string, status string) {
 		if len(urls) > 0 {
@@ -92,7 +79,7 @@ func GenerateImageSync(ctx context.Context, params *types.GenerateParams, upload
 			close(errc)
 		}()
 
-		if err := processImageGen(ctx, params, uploader, queue, sendResponse); err != nil {
+		if err := processImageGen(ctx, params, app.Uploader(), app.MQ(), sendResponse); err != nil {
 			errc <- err
 		}
 	}()
@@ -107,10 +94,9 @@ func GenerateImageSync(ctx context.Context, params *types.GenerateParams, upload
 	}
 }
 
-func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ) {
-	fmt.Println("ctx....", ctx)
+func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
+	ctx := app.Context()
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
-
 	invoke := func(response types.GenerationResponse) {
 		if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
 			fmt.Println("Failed to invoke webhook:", err)
@@ -132,15 +118,9 @@ func GenerateImageAsync(ctx context.Context, params *types.GenerateParams, uploa
 		invoke(response)
 	}
 
-	if err := processImageGen(ctx, params, uploader, queue, sendResponse); err != nil {
+	if err := processImageGen(ctx, params, app.Uploader(), app.MQ(), sendResponse); err != nil {
 		if !errors.Is(err, mq.ErrTopicClosed) {
-			response := types.GenerationResponse{
-				Status: StatusFailed,
-			}
-
-			fmt.Println("errrr", err)
-
-			invoke(response)
+			invoke(types.GenerationResponse{Status: StatusFailed})
 		}
 	}
 }

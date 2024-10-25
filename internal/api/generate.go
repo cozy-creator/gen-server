@@ -13,24 +13,23 @@ import (
 )
 
 func GenerateImageSync(c *gin.Context) {
-	data := types.GenerateParams{}
-	if err := c.BindJSON(&data); err != nil {
+	data := &types.GenerateParams{}
+	if err := c.BindJSON(data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return
 	}
 
 	app := c.MustGet("app").(*app.App)
-	_, err := generation.NewRequest(&data, true, app.MQ())
-	if err != nil {
+	if _, err := generation.NewRequest(data, app.MQ()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
-		output, err := generation.GenerateImageSync(app.Context(), &data, app.Uploader(), app.MQ())
+		output, err := generation.GenerateImageSync(app, data)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "Unable to complete image generation"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
 			return false
 		}
 
@@ -45,9 +44,7 @@ func GenerateImageSync(c *gin.Context) {
 }
 
 func GenerateImageAsync(c *gin.Context) {
-	app := c.MustGet("app").(*app.App)
-
-	data := types.GenerateParams{}
+	data := &types.GenerateParams{}
 	if err := c.BindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return
@@ -58,12 +55,16 @@ func GenerateImageAsync(c *gin.Context) {
 		return
 	}
 
-	requestId, err := generation.NewRequest(&data, true, app.MQ())
-	if err != nil {
+	app := c.MustGet("app").(*app.App)
+	if _, err := generation.NewRequest(data, app.MQ()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	go generation.GenerateImageAsync(app.Context(), &data, app.Uploader(), app.MQ())
-	c.JSON(http.StatusOK, gin.H{"status": generation.StatusInQueue, "id": requestId})
+	go generation.GenerateImageAsync(app, data)
+	c.JSON(http.StatusOK, types.GenerationResponse{
+		Input:  data,
+		ID:     data.ID,
+		Status: generation.StatusInQueue,
+	})
 }

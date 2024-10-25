@@ -8,6 +8,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
+	"github.com/cozy-creator/gen-server/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -31,10 +32,16 @@ func WithDB(db *db.Queries) OptionFunc {
 	}
 }
 
+func WithLogger(logger *zap.Logger) OptionFunc {
+	return func(app *App) {
+		app.Logger = logger
+	}
+}
+
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	logger, err := initLogger(config.Environment)
+	logger, err := logger.InitLogger(config)
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +105,4 @@ func (app *App) DB() *db.Queries {
 
 func (app *App) Uploader() *fileuploader.Uploader {
 	return app.fileuploader
-}
-
-func initLogger(env string) (*zap.Logger, error) {
-	if env == "production" {
-		return zap.NewProduction()
-	}
-
-	return zap.NewDevelopment()
 }
