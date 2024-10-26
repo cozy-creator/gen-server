@@ -118,7 +118,7 @@ def request_handler(context: RequestContext):
                     for output in outputs:
                         total_size = struct.pack("!I", len(model_id_header) + len(output))
                         context.send(total_size + model_id_header + output)
-            
+
             loop.run_until_complete(generate())
 
     except json.JSONDecodeError as e:
