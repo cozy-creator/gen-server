@@ -1190,11 +1190,21 @@ class ModelMemoryManager:
         Args:
             model_id: Model identifier
         """
+
+        if model_id:
+            logger.info(f"Loading model {model_id} for warm-up")
+            pipeline = await self.load(model_id)
+
         if model_id not in self.loaded_models:
             logger.warning(f"Model {model_id} is not loaded")
             return
+        
+        # if model_id in self.cpu_models:
+        #     logger.info(f"Loading model {model_id} from CPU to GPU")
+        #     self.load(model_id)
 
-        pipeline = self.loaded_models[model_id]
+
+        # pipeline = self.loaded_models[model_id]
         if pipeline is None:
             logger.warning(f"Failed to load model {model_id} for warm-up")
             return

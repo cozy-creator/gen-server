@@ -31,7 +31,9 @@ func (s *Server) SetupRoutes(app *app.App) {
 	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflow))
 
 	apiV1.POST("/models/load", handlerWrapper(app, api.LoadModels))
-    apiV1.POST("/models/status", handlerWrapper(app, api.GetModelStatus))
+	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatus))
+	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModels))
+	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModels))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

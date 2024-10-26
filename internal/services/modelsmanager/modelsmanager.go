@@ -19,16 +19,15 @@ type ModelLoadRequest struct {
 
 type ModelStatus struct {
 	ModelID     string  `json:"model_id"`
-	IsLoaded    bool    `json:"is_loaded"`
 	Location    string  `json:"location"` // "gpu", "cpu", "unloaded"
 	MemoryUsage float64 `json:"memory_usage"`
 }
 
-func LoadModels(app *app.App, modelIDs []string, priority bool) error {
+func LoadModels(app *app.App, modelIDs []string) error {
 	req := ModelLoadRequest{
 		Command:  "load",
 		ModelIDs: modelIDs,
-		Priority: priority,
+		// Priority: priority,
 	}
 
 	return sendModelCommand(app, req)
@@ -52,23 +51,22 @@ func UnloadModels(app *app.App, modelIDs []string) error {
 	return sendModelCommand(app, req)
 }
 
-func GetModelStatus(app *app.App, modelIDs []string) ([]ModelStatus, error) {
-	req := ModelLoadRequest{
-		Command:  "status",
-		ModelIDs: modelIDs,
-	}
+func GetModelStatus(app *app.App) ([]ModelStatus, error) {
+    req := ModelLoadRequest{
+        Command: "status",
+    }
 
-	data, err := sendModelCommandWithResponse(app, req)
-	if err != nil {
-		return nil, err
-	}
+    data, err := sendModelCommandWithResponse(app, req)
+    if err != nil {
+        return nil, err
+    }
 
-	var statuses []ModelStatus
-	if err := json.Unmarshal(data, &statuses); err != nil {
-		return nil, fmt.Errorf("failed to parse model statuses: %w", err)
-	}
+    var statuses []ModelStatus
+    if err := json.Unmarshal(data, &statuses); err != nil {
+        return nil, fmt.Errorf("failed to parse model statuses: %w", err)
+    }
 
-	return statuses, nil
+    return statuses, nil
 }
 
 func sendModelCommand(app *app.App, req ModelLoadRequest) error {

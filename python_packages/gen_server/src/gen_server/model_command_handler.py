@@ -52,6 +52,7 @@ class ModelCommandHandler:
     async def _handle_unload(self, model_ids: List[str]):
         """Handle unloading models"""
         for model_id in model_ids:
+            print(f"Unloading model: {model_id}")
             self.model_manager.unload(model_id)
             
     async def _handle_warmup(self, model_ids: List[str]):
@@ -61,17 +62,28 @@ class ModelCommandHandler:
             
     async def _handle_status(self, model_ids: List[str]) -> bytes:
         """Handle getting model status"""
-        statuses = []
-        for model_id in model_ids:
-            status = {
+        loaded_models = []
+                
+        # GPU models
+        for model_id in self.model_manager.loaded_models:
+            memory_gb = self._get_model_memory_usage(model_id)
+            loaded_models.append({
                 "model_id": model_id,
-                "is_loaded": model_id in self.model_manager.loaded_models,
-                "location": self._get_model_location(model_id),
-                "memory_usage": self._get_model_memory_usage(model_id)
-            }
-            statuses.append(status)
-            
-        return statuses
+                "location": "gpu",
+                "memory_usage": round(memory_gb, 2)
+            })
+
+        # CPU models
+        for model_id in self.model_manager.cpu_models:
+            if model_id not in self.model_manager.loaded_models:
+                memory_gb = self._get_model_memory_usage(model_id)
+                loaded_models.append({
+                    "model_id": model_id,
+                    "location": "cpu",
+                    "memory_usage": round(memory_gb, 2)
+                })
+
+        return loaded_models
         
     def _get_model_location(self, model_id: str) -> str:
         if model_id in self.model_manager.loaded_models:

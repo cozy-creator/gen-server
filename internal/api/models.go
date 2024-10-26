@@ -22,7 +22,7 @@ func LoadModels(c *gin.Context) {
 
 	app := c.MustGet("app").(*app.App)
 
-	if err := modelsmanager.LoadModels(app, req.ModelIDs, req.Priority); err != nil {
+	if err := modelsmanager.LoadModels(app, req.ModelIDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
@@ -31,21 +31,47 @@ func LoadModels(c *gin.Context) {
 }
 
 func GetModelStatus(c *gin.Context) {
-	var req ModelRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-		return
-	}
+    app := c.MustGet("app").(*app.App)
+    
+    statuses, err := modelsmanager.GetModelStatus(app)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
 
-	app := c.MustGet("app").(*app.App)
-	statuses, err := modelsmanager.GetModelStatus(app, req.ModelIDs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "loaded_models": statuses})
+}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"data":   statuses,
-	})
+func UnloadModels(c *gin.Context) {
+    var req ModelRequest
+    if err := c.BindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+        return
+    }
+
+    app := c.MustGet("app").(*app.App)
+    
+    if err := modelsmanager.UnloadModels(app, req.ModelIDs); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func WarmupModels(c *gin.Context) {
+    var req ModelRequest
+    if err := c.BindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+        return
+    }
+
+    app := c.MustGet("app").(*app.App)
+    
+    if err := modelsmanager.WarmupModels(app, req.ModelIDs); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

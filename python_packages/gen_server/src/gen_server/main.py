@@ -86,15 +86,11 @@ def request_handler(context: RequestContext):
             try:
                 # Run the async command handler in a new event loop
                 loop = asyncio.new_event_loop()
-                print("Here!")
                 asyncio.set_event_loop(loop)
                 response = loop.run_until_complete(command_handler.handle_command(json_data))
-
-                print(f"Response: {response}")
                 
                 # Send response
                 response_bytes = json.dumps(response).encode()
-                print(f"Response bytes: {response_bytes}")
                 size = struct.pack("!I", len(response_bytes))
                 context.send(size + response_bytes)
             except Exception as e:
