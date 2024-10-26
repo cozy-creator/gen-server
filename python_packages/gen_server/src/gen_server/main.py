@@ -23,6 +23,7 @@ from gen_server.globals import get_model_memory_manager
 from gen_server.utils.model_downloader import ModelSource, ModelManager
 from gen_server.config import get_config
 from gen_server.utils.utils import serialize_config
+from gen_server.model_command_handler import ModelCommandHandler
 
 
 logging.basicConfig(
@@ -72,24 +73,62 @@ async def verify_and_download_models():
 
 def request_handler(context: RequestContext):
     data = context.data()
+    logger.info(f"TCP Server received data: {data}")
 
-    json_data = None
     try:
         json_data = json.loads(data.decode())
+        logger.info(f"Decoded JSON: {json_data}")
+        
+        # Check if this is a model management command
+        if "command" in json_data:
+            logger.info(f"Processing model command: {json_data['command']}")
+            command_handler = ModelCommandHandler()
+            try:
+                # Run the async command handler in a new event loop
+                loop = asyncio.new_event_loop()
+                print("Here!")
+                asyncio.set_event_loop(loop)
+                response = loop.run_until_complete(command_handler.handle_command(json_data))
+
+                print(f"Response: {response}")
+                
+                # Send response
+                response_bytes = json.dumps(response).encode()
+                print(f"Response bytes: {response_bytes}")
+                size = struct.pack("!I", len(response_bytes))
+                context.send(size + response_bytes)
+            except Exception as e:
+                logger.error(f"Error handling model command: {e}")
+                error_response = json.dumps({
+                    "status": "error",
+                    "error": str(e)
+                }).encode()
+                size = struct.pack("!I", len(error_response))
+                context.send(size + error_response)
+        else:
+            # Handle image generation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            async def generate():
+                async for [model_id, images] in generate_images_non_io(json_data):
+                    outputs = tensor_to_bytes(images)
+                    model_id_bytes = model_id.encode("utf-8")
+                    model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+                    for output in outputs:
+                        total_size = struct.pack("!I", len(model_id_header) + len(output))
+                        context.send(total_size + model_id_header + output)
+            
+            loop.run_until_complete(generate())
+
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON data: {e}")
-        return
-
-    async def generate_images():
-        async for [model_id, images] in generate_images_non_io(json_data):
-            outputs = tensor_to_bytes(images)
-            model_id_bytes = model_id.encode("utf-8")
-            model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
-            for output in outputs:
-                total_size = struct.pack("!I", len(model_id_header) + len(output))
-                context.send(total_size + model_id_header + output)
-
-    asyncio.run(generate_images())
+        error_response = json.dumps({
+            "status": "error",
+            "error": "Invalid JSON"
+        }).encode()
+        size = struct.pack("!I", len(error_response))
+        context.send(size + error_response)
 
 
 def run_tcp_server(config: RunCommandConfig):
@@ -145,7 +184,7 @@ async def main_async():
     # await verify_and_download_models()
 
     # Load and warm up models
-    await load_and_warm_up_models()
+    # await load_and_warm_up_models()
 
     # Run the TCP server
     run_tcp_server(config)
