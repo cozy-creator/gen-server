@@ -21,7 +21,7 @@ type ModelSource struct {
 
 var client = hub.DefaultClient()
 
-func DownloadModels(config *config.Config) error {
+func DownloadEnabledModels(config *config.Config) error {
 	if config.EnabledModels == nil {
 		return nil
 	}
@@ -37,6 +37,8 @@ MainLoop:
 			if err != nil {
 				fmt.Println("Error downloading model:", err)
 			}
+
+			fmt.Println("Downloaded model:", model.Source)
 		}()
 
 		if model.Components != nil {
@@ -51,6 +53,8 @@ MainLoop:
 					if err != nil {
 						fmt.Println("Error downloading component:", err)
 					}
+
+					fmt.Println("Downloaded component:", component.Source)
 				}()
 			}
 		}
