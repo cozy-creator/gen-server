@@ -1,4 +1,4 @@
-package modelsmanager
+package models
 
 import (
 	"encoding/binary"
@@ -11,23 +11,24 @@ import (
 )
 
 type ModelLoadRequest struct {
-	Command  string   `json:"command"`   // "load", "unload", "warmup"
-	ModelIDs []string `json:"model_ids"` // Models to operate on
-	Priority bool     `json:"priority"`  // Whether these are hot/priority models
-	Force    bool     `json:"force"`     // Force load even if memory constrained
+	Force    bool     `json:"force"`
+	Command  string   `json:"command"`
+	ModelIDs []string `json:"model_ids"`
+	Priority bool     `json:"priority"`
 }
 
 type ModelStatus struct {
+	Location    string  `json:"location"`
 	ModelID     string  `json:"model_id"`
-	Location    string  `json:"location"` // "gpu", "cpu", "unloaded"
+	IsLoaded    bool    `json:"is_loaded"`
 	MemoryUsage float64 `json:"memory_usage"`
 }
 
-func LoadModels(app *app.App, modelIDs []string) error {
+func LoadModels(app *app.App, modelIDs []string, priority bool) error {
 	req := ModelLoadRequest{
 		Command:  "load",
 		ModelIDs: modelIDs,
-		// Priority: priority,
+		Priority: priority,
 	}
 
 	return sendModelCommand(app, req)
@@ -51,22 +52,23 @@ func UnloadModels(app *app.App, modelIDs []string) error {
 	return sendModelCommand(app, req)
 }
 
-func GetModelStatus(app *app.App) ([]ModelStatus, error) {
-    req := ModelLoadRequest{
-        Command: "status",
-    }
+func GetModelStatus(app *app.App, modelIDs []string) ([]ModelStatus, error) {
+	req := ModelLoadRequest{
+		Command:  "status",
+		ModelIDs: modelIDs,
+	}
 
-    data, err := sendModelCommandWithResponse(app, req)
-    if err != nil {
-        return nil, err
-    }
+	data, err := sendModelCommandWithResponse(app, req)
+	if err != nil {
+		return nil, err
+	}
 
-    var statuses []ModelStatus
-    if err := json.Unmarshal(data, &statuses); err != nil {
-        return nil, fmt.Errorf("failed to parse model statuses: %w", err)
-    }
+	var statuses []ModelStatus
+	if err := json.Unmarshal(data, &statuses); err != nil {
+		return nil, fmt.Errorf("failed to parse model statuses: %w", err)
+	}
 
-    return statuses, nil
+	return statuses, nil
 }
 
 func sendModelCommand(app *app.App, req ModelLoadRequest) error {

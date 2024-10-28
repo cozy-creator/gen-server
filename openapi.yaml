@@ -48,8 +48,10 @@ components:
         output_format:
           type: string
           description: The desired output format (e.g., png, jpg)
+        webhook_url:
+          type: string
+          description: URL to send the generated output to (optional)
       required:
-        - id
         - models
         - random_seed
         - aspect_ratio

@@ -78,7 +78,7 @@ def request_handler(context: RequestContext):
     try:
         json_data = json.loads(data.decode())
         logger.info(f"Decoded JSON: {json_data}")
-        
+
         # Check if this is a model management command
         if "command" in json_data:
             logger.info(f"Processing model command: {json_data['command']}")
@@ -105,7 +105,7 @@ def request_handler(context: RequestContext):
             # Handle image generation
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
+
             async def generate():
                 async for [model_id, images] in generate_images_non_io(json_data):
                     outputs = tensor_to_bytes(images)

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/cozy-creator/gen-server/internal/app"
-	"github.com/cozy-creator/gen-server/internal/services/modelsmanager"
+	"github.com/cozy-creator/gen-server/internal/services/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +22,7 @@ func LoadModels(c *gin.Context) {
 
 	app := c.MustGet("app").(*app.App)
 
-	if err := modelsmanager.LoadModels(app, req.ModelIDs); err != nil {
+	if err := models.LoadModels(app, req.ModelIDs, req.Priority); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
@@ -66,12 +66,12 @@ func WarmupModels(c *gin.Context) {
         return
     }
 
-    app := c.MustGet("app").(*app.App)
-    
-    if err := modelsmanager.WarmupModels(app, req.ModelIDs); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-        return
-    }
+	app := c.MustGet("app").(*app.App)
+	statuses, err := models.GetModelStatus(app, req.ModelIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
 
     c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
