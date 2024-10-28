@@ -60,10 +60,14 @@ components:
     GeneratedOutput:
       type: object
       properties:
-        data:
+        urls:
+          type: array
+          items:
+            type: string
+          description: List of URLs where the generated images can be accessed
+        model:
           type: string
-          format: binary
-          description: The generated output data (e.g., image file, etc.)
+          description: The model identifier used for the generated images
     GenerationResponse:
       type: object
       properties:
@@ -147,6 +151,8 @@ paths:
       summary: Initiates asynchronous generation of content
       description: This endpoint triggers the async generation process with specified parameters.
       operationId: generateAsync
+      security:
+        - APIKeyHeader: []
       requestBody:
         required: true
         content:
@@ -174,6 +180,8 @@ paths:
       summary: Initiates synchronous generation of content with a streaming response
       description: This endpoint initiates the generation process and streams the response as data is generated.
       operationId: generate
+      security:
+        - APIKeyHeader: []
       requestBody:
         required: true
         content:
@@ -201,6 +209,8 @@ paths:
       summary: Uploads a file to the server
       description: This endpoint uploads a file using a form-data request with the key `file`.
       operationId: uploadFile
+      security:
+        - APIKeyHeader: []
       requestBody:
         required: true
         content:
@@ -231,6 +241,8 @@ paths:
       summary: Executes a workflow
       description: This endpoint executes a workflow consisting of multiple nodes.
       operationId: executeWorkflow
+      security:
+        - APIKeyHeader: []
       requestBody:
         required: true
         content:
@@ -256,6 +268,8 @@ paths:
       summary: Streams the workflow output for the given workflow ID
       description: This endpoint returns Server-Sent Events (SSE) for streaming the output of a workflow identified by the given ID.
       operationId: streamWorkflow
+      security:
+        - APIKeyHeader: []
       parameters:
         - name: id
           in: path
@@ -274,5 +288,3 @@ paths:
           description: Invalid request parameters
         "500":
           description: Internal server error
-security:
-  - ApiKeyAuth: []
