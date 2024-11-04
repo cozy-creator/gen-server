@@ -16,6 +16,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/server"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
+	"github.com/cozy-creator/gen-server/internal/services/models"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
 
@@ -143,6 +144,13 @@ func runApp(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
+	go func() {
+		defer wg.Done()
+		if err := downloadEnabledModels(ctx, app.Config()); err != nil {
+			errc <- err
+		}
+	}()
+
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 
 	select {
@@ -199,6 +207,14 @@ func runGenerationProcessessor(ctx context.Context, cfg *config.Config, mq mq.MQ
 
 func runWorkflowProcessor(app *app.App) error {
 	if err := workflow.RunProcessor(app); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func downloadEnabledModels(ctx context.Context, cfg *config.Config) error {
+	if err := models.DownloadEnabledModels(cfg); err != nil {
 		return err
 	}
 

@@ -22,23 +22,24 @@ const (
 const cozyPrefix = "COZY"
 
 type Config struct {
-	Port          int           `mapstructure:"port"`
-	Host          string        `mapstructure:"host"`
-	TcpPort       int           `mapstructure:"tcp_port"`
-	CozyHome      string        `mapstructure:"cozy_home"`
-	TcpTimeout    int           `mapstructure:"tcp_timeout"`
-	Environment   string        `mapstructure:"environment"`
-	AssetsDir     string        `mapstructure:"assets_dir"`
-	ModelsDir     string        `mapstructure:"models_dir"`
-	TempDir       string        `mapstructure:"temp_dir"`
-	AuxModelsDirs []string      `mapstructure:"aux_models_dirs"`
-	Filesystem    string        `mapstructure:"filesystem_type"`
-	MQType        string        `mapstructure:"mq_type"`
-	S3            *S3Config     `mapstructure:"s3"`
-	Pulsar        *PulsarConfig `mapstructure:"pulsar"`
-	DB            *DBConfig            `mapstructure:"db"`
-	LumaAI        *LumaAIConfig        `mapstructure:"luma_ai"`
-	Replicate     *ReplicateConfig     `mapstructure:"replicate"`
+	Port          int                   `mapstructure:"port"`
+	Host          string                `mapstructure:"host"`
+	TcpPort       int                   `mapstructure:"tcp_port"`
+	CozyHome      string                `mapstructure:"cozy_home"`
+	TcpTimeout    int                   `mapstructure:"tcp_timeout"`
+	Environment   string                `mapstructure:"environment"`
+	AssetsDir     string                `mapstructure:"assets_dir"`
+	ModelsDir     string                `mapstructure:"models_dir"`
+	TempDir       string                `mapstructure:"temp_dir"`
+	AuxModelsDirs []string              `mapstructure:"aux_models_dirs"`
+	Filesystem    string                `mapstructure:"filesystem_type"`
+	MQType        string                `mapstructure:"mq_type"`
+	S3            *S3Config             `mapstructure:"s3"`
+	Pulsar        *PulsarConfig         `mapstructure:"pulsar"`
+	DB            *DBConfig             `mapstructure:"db"`
+	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
+	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
+	EnabledModels []EnabledModelsConfig `mapstructure:"enabled_models"`
 }
 
 type S3Config struct {
@@ -49,6 +50,16 @@ type S3Config struct {
 	SecretKey   string `mapstructure:"secret_key"`
 	PublicUrl   string `mapstructure:"public_url"`
 	EndpointUrl string `mapstructure:"endpoint_url"`
+}
+
+type EnabledModelsConfig struct {
+	Type       string                    `mapstructure:"type"`
+	Source     string                    `mapstructure:"source"`
+	Components map[string]ModelComponent `mapstructure:"components"`
+}
+
+type ModelComponent struct {
+	Source string `mapstructure:"source"`
 }
 
 type PulsarConfig struct {
