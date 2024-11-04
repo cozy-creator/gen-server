@@ -28,8 +28,8 @@ components:
         type: string
         enum: 
           - text/event-stream
-          - application/x-msgpack-stream
-        default: application/x-msgpack-stream
+          - application/vnd.msgpack-stream
+        default: application/vnd.msgpack-stream
       required: false
       description: Format the client wants to receive (defaults to msgpack stream)
     
@@ -40,7 +40,7 @@ components:
         type: string
         enum:
           - application/json
-          - application/x-msgpack
+          - application/vnd.msgpack
         default: application/json
       required: false
       description: Format the client wants to receive (defaults to JSON)
@@ -52,7 +52,7 @@ components:
         type: string
         enum:
           - application/json
-          - application/x-msgpack
+          - application/vnd.msgpack
         default: application/json
       required: true
       description: Format of the data being sent
@@ -244,7 +244,7 @@ components:
           type: string
           nullable: true
           description: An error message, if any
-          
+
   responses:
     Error400:
       description: Bad request - invalid input parameters
@@ -268,7 +268,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-msgpack:
+          application/vnd.msgpack:
             schema:
               $ref: "#/components/schemas/JobRequest"
           application/json:
@@ -278,7 +278,7 @@ paths:
         "200":
           description: Job submitted successfully
           content:
-            application/x-msgpack:
+            application/vnd.msgpack:
               schema:
                 $ref: "#/components/schemas/JobStatusResponse"
             application/json:
@@ -311,7 +311,7 @@ paths:
         "200":
           description: Job status retrieved successfully
           content:
-            application/x-msgpack:
+            application/vnd.msgpack:
               schema:
                 $ref: "#/components/schemas/JobStatusResponse"
             application/json:
@@ -344,7 +344,7 @@ paths:
         "200":
           description: Job result retrieved successfully
           content:
-            application/x-msgpack:
+            application/vnd.msgpack:
               schema:
                 $ref: "#/components/schemas/JobResult"
             application/json:
@@ -378,7 +378,7 @@ paths:
         "200":
           description: Event stream started successfully
           content:
-            application/x-msgpack-stream:
+            application/vnd.msgpack-stream:
               schema:
                 $ref: "#/components/schemas/JobStreamEvent"
             text/event-stream:
@@ -406,7 +406,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-msgpack:
+          application/vnd.msgpack:
             schema:
               $ref: "#/components/schemas/JobRequest"
           application/json:
@@ -416,7 +416,7 @@ paths:
         "200":
           description: Job submitted and event stream started
           content:
-            application/x-msgpack-stream:
+            application/vnd.msgpack-stream:
               schema:
                 $ref: "#/components/schemas/JobStreamEvent"
             text/event-stream:
@@ -453,7 +453,7 @@ paths:
         "200":
           description: File uploaded successfully
           content:
-            application/x-msgpack:
+            application/vnd.msgpack:
               schema:
                 $ref: "#/components/schemas/UploadResponse"
         "400":
@@ -473,14 +473,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-msgpack:
+          application/vnd.msgpack:
             schema:
               $ref: "#/components/schemas/Workflow"
       responses:
         "200":
           description: Workflow execution initiated successfully
           content:
-            application/x-msgpack:
+            application/vnd.msgpack:
               schema:
                 $ref: "#/components/schemas/WorkflowResponse"
         "400":
@@ -511,7 +511,7 @@ paths:
             application/stream+json:
               schema:
                 $ref: "#/components/schemas/JobStreamEvent"
-            application/x-msgpack-stream:
+            application/vnd.msgpack-stream:
               schema:
                 $ref: "#/components/schemas/JobStreamEvent"
         "400":
