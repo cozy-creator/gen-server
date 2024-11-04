@@ -7,6 +7,8 @@ var DefaultCozyHome = "~/.cozy-creator"
 var (
 	DefaultGenerateTopic  = "cozy-creator/generations/requests"
 	DefaultGeneratePrefix = DefaultGenerateTopic + ":"
+
+	DefaultStreamsTopic = "cozy-creator/streams"
 )
 
 var (

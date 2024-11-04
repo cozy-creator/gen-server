@@ -4,20 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/google/uuid"
 )
 
-func receiveImage(requestId string, outputFormat string, uploader *fileuploader.Uploader, mq mq.MQ) (string, string, error) {
+func receiveImage(requestId string, outputFormat string, app *app.App) (string, string, error) {
+	uploader := app.Uploader()
+	mq := app.MQ()
+
 	generationTopic := getGenerationTopic(requestId)
 	output, err := mq.Receive(context.Background(), generationTopic)
 	if err != nil {
@@ -79,7 +85,7 @@ func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.G
 			close(errc)
 		}()
 
-		if err := processImageGen(ctx, params, app.Uploader(), app.MQ(), sendResponse); err != nil {
+		if err := processImageGen(ctx, params, app, sendResponse); err != nil {
 			errc <- err
 		}
 	}()
@@ -118,8 +124,9 @@ func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
 		invoke(response)
 	}
 
-	if err := processImageGen(ctx, params, app.Uploader(), app.MQ(), sendResponse); err != nil {
+	if err := processImageGen(ctx, params, app, sendResponse); err != nil {
 		if !errors.Is(err, mq.ErrTopicClosed) {
+			fmt.Println("Error processing image gen: ", err)
 			invoke(types.GenerationResponse{Status: StatusFailed})
 		}
 	}
@@ -152,12 +159,27 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 	return outputBuffer.Bytes(), modelName, nil
 }
 
-func processImageGen(ctx context.Context, params *types.GenerateParams, uploader *fileuploader.Uploader, queue mq.MQ, callback func(urls []string, index int8, currentModel, status string)) error {
+func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
 	var (
 		index        int8
 		currentModel string
 		urls         []string
 	)
+
+	job, err := app.JobsRepo.Get(app.Context(), uuid.MustParse(params.ID))
+	if err != nil {
+		return err
+	}
+
+	if job.Status != db.JobStatusEnumINQUEUE {
+		return fmt.Errorf("job is not in queue")
+	}
+
+	updateArg := db.UpdateJobStatusParams{ID: uuid.MustParse(params.ID), Status: db.JobStatusEnumINPROGRESS}
+	if err := app.JobsRepo.UpdateStatus(app.Context(), updateArg); err != nil {
+		fmt.Println("Error updating job status: ", err)
+		return err
+	}
 
 	for {
 		select {
@@ -165,32 +187,76 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, uploader
 			if len(urls) > 0 {
 				callback(urls, index, currentModel, StatusCancelled)
 			}
+			fmt.Println("Error receiving image: ", err)
+
 			return ctx.Err()
 		default:
-			fmt.Println("Receiving image... iii")
-			url, model, err := receiveImage(params.ID, params.OutputFormat, uploader, queue)
-			fmt.Println("url....", url)
-
+			url, model, err := receiveImage(params.ID, params.OutputFormat, app)
 			if err != nil {
-				fmt.Println("Error receiving image111: ", err)
 				if errors.Is(err, mq.ErrTopicClosed) {
-					// sleep
-					time.Sleep(time.Second)
+					if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, []byte("END")); err != nil {
+						fmt.Println("Error publishing end message to MQ: ", err)
+						return err
+					}
 					callback(urls, index, currentModel, StatusCompleted)
 					return nil
 				}
 
 				fmt.Println("Error receiving image: ", err)
+
 				return err
+			}
+
+			fmt.Println("url....", url)
+
+			if url != "" {
+				createArgs := db.CreateImageParams{
+					ID:    uuid.Must(uuid.NewRandom()),
+					JobID: uuid.MustParse(params.ID),
+					Url:   url,
+				}
+
+				output := struct {
+					Url   string `json:"url"`
+					Model string `json:"model"`
+					JobID string `json:"job_id"`
+				}{
+					Url:   url,
+					Model: model,
+					JobID: params.ID,
+				}
+
+				mapO := make(map[string]interface{})
+				mapO["type"] = "output"
+				mapO["data"] = output
+
+				data, err := json.Marshal(&mapO)
+				if err != nil {
+					fmt.Println("Error marshaling output: ", err)
+					return err
+				}
+
+				if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, data); err != nil {
+					fmt.Println("Error publishing image to MQ: ", err)
+					return err
+				}
+
+				if _, err := app.ImagesRepo.Create(app.Context(), createArgs); err != nil {
+					fmt.Println("Error creating image: ", err)
+					return err
+				}
 			}
 
 			if url == "" && model == "" {
 				time.Sleep(time.Second)
+				updateArg := db.UpdateJobStatusParams{Status: db.JobStatusEnumCOMPLETED, ID: uuid.MustParse(params.ID)}
+				if err := app.JobsRepo.UpdateStatus(app.Context(), updateArg); err != nil {
+					return err
+				}
+
 				callback(urls, index, currentModel, StatusCompleted)
 				return nil
 			}
-
-			fmt.Println("Received image: ", url)
 
 			if currentModel == model {
 				urls = append(urls, url)
@@ -205,6 +271,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, uploader
 			} else if currentModel == "" {
 				numImages, ok := params.Models[model]
 				if !ok {
+					fmt.Println("Error receiving image: ", "model not found in models")
 					return fmt.Errorf("model %s not found in models", model)
 				}
 
