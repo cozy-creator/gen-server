@@ -36,8 +36,9 @@ type Config struct {
 	MQType        string        `mapstructure:"mq_type"`
 	S3            *S3Config     `mapstructure:"s3"`
 	Pulsar        *PulsarConfig `mapstructure:"pulsar"`
-	DB            *DBConfig     `mapstructure:"db"`
-	LumaAI        *LumaAIConfig `mapstructure:"luma_ai"`
+	DB            *DBConfig            `mapstructure:"db"`
+	LumaAI        *LumaAIConfig        `mapstructure:"luma_ai"`
+	Replicate     *ReplicateConfig     `mapstructure:"replicate"`
 }
 
 type S3Config struct {
@@ -63,6 +64,10 @@ type DBConfig struct {
 }
 
 type LumaAIConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+type ReplicateConfig struct {
 	APIKey string `mapstructure:"api_key"`
 }
 

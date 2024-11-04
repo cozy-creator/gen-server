@@ -34,6 +34,10 @@ func (s *Server) SetupRoutes(app *app.App) {
 	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatus))
 	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModels))
 	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModels))
+
+	// Replicate
+	apiV1.POST("/generate/replicate", handlerWrapper(app, api.GenerateReplicateImageSync))
+	apiV1.POST("/generate_async/replicate", handlerWrapper(app, api.GenerateReplicateImageAsync))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

@@ -752,6 +752,7 @@ class ModelMemoryManager:
         """
         try:
             pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
+
             variant = None if variant == "" else variant
 
             torch_dtype = (
