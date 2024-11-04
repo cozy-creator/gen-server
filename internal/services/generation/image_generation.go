@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack"
 )
 
 func receiveImage(requestId string, outputFormat string, app *app.App) (string, string, error) {
@@ -230,7 +230,8 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				mapO["type"] = "output"
 				mapO["data"] = output
 
-				data, err := json.Marshal(&mapO)
+				data, err := msgpack.Marshal(&mapO)
+				// data, err := json.Marshal(&mapO)
 				if err != nil {
 					fmt.Println("Error marshaling output: ", err)
 					return err
