@@ -79,17 +79,22 @@ func (r *ReplicateAI) doRequest(method, endpoint string, data interface{}) ([]by
 	return body, nil
 }
 
-func (r *ReplicateAI) CreateRecraft(prompt, negativePrompt string, numOutputs int) (*ReplicateGeneration, error) {
-	req := ReplicateGenerationRequest{
-		Input: map[string]interface{}{
-			"prompt":          prompt,
-			"negative_prompt": negativePrompt,
-			"num_outputs":     numOutputs,
-		},
-	}
+
+func (r *ReplicateAI) CreateRecraft(prompt string, style string, size string) (*ReplicateGeneration, error) {
+    fmt.Printf("[Replicate] Creating generation with prompt: '%s', style: '%s', size: '%s'\n",
+        prompt, style, size)
+
+    req := ReplicateGenerationRequest{
+        Input: map[string]interface{}{
+            "prompt": prompt,
+            "style": style,
+            "size": size,
+        },
+    }
 
 	body, err := r.doRequest("POST", "/models/recraft-ai/recraft-v3-svg/predictions", req)
 	if err != nil {
+		fmt.Printf("[Replicate] Error creating generation: %v\n", err)
 		return nil, err
 	}
 
@@ -98,6 +103,7 @@ func (r *ReplicateAI) CreateRecraft(prompt, negativePrompt string, numOutputs in
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
+	fmt.Printf("[Replicate] Generation created successfully with ID: %s\n", gen.ID)
 	return &gen, nil
 }
 
@@ -135,18 +141,36 @@ func (r *ReplicateAI) GetGeneration(getURL string) (*ReplicateGeneration, error)
 
 // PollGeneration polls until generation is complete or fails
 func (r *ReplicateAI) PollGeneration(getURL string) (*ReplicateGeneration, error) {
-	for i := 0; i < 30; i++ { // 30 attempts, 2s each = 1min timeout
+	lastStatus := ""
+	startTime := time.Now()
+
+	for i := 0; i < 30; i++ { // 30 attempts, 2s each = 1min timeout make shift while loop 🥲
 		gen, err := r.GetGeneration(getURL)
 		if err != nil {
 			return nil, err
 		}
 
+		// Log status changes
+		if gen.Status != lastStatus {
+			fmt.Printf("[Replicate] Status changed to: %s (elapsed: %s)\n", 
+				gen.Status, 
+				time.Since(startTime).Round(time.Second))
+			lastStatus = gen.Status
+		}
+
 		switch gen.Status {
 		case "succeeded":
+			fmt.Printf("[Replicate] Generation completed successfully in %s\n", 
+				time.Since(startTime).Round(time.Second))
 			return gen, nil
 		case "failed":
+			fmt.Printf("[Replicate] Generation failed after %s: %s\n", 
+				time.Since(startTime).Round(time.Second), 
+				gen.Error)
 			return nil, fmt.Errorf("generation failed: %s", gen.Error)
 		case "canceled":
+			fmt.Printf("[Replicate] Generation was canceled after %s\n", 
+				time.Since(startTime).Round(time.Second))
 			return nil, fmt.Errorf("generation was canceled")
 		default:
 			time.Sleep(2 * time.Second)

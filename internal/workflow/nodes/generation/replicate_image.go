@@ -9,13 +9,13 @@ import (
 
 func GenerateReplicateImage(app *app.App, inputs map[string]interface{}) (map[string]interface{}, error) {
 	prompt := inputs["positive_prompt"].(string)
-	negativePrompt := inputs["negative_prompt"].(string)
-	numImages := int(inputs["num_images"].(float64))
+	style := inputs["style"].(string)
+	size := inputs["size"].(string)
 
 	replicate := scripts.NewReplicateAI(app.Config().Replicate.APIKey)
 
 	// Create generation
-	gen, err := replicate.CreateRecraft(prompt, negativePrompt, numImages)
+	gen, err := replicate.CreateRecraft(prompt, style, size)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create generation: %w", err)
 	}

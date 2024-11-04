@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"go.uber.org/zap"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/types"
@@ -13,65 +14,87 @@ import (
 )
 
 func GenerateReplicateImageSync(c *gin.Context) {
-	data := &types.GenerateParams{}
-	if err := c.BindJSON(data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-		return
-	}
+    data := &types.GenerateParams{}
+    if err := c.BindJSON(data); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+        return
+    }
 
-	app := c.MustGet("app").(*app.App)
-	replicate := scripts.NewReplicateAI(app.Config().Replicate.APIKey)
+    app := c.MustGet("app").(*app.App)
+    
+    if app.Config().Replicate.APIKey == "" {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": "Replicate API key not configured"})
+        return
+    }
 
-	// Get number of images from the first model
-	var numImages int
-	for _, num := range data.Models {
-		numImages = num
-		break
-	}
+    // Default values for style and size
+    style := "any"
+    size := "1024x1024"
+    
+    if data.Style != "" {
+        style = data.Style
+    }
+    if data.Size != "" {
+        size = data.Size
+    }
 
-	// Create generation
-	gen, err := replicate.CreateRecraft(data.PositivePrompt, data.NegativePrompt, numImages)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
+    app.Logger.Info("Starting Replicate generation",
+        zap.String("prompt", data.PositivePrompt),
+        zap.String("style", style),
+        zap.String("size", size))
+    
+    replicate := scripts.NewReplicateAI(app.Config().Replicate.APIKey)
 
-	c.Stream(func(w io.Writer) bool {
-		c.Header("Content-Type", "application/json")
-		finalGen, err := replicate.PollGeneration(gen.URLs.Get)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
-			return false
-		}
+    gen, err := replicate.CreateRecraft(data.PositivePrompt, style, size)
+    if err != nil {
+        app.Logger.Error("Failed to create Replicate generation", zap.Error(err))
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
 
-		var urls []string
-		switch output := finalGen.Output.(type) {
-		case []interface{}:
-			for _, url := range output {
-				if strURL, ok := url.(string); ok {
-					urls = append(urls, strURL)
-				}
-			}
-		case string:
-			urls = append(urls, output)
-		}
+    c.Stream(func(w io.Writer) bool {
+        c.Header("Content-Type", "application/json")
+        finalGen, err := replicate.PollGeneration(gen.URLs.Get)
+        if err != nil {
+            app.Logger.Error("Generation failed",
+                zap.String("generation_id", gen.ID),
+                zap.Error(err))
+            c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
+            return false
+        }
 
-		// Match your existing response format
-		output := types.GenerationResponse{
-			ID:     gen.ID,
-			Status: "COMPLETED",
-			Output: types.GeneratedOutput{
-				URLs:  urls,
-				Model: "replicate-recraft",
-			},
-			Input: data,
-		}
+        var urls []string
+        switch output := finalGen.Output.(type) {
+        case []interface{}:
+            for _, url := range output {
+                if strURL, ok := url.(string); ok {
+                    urls = append(urls, strURL)
+                }
+            }
+        case string:
+            urls = append(urls, output)
+        }
 
-		outputc, _ := json.Marshal(output)
-		c.Writer.Write(outputc)
-		c.Writer.Flush()
-		return false
-	})
+        app.Logger.Info("Generation completed successfully",
+            zap.String("generation_id", gen.ID),
+            zap.Int("num_urls", len(urls)))
+
+        // Match existing response format
+        output := types.GenerationResponse{
+            ID:     gen.ID,
+            Status: "COMPLETED",
+            Output: types.GeneratedOutput{
+                URLs:  urls,
+                Model: "replicate-recraft",
+            },
+            Input: data,
+        }
+
+        outputc, _ := json.Marshal(output)
+        c.Writer.Write(outputc)
+        c.Writer.Flush()
+        return false
+    })
 }
 
 func GenerateReplicateImageAsync(c *gin.Context) {
@@ -87,21 +110,32 @@ func GenerateReplicateImageAsync(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	replicate := scripts.NewReplicateAI(app.Config().Replicate.APIKey)
-
-	// Get number of images from the first model
-	var numImages int
-	for _, num := range data.Models {
-		numImages = num
-		break
-	}
-
-	// Create generation
-	gen, err := replicate.CreateRecraft(data.PositivePrompt, data.NegativePrompt, numImages)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+	if app.Config().Replicate.APIKey == "" {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": "Replicate API key not configured"})
 		return
 	}
+
+	// Default values for style and size
+    style := "any"
+    size := "1024x1024"
+
+	if data.Style != "" {
+        style = data.Style
+    }
+    if data.Size != "" {
+        size = data.Size
+    }
+	replicate := scripts.NewReplicateAI(app.Config().Replicate.APIKey)
+
+
+
+	// Create generation
+	gen, err := replicate.CreateRecraft(data.PositivePrompt, style, size)
+    if err != nil {
+        app.Logger.Error("Failed to create Replicate generation", zap.Error(err))
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
 
 	// Immediately return the generation ID
 	response := types.GenerationResponse{
