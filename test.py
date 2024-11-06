@@ -1,30 +1,27 @@
-from diffusers import StableDiffusionXLPipeline
-import torch
-import asyncio
+from OmniGen import OmniGenPipeline
 
-# Create 2 async functions that use the pipeline to generate images
+pipe = OmniGenPipeline.from_pretrained("Shitao/OmniGen-v1")
 
-async def generate_image_1():
-    pipeline = StableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
-    pipeline.to("cuda")
+# Text to Image
+images = pipe(
+    prompt="A curly-haired man in a red shirt is drinking tea.", 
+    height=1024, 
+    width=1024, 
+    guidance_scale=2.5,
+    seed=0,
+)
+images[0].save("example_t2i.png")  # save output PIL Image
 
-    image = pipeline("A man in a suit riding a rainbow unicorn", num_inference_steps=20).images[0]
-
-    image.save("image_1.png")
-
-    print("Image 1 generated")
-
-async def generate_image_2():
-    pipeline = StableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
-    pipeline.to("cuda")
-
-    image = pipeline("A man in a suit riding a rainbow unicorn", num_inference_steps=20).images[0]
-
-    image.save("image_2.png")
-
-
-# Run the functions
-
-asyncio.run(generate_image_1())
-asyncio.run(generate_image_2())
-
+# Multi-modal to Image
+# In prompt, we use the placeholder to represent the image. The image placeholder should be in the format of <img><|image_*|></img>
+# You can add multiple images in the input_images. Please ensure that each image has its placeholder. For example, for the list input_images [img1_path, img2_path], the prompt needs to have two placeholders: <img><|image_1|></img>, <img><|image_2|></img>.
+images = pipe(
+    prompt="A man in a black shirt is reading a book. The man is the right man in <img><|image_1|></img>.",
+    input_images=["./imgs/test_cases/two_man.jpg"],
+    height=1024, 
+    width=1024,
+    separate_cfg_infer=False,  # if OOM, you can set separate_cfg_infer=True 
+    guidance_scale=3, 
+    img_guidance_scale=1.6
+)
+images[0].save("example_ti2i.png")

@@ -38,6 +38,7 @@ type Config struct {
 	Pulsar        *PulsarConfig         `mapstructure:"pulsar"`
 	DB            *DBConfig             `mapstructure:"db"`
 	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
+	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
 	EnabledModels []EnabledModelsConfig `mapstructure:"enabled_models"`
 }
 
@@ -74,6 +75,10 @@ type DBConfig struct {
 }
 
 type LumaAIConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+type ReplicateConfig struct {
 	APIKey string `mapstructure:"api_key"`
 }
 
