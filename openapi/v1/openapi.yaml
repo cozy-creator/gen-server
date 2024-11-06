@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.1.1
 
 info:
   version: 0.1.0
@@ -89,7 +89,7 @@ components:
           additionalProperties:
             type: integer
             minimum: 1
-            maximum: 4
+            maximum: 10
           description: A map of model names (string) to their weights (integer)
           example:
             "sdxl": 1
@@ -380,10 +380,18 @@ paths:
           content:
             application/vnd.msgpack-stream:
               schema:
-                $ref: "#/components/schemas/JobStreamEvent"
+                type: string
+                contentMediaType: application/vnd.msgpack
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
             text/event-stream:
               schema:
-                $ref: "#/components/schemas/JobStreamEvent"
+                type: string
+                contentMediaType: text/event-stream
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
         "404":
           description: Job not found
         "401":
@@ -414,14 +422,22 @@ paths:
               $ref: "#/components/schemas/JobRequest"
       responses:
         "200":
-          description: Job submitted and event stream started
+          description: Event stream started successfully
           content:
             application/vnd.msgpack-stream:
               schema:
-                $ref: "#/components/schemas/JobStreamEvent"
+                type: string
+                contentMediaType: application/vnd.msgpack
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
             text/event-stream:
               schema:
-                $ref: "#/components/schemas/JobStreamEvent"
+                type: string
+                contentMediaType: text/event-stream
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
         "400":
           $ref: "#/components/responses/Error400"
         "401":
