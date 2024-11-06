@@ -29,6 +29,7 @@ from ..globals import (
 from ..utils.load_models import load_state_dict_from_file
 from ..utils.utils import serialize_config
 from ..utils.quantize_models import quantize_model_fp8
+from OmniGen import OmniGenPipeline
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -45,8 +46,8 @@ class GPUEnum(Enum):
     VERY_HIGH = 30
 
 # Constants
-VRAM_SAFETY_MARGIN_GB = 4.0
-RAM_SAFETY_MARGIN_GB = 4.0
+VRAM_SAFETY_MARGIN_GB = 5.0
+RAM_SAFETY_MARGIN_GB = 5.0
 VRAM_THRESHOLD = 1.4
 
 MODEL_COMPONENTS = {
@@ -442,6 +443,8 @@ class ModelMemoryManager:
             pipeline = await self._load_model_by_source(model_id, model_config, gpu)
             if pipeline is None:
                 return None
+            
+            
 
             # Place in appropriate memory location
             return await self._place_model_in_memory(
@@ -599,6 +602,10 @@ class ModelMemoryManager:
         Returns:
             Boolean indicating success of the operation
         """
+        # Skip if it's OmniGen pipeline
+        if pipeline.__class__.__name__ == "OmniGenPipeline":
+            return True
+        
         try:
             self.flush_memory()
             
@@ -651,6 +658,10 @@ class ModelMemoryManager:
         Returns:
             Boolean indicating success of the operation
         """
+        # Skip if it's OmniGen pipeline
+        if pipeline.__class__.__name__ == "OmniGenPipeline":
+            return True
+        
         try:
             device = get_available_torch_device()
             self.flush_memory()
@@ -659,7 +670,7 @@ class ModelMemoryManager:
             original_dtype = self.model_types.get(model_id)
             pipeline = pipeline.to(
                 device=device,
-                dtype=original_dtype if original_dtype else torch.float16
+                # dtype=original_dtype if original_dtype else torch.float16
             )
 
             self.flush_memory()
@@ -693,6 +704,13 @@ class ModelMemoryManager:
             The pipeline in its final location or None if placement failed
         """
         try:
+            if pipeline.__class__.__name__ == "OmniGenPipeline":
+                # OmniGen manages its own device placement and optimization
+                self.loaded_models[model_id] = pipeline
+                self.model_sizes[model_id] = model_size
+                self.vram_usage += model_size
+                self.lru_cache.access(model_id, "gpu")
+                return pipeline
             if load_location == "gpu":
                 if self._move_model_to_gpu(pipeline, model_id):
                     self.loaded_models[model_id] = pipeline
@@ -751,6 +769,18 @@ class ModelMemoryManager:
             Loaded pipeline or None if loading failed
         """
         try:
+            # Check if custom pipeline is specified in model_config and custom_pipeline is a list
+            if "custom_pipeline" in model_config and isinstance(model_config["custom_pipeline"], list):
+                print("custom pipeline is a list")
+                # using package to import custom pipeline
+                module_path, class_name = model_config["custom_pipeline"]
+                module = importlib.import_module(module_path)
+                pipeline_class = getattr(module, class_name)
+            
+                pipeline = pipeline_class.from_pretrained(repo_id)
+
+                return pipeline
+            
             pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
 
             variant = None if variant == "" else variant
@@ -1061,6 +1091,10 @@ class ModelMemoryManager:
             model_id: Model identifier
             force_full_optimization: Whether to force full optimizations
         """
+        # Skip if it's OmniGen pipeline
+        if pipeline.__class__.__name__ == "OmniGenPipeline":
+            return
+        
         if self.loaded_model is not None and self.is_in_device:
             logger.info(f"Model {model_id} already optimized")
             return

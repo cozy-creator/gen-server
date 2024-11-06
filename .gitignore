@@ -10,6 +10,7 @@ venv/
 !.vscode/settings.json
 .mypy_cache/
 *.log
+test2.py
 
 # system files
 *.DS_Store

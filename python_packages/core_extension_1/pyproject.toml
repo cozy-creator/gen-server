@@ -26,6 +26,7 @@ dependencies = [
     "transformers",
     "firebase-admin",
     "ostris-ai-toolkit",
+    "OmniGen@git+https://github.com/staoxiao/OmniGen.git",
     # "transformers@git+https://github.com/huggingface/transformers.git",
     "IP-Adapter@git+https://github.com/tencent-ailab/IP-Adapter.git",
     "library@git+https://github.com/cozy-creator/sd-scripts.git",
@@ -85,6 +86,7 @@ composite_images_node = "core_extension_1.custom_nodes:CompositeImagesNode"
 custom_caption_node = "core_extension_1.custom_nodes:CustomCaptionNode"
 flux_train_node = "core_extension_1.custom_nodes:FluxTrainNode"
 save_lora_node = "core_extension_1.custom_nodes:SaveLoraNode"
+image_to_image_node = "core_extension_1.custom_nodes:ImageToImageNode"
 
 
 [project.entry-points."cozy_creator.api"]

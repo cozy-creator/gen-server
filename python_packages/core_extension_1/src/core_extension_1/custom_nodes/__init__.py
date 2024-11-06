@@ -13,3 +13,4 @@ from .removebg_node import RemoveBackgroundNode
 from .caption_node import CustomCaptionNode
 from .fluxlora_train_node import FluxTrainNode
 from .fluxsave_node import SaveLoraNode
+from .image_to_image_node import ImageToImageNode

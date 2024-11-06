@@ -38,6 +38,10 @@ func (s *Server) SetupRoutes(app *app.App) {
 	// Replicate
 	apiV1.POST("/generate/replicate", handlerWrapper(app, api.GenerateReplicateImageSync))
 	apiV1.POST("/generate_async/replicate", handlerWrapper(app, api.GenerateReplicateImageAsync))
+
+	// Image to Image
+	apiV1.POST("/image-to-image", handlerWrapper(app, api.GenerateImageToImageSync))
+	apiV1.POST("/image-to-image_async", handlerWrapper(app, api.GenerateImageToImageAsync))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

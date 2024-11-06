@@ -1,7 +1,7 @@
 import os
 import json
 from enum import Enum
-from typing import Type, Optional, Any
+from typing import Type, Optional, Any, Union
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings import PydanticBaseSettingsSource, YamlConfigSettingsSource
@@ -19,6 +19,7 @@ class ModelConfig(BaseModel):
     components: Optional[dict[str, "ModelConfig"]] = None
     type: Optional[str] = None
     quantize: Optional[bool] = False
+    custom_pipeline: Optional[Union[list[str], str]] = None
 
     @field_validator("components")
     def validate_components(cls, v: Any) -> Optional[dict[str, "ModelConfig"]]:

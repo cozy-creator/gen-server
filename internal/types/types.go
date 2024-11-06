@@ -35,6 +35,8 @@ type GenerateParams struct {
 	NegativePrompt string         `json:"negative_prompt,omitempty"`
 	WebhookUrl     string         `json:"webhook_url"`
 	OutputFormat   string         `json:"output_format"`
+	SourceImage    interface{}    `json:"source_image,omitempty"`  // Added for image-to-image
+	Strength       float32        `json:"strength,omitempty"`     // Added for image-to-image
 }
 
 type Video struct {

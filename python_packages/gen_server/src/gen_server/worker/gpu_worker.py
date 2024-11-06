@@ -28,6 +28,7 @@ async def generate_images_non_io(
     task_data: dict[str, Any],
 ) -> AsyncGenerator[Tuple[str, torch.Tensor], None]:
     """Generates images based on the provided task data."""
+    logger.info(f"Generating images with task data: {task_data}")
     start = time.time()
 
     custom_nodes = get_custom_nodes()
@@ -39,20 +40,41 @@ async def generate_images_non_io(
         random_seed = task_data.get("random_seed")
         aspect_ratio: str = task_data.get("aspect_ratio", "1/1")
 
-        # Get the ImageGenNode
-        image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+        # Determine which node to use based on presence of source_image
+        source_image = task_data.get("source_image")
+        strength = task_data.get("strength", 0.8)
+
+        if source_image:
+            # Use image-to-image node
+            image_gen_node = custom_nodes["core_extension_1.image_to_image_node"]()
+        else:
+            # Use regular image generation node
+            image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+
+        # # Get the ImageGenNode
+        # image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
 
         for checkpoint_id, num_images in models.items():
             try:
                 # Run the ImageGenNode
-                result: torch.Tensor = await image_gen_node(
-                    model_id=checkpoint_id,
-                    positive_prompt=positive_prompt,
-                    negative_prompt=negative_prompt,
-                    aspect_ratio=aspect_ratio,
-                    num_images=num_images,
-                    random_seed=random_seed,
-                )
+                params = {
+                    "model_id": checkpoint_id,
+                    "positive_prompt": positive_prompt,
+                    "negative_prompt": negative_prompt,
+                    "num_images": num_images,
+                    "random_seed": random_seed,
+                }
+
+                if source_image:
+                    # Add image-to-image specific parameters
+                    params["source_image"] = source_image
+                    params["strength"] = strength
+                else:
+                    # Add regular generation specific parameters
+                    params["aspect_ratio"] = aspect_ratio
+
+                # Run the appropriate node
+                result = await image_gen_node(**params)
 
                 images = result["images"]
 
