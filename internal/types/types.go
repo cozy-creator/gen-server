@@ -17,15 +17,27 @@ type GeneratedOutput struct {
 }
 
 type GenerationResponse struct {
-	ID     string          `json:"id"`
-	Index  int8            `json:"index"`
-	Status string          `json:"status"`
-	Output GeneratedOutput `json:"output"`
-	Input  *GenerateParams `json:"input,omitempty"`
+	ID     string                 `json:"id"`
+	Index  int8                   `json:"index"`
+	Status string                 `json:"status"`
+	Output GeneratedOutput        `json:"output"`
+	Input  *GenerateParamsRequest `json:"input,omitempty"`
 }
 
 type GenerateParams struct {
-	ID             string         `json:"id"`
+	Model          string `json:"model"`
+	NumImages      int    `json:"num_images"`
+	RandomSeed     int    `json:"random_seed"`
+	AspectRatio    string `json:"aspect_ratio"`
+	ID             string `json:"id,omitempty"`
+	PositivePrompt string `json:"positive_prompt"`
+	NegativePrompt string `json:"negative_prompt,omitempty"`
+	WebhookUrl     string `json:"webhook_url,omitempty"`
+	OutputFormat   string `json:"output_format"`
+}
+
+type GenerateParamsRequest struct {
+	ID             string         `json:"id,omitempty"`
 	Models         map[string]int `json:"models"`
 	Style          string         `json:"style,omitempty"`    // Added for Replicate
 	Size           string         `json:"size,omitempty"`	// Added for Replicate
@@ -33,7 +45,7 @@ type GenerateParams struct {
 	AspectRatio    string         `json:"aspect_ratio"`
 	PositivePrompt string         `json:"positive_prompt"`
 	NegativePrompt string         `json:"negative_prompt,omitempty"`
-	WebhookUrl     string         `json:"webhook_url"`
+	WebhookUrl     string         `json:"webhook_url,omitempty"`
 	OutputFormat   string         `json:"output_format"`
 	SourceImage    interface{}    `json:"source_image,omitempty"`  // Added for image-to-image
 	Strength       float32        `json:"strength,omitempty"`     // Added for image-to-image

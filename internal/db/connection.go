@@ -7,6 +7,7 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/config"
 
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -22,9 +23,9 @@ func NewConnection(config *config.Config) (*Queries, error) {
 		return nil, err
 	}
 
-	if _, err := InitializeSchema(New(db)); err != nil {
-		return nil, err
-	}
+	// if _, err := InitializeSchema(New(db)); err != nil {
+	// 	return nil, err
+	// }
 
 	return New(db), nil
 }

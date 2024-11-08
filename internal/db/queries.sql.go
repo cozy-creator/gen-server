@@ -7,50 +7,351 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+
+	"github.com/google/uuid"
 )
 
-const createAPIKey = `-- name: CreateAPIKey :one
-INSERT INTO api_keys (key_hash) VALUES (?) RETURNING id, key_hash, is_revoked, created_at
+const countJobsByStatus = `-- name: CountJobsByStatus :one
+
+SELECT status, COUNT(*)
+FROM jobs
+GROUP BY status
 `
 
-func (q *Queries) CreateAPIKey(ctx context.Context, keyHash string) (ApiKey, error) {
-	row := q.db.QueryRowContext(ctx, createAPIKey, keyHash)
-	var i ApiKey
+type CountJobsByStatusRow struct {
+	Status JobStatusEnum
+	Count  int64
+}
+
+// Additional Queries for Monitoring and Analytics
+func (q *Queries) CountJobsByStatus(ctx context.Context) (CountJobsByStatusRow, error) {
+	row := q.db.QueryRowContext(ctx, countJobsByStatus)
+	var i CountJobsByStatusRow
+	err := row.Scan(&i.Status, &i.Count)
+	return i, err
+}
+
+const createImage = `-- name: CreateImage :one
+INSERT INTO images (id, job_id, url, created_at)
+VALUES ($1, $2, $3, NOW())
+RETURNING id, job_id, url, created_at
+`
+
+type CreateImageParams struct {
+	ID    uuid.UUID
+	JobID uuid.UUID
+	Url   string
+}
+
+func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (Image, error) {
+	row := q.db.QueryRowContext(ctx, createImage, arg.ID, arg.JobID, arg.Url)
+	var i Image
 	err := row.Scan(
 		&i.ID,
-		&i.KeyHash,
-		&i.IsRevoked,
+		&i.JobID,
+		&i.Url,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getAPIKey = `-- name: GetAPIKey :one
-SELECT id, key_hash, is_revoked, created_at FROM api_keys WHERE key_hash = ?
+const createJob = `-- name: CreateJob :one
+INSERT INTO jobs (id, input, created_at, status)
+VALUES ($1, $2, NOW(), $3)
+RETURNING id, input, created_at, completed_at, status
 `
 
-func (q *Queries) GetAPIKey(ctx context.Context, keyHash string) (ApiKey, error) {
-	row := q.db.QueryRowContext(ctx, getAPIKey, keyHash)
-	var i ApiKey
+type CreateJobParams struct {
+	ID     uuid.UUID
+	Input  json.RawMessage
+	Status JobStatusEnum
+}
+
+func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, error) {
+	row := q.db.QueryRowContext(ctx, createJob, arg.ID, arg.Input, arg.Status)
+	var i Job
 	err := row.Scan(
 		&i.ID,
-		&i.KeyHash,
-		&i.IsRevoked,
+		&i.Input,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const createJobMetric = `-- name: CreateJobMetric :one
+INSERT INTO job_metrics (id, job_id, inference_time, created_at)
+VALUES ($1, $2, $3, NOW())
+RETURNING id, job_id, inference_time, created_at
+`
+
+type CreateJobMetricParams struct {
+	ID            uuid.UUID
+	JobID         uuid.UUID
+	InferenceTime float64
+}
+
+func (q *Queries) CreateJobMetric(ctx context.Context, arg CreateJobMetricParams) (JobMetric, error) {
+	row := q.db.QueryRowContext(ctx, createJobMetric, arg.ID, arg.JobID, arg.InferenceTime)
+	var i JobMetric
+	err := row.Scan(
+		&i.ID,
+		&i.JobID,
+		&i.InferenceTime,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const revokeAPIKey = `-- name: RevokeAPIKey :exec
-UPDATE api_keys SET is_revoked = ? WHERE key_hash = ? RETURNING id, key_hash, is_revoked, created_at
+const getImageByID = `-- name: GetImageByID :one
+SELECT id, job_id, url, created_at
+FROM images
+WHERE id = $1
 `
 
-type RevokeAPIKeyParams struct {
-	IsRevoked bool
-	KeyHash   string
+func (q *Queries) GetImageByID(ctx context.Context, id uuid.UUID) (Image, error) {
+	row := q.db.QueryRowContext(ctx, getImageByID, id)
+	var i Image
+	err := row.Scan(
+		&i.ID,
+		&i.JobID,
+		&i.Url,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
-func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error {
-	_, err := q.db.ExecContext(ctx, revokeAPIKey, arg.IsRevoked, arg.KeyHash)
+const getJobByID = `-- name: GetJobByID :one
+SELECT id, input, created_at, completed_at, status
+FROM jobs
+WHERE id = $1
+`
+
+func (q *Queries) GetJobByID(ctx context.Context, id uuid.UUID) (Job, error) {
+	row := q.db.QueryRowContext(ctx, getJobByID, id)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.Input,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const getJobMetricsByJobID = `-- name: GetJobMetricsByJobID :many
+SELECT id, job_id, inference_time, created_at
+FROM job_metrics
+WHERE job_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetJobMetricsByJobID(ctx context.Context, jobID uuid.UUID) ([]JobMetric, error) {
+	rows, err := q.db.QueryContext(ctx, getJobMetricsByJobID, jobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JobMetric
+	for rows.Next() {
+		var i JobMetric
+		if err := rows.Scan(
+			&i.ID,
+			&i.JobID,
+			&i.InferenceTime,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getJobWithImages = `-- name: GetJobWithImages :one
+SELECT 
+    j.id,
+    j.input,
+    j.created_at,
+    j.completed_at,
+    j.status,
+    COALESCE(json_agg(json_build_object(
+        'id', i.id,
+        'job_id', i.job_id,
+        'url', i.url,
+        'created_at', i.created_at
+    )) FILTER (WHERE i.id IS NOT NULL), '[]'::json) AS images
+FROM jobs j
+LEFT JOIN images i ON j.id = i.job_id
+WHERE j.id = $1
+GROUP BY j.id
+`
+
+type GetJobWithImagesRow struct {
+	ID          uuid.UUID
+	Input       json.RawMessage
+	CreatedAt   sql.NullTime
+	CompletedAt sql.NullTime
+	Status      JobStatusEnum
+	Images      interface{}
+}
+
+// Nested Query: Job with Associated Images
+func (q *Queries) GetJobWithImages(ctx context.Context, id uuid.UUID) (GetJobWithImagesRow, error) {
+	row := q.db.QueryRowContext(ctx, getJobWithImages, id)
+	var i GetJobWithImagesRow
+	err := row.Scan(
+		&i.ID,
+		&i.Input,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Status,
+		&i.Images,
+	)
+	return i, err
+}
+
+const listFailedJobs = `-- name: ListFailedJobs :many
+SELECT id, input, created_at, completed_at, status
+FROM jobs
+WHERE status = 'FAILED'
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListFailedJobsParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListFailedJobs(ctx context.Context, arg ListFailedJobsParams) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listFailedJobs, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Job
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Input,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImagesByJobID = `-- name: ListImagesByJobID :many
+SELECT id, job_id, url, created_at
+FROM images
+WHERE job_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListImagesByJobID(ctx context.Context, jobID uuid.UUID) ([]Image, error) {
+	rows, err := q.db.QueryContext(ctx, listImagesByJobID, jobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Image
+	for rows.Next() {
+		var i Image
+		if err := rows.Scan(
+			&i.ID,
+			&i.JobID,
+			&i.Url,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listJobs = `-- name: ListJobs :many
+SELECT id, input, created_at, completed_at, status
+FROM jobs
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListJobsParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listJobs, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Job
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Input,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateJobStatus = `-- name: UpdateJobStatus :exec
+UPDATE jobs
+SET status = $2::job_status_enum,
+    completed_at = CASE WHEN $2 = 'COMPLETED' THEN NOW() ELSE completed_at END
+WHERE id = $1
+`
+
+type UpdateJobStatusParams struct {
+	ID     uuid.UUID
+	Status JobStatusEnum
+}
+
+func (q *Queries) UpdateJobStatus(ctx context.Context, arg UpdateJobStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateJobStatus, arg.ID, arg.Status)
 	return err
 }

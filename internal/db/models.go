@@ -6,11 +6,75 @@ package db
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+
+	"github.com/google/uuid"
 )
 
-type ApiKey struct {
-	ID        int64
-	KeyHash   string
-	IsRevoked bool
+type JobStatusEnum string
+
+const (
+	JobStatusEnumINQUEUE    JobStatusEnum = "IN_QUEUE"
+	JobStatusEnumINPROGRESS JobStatusEnum = "IN_PROGRESS"
+	JobStatusEnumCOMPLETED  JobStatusEnum = "COMPLETED"
+	JobStatusEnumFAILED     JobStatusEnum = "FAILED"
+)
+
+func (e *JobStatusEnum) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = JobStatusEnum(s)
+	case string:
+		*e = JobStatusEnum(s)
+	default:
+		return fmt.Errorf("unsupported scan type for JobStatusEnum: %T", src)
+	}
+	return nil
+}
+
+type NullJobStatusEnum struct {
+	JobStatusEnum JobStatusEnum
+	Valid         bool // Valid is true if JobStatusEnum is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullJobStatusEnum) Scan(value interface{}) error {
+	if value == nil {
+		ns.JobStatusEnum, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.JobStatusEnum.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullJobStatusEnum) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.JobStatusEnum), nil
+}
+
+type Image struct {
+	ID        uuid.UUID
+	JobID     uuid.UUID
+	Url       string
 	CreatedAt sql.NullTime
+}
+
+type Job struct {
+	ID          uuid.UUID
+	Input       json.RawMessage
+	CreatedAt   sql.NullTime
+	CompletedAt sql.NullTime
+	Status      JobStatusEnum
+}
+
+type JobMetric struct {
+	ID            uuid.UUID
+	JobID         uuid.UUID
+	InferenceTime float64
+	CreatedAt     sql.NullTime
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
+	"github.com/cozy-creator/gen-server/internal/db/repo"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
@@ -22,6 +23,9 @@ type App struct {
 	fileuploader *fileuploader.Uploader
 
 	Logger *zap.Logger
+
+	JobsRepo   *repo.JobsRepo
+	ImagesRepo *repo.ImagesRepo
 }
 
 type OptionFunc func(app *App)
@@ -76,6 +80,8 @@ func (app *App) InitializeDB() error {
 	}
 
 	app.db = db
+	app.JobsRepo = repo.NewJobsRepo(db)
+	app.ImagesRepo = repo.NewImagesRepo(db)
 	return nil
 }
 
