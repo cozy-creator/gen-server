@@ -50,14 +50,15 @@ func GenerateImageSync(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	if _, err := generation.NewRequest(data, app.MQ()); err != nil {
+	reqParams, err := generation.NewRequest(*data, app.MQ())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
 	c.Stream(func(w io.Writer) bool {
 		c.Header("Content-Type", "application/json")
-		output, err := generation.GenerateImageSync(app, data)
+		output, err := generation.GenerateImageSync(app, reqParams)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
 			return false
@@ -93,23 +94,20 @@ func SubmitRequest(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	if _, err := generation.NewRequest(&params, app.MQ()); err != nil {
+	reqParams, err := generation.NewRequest(params, app.MQ())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	input, err := json.Marshal(params)
+	input, err := json.Marshal(reqParams)
 	if err != nil {
 		fmt.Println("Error marshaling params: ", err)
 	}
 
-	if params.ID == "" {
-		params.ID = uuid.NewString()
-	}
-
 	createData := db.CreateJobParams{
 		Input:  input,
-		ID:     uuid.MustParse(params.ID),
+		ID:     uuid.MustParse(reqParams.ID),
 		Status: db.JobStatusEnumINQUEUE,
 	}
 
@@ -117,10 +115,10 @@ func SubmitRequest(c *gin.Context) {
 		fmt.Println("Error creating job: ", err)
 	}
 
-	go generation.GenerateImageAsync(app, &params)
+	go generation.GenerateImageAsync(app, reqParams)
 	c.JSON(http.StatusOK, types.GenerationResponse{
-		Input:  &params,
-		ID:     params.ID,
+		Input:  reqParams,
+		ID:     reqParams.ID,
 		Status: generation.StatusInQueue,
 	})
 }
@@ -249,23 +247,20 @@ func SubmitAndStreamRequest(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	if _, err := generation.NewRequest(&params, app.MQ()); err != nil {
+	reqParams, err := generation.NewRequest(params, app.MQ())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	input, err := json.Marshal(params)
+	input, err := json.Marshal(reqParams)
 	if err != nil {
 		fmt.Println("Error marshaling params: ", err)
 	}
 
-	if params.ID == "" {
-		params.ID = uuid.NewString()
-	}
-
 	createData := db.CreateJobParams{
 		Input:  input,
-		ID:     uuid.MustParse(params.ID),
+		ID:     uuid.MustParse(reqParams.ID),
 		Status: db.JobStatusEnumINQUEUE,
 	}
 
@@ -273,7 +268,7 @@ func SubmitAndStreamRequest(c *gin.Context) {
 		fmt.Println("Error creating job: ", err)
 	}
 
-	go generation.GenerateImageAsync(app, &params)
+	go generation.GenerateImageAsync(app, reqParams)
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
@@ -285,7 +280,7 @@ func SubmitAndStreamRequest(c *gin.Context) {
 		case <-c.Request.Context().Done():
 			return
 		default:
-			topic := config.DefaultStreamsTopic + "/" + params.ID
+			topic := config.DefaultStreamsTopic + "/" + reqParams.ID
 			message, err := app.MQ().Receive(app.Context(), topic)
 			if err != nil {
 				if errors.Is(err, mq.ErrTopicClosed) || errors.Is(err, mq.ErrQueueClosed) {
@@ -303,9 +298,15 @@ func SubmitAndStreamRequest(c *gin.Context) {
 				break
 			}
 
-			if _, err = fmt.Fprintf(c.Writer, "data: %s\n\n", string(messageData)); err != nil {
+			// if _, err = fmt.Fprintf(c.Writer, string(messageData)); err != nil {
+			// 	continue
+			// }
+
+			if _, err := c.Writer.Write(messageData); err != nil {
 				continue
 			}
+
+			fmt.Println("data: ", string(messageData))
 			c.Writer.Flush()
 		}
 	}

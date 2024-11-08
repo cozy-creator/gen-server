@@ -36,21 +36,22 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 	fmt.Println("Output format: ", outputFormat)
 
 	params := types.GenerateParams{
+		Model:          model,
+		NumImages:      numImages,
 		RandomSeed:     randomSeed,
 		AspectRatio:    aspectRatio,
 		OutputFormat:   outputFormat,
 		NegativePrompt: negativePrompt,
 		PositivePrompt: positivePrompt,
-		Models:         map[string]int{model: numImages},
 	}
 
-	_, err := generation.NewRequest(&params, app.MQ())
+	reqParams, err := generation.NewRequest(params, app.MQ())
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("params: ", params)
-	images, err := receiveImages(params.ID, app.Uploader(), app.MQ())
+	fmt.Println("params: ", reqParams)
+	images, err := receiveImages(reqParams.ID, app.Uploader(), app.MQ())
 	if err != nil {
 		return nil, err
 	}

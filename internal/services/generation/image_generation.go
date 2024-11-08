@@ -61,7 +61,7 @@ func receiveImage(requestId string, outputFormat string, app *app.App) (string, 
 	return url, modelName, nil
 }
 
-func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.GenerationResponse, error) {
+func GenerateImageSync(app *app.App, params *types.GenerateParamsRequest) (chan types.GenerationResponse, error) {
 	ctx := app.Context()
 	errc := make(chan error, 1)
 	outputc := make(chan types.GenerationResponse)
@@ -100,7 +100,7 @@ func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.G
 	}
 }
 
-func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
+func GenerateImageAsync(app *app.App, params *types.GenerateParamsRequest) {
 	ctx := app.Context()
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
 	invoke := func(response types.GenerationResponse) {
@@ -159,7 +159,7 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 	return outputBuffer.Bytes(), modelName, nil
 }
 
-func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
+func processImageGen(ctx context.Context, params *types.GenerateParamsRequest, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
 	var (
 		index        int8
 		currentModel string
@@ -210,6 +210,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			fmt.Println("url....", url)
 
 			if url != "" {
+				fmt.Println("ddddd: ", url)
 				createArgs := db.CreateImageParams{
 					ID:    uuid.Must(uuid.NewRandom()),
 					JobID: uuid.MustParse(params.ID),
@@ -217,21 +218,26 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				}
 
 				output := struct {
-					Url   string `json:"url"`
-					Model string `json:"model"`
-					JobID string `json:"job_id"`
+					Url   string `msgpack:"url"`
+					Model string `msgpack:"model"`
+					JobID string `msgpack:"job_id"`
 				}{
 					Url:   url,
 					Model: model,
 					JobID: params.ID,
 				}
 
-				mapO := make(map[string]interface{})
-				mapO["type"] = "output"
-				mapO["data"] = output
+				mapO := struct {
+					Type string      `msgpack:"type"`
+					Data interface{} `msgpack:"data"`
+				}{
+					Type: "output",
+					Data: output,
+				}
+
+				fmt.Println("mapO: ", mapO)
 
 				data, err := msgpack.Marshal(&mapO)
-				// data, err := json.Marshal(&mapO)
 				if err != nil {
 					fmt.Println("Error marshaling output: ", err)
 					return err
