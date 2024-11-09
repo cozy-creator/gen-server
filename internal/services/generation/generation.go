@@ -41,7 +41,7 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 			return err
 		}
 
-		var request types.GenerateParamsRequest
+		var request types.GenerateParams
 		if err := json.Unmarshal(data, &request); err != nil {
 			logger.Error("Failed to parse request data", err)
 			continue
@@ -71,7 +71,7 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 	}
 }
 
-func requestHandler(ctx context.Context, cfg *config.Config, data *types.GenerateParamsRequest) (chan []byte, chan error) {
+func requestHandler(ctx context.Context, cfg *config.Config, data *types.GenerateParams) (chan []byte, chan error) {
 	output := make(chan []byte)
 	errorc := make(chan error, 1)
 
@@ -121,25 +121,12 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 	return output, errorc
 }
 
-func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParamsRequest, error) {
+func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParams, error) {
 	if params.ID == "" {
 		params.ID = uuid.NewString()
 	}
 
-	reqParams := types.GenerateParamsRequest{
-		ID:             params.ID,
-		WebhookUrl:     params.WebhookUrl,
-		RandomSeed:     params.RandomSeed,
-		AspectRatio:    params.AspectRatio,
-		OutputFormat:   params.OutputFormat,
-		PositivePrompt: params.PositivePrompt,
-		NegativePrompt: params.NegativePrompt,
-		Models:         map[string]int{params.Model: params.NumImages},
-	}
-
-	fmt.Println("reqParams: ", reqParams)
-
-	data, err := json.Marshal(reqParams)
+	data, err := json.Marshal(&params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal json data: %w", err)
 	}
@@ -148,7 +135,7 @@ func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParamsReq
 		return nil, fmt.Errorf("failed to publish message to queue: %w", err)
 	}
 
-	return &reqParams, nil
+	return &params, nil
 }
 
 func handleReceiveError(err error, errorc chan error) bool {

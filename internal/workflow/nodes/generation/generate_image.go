@@ -16,19 +16,19 @@ import (
 	imagenode "github.com/cozy-creator/gen-server/internal/workflow/nodes/image"
 )
 
-type GenerateImageInputs struct {
-	Model        string `json:"model"`
-	NumImages    int    `json:"num_images"`
-	RandomSeed   int    `json:"random_seed"`
-	Prompt       string `json:"prompt"`
-	OutputFormat string `json:"output_format"`
-}
+// type GenerateImageInputs struct {
+// 	Model        string `json:"model"`
+// 	NumOutputs    int    `json:"num_outputs"`
+// 	RandomSeed   int    `json:"random_seed"`
+// 	Prompt       string `json:"prompt"`
+// 	OutputFormat string `json:"output_format"`
+// }
 
 func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]interface{}, error) {
 	model := inputs["model"].(string)
 	aspectRatio := inputs["aspect_ratio"].(string)
 	outputFormat := inputs["output_format"].(string)
-	numImages := int(inputs["num_images"].(float64))
+	numOutputs := int(inputs["num_outputs"].(float64))
 	randomSeed := int(inputs["random_seed"].(float64))
 	positivePrompt := inputs["positive_prompt"].(string)
 	negativePrompt := inputs["negative_prompt"].(string)
@@ -37,7 +37,7 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 
 	params := types.GenerateParams{
 		Model:          model,
-		NumImages:      numImages,
+		NumOutputs:     numOutputs,
 		RandomSeed:     randomSeed,
 		AspectRatio:    aspectRatio,
 		OutputFormat:   outputFormat,

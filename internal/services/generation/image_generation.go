@@ -61,7 +61,7 @@ func receiveImage(requestId string, outputFormat string, app *app.App) (string, 
 	return url, modelName, nil
 }
 
-func GenerateImageSync(app *app.App, params *types.GenerateParamsRequest) (chan types.GenerationResponse, error) {
+func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.GenerationResponse, error) {
 	ctx := app.Context()
 	errc := make(chan error, 1)
 	outputc := make(chan types.GenerationResponse)
@@ -100,7 +100,7 @@ func GenerateImageSync(app *app.App, params *types.GenerateParamsRequest) (chan 
 	}
 }
 
-func GenerateImageAsync(app *app.App, params *types.GenerateParamsRequest) {
+func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
 	ctx := app.Context()
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
 	invoke := func(response types.GenerationResponse) {
@@ -159,11 +159,10 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 	return outputBuffer.Bytes(), modelName, nil
 }
 
-func processImageGen(ctx context.Context, params *types.GenerateParamsRequest, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
+func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
 	var (
-		index        int8
-		currentModel string
-		urls         []string
+		index int8
+		urls  []string
 	)
 
 	job, err := app.JobsRepo.Get(app.Context(), uuid.MustParse(params.ID))
@@ -185,20 +184,20 @@ func processImageGen(ctx context.Context, params *types.GenerateParamsRequest, a
 		select {
 		case <-ctx.Done():
 			if len(urls) > 0 {
-				callback(urls, index, currentModel, StatusCancelled)
+				callback(urls, index, params.Model, StatusCancelled)
 			}
 			fmt.Println("Error receiving image: ", err)
 
 			return ctx.Err()
 		default:
-			url, model, err := receiveImage(params.ID, params.OutputFormat, app)
+			url, _, err := receiveImage(params.ID, params.OutputFormat, app)
 			if err != nil {
 				if errors.Is(err, mq.ErrTopicClosed) {
 					if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, []byte("END")); err != nil {
 						fmt.Println("Error publishing end message to MQ: ", err)
 						return err
 					}
-					callback(urls, index, currentModel, StatusCompleted)
+					callback(urls, index, params.Model, StatusCompleted)
 					return nil
 				}
 
@@ -218,13 +217,15 @@ func processImageGen(ctx context.Context, params *types.GenerateParamsRequest, a
 				}
 
 				output := struct {
-					Url   string `msgpack:"url"`
-					Model string `msgpack:"model"`
-					JobID string `msgpack:"job_id"`
+					Url      string `msgpack:"url"`
+					Model    string `msgpack:"model"`
+					JobID    string `msgpack:"job_id"`
+					MimeType string `msgpack:"mime_type"`
 				}{
-					Url:   url,
-					Model: model,
-					JobID: params.ID,
+					Url:      url,
+					JobID:    params.ID,
+					MimeType: "image/png",
+					Model:    params.Model,
 				}
 
 				mapO := struct {
@@ -254,37 +255,24 @@ func processImageGen(ctx context.Context, params *types.GenerateParamsRequest, a
 				}
 			}
 
-			if url == "" && model == "" {
+			if url == "" {
 				time.Sleep(time.Second)
 				updateArg := db.UpdateJobStatusParams{Status: db.JobStatusEnumCOMPLETED, ID: uuid.MustParse(params.ID)}
 				if err := app.JobsRepo.UpdateStatus(app.Context(), updateArg); err != nil {
 					return err
 				}
 
-				callback(urls, index, currentModel, StatusCompleted)
+				callback(urls, index, params.Model, StatusCompleted)
 				return nil
 			}
 
-			if currentModel == model {
-				urls = append(urls, url)
-				if len(urls) == cap(urls) {
-					imgUrls := append([]string(nil), urls...)
-					callback(imgUrls, index, currentModel, StatusInProgress)
+			urls = append(urls, url)
+			if len(urls) == cap(urls) {
+				imgUrls := append([]string(nil), urls...)
+				callback(imgUrls, index, params.Model, StatusInProgress)
 
-					index++
-					urls = nil
-					currentModel = ""
-				}
-			} else if currentModel == "" {
-				numImages, ok := params.Models[model]
-				if !ok {
-					fmt.Println("Error receiving image: ", "model not found in models")
-					return fmt.Errorf("model %s not found in models", model)
-				}
-
-				urls = make([]string, 0, numImages)
-				urls = append(urls, url)
-				currentModel = model
+				index++
+				urls = nil
 			}
 		}
 	}
