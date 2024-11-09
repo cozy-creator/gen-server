@@ -29,7 +29,7 @@ from ..globals import (
 from ..utils.load_models import load_state_dict_from_file
 from ..utils.utils import serialize_config
 from ..utils.quantize_models import quantize_model_fp8
-from OmniGen import OmniGenPipeline
+# from OmniGen import OmniGenPipeline
 
 # Configure logging
 logger = logging.getLogger(__name__)
