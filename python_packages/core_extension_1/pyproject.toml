@@ -26,7 +26,7 @@ dependencies = [
     "transformers",
     "firebase-admin",
     "ostris-ai-toolkit",
-    "OmniGen@git+https://github.com/staoxiao/OmniGen.git",
+    # "OmniGen@git+https://github.com/staoxiao/OmniGen.git",
     # "transformers@git+https://github.com/huggingface/transformers.git",
     "IP-Adapter@git+https://github.com/tencent-ailab/IP-Adapter.git",
     "library@git+https://github.com/cozy-creator/sd-scripts.git",
