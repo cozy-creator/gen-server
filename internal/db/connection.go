@@ -25,9 +25,9 @@ func NewConnection(config *config.Config) (*Queries, error) {
 		return nil, err
 	}
 
-	if _, err := InitializeSchema(New(db)); err != nil {
-		return nil, err
-	}
+	// if _, err := InitializeSchema(New(db)); err != nil {
+	// 	return nil, err
+	// }
 
 	return New(db), nil
 }
