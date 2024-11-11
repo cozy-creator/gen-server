@@ -2,36 +2,20 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	_ "embed"
 	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/config"
-
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/cozy-creator/gen-server/internal/db/drivers"
 )
 
-//go:embed sql/schema.sql
-var schema string
-
-func NewConnection(config *config.Config) (*Queries, error) {
+func NewConnection(ctx context.Context, config *config.Config) (drivers.Driver, error) {
 	driver := config.DB.Driver
-	dsn := config.DB.DSN
 
-	db, err := sql.Open(driver, dsn)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
+	if driver == "sqlite" {
+		return drivers.NewSQLiteDriver(ctx, config.DB.DSN)
+	} else if driver == "pg" {
+		return drivers.NewPGDriver(ctx, config.DB.DSN)
 	}
 
-	// if _, err := InitializeSchema(New(db)); err != nil {
-	// 	return nil, err
-	// }
-
-	return New(db), nil
-}
-
-func InitializeSchema(db *Queries) (sql.Result, error) {
-	return db.db.ExecContext(context.Background(), schema)
+	return nil, fmt.Errorf("invalid database driver: %s", driver)
 }

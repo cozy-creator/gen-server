@@ -5,34 +5,34 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
-	"github.com/cozy-creator/gen-server/internal/db/repo"
+	"github.com/cozy-creator/gen-server/internal/db/drivers"
+	"github.com/cozy-creator/gen-server/internal/db/repository"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
 	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/uptrace/bun"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	config *config.Config
-
-	db           *db.Queries
 	mq           mq.MQ
+	db           *bun.DB
+	config       *config.Config
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
 	fileuploader *fileuploader.Uploader
 
-	Logger *zap.Logger
-
-	JobsRepo   *repo.JobsRepo
-	ImagesRepo *repo.ImagesRepo
+	Logger     *zap.Logger
+	JobsRepo   repository.IJobRepository
+	ImagesRepo repository.IImageRepository
 }
 
 type OptionFunc func(app *App)
 
-func WithDB(db *db.Queries) OptionFunc {
+func WithDB(driver drivers.Driver) OptionFunc {
 	return func(app *App) {
-		app.db = db
+		app.db = driver.GetDB()
 	}
 }
 
@@ -74,14 +74,14 @@ func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
 }
 
 func (app *App) InitializeDB() error {
-	db, err := db.NewConnection(app.config)
+	db, err := db.NewConnection(app.ctx, app.config)
 	if err != nil {
 		return err
 	}
 
-	app.db = db
-	app.JobsRepo = repo.NewJobsRepo(db)
-	app.ImagesRepo = repo.NewImagesRepo(db)
+	app.db = db.GetDB()
+	app.JobsRepo = repository.NewJobRepository(app.db)
+	app.ImagesRepo = repository.NewImageRepository(app.db)
 	return nil
 }
 
@@ -105,7 +105,7 @@ func (app *App) MQ() mq.MQ {
 	return app.mq
 }
 
-func (app *App) DB() *db.Queries {
+func (app *App) DB() *bun.DB {
 	return app.db
 }
 
