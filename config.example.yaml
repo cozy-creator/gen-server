@@ -16,7 +16,7 @@ s3:
   region_name: "nyc3"
   bucket_name: "voidtech-storage-dev"
   folder: "public"
-  public_url: "https://storage.cozy.dev"
+  vanity_url: "https://storage.cozy.dev"
 
 enabled_models:
   playground2.5:

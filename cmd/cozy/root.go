@@ -28,6 +28,10 @@ func init() {
 	viper.BindPFlag("config_file", rootCmd.PersistentFlags().Lookup("config-file"))
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
+	// Manually bind the cozy_home key to an environment variable without the prefix
+	// Otherwise this would be COZY_COZY_HOME instead lol.
+    // viper.BindEnv("cozy_home", "COZY_HOME")
+
 	// Add subcommands
 	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
