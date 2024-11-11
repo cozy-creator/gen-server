@@ -61,6 +61,7 @@ async def generate_images_non_io(
                 "num_images": num_outputs,
                 "random_seed": random_seed,
             }
+            print(f"Params: {params}")
 
             if source_image:
                 # Add image-to-image specific parameters

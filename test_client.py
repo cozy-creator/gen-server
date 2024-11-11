@@ -40,7 +40,8 @@ async def main():
 
     # Sample request data
     request_data = {
-        "models": {"playground2.5": 1},
+        "model": "juggernaut-xl-v9",
+        "num_outputs": 1,
         "positive_prompt": "A beautiful landscape with mountains and a lake",
         "negative_prompt": "No people, no buildings",
         "random_seed": 42,

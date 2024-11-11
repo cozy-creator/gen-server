@@ -444,6 +444,8 @@ class ModelMemoryManager:
             if pipeline is None:
                 return None
             
+            print(f"Load location: {load_location}")
+            
             
 
             # Place in appropriate memory location

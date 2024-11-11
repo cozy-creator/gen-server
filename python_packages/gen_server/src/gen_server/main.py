@@ -180,7 +180,7 @@ async def main_async():
     # await verify_and_download_models()
 
     # Load and warm up models
-    # await load_and_warm_up_models()
+    await load_and_warm_up_models()
 
     # Run the TCP server
     run_tcp_server(config)
