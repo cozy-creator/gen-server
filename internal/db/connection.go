@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 
@@ -20,6 +21,7 @@ func NewConnection(config *config.Config) (*Queries, error) {
 
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 

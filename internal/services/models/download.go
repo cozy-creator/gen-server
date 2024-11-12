@@ -1,8 +1,12 @@
 package models
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/hf-hub/hub"
@@ -21,49 +25,91 @@ type ModelSource struct {
 
 var client = hub.DefaultClient()
 
-func DownloadEnabledModels(config *config.Config) error {
-	if config.EnabledModels == nil {
+func DownloadEnabledModels(ctx context.Context, config *config.Config) error {
+	modelJSON, _ := json.MarshalIndent(config.EnabledModels, "", "  ")
+    fmt.Printf("Enabled Model list:\n%s\n", string(modelJSON))
+
+	if len(config.EnabledModels) == 0 {
+		fmt.Println("To download enabled models, please specify them in config.yaml")
 		return nil
 	}
 
+	var wg sync.WaitGroup
+
 MainLoop:
 	for _, model := range config.EnabledModels {
-		if model.Source == "" {
-			continue MainLoop
-		}
+		select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+			modelJSON, _ = json.MarshalIndent(model, "", "  ")
+    		fmt.Printf("Downloading model:\n%s\n", string(modelJSON))
 
-		go func() {
-			err := download(model.Source, "")
-			if err != nil {
-				fmt.Println("Error downloading model:", err)
+			if model.Source == "" {
+				continue MainLoop
 			}
 
-			fmt.Println("Downloaded model:", model.Source)
-		}()
+			// Create local copies for goroutine
+			model := model
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-		if model.Components != nil {
-		ComponentLoop:
-			for name, component := range model.Components {
-				if component.Source == "" {
-					continue ComponentLoop
-				}
+				downloadCtx, cancel := context.WithCancel(ctx)
+                defer cancel()
 
-				go func() {
-					err := download(component.Source, name)
-					if err != nil {
-						fmt.Println("Error downloading component:", err)
+				err := download(downloadCtx, model.Source, "")
+                if err != nil {
+                    if errors.Is(err, context.Canceled) {
+                        fmt.Println("Download cancelled for model:", model.Source)
+                    } else {
+                        fmt.Println("Error downloading model:", err)
+                    }
+                }
+
+				fmt.Println("Downloaded model:", model.Source)
+			}()
+
+			if model.Components != nil {
+			ComponentLoop:
+				for name, component := range model.Components {
+					if component.Source == "" {
+						continue ComponentLoop
 					}
 
-					fmt.Println("Downloaded component:", component.Source)
-				}()
+					// Create local copies for goroutine
+					name, component := name, component
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+
+						downloadCtx, cancel := context.WithCancel(ctx)
+                		defer cancel()
+
+						err := download(downloadCtx, component.Source, name)
+						if err != nil {
+							if errors.Is(err, context.Canceled) {
+								fmt.Println("Download cancelled for component:", component.Source)
+							} else {
+								fmt.Println("Error downloading component:", err)
+							}
+						}
+
+						fmt.Println("Downloaded component:", component.Source)
+					}()
+				}
 			}
 		}
 	}
+
+	// Wait for all downloads to complete
+	wg.Wait()
 
 	return nil
 }
 
-func download(model, name string) error {
+// TO DO: actually use the context being passed in
+func download(_ context.Context, model string, name string) error {
 	modelSource, err := toModelSource(model)
 	if err != nil {
 		return err
