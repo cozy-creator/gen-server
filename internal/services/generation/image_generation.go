@@ -251,9 +251,10 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				event := GenerationEvent{
 					Type: "output",
 					Data: GenerationOutputData{
-						Url:      url,
-						JobID:    params.ID,
-						MimeType: "image/png",
+						Url:       url,
+						JobID:     params.ID,
+						MimeType:  "image/png",
+						FileBytes: []byte{},
 					},
 				}
 
