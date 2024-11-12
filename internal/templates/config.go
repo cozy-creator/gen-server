@@ -4,11 +4,8 @@ import "os"
 
 const configTemplate = `
 home_dir: ~/.cozy-creator
-assets_path: ~/.cozy-creator/assets
-models_path: ~/.cozy-creator/models
-workspace_path: ~/.cozy-creator/workspace
 filesystem_type: local
-aux_models_paths: ['/workspace/models']
+aux_models_paths: ['C:/Users/User/git/ComfyUI/models']
 
 s3:
   endpoint_url: "https://nyc3.digitaloceanspaces.com"

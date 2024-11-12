@@ -44,7 +44,7 @@ Run locally on your Windows machine:
 docker run -d \
     --name gen-server \
     --gpus all \
-    -v /path/to/local/folder:/workspace \
+    -v ~/.cozy-creator:~/.cozy-creator \
     -p 8881:8881 \
     -p 8888:8888 \
     cozycreator/gen-server:0.3.0

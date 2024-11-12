@@ -41,7 +41,6 @@ func initRunFlags() {
 	flags.String("aux-models-dirs", "", "Additional directories for model files")
 	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
 	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
-	flags.String("enabled-models", "", "Models to be downloaded and made available")
 
 	flags.String("db-driver", "sqlite3", "Database driver")
 	flags.String("db-dsn", ":memory:", "Database DSN (Connection URL or Path)")
@@ -70,7 +69,6 @@ func bindFlags() {
 	viper.BindPFlag("environment", flags.Lookup("environment"))
 	viper.BindPFlag("models_path", flags.Lookup("models-path"))
 	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
-	viper.BindPFlag("enabled_models", flags.Lookup("enabled-models"))
 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 	viper.BindPFlag("aux_models_paths", flags.Lookup("aux-models-paths"))
 
@@ -95,6 +93,7 @@ func bindEnvs() {
 	viper.BindEnv("luma.api_key", "LUMA_API_KEY")
 	viper.BindEnv("runway.api_key", "RUNWAY_API_KEY")
 	viper.BindEnv("bfl.api_key", "BFL_API_KEY")
+	viper.BindEnv("hf_token", "HF_TOKEN")
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
