@@ -1,13 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"os"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/db/migrations"
-
 	"github.com/uptrace/bun/extra/bundebug"
 	"github.com/uptrace/bun/migrate"
 
@@ -17,31 +16,30 @@ import (
 var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Utility for database management",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		driver, err := db.NewConnection(cmd.Context(), config.GetConfig())
+		if err != nil {
+			return err
+		}
+
+		db := driver.GetDB()
+		db.AddQueryHook(bundebug.NewQueryHook(
+			bundebug.WithEnabled(false),
+			bundebug.FromEnv(),
+		))
+
+		migrator := migrate.NewMigrator(db, migrations.Migrations)
+		cmd.SetContext(context.WithValue(cmd.Context(), "migrator", migrator))
+		return nil
+	},
 }
 
 func init() {
-	err := config.InitConfig()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
+	cobra.OnInitialize(onCommandInit)
 	setupMigrationCmd(dbCmd)
 }
 
 func setupMigrationCmd(cmd *cobra.Command) error {
-	driver, err := db.NewConnection(cmd.Context(), config.GetConfig())
-	if err != nil {
-		return err
-	}
-
-	db := driver.GetDB()
-	db.AddQueryHook(bundebug.NewQueryHook(
-		bundebug.WithEnabled(false),
-		bundebug.FromEnv(),
-	))
-
-	migrator := migrate.NewMigrator(db, migrations.Migrations)
 	migrationCmd := &cobra.Command{
 		Use:   "migration",
 		Short: "Utility for handling database migrations",
@@ -51,6 +49,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "init",
 		Short: "create migration tables",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
 			return migrator.Init(cmd.Context())
 		},
 	}
@@ -59,6 +58,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "migrate",
 		Short: "migrate database",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
 			}
@@ -81,6 +82,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "rollback",
 		Short: "rollback the last migration group",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
 			}
@@ -103,6 +106,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "lock",
 		Short: "Lock the database",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
 			}
@@ -115,6 +120,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "unlock",
 		Short: "Unlock the database",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			if err := migrator.Unlock(cmd.Context()); err != nil {
 				return err
 			}
@@ -127,6 +134,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "create-go",
 		Short: "Create a Go migration file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			file, err := migrator.CreateGoMigration(cmd.Context(), args[0])
 			if err != nil {
 				fmt.Println(err)
@@ -142,6 +151,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "status",
 		Short: "Print the status of the migrations",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			status, err := migrator.MigrationsWithStatus(cmd.Context())
 			if err != nil {
 				return err
@@ -155,6 +166,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "mark-applied",
 		Short: "Mark all migrations as applied without actually running them",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+
 			group, err := migrator.Migrate(cmd.Context(), migrate.WithNopMigration())
 			if err != nil {
 				return err
