@@ -1654,10 +1654,10 @@ class ModelMemoryManager:
                     return os.path.getsize(cache_path) / (1024**3)
                 else:
                     logger.warning(f"Cache file not found for {model_id}, assuming default size")
-                    return 4.0  # Default size assumption in GB for SDXL models
+                    return 7.0  # Default size assumption (never going to be used)
             except Exception as e:
                 logger.error(f"Error getting cached model size: {e}")
-                return 4.0  # Default fallback size
+                return 7.0  # Default fallback size (never going to be used for anything)
         elif source.startswith("file:"):
             path = source.replace("file:", "")
             return os.path.getsize(path) / (1024**3) if os.path.exists(path) else 0
