@@ -34,18 +34,16 @@ from ..utils.quantize_models import quantize_model_fp8
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
 
 class GPUEnum(Enum):
     """GPU memory thresholds in GB for different optimization levels."""
-
     LOW = 7
     MEDIUM = 14
     HIGH = 22
     VERY_HIGH = 30
-
 
 # Constants
 VRAM_SAFETY_MARGIN_GB = 4.0
@@ -54,22 +52,12 @@ VRAM_THRESHOLD = 1.4
 
 MODEL_COMPONENTS = {
     "flux": [
-        "vae",
-        "transformer",
-        "text_encoder",
-        "text_encoder_2",
-        "scheduler",
-        "tokenizer",
-        "tokenizer_2",
+        "vae", "transformer", "text_encoder", "text_encoder_2",
+        "scheduler", "tokenizer", "tokenizer_2",
     ],
     "sdxl": [
-        "vae",
-        "unet",
-        "text_encoder",
-        "text_encoder_2",
-        "scheduler",
-        "tokenizer",
-        "tokenizer_2",
+        "vae", "unet", "text_encoder", "text_encoder_2",
+        "scheduler", "tokenizer", "tokenizer_2",
     ],
     "sd": ["vae", "unet", "text_encoder", "scheduler", "tokenizer"],
 }
@@ -80,15 +68,14 @@ PIPELINE_MAPPING = {
     "flux": FluxPipeline,
 }
 
-
 class LRUCache:
     """
     Least Recently Used (LRU) Cache for tracking model usage.
-
+    
     Maintains separate tracking for GPU and CPU cached models using timestamps
     to determine usage patterns and inform memory management decisions.
     """
-
+    
     def __init__(self):
         """Initialize empty GPU and CPU caches."""
         self.gpu_cache: OrderedDict = OrderedDict()  # model_id -> last_used_timestamp
@@ -97,7 +84,7 @@ class LRUCache:
     def access(self, model_id: str, cache_type: str = "gpu") -> None:
         """
         Record access of a model, updating its position in the LRU cache.
-
+        
         Args:
             model_id: Unique identifier for the model
             cache_type: Type of cache to update ("gpu" or "cpu")
@@ -109,7 +96,7 @@ class LRUCache:
     def remove(self, model_id: str, cache_type: str = "gpu") -> None:
         """
         Remove a model from cache tracking.
-
+        
         Args:
             model_id: Unique identifier for the model to remove
             cache_type: Type of cache to remove from ("gpu" or "cpu")
@@ -117,16 +104,14 @@ class LRUCache:
         cache = self.gpu_cache if cache_type == "gpu" else self.cpu_cache
         cache.pop(model_id, None)
 
-    def get_lru_models(
-        self, cache_type: str = "gpu", count: Optional[int] = None
-    ) -> List[str]:
+    def get_lru_models(self, cache_type: str = "gpu", count: Optional[int] = None) -> List[str]:
         """
         Get least recently used models.
-
+        
         Args:
             cache_type: Type of cache to query ("gpu" or "cpu")
             count: Optional number of models to return. If None, returns all models
-
+            
         Returns:
             List of model IDs ordered by least recently used first
         """
@@ -134,15 +119,14 @@ class LRUCache:
         model_list = list(cache.keys())
         return model_list if count is None else model_list[:count]
 
-
 class ModelMemoryManager:
     """
     Manages loading, unloading and memory allocation of machine learning models.
-
+    
     Handles dynamic movement of models between GPU and CPU memory based on
     available resources and usage patterns. Implements optimization strategies
     for efficient memory usage and model performance.
-
+    
     Attributes:
         current_model: Currently active model identifier
         loaded_models: Dictionary of models loaded in GPU memory
@@ -165,17 +149,17 @@ class ModelMemoryManager:
         self.model_sizes: Dict[str, float] = {}
         self.model_types: Dict[str, torch.dtype] = {}
         self.loaded_model: Optional[DiffusionPipeline] = None
-
+        
         # Memory tracking
         self.vram_usage: float = 0
         self.ram_usage: float = 0
         self.max_vram: float = self._get_total_vram()
         self.system_ram: float = psutil.virtual_memory().total / (1024**3)
-
+        
         # State flags
         self.is_in_device: bool = False
         self.should_quantize: bool = False
-
+        
         # Managers and caches
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
@@ -184,7 +168,7 @@ class ModelMemoryManager:
     def _get_memory_info(self) -> Tuple[float, float]:
         """
         Get current memory availability.
-
+        
         Returns:
             Tuple containing:
             - Available RAM in GB
@@ -197,7 +181,7 @@ class ModelMemoryManager:
     def _get_available_ram(self) -> float:
         """
         Get available system RAM in GB.
-
+        
         Returns:
             Available RAM in GB
         """
@@ -206,7 +190,7 @@ class ModelMemoryManager:
     def _get_total_vram(self) -> float:
         """
         Get total VRAM available on the system.
-
+        
         Returns:
             Total VRAM in GB, or 0 if no CUDA device is available
         """
@@ -217,14 +201,14 @@ class ModelMemoryManager:
     def _get_available_vram(self) -> float:
         """
         Get currently available VRAM.
-
+        
         Returns:
             Available VRAM in GB
         """
         if torch.cuda.is_available():
             available_vram_gb = (
-                torch.cuda.get_device_properties(0).total_memory
-                - torch.cuda.memory_allocated()
+                torch.cuda.get_device_properties(0).total_memory -
+                torch.cuda.memory_allocated()
             ) / (1024**3)
             logger.debug(f"Available VRAM: {available_vram_gb:.2f} GB")
             return available_vram_gb
@@ -233,18 +217,16 @@ class ModelMemoryManager:
     def _can_load_to_ram(self, model_size: float) -> bool:
         """
         Check if a model can be loaded into RAM.
-
+        
         Args:
             model_size: Size of the model in GB
-
+            
         Returns:
             Boolean indicating if model can fit in RAM
         """
         print("In Available RAM")
         available_ram = self._get_available_ram() - RAM_SAFETY_MARGIN_GB
-        logger.debug(
-            f"Available RAM: {available_ram:.2f} GB, Model size: {model_size:.2f} GB"
-        )
+        logger.debug(f"Available RAM: {available_ram:.2f} GB, Model size: {model_size:.2f} GB")
         return available_ram >= model_size
 
     def _can_load_model(
@@ -253,10 +235,10 @@ class ModelMemoryManager:
     ) -> Tuple[bool, bool]:
         """
         Check if a model can be loaded to GPU.
-
+        
         Args:
             model_size: Size of the model in GB
-
+            
         Returns:
             Tuple of (can_load_without_optimization, needs_optimization)
         """
@@ -281,10 +263,10 @@ class ModelMemoryManager:
     def _determine_load_location(self, model_size: float) -> str:
         """
         Determine optimal location to load the model based on available resources.
-
+        
         Args:
             model_size: Size of the model in GB
-
+            
         Returns:
             String indicating load location: "gpu", "gpu_optimized", "needs_space", or "none"
         """
@@ -303,22 +285,25 @@ class ModelMemoryManager:
         return "needs_space"
 
     async def load(
-        self, model_id: str, gpu: Optional[int] = None, pipe_type: Optional[str] = None
+        self,
+        model_id: str,
+        gpu: Optional[int] = None,
+        pipe_type: Optional[str] = None
     ) -> Optional[DiffusionPipeline]:
         """
         Load a model into memory, handling placement and optimization.
-
+        
         This method implements the main model loading logic, including:
         - Checking if model is already loaded
         - Managing memory allocation between GPU and CPU
         - Applying optimizations as needed
         - Handling model movement between devices
-
+        
         Args:
             model_id: Identifier for the model to load
             gpu: Optional GPU device number
             pipe_type: Optional pipeline type specification
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
@@ -335,36 +320,37 @@ class ModelMemoryManager:
 
         # Load new model
         return await self._load_new_model(model_id, gpu, pipe_type)
-
+    
     async def _handle_cpu_model_load(
-        self, model_id: str
+        self,
+        model_id: str
     ) -> Optional[DiffusionPipeline]:
         """
         Handle loading of a model that exists in CPU memory.
-
+        
         Attempts to move the model to GPU if possible, applying optimizations
         or keeping in CPU if necessary.
-
+        
         Args:
             model_id: Identifier for the model
-
+            
         Returns:
             Pipeline object or None if operation failed
         """
         logger.info(f"Model {model_id} is in CPU memory")
         model_size = self.model_sizes[model_id]
-
+        
         # Attempt GPU transfer if possible
         available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
-
+        
         if model_size > available_vram:
             self._make_space_for_model(model_size)
-
+            
         can_load_gpu, need_optimization = self._can_load_model(model_size)
         if not can_load_gpu:
             logger.info(f"Insufficient GPU memory for {model_id}, keeping in CPU")
             return self.cpu_models[model_id]
-
+            
         # Move model from CPU to GPU
         try:
             pipeline = self.cpu_models.pop(model_id)
@@ -391,11 +377,14 @@ class ModelMemoryManager:
             return None
 
     def _update_gpu_model(
-        self, model_id: str, pipeline: DiffusionPipeline, model_size: float
+        self,
+        model_id: str,
+        pipeline: DiffusionPipeline,
+        model_size: float
     ) -> None:
         """
         Update GPU model tracking after successful model movement.
-
+        
         Args:
             model_id: Model identifier
             pipeline: The pipeline that was moved
@@ -407,11 +396,14 @@ class ModelMemoryManager:
         self.lru_cache.access(model_id, "gpu")
 
     def _restore_cpu_model(
-        self, model_id: str, pipeline: DiffusionPipeline, model_size: float
+        self,
+        model_id: str,
+        pipeline: DiffusionPipeline,
+        model_size: float
     ) -> None:
         """
         Restore model to CPU tracking after failed GPU movement.
-
+        
         Args:
             model_id: Model identifier
             pipeline: The pipeline to restore
@@ -421,22 +413,25 @@ class ModelMemoryManager:
         self.ram_usage += model_size
 
     async def _load_new_model(
-        self, model_id: str, gpu: Optional[int] = None, pipe_type: Optional[str] = None
+        self,
+        model_id: str,
+        gpu: Optional[int] = None,
+        pipe_type: Optional[str] = None
     ) -> Optional[DiffusionPipeline]:
         """
         Load a new model that isn't currently in memory.
-
+        
         Handles the complete loading process including:
         - Configuration validation
         - Memory allocation
         - Model loading
         - Optimization application
-
+        
         Args:
             model_id: Identifier for the model
             gpu: Optional GPU device number
             pipe_type: Optional pipeline type specification
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
@@ -464,8 +459,10 @@ class ModelMemoryManager:
             pipeline = await self._load_model_by_source(model_id, model_config, gpu)
             if pipeline is None:
                 return None
-
+            
             print(f"Load location: {load_location}")
+            
+            
 
             # Place in appropriate memory location
             return await self._place_model_in_memory(
@@ -477,16 +474,19 @@ class ModelMemoryManager:
             return None
 
     async def _load_model_by_source(
-        self, model_id: str, model_config: Dict[str, Any], gpu: Optional[int]
+        self,
+        model_id: str,
+        model_config: Dict[str, Any],
+        gpu: Optional[int]
     ) -> Optional[DiffusionPipeline]:
         """
         Load a model based on its source configuration.
-
+        
         Args:
             model_id: Model identifier
             model_config: Model configuration dictionary
             gpu: Optional GPU device number
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
@@ -518,12 +518,12 @@ class ModelMemoryManager:
     def _make_space_for_model(self, model_size: float) -> None:
         """
         Attempt to free up memory space for a new model.
-
+        
         Implements a sophisticated memory management strategy:
         1. First try to move models to CPU if possible
         2. If that's not possible, unload models completely
         3. Tracks all memory changes through LRU cache
-
+        
         Args:
             model_size: Size of the model requiring space in GB
         """
@@ -556,7 +556,6 @@ class ModelMemoryManager:
                 # Try to move to CPU first
                 if self._can_load_to_ram(size):
                     freed_space += self._move_model_to_cpu_for_space(model_id, size)
-                    freed_space += self._move_model_to_cpu_for_space(model_id, size)
                 else:
                     # If can't move to CPU, unload completely
                     freed_space += self._unload_model_for_space(model_id, size, "gpu")
@@ -566,14 +565,18 @@ class ModelMemoryManager:
                 if self._get_available_vram() - VRAM_SAFETY_MARGIN_GB >= model_size:
                     break
 
-    def _move_model_to_cpu_for_space(self, model_id: str, model_size: float) -> float:
+    def _move_model_to_cpu_for_space(
+        self,
+        model_id: str,
+        model_size: float
+    ) -> float:
         """
         Move a model from GPU to CPU to free up space.
-
+        
         Args:
             model_id: Model identifier
             model_size: Size of the model in GB
-
+            
         Returns:
             Amount of space freed in GB
         """
@@ -669,21 +672,21 @@ class ModelMemoryManager:
     ) -> bool:
         """
         Safely move a model to CPU memory with proper dtype handling.
-
+        
         Args:
             pipeline: The pipeline to move
             model_id: Identifier of the model
-
+            
         Returns:
             Boolean indicating success of the operation
         """
         # Skip if it's OmniGen pipeline
         if pipeline.__class__.__name__ == "OmniGenPipeline":
             return True
-
+        
         try:
             self.flush_memory()
-
+            
             # Store original dtype
             if model_id not in self.model_types:
                 self._store_model_dtype(pipeline, model_id)
@@ -691,15 +694,19 @@ class ModelMemoryManager:
             pipeline = pipeline.to("cpu", silence_dtype_warnings=True)
             self.flush_memory()
             return True
-
+            
         except Exception as e:
             logger.error(f"Failed to move model {model_id} to CPU: {str(e)}")
             return False
 
-    def _store_model_dtype(self, pipeline: DiffusionPipeline, model_id: str) -> None:
+    def _store_model_dtype(
+        self,
+        pipeline: DiffusionPipeline,
+        model_id: str
+    ) -> None:
         """
         Store the original dtype of a model for future reference.
-
+        
         Args:
             pipeline: The pipeline to get dtype from
             model_id: Model identifier
@@ -714,21 +721,25 @@ class ModelMemoryManager:
                         self.model_types[model_id] = component.dtype
                         break
 
-    def _move_model_to_gpu(self, pipeline: DiffusionPipeline, model_id: str) -> bool:
+    def _move_model_to_gpu(
+        self,
+        pipeline: DiffusionPipeline,
+        model_id: str
+    ) -> bool:
         """
         Safely move a model to GPU memory with proper dtype handling.
-
+        
         Args:
             pipeline: The pipeline to move
             model_id: Identifier of the model
-
+            
         Returns:
             Boolean indicating success of the operation
         """
         # Skip if it's OmniGen pipeline
         if pipeline.__class__.__name__ == "OmniGenPipeline":
             return True
-
+        
         try:
             device = get_available_torch_device()
             # Store the original pipeline components for cleanup
@@ -751,7 +762,7 @@ class ModelMemoryManager:
 
             self.flush_memory()
             return True
-
+            
         except RuntimeError as e:
             if "out of memory" in str(e):
                 logger.error(f"GPU out of memory while moving model {model_id} to GPU")
@@ -759,17 +770,17 @@ class ModelMemoryManager:
                 logger.error(f"Runtime error moving model {model_id} to GPU: {str(e)}")
             self.flush_memory()
             return False
-
+        
     async def _place_model_in_memory(
         self,
         pipeline: DiffusionPipeline,
         model_id: str,
         model_size: float,
-        load_location: str,
+        load_location: str
     ) -> Optional[DiffusionPipeline]:
         """
         Place a loaded model in the appropriate memory location.
-
+        
         Args:
             pipeline: The loaded pipeline
             model_id: Model identifier
@@ -837,7 +848,7 @@ class ModelMemoryManager:
     ) -> Optional[DiffusionPipeline]:
         """
         Load a model from HuggingFace.
-
+        
         Args:
             model_id: Model identifier
             repo_id: HuggingFace repository ID
@@ -845,25 +856,23 @@ class ModelMemoryManager:
             type: Optional model type
             variant: Optional model variant
             model_config: Optional model configuration
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
         try:
             # Check if custom pipeline is specified in model_config and custom_pipeline is a list
-            if "custom_pipeline" in model_config and isinstance(
-                model_config["custom_pipeline"], list
-            ):
+            if "custom_pipeline" in model_config and isinstance(model_config["custom_pipeline"], list):
                 print("custom pipeline is a list")
                 # using package to import custom pipeline
                 module_path, class_name = model_config["custom_pipeline"]
                 module = importlib.import_module(module_path)
                 pipeline_class = getattr(module, class_name)
-
+            
                 pipeline = pipeline_class.from_pretrained(repo_id)
 
                 return pipeline
-
+            
             pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
 
             variant = None if variant == "" else variant
@@ -891,14 +900,15 @@ class ModelMemoryManager:
             return None
 
     async def _prepare_pipeline_kwargs(
-        self, model_config: Optional[Dict[str, Any]]
+        self,
+        model_config: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
         Prepare kwargs for pipeline initialization.
-
+        
         Args:
             model_config: Model configuration dictionary
-
+            
         Returns:
             Dictionary of pipeline initialization arguments
         """
@@ -926,16 +936,19 @@ class ModelMemoryManager:
             return {}
 
     async def _prepare_component(
-        self, component: Dict[str, Any], model_type: str, key: str
+        self,
+        component: Dict[str, Any],
+        model_type: str,
+        key: str
     ) -> Any:
         """
         Prepare a model component based on its configuration.
-
+        
         Args:
             component: Component configuration
             model_type: Type of the model
             key: Component key
-
+            
         Returns:
             Loaded component or None if loading failed
         """
@@ -944,10 +957,15 @@ class ModelMemoryManager:
                 (".safetensors", ".bin", ".ckpt", ".pt")
             ):
                 return await self._load_diffusers_component(
-                    component["source"].replace("hf:", ""), key
+                    component["source"].replace("hf:", ""),
+                    key
                 )
             else:
-                return self._load_custom_component(component["source"], model_type, key)
+                return self._load_custom_component(
+                    component["source"],
+                    model_type,
+                    key
+                )
         except Exception as e:
             logger.error(f"Error preparing component {key}: {str(e)}")
             return None
@@ -962,14 +980,14 @@ class ModelMemoryManager:
     ) -> Optional[DiffusionPipeline]:
         """
         Load a model from a single file.
-
+        
         Args:
             model_id: Model identifier
             path: Path to model file
             prefix: Source prefix (file/ct)
             gpu: Optional GPU device number
             type: Model type
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
@@ -1001,132 +1019,152 @@ class ModelMemoryManager:
         except Exception as e:
             logger.error(f"Error loading single file model: {str(e)}")
             return None
-
     def _get_model_path(self, path: str, prefix: str) -> str:
         if prefix == "ct" and ("http" in path or "https" in path):
             path = path.split("/")[-1]
         return os.path.join(get_config().models_path, path)
 
+
     async def _load_pipeline_from_file(
-        self, pipeline_class: Any, model_path: str, model_id: str, type: str
+        self,
+        pipeline_class: Any,
+        model_path: str,
+        model_id: str,
+        type: str
     ) -> Optional[DiffusionPipeline]:
         """
         Load a pipeline from a file using appropriate loading method.
-
+        
         Args:
             pipeline_class: Class to instantiate pipeline
             model_path: Path to model file
             model_id: Model identifier
             type: Model type
-
+            
         Returns:
             Loaded pipeline or None if loading failed
         """
         try:
             if issubclass(pipeline_class, FromSingleFileMixin):
-                return self._load_from_single_file(pipeline_class, model_path, model_id)
+                return self._load_from_single_file(
+                    pipeline_class, model_path, model_id
+                )
             else:
-                return self._load_custom_architecture(pipeline_class, model_path, type)
+                return self._load_custom_architecture(
+                    pipeline_class, model_path, type
+                )
         except Exception as e:
             logger.error(f"Error loading pipeline from file: {str(e)}")
             return None
 
+
     def _load_from_single_file(
-        self, pipeline_class: Any, path: str, model_id: str
+        self,
+        pipeline_class: Any,
+        path: str,
+        model_id: str
     ) -> DiffusionPipeline:
         """
         Load a model pipeline from a single file using the FromSingleFileMixin.
-
+        
         Uses different torch datatypes based on model type:
         - bfloat16 for Flux models
         - float16 for other models
-
+        
         Args:
             pipeline_class: The pipeline class to instantiate
             path: Path to the model file
             model_id: Model identifier (used to determine model type)
-
+            
         Returns:
             Loaded pipeline instance
-
+            
         Raises:
             Exception: If loading fails
         """
         try:
             # Determine appropriate dtype based on model type
             torch_dtype = (
-                torch.bfloat16 if "flux" in model_id.lower() else torch.float16
+                torch.bfloat16 
+                if "flux" in model_id.lower() 
+                else torch.float16
             )
-
+            
             # Load the model with appropriate dtype
-            pipeline = pipeline_class.from_single_file(path, torch_dtype=torch_dtype)
-
+            pipeline = pipeline_class.from_single_file(
+                path,
+                torch_dtype=torch_dtype
+            )
+            
             logger.info(f"Successfully loaded single file model {model_id}")
             return pipeline
-
+            
         except Exception as e:
             logger.error(f"Error loading model from single file: {str(e)}")
             raise
 
     def _load_custom_architecture(
-        self, pipeline_class: Any, path: str, type: str
+        self,
+        pipeline_class: Any,
+        path: str,
+        type: str
     ) -> DiffusionPipeline:
         """
         Load a model with custom architecture configuration.
-
+        
         Handles loading of individual components and assembling them into
         a complete pipeline.
-
+        
         Args:
             pipeline_class: The pipeline class to instantiate
             path: Path to the model file
             type: Model type (determines which components to load)
-
+            
         Returns:
             Assembled pipeline instance
-
+            
         Raises:
             Exception: If loading fails or architecture is not found
         """
         try:
             # Load the complete state dict
             state_dict = load_state_dict_from_file(path)
-
+            
             # Create empty pipeline instance
             pipeline = pipeline_class()
-
+            
             # Load each component specified for this model type
             for component_name in MODEL_COMPONENTS[type]:
                 # Skip certain components that don't need loading
                 if component_name in ["scheduler", "tokenizer", "tokenizer_2"]:
                     continue
-
+                
                 # Construct architecture key and get class
                 arch_key = f"core_extension_1.{type}_{component_name}"
                 architecture_class = get_architectures().get(arch_key)
-
+                
                 if not architecture_class:
                     logger.error(f"Architecture not found for {arch_key}")
                     continue
-
+                
                 try:
                     # Initialize and load the component
                     architecture = architecture_class()
                     architecture.load(state_dict)
-
+                    
                     # Set the component in the pipeline
                     setattr(pipeline, component_name, architecture.model)
                     logger.debug(f"Loaded component {component_name} for {type}")
-
+                    
                 except Exception as component_error:
                     logger.error(
                         f"Error loading component {component_name}: {str(component_error)}"
                     )
                     continue
-
+            
             logger.info("Successfully loaded custom architecture model")
             return pipeline
-
+            
         except Exception as e:
             logger.error(f"Error loading custom architecture: {str(e)}")
             raise
@@ -1135,7 +1173,7 @@ class ModelMemoryManager:
         self,
         pipeline: DiffusionPipeline,
         model_id: str,
-        force_full_optimization: bool = False,
+        force_full_optimization: bool = False
     ) -> None:
         """
         Apply memory and performance optimizations to a pipeline.
@@ -1206,7 +1244,7 @@ class ModelMemoryManager:
     def _get_full_optimizations(self) -> List[Tuple[str, str, Dict[str, Any]]]:
         """
         Get list of all available optimizations.
-
+        
         Returns:
             List of tuples containing (optimization_function, name, parameters)
         """
@@ -1219,7 +1257,7 @@ class ModelMemoryManager:
                 {"device": get_available_torch_device()},
             ),
         ]
-
+        
         if not isinstance(self.loaded_model, (FluxPipeline, FluxInpaintPipeline)):
             optimizations.append(
                 (
@@ -1228,25 +1266,25 @@ class ModelMemoryManager:
                     {},
                 )
             )
-
+            
         return optimizations
 
     def _apply_optimization_list(
         self,
         pipeline: DiffusionPipeline,
         optimizations: List[Tuple[str, str, Dict[str, Any]]],
-        device: torch.device,
+        device: torch.device
     ) -> None:
         """
         Apply a list of optimizations to a pipeline.
-
+        
         Args:
             pipeline: The pipeline to optimize
             optimizations: List of optimization specifications
             device: Target device
         """
         device_type = device if isinstance(device, str) else device.type
-
+        
         if device_type == "mps":
             setattr(torch, "mps", torch.backends.mps)
 
@@ -1272,7 +1310,7 @@ class ModelMemoryManager:
     async def warm_up_pipeline(self, model_id: str) -> None:
         """
         Warm up a pipeline by running a test inference.
-
+        
         Args:
             model_id: Model identifier
         """
@@ -1284,10 +1322,11 @@ class ModelMemoryManager:
         if model_id not in self.loaded_models:
             logger.warning(f"Model {model_id} is not loaded")
             return
-
+        
         # if model_id in self.cpu_models:
         #     logger.info(f"Loading model {model_id} from CPU to GPU")
         #     self.load(model_id)
+
 
         # pipeline = self.loaded_models[model_id]
         if pipeline is None:
@@ -1295,14 +1334,14 @@ class ModelMemoryManager:
             return
 
         logger.info(f"Warming up pipeline for model {model_id}")
-
+        
         try:
             with torch.no_grad():
                 if isinstance(pipeline, DiffusionPipeline):
                     _ = pipeline(
                         prompt="This is a warm-up prompt",
                         num_inference_steps=20,
-                        output_type="pil",
+                        output_type="pil"
                     )
                 else:
                     logger.warning(
@@ -1317,7 +1356,7 @@ class ModelMemoryManager:
     def get_all_model_ids(self) -> List[str]:
         """
         Get list of all available model IDs.
-
+        
         Returns:
             List of model identifiers
         """
@@ -1327,7 +1366,7 @@ class ModelMemoryManager:
     def get_warmup_models(self) -> List[str]:
         """
         Get list of models that should be warmed up.
-
+        
         Returns:
             List of model identifiers for warm-up
         """
@@ -1337,10 +1376,10 @@ class ModelMemoryManager:
     def unload(self, model_id: str) -> None:
         """
         Unload a model from memory and clean up associated resources.
-
+        
         Handles unloading from both GPU and CPU memory, updates memory tracking,
         and cleans up LRU cache entries.
-
+        
         Args:
             model_id: Model identifier to unload
         """
@@ -1349,60 +1388,61 @@ class ModelMemoryManager:
             if model_id in self.loaded_models:
                 model_size = self.model_sizes.get(model_id, 0)
                 pipeline = self.loaded_models.pop(model_id)
-
+                
                 del pipeline
                 self.vram_usage -= model_size
                 self.lru_cache.remove(model_id, "gpu")
                 logger.info(f"Model {model_id} unloaded from GPU")
-
+            
             # Unload from CPU if present
             if model_id in self.cpu_models:
                 model_size = self.model_sizes.get(model_id, 0)
                 pipeline = self.cpu_models.pop(model_id)
-
+                
                 del pipeline
                 self.ram_usage -= model_size
                 self.lru_cache.remove(model_id, "cpu")
                 logger.info(f"Model {model_id} unloaded from CPU")
-
+            
             # Clean up current model reference if it matches
             if model_id == self.current_model:
                 self.loaded_model = None
                 self.current_model = None
-
+                
             # Remove from model sizes tracking
             if model_id in self.model_sizes:
                 del self.model_sizes[model_id]
-
+                
             # Remove from model types tracking
             if model_id in self.model_types:
                 del self.model_types[model_id]
-
+                
             # Force memory cleanup
             self.flush_memory()
-
+            
         except Exception as e:
             logger.error(f"Error unloading model {model_id}: {str(e)}")
 
     def is_loaded(self, model_id: str) -> bool:
         """
         Check if a model is currently loaded.
-
+        
         Args:
             model_id: Model identifier
-
+            
         Returns:
             Boolean indicating if model is loaded
         """
-        return model_id == self.current_model and self.loaded_model is not None
+        return (model_id == self.current_model and 
+                self.loaded_model is not None)
 
     def get_model(self, model_id: str) -> Optional[DiffusionPipeline]:
         """
         Get a loaded model pipeline.
-
+        
         Args:
             model_id: Model identifier
-
+            
         Returns:
             Pipeline if model is loaded, None otherwise
         """
@@ -1413,10 +1453,10 @@ class ModelMemoryManager:
     def get_model_device(self, model_id: str) -> Optional[torch.device]:
         """
         Get the device where a model is loaded.
-
+        
         Args:
             model_id: Model identifier
-
+            
         Returns:
             Device if model is loaded, None otherwise
         """
@@ -1426,10 +1466,10 @@ class ModelMemoryManager:
     def _get_model_size(self, model_config: Dict[str, Any]) -> float:
         """
         Calculate the total size of a model including all its components.
-
+        
         Args:
             model_config: Model configuration dictionary
-
+            
         Returns:
             Total size in GB
         """
@@ -1440,14 +1480,18 @@ class ModelMemoryManager:
         repo_id = model_config["source"].replace("hf:", "")
         return self._calculate_repo_size(repo_id, model_config)
 
-    def _calculate_repo_size(self, repo_id: str, model_config: Dict[str, Any]) -> float:
+    def _calculate_repo_size(
+        self,
+        repo_id: str,
+        model_config: Dict[str, Any]
+    ) -> float:
         """
         Calculate the total size of a HuggingFace repository.
-
+        
         Args:
             repo_id: Repository identifier
             model_config: Model configuration dictionary
-
+            
         Returns:
             Total size in GB
         """
@@ -1466,54 +1510,63 @@ class ModelMemoryManager:
         return total_size_gb
 
     def _calculate_component_size(
-        self, component: Dict[str, Any], repo_id: str, key: str
+        self,
+        component: Dict[str, Any],
+        repo_id: str,
+        key: str
     ) -> float:
         """
         Calculate the size of a model component.
-
+        
         Args:
             component: Component configuration
             repo_id: Repository identifier
             key: Component key
-
+            
         Returns:
             Component size in bytes
         """
         component_source = component["source"]
         if len(component_source.split("/")) > 2:
-            component_repo = "/".join(component_source.split("/")[0:2]).replace(
-                "hf:", ""
-            )
+            component_repo = "/".join(
+                component_source.split("/")[0:2]
+            ).replace("hf:", "")
         else:
             component_repo = component_source.replace("hf:", "")
 
         component_name = (
             key
-            if not component_source.endswith((".safetensors", ".bin", ".ckpt", ".pt"))
+            if not component_source.endswith(
+                (".safetensors", ".bin", ".ckpt", ".pt")
+            )
             else component_source.split("/")[-1]
         )
 
-        total_size = self._get_size_for_repo(
-            component_repo, component_name
-        ) - self._get_size_for_repo(repo_id, key)
-
+        total_size = (
+            self._get_size_for_repo(component_repo, component_name) -
+            self._get_size_for_repo(repo_id, key)
+        )
+        
         return total_size
 
     def _get_size_for_repo(
-        self, repo_id: str, component_name: Optional[str] = None
+        self,
+        repo_id: str,
+        component_name: Optional[str] = None
     ) -> int:
         """
         Get the size of a specific repository or component.
-
+        
         Args:
             repo_id: Repository identifier
             component_name: Optional component name
-
+            
         Returns:
             Size in bytes
         """
         storage_folder = os.path.join(
-            self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
+            self.cache_dir,
+            repo_folder_name(repo_id=repo_id, repo_type="model")
         )
 
         if not os.path.exists(storage_folder):
@@ -1533,10 +1586,10 @@ class ModelMemoryManager:
     def _get_commit_hash(self, storage_folder: str) -> Optional[str]:
         """
         Get the commit hash for a repository.
-
+        
         Args:
             storage_folder: Path to the repository storage folder
-
+            
         Returns:
             Commit hash string or None if not found
         """
@@ -1554,10 +1607,10 @@ class ModelMemoryManager:
     def _calculate_folder_size(self, folder: str) -> int:
         """
         Calculate the total size of model files in a folder.
-
+        
         Args:
             folder: Path to the folder
-
+            
         Returns:
             Total size in bytes
         """
@@ -1566,7 +1619,8 @@ class ModelMemoryManager:
 
         variants = ["bf16", "fp8", "fp16", ""]
         selected_variant = next(
-            (v for v in variants if self._check_variant_files(folder, v)), None
+            (v for v in variants if self._check_variant_files(folder, v)),
+            None
         )
 
         if selected_variant is None:
@@ -1583,11 +1637,11 @@ class ModelMemoryManager:
     def _check_variant_files(self, folder: str, variant: str) -> bool:
         """
         Check if a folder contains files of a specific variant.
-
+        
         Args:
             folder: Path to the folder
             variant: Variant to check for
-
+            
         Returns:
             Boolean indicating if variant files exist
         """
@@ -1599,30 +1653,31 @@ class ModelMemoryManager:
     def _is_valid_file(self, file: str, variant: str) -> bool:
         """
         Check if a file is a valid model file of a specific variant.
-
+        
         Args:
             file: Filename to check
             variant: Variant to check for
-
+            
         Returns:
             Boolean indicating if file is valid
         """
         if variant:
-            return file.endswith(f"{variant}.safetensors") or file.endswith(
-                f"{variant}.bin"
-            )
+            return (file.endswith(f"{variant}.safetensors") or
+                   file.endswith(f"{variant}.bin"))
         return file.endswith((".safetensors", ".bin", ".ckpt"))
 
     async def _load_diffusers_component(
-        self, component_repo: str, component_name: str
+        self,
+        component_repo: str,
+        component_name: str
     ) -> Any:
         """
         Load a diffusers component.
-
+        
         Args:
             component_repo: Repository identifier
             component_name: Name of the component
-
+            
         Returns:
             Loaded component
         """
@@ -1660,16 +1715,19 @@ class ModelMemoryManager:
             raise
 
     def _load_custom_component(
-        self, repo_id: str, category: str, component_name: str
+        self,
+        repo_id: str,
+        category: str,
+        component_name: str
     ) -> Any:
         """
         Load a custom component.
-
+        
         Args:
             repo_id: Repository identifier
             category: Component category
             component_name: Name of the component
-
+            
         Returns:
             Loaded component
         """
@@ -1692,7 +1750,7 @@ class ModelMemoryManager:
                 quantize_model_fp8(model)
 
             return model
-
+            
         except Exception as e:
             logger.error(f"Error loading custom component: {str(e)}")
             raise
@@ -1700,10 +1758,10 @@ class ModelMemoryManager:
     def _get_component_file_path(self, repo_id: str) -> str:
         """
         Get the file path for a component.
-
+        
         Args:
             repo_id: Repository identifier
-
+            
         Returns:
             Path to component file
         """
@@ -1711,7 +1769,8 @@ class ModelMemoryManager:
         weights_name = repo_id.split("/")[-1]
 
         model_folder = os.path.join(
-            self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
+            self.cache_dir,
+            repo_folder_name(repo_id=repo_folder, repo_type="model")
         )
 
         if not os.path.exists(model_folder):
