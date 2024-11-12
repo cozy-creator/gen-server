@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/hf-hub/hub"
@@ -23,8 +24,11 @@ var client = hub.DefaultClient()
 
 func DownloadEnabledModels(config *config.Config) error {
 	if config.EnabledModels == nil {
+		fmt.Println("To download enabled models, please specify them in config.yaml")
 		return nil
 	}
+
+	var wg sync.WaitGroup
 
 MainLoop:
 	for _, model := range config.EnabledModels {
@@ -32,7 +36,10 @@ MainLoop:
 			continue MainLoop
 		}
 
+		model := model  // create new variable for closure
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			err := download(model.Source, "")
 			if err != nil {
 				fmt.Println("Error downloading model:", err)
@@ -48,7 +55,11 @@ MainLoop:
 					continue ComponentLoop
 				}
 
+				// Create local copies for goroutine
+                name, component := name, component
+                wg.Add(1)
 				go func() {
+					defer wg.Done()
 					err := download(component.Source, name)
 					if err != nil {
 						fmt.Println("Error downloading component:", err)
@@ -60,6 +71,9 @@ MainLoop:
 		}
 	}
 
+	// Wait for all downloads to complete
+	wg.Wait()
+	
 	return nil
 }
 

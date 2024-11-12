@@ -236,6 +236,7 @@ func runServer(app *app.App) (*server.Server, error) {
 
 	errc := make(chan error, 1)
 	go func() {
+		fmt.Printf("Gen-Server Started on Port %v\n", app.Config().Port)
 		errc <- server.Start()
 	}()
 
