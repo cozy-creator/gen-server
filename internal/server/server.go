@@ -20,10 +20,8 @@ type Server struct {
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	r := gin.New()
-
-	// Set gin mode
 	gin.SetMode(getGinMode(cfg.Environment))
+	r := gin.New()
 
 	// Setup logger middleware
 	r.Use(logger.SetLogger(

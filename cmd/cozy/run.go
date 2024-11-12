@@ -218,7 +218,7 @@ func runWorkflowProcessor(app *app.App) error {
 }
 
 func downloadEnabledModels(ctx context.Context, cfg *config.Config) error {
-	if err := models.DownloadEnabledModels(cfg); err != nil {
+	if err := models.DownloadEnabledModels(ctx, cfg); err != nil {
 		return err
 	}
 

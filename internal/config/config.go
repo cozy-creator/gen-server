@@ -137,10 +137,11 @@ func InitConfig() error {
 	}
 
 	configFilePath := viper.GetString("config_file")
-	fmt.Println("config file path:", configFilePath)
 	if configFilePath == "" {
 		configFilePath = filepath.Join(cozyHome, "config.yaml")
 	}
+
+	fmt.Println("config file path:", configFilePath)
 
 	// Check if we should write config.example.yaml file
 	_, err = os.Stat(configFilePath)
