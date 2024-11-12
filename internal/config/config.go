@@ -125,13 +125,11 @@ func InitConfig() error {
 		configFilePath = filepath.Join(cozyHome, "config.yaml")
 	}
 
-	fmt.Println("config file path:", configFilePath)
-
 	// Check if we should write config.example.yaml file
 	_, err = os.Stat(configFilePath)
 	if err != nil && os.IsNotExist(err) {
 		configExample := filepath.Join(cozyHome, "config.example.yaml")
-		
+
 		// Check if config.example.yaml exists
 		_, exampleErr := os.Stat(configExample)
 		if os.IsNotExist(exampleErr) {

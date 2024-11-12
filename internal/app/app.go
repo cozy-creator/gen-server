@@ -26,6 +26,7 @@ type App struct {
 	Logger     *zap.Logger
 	JobsRepo   repository.IJobRepository
 	ImagesRepo repository.IImageRepository
+	APIKeyRepo repository.IAPIKeyRepository
 }
 
 type OptionFunc func(app *App)
@@ -82,6 +83,7 @@ func (app *App) InitializeDB() error {
 	app.db = db.GetDB()
 	app.JobsRepo = repository.NewJobRepository(app.db)
 	app.ImagesRepo = repository.NewImageRepository(app.db)
+	app.APIKeyRepo = repository.NewAPIKeyRepository(app.db)
 	return nil
 }
 

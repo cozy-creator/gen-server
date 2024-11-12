@@ -15,7 +15,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
-	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/vmihailenco/msgpack"
 
 	"github.com/google/uuid"
@@ -37,7 +36,6 @@ func receiveImage(requestId string, outputFormat string, app *app.App) (string, 
 	}
 
 	if bytes.Equal(outputData, []byte("END")) {
-		logger.Info("Received end message...")
 		mq.CloseTopic(generationTopic)
 		return "", "", nil
 	}
@@ -192,27 +190,6 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 		default:
 			url, _, err := receiveImage(params.ID, params.OutputFormat, app)
 			if err != nil {
-				if errors.Is(err, mq.ErrTopicClosed) {
-					if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, []byte("END")); err != nil {
-						fmt.Println("Error publishing end message to MQ: ", err)
-						return err
-					}
-
-					event := GenerationEvent{
-						Type: "status",
-						Data: GenerationStatusData{
-							JobID:  params.ID,
-							Status: StatusCompleted,
-						},
-					}
-
-					if err := publishEvent(params.ID, event, app); err != nil {
-						return err
-					}
-					callback(urls, index, params.Model, StatusCompleted)
-					return nil
-				}
-
 				statusEvent := GenerationEvent{
 					Type: "status",
 					Data: GenerationStatusData{
@@ -241,7 +218,35 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				return err
 			}
 
-			if url != "" {
+			if url == "" {
+				fmt.Println("gnot!!")
+				time.Sleep(time.Second)
+				if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusCompleted); err != nil {
+					return err
+				}
+
+				if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, []byte("END")); err != nil {
+					fmt.Println("Error publishing end message to MQ: ", err)
+					return err
+				}
+
+				event := GenerationEvent{
+					Type: "status",
+					Data: GenerationStatusData{
+						JobID:  params.ID,
+						Status: StatusCompleted,
+					},
+				}
+
+				if err := publishEvent(params.ID, event, app); err != nil {
+					return err
+				}
+
+				callback(urls, index, params.Model, StatusCompleted)
+				return nil
+			} else {
+				fmt.Println("got!!")
+				urls = append(urls, url)
 				imageData := models.Image{
 					ID:    uuid.Must(uuid.NewRandom()),
 					JobID: uuid.MustParse(params.ID),
@@ -268,17 +273,6 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				}
 			}
 
-			if url == "" {
-				time.Sleep(time.Second)
-				if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusCompleted); err != nil {
-					return err
-				}
-
-				callback(urls, index, params.Model, StatusCompleted)
-				return nil
-			}
-
-			urls = append(urls, url)
 			if len(urls) == cap(urls) {
 				imgUrls := append([]string(nil), urls...)
 				callback(imgUrls, index, params.Model, StatusInProgress)

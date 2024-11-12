@@ -11,6 +11,6 @@ type Image struct {
 	ID        uuid.UUID    `bun:",pk"`
 	Url       string       `bun:",notnull"`
 	JobID     uuid.UUID    `bun:",notnull"`
-	UpdatedAt bun.NullTime `bun:",nullzero"`
+	UpdatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 	CreatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 }

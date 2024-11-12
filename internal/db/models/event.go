@@ -22,5 +22,5 @@ type Event struct {
 	Type      EventType       `bun:",notnull"`
 	Data      json.RawMessage `bun:",type:jsonb,notnull"`
 	CreatedAt bun.NullTime    `bun:",nullzero,notnull,default:current_timestamp"`
-	UpdatedAt bun.NullTime    `bun:",nullzero,notnull"`
+	UpdatedAt bun.NullTime    `bun:",nullzero,notnull,default:current_timestamp"`
 }

@@ -11,6 +11,6 @@ type JobMetric struct {
 	ID            uuid.UUID    `bun:",pk"`
 	JobID         uuid.UUID    `bun:",notnull"`
 	InferenceTime float64      `bun:",notnull"`
-	UpdatedAt     bun.NullTime `bun:",nullzero,notnull"`
+	UpdatedAt     bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 	CreatedAt     bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 }
