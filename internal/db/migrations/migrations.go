@@ -1,11 +1,15 @@
 package migrations
 
-import "github.com/uptrace/bun/migrate"
+import (
+	"fmt"
+
+	"github.com/uptrace/bun/migrate"
+)
 
 var Migrations = migrate.NewMigrations()
 
 func init() {
 	if err := Migrations.DiscoverCaller(); err != nil {
-		panic(err)
+		fmt.Println("Error discovering caller: ", err)
 	}
 }
