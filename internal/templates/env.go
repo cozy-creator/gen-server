@@ -11,13 +11,11 @@ const envTemplate = `
 # In particular, generated images, videos, audio, and downloaded models will be stored in this folder.
 # Defaults to ~/.cozy-creator unless XDG_DATA_HOME is specified.
 # COZY_HOME=~/.cozy-creator
-# COZY_ASSETS_PATH=~/.cozy-creator/assets
-# COZY_MODELS_PATH=~/.cozy-creator/models
 # COZY_CONFIG_FILE=~/.cozy-creator/config.yaml
 
 # Where the gen-server will search for extra model-files (state-dictionaries
 # such as .safetensors), other than the MODELS_PATH.
-# COZY_AUX_MODELS_PATHS='["C:/git/ComfyUI/models"]'
+# COZY_AUX_MODELS_PATHS='["C:/Users/User/git/ComfyUI/models"]'
 
 # HTTP-location where the gen-server will be accessible from
 # COZY_HOST=localhost
@@ -32,7 +30,7 @@ const envTemplate = `
 ### Hugging Face Variables
 
 # Used in place of any hugging-face token stored locally
-HF_TOKEN=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
+# HF_TOKEN=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
 # HF_HUB_CACHE=~/.cache/huggingface/hub
 
 

@@ -1,0 +1,31 @@
+# This configuration file provides global settings for the gen-server.
+# Do not include sensitive information (tokens, keys) in a config.yaml file; place them
+# inside of the .env file and access them via os.environ.get(), or use k8s secrets.
+
+enabled_models:
+  playground2.5:
+    source: hf:playgroundai/playground-v2.5-1024px-aesthetic
+  flux.1-schnell:
+    source: hf:black-forest-labs/FLUX.1-schnell
+    components:
+      transformer:
+        source: hf:black-forest-labs/FLUX.1-schnell
+      text_encoder_2:
+        source: hf:black-forest-labs/FLUX.1-schnell
+    quantize: true
+    type: flux
+  flux.1-dev:
+    source: hf:black-forest-labs/FLUX.1-dev
+    components:
+      transformer:
+        source: hf:sayakpaul/flux.1-dev-nf4-with-bnb-integration
+  sdxl.base:
+    source: hf:stabilityai/stable-diffusion-xl-base-1.0
+  pony.v6:
+    type: sdxl
+    source: file:/workspace/.cozy-creator/models/pony_diffusion_v6.safetensors
+  openflux.1:
+    source: hf:ostris/OpenFLUX.1
+    custom_pipeline: pipeline_flux_with_cfg
+
+

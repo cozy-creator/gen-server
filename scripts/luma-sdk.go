@@ -38,7 +38,7 @@ type Keyframe struct {
 
 func NewLumaAI(authToken string) *LumaAI {
 	if authToken == "" {
-		authToken = os.Getenv("LUMAAI_API_KEY")
+		authToken = os.Getenv("LUMA_AI_API_KEY")
 	}
 	return &LumaAI{AuthToken: authToken}
 }

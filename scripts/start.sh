@@ -21,8 +21,7 @@ start_jupyter() {
                 --IdentityProvider.token=$JUPYTER_PASSWORD \
                 --FileContentsManager.delete_to_trash=False \
                 --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \
-                --ServerApp.root_dir='/app' \
-                --JupyterApp.runtime_dir="$JUPYTER_RUNTIME_DIR" &
+                --ServerApp.root_dir='/app' &
     echo "JupyterLab started"
 }
 
@@ -34,7 +33,7 @@ download_test_db() {
 setup_jupyter_runtime
 download_test_db
 
-cozy-server run --config-file /workspace/.cozy-creator/config.yaml  & # Start the Cozy server
+cozy-server run & # Start the Cozy server
 start_jupyter
 
 sleep infinity  # This will keep the container running

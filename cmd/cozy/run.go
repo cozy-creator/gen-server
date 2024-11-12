@@ -32,7 +32,7 @@ var runCmd = &cobra.Command{
 
 func initRunFlags() {
 	flags := runCmd.Flags()
-	flags.Int("port", 9009, "Port to run the server on")
+	flags.Int("port", 8881, "Port to run the server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
 	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
@@ -41,7 +41,6 @@ func initRunFlags() {
 	flags.String("aux-models-dirs", "", "Additional directories for model files")
 	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
 	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
-	flags.String("enabled-models", "", "Models to be downloaded and made available")
 
 	flags.String("db-driver", "sqlite3", "Database driver")
 	flags.String("db-dsn", ":memory:", "Database DSN (Connection URL or Path)")
@@ -56,9 +55,8 @@ func initRunFlags() {
 	flags.String("s3-public-url", "", "Public URL for S3 files")
 	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
 
-	flags.String("luma-ai-api-key", "", "Luma AI API key")
-
 	bindFlags()
+	bindEnvs()
 }
 
 func bindFlags() {
@@ -71,7 +69,6 @@ func bindFlags() {
 	viper.BindPFlag("environment", flags.Lookup("environment"))
 	viper.BindPFlag("models_path", flags.Lookup("models-path"))
 	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
-	viper.BindPFlag("enabled_models", flags.Lookup("enabled-models"))
 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 	viper.BindPFlag("aux_models_paths", flags.Lookup("aux-models-paths"))
 
@@ -85,11 +82,18 @@ func bindFlags() {
 	viper.BindPFlag("s3.region_name", flags.Lookup("s3-region-name"))
 	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
-	viper.BindPFlag("s3.public_url", flags.Lookup("s3-public-url"))
+	viper.BindPFlag("s3.vanity_url", flags.Lookup("s3-vanity-url"))
 	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
+}
 
-	// Luma AI
-	viper.BindPFlag("luma_ai.api_key", flags.Lookup("luma-ai-api-key"))
+func bindEnvs() {
+	// External API services
+	viper.BindEnv("openai.api_key", "OPENAI_API_KEY")
+	viper.BindEnv("replicate.api_key", "REPLICATE_API_KEY")
+	viper.BindEnv("luma.api_key", "LUMA_API_KEY")
+	viper.BindEnv("runway.api_key", "RUNWAY_API_KEY")
+	viper.BindEnv("bfl.api_key", "BFL_API_KEY")
+	viper.BindEnv("hf_token", "HF_TOKEN")
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
@@ -100,7 +104,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}()
 
 	var wg sync.WaitGroup
-	errc := make(chan error, 3)
+	errc := make(chan error, 4)
 	signalc := make(chan os.Signal, 1)
 
 	app, err := createNewApp()
@@ -112,7 +116,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 	cfg := app.Config()
 	ctx := app.Context()
 
-	wg.Add(2)
+	wg.Add(4)
 
 	server, err := runServer(app)
 	if err != nil {

@@ -87,18 +87,19 @@ def request_handler(context: RequestContext):
                 # Run the async command handler in a new event loop
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                response = loop.run_until_complete(command_handler.handle_command(json_data))
-                
+                response = loop.run_until_complete(
+                    command_handler.handle_command(json_data)
+                )
+
                 # Send response
                 response_bytes = json.dumps(response).encode()
                 size = struct.pack("!I", len(response_bytes))
                 context.send(size + response_bytes)
             except Exception as e:
                 logger.error(f"Error handling model command: {e}")
-                error_response = json.dumps({
-                    "status": "error",
-                    "error": str(e)
-                }).encode()
+                error_response = json.dumps(
+                    {"status": "error", "error": str(e)}
+                ).encode()
                 size = struct.pack("!I", len(error_response))
                 context.send(size + error_response)
         else:
@@ -110,19 +111,22 @@ def request_handler(context: RequestContext):
                 async for [model_id, images] in generate_images_non_io(json_data):
                     outputs = tensor_to_bytes(images)
                     model_id_bytes = model_id.encode("utf-8")
-                    model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+                    model_id_header = (
+                        struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+                    )
                     for output in outputs:
-                        total_size = struct.pack("!I", len(model_id_header) + len(output))
+                        total_size = struct.pack(
+                            "!I", len(model_id_header) + len(output)
+                        )
                         context.send(total_size + model_id_header + output)
 
             loop.run_until_complete(generate())
 
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON data: {e}")
-        error_response = json.dumps({
-            "status": "error",
-            "error": "Invalid JSON"
-        }).encode()
+        error_response = json.dumps(
+            {"status": "error", "error": "Invalid JSON"}
+        ).encode()
         size = struct.pack("!I", len(error_response))
         context.send(size + error_response)
 

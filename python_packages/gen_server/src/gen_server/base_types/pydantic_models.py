@@ -122,7 +122,7 @@ class S3Credentials(BaseModel):
         default=None, description="Folder within the S3 bucket"
     )
 
-    public_url: Optional[str] = Field(
+    vanity_url: Optional[str] = Field(
         default=None,
         description=(
             "Url where the S3 files can be publicly accessed from, example: https://storage.cozy.dev."

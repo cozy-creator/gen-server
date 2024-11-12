@@ -142,13 +142,13 @@ def get_web_dir() -> Path:
         raise FileNotFoundError("Neither primary nor secondary web root paths exist.")
 
 
-def get_s3_public_url() -> str:
+def get_s3_vanity_url() -> str:
     """
     Helper function; used to find the public S3 URL.
     """
     config = get_config()
-    if config.s3 and config.s3.public_url:
-        return config.s3.public_url
+    if config.s3 and config.s3.vanity_url:
+        return config.s3.vanity_url
     elif config.s3 and config.s3.endpoint_url:
         return config.s3.endpoint_url
     else:
