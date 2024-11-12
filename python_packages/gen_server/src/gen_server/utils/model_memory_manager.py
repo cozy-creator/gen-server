@@ -217,7 +217,7 @@ class ModelMemoryManager:
             ) / (1024**3)
             logger.debug(f"Available VRAM: {available_vram_gb:.2f} GB")
             return available_vram_gb
-        return 0
+        return 100
 
     def _can_load_to_ram(self, model_size: float) -> bool:
         """

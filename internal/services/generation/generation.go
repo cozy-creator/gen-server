@@ -29,6 +29,38 @@ const (
 	MaxWebhookAttempts = 3
 )
 
+type GenerationEventType = string
+
+const (
+	OutputType GenerationEventType = "output"
+	StatusType GenerationEventType = "status"
+	ErrorType  GenerationEventType = "error"
+)
+
+type GenerationEvent struct {
+	Type GenerationEventType `msgpack:"type"`
+	Data interface{}         `msgpack:"data"`
+}
+
+type GenerationOutputData struct {
+	Url       string `msgpack:"url"`
+	JobID     string `msgpack:"job_id"`
+	MimeType  string `msgpack:"mime_type"`
+	FileBytes []byte `msgpack:"file_bytes"`
+}
+
+type GenerationStatusData struct {
+	Status       string `msgpack:"status"`
+	JobID        string `msgpack:"job_id"`
+	ErrorMessage string `msgpack:"error_message"`
+}
+
+type GenerationErrorData struct {
+	ErrorType    string `msgpack:"error_type"`
+	ErrorMessage string `msgpack:"error_message"`
+	JobID        string `msgpack:"job_id"`
+}
+
 func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 	for {
 		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
