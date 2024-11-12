@@ -8,6 +8,16 @@ setup_jupyter_runtime() {
     mkdir -p "$JUPYTER_RUNTIME_DIR"
     chmod 700 "$JUPYTER_RUNTIME_DIR"
     export JUPYTER_RUNTIME_DIR="$JUPYTER_RUNTIME_DIR"  # Export so JupyterLab knows where to find it
+
+        # Static files directory
+    JUPYTER_PATH="/opt/venv/share/jupyter"
+    mkdir -p "$JUPYTER_PATH"
+    export JUPYTER_PATH="$JUPYTER_PATH"
+    
+    # Data directory
+    JUPYTER_DATA_DIR="/app/.local/share/jupyter"
+    mkdir -p "$JUPYTER_DATA_DIR"
+    export JUPYTER_DATA_DIR="$JUPYTER_DATA_DIR"
 }
 
 # Start JupyterLab

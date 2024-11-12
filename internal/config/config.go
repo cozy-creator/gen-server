@@ -136,28 +136,34 @@ func InitConfig() error {
 		}
 	}
 
-	configFile := viper.GetString("config_file")
-	fmt.Println("config file", configFile)
-	if configFile == "" {
-		configFile = filepath.Join(cozyHome, "config.yaml")
+	configFilePath := viper.GetString("config_file")
+	fmt.Println("config file path:", configFilePath)
+	if configFilePath == "" {
+		configFilePath = filepath.Join(cozyHome, "config.yaml")
 	}
 
-	fmt.Println("config file", configFile)
-	if _, err := os.Stat(configFile); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to stat config.yaml file: %w", err)
-		}
-
-		if err := templates.WriteConfig(configFile); err != nil {
-			return fmt.Errorf("failed to create config.yaml file: %w", err)
+	// Check if we should write config.example.yaml file
+	_, err = os.Stat(configFilePath)
+	if err != nil && os.IsNotExist(err) {
+		configExample := filepath.Join(cozyHome, "config.example.yaml")
+		
+		// Check if config.example.yaml exists
+		_, exampleErr := os.Stat(configExample)
+		if os.IsNotExist(exampleErr) {
+			// Create config.example.yaml
+			if err := templates.WriteConfig(configExample); err != nil {
+				return fmt.Errorf("failed to create config.example.yaml file: %w", err)
+			}
+		} else if exampleErr != nil {
+			return fmt.Errorf("failed to stat config.example.yaml file: %w", exampleErr)
 		}
 	}
 
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix(cozyPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
-	if configFile != "" {
-		viper.SetConfigFile(configFile)
+	if configFilePath != "" {
+		viper.SetConfigFile(configFilePath)
 	} else {
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("config")

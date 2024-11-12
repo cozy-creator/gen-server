@@ -34,7 +34,7 @@ func initRunFlags() {
 	flags := runCmd.Flags()
 	flags.Int("port", 8881, "Port to run the server on")
 	flags.String("host", "localhost", "Host to run the server on")
-	flags.Int("tcp-port", 9008, "Port to run the tcp server on")
+	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("environment", "development", "Environment configuration")
 	flags.String("models-dir", "", "Directory for models (default: {home}/models)")

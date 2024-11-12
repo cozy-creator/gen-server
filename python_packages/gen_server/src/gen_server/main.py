@@ -135,7 +135,7 @@ def run_tcp_server(config: RunCommandConfig):
     server = TCPServer(port=config.port, host=config.host)
 
     server.set_handler(request_handler)
-    server.start(lambda addr, port: print(f"Server started on {addr}:{port}"))
+    # server.start(lambda addr, port: print(f"Python TCP Server started on {addr}:{port}"))
 
 
 def startup_extensions():

@@ -31,6 +31,13 @@ The intention is for this to be runnable locally AND in the cloud. Right now I'm
 The plan is to release this all under a non-commercial usage license, and charge a licensing fee for those who want to use it commercially. I think this is a good balance between making the source-code available, allowing consumers to run locally, allowing devs to host their own instances (and not just rely on an API!), and yet still having a profitable business model that will make development sustainable.
 
 
+### Configuration and Environment Variables
+
+(TO DO)
+
+It's recommended to use the config.yaml file as a config-map if you're deployingthis in a Kubernetes environment.
+
+
 ### Building Docker Container
 
 ```sh
