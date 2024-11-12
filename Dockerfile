@@ -80,8 +80,8 @@ RUN echo "Building for architecture: $GOARCH and OS: $GOOS" && \
 
 # Stage 3: Build Python environment and final image
 # FROM python:3.11.9-slim
-# FROM nvidia/cuda:12.4.0-base-ubuntu22.04 AS runtime
-FROM nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04 AS runtime
+# FROM nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04 AS runtime
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runtime
 
 WORKDIR /app
 

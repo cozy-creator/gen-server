@@ -45,6 +45,7 @@ docker run -d \
     --name gen-server \
     --gpus all \
     -v ~/.cozy-creator:~/.cozy-creator \
+    --env-file .env.local \
     -p 8881:8881 \
     -p 8888:8888 \
     cozycreator/gen-server:0.3.0

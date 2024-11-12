@@ -33,7 +33,7 @@ download_test_db() {
 setup_jupyter_runtime
 download_test_db
 
-cozy-server run --config-file "${COZY_HOME}/config.yaml"  & # Start the Cozy server
+cozy-server run & # Start the Cozy server
 start_jupyter
 
 sleep infinity  # This will keep the container running
