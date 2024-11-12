@@ -155,8 +155,7 @@ async def load_and_warm_up_models():
     warmup_models = model_memory_manager.get_warmup_models()
 
     logger.info(f"Starting to load and warm up {len(warmup_models)} models")
-
-    print(f"Warmup models: {warmup_models}")
+    logger.info(f"Warmup models {warmup_models}")
 
     for model_id in model_ids:
         if model_id in warmup_models:
@@ -177,7 +176,7 @@ async def main_async():
     startup_extensions()
 
     # Verify and download models
-    # await verify_and_download_models()
+    await verify_and_download_models()
 
     # Load and warm up models
     await load_and_warm_up_models()

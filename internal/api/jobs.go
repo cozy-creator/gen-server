@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/db"
+	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/internal/types"
@@ -42,37 +41,37 @@ type JobWithOutput struct {
 	CompletedAt *time.Time             `json:"completed_at"`
 }
 
-func GenerateImageSync(c *gin.Context) {
-	data := &types.GenerateParams{}
-	if err := c.BindJSON(data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-		return
-	}
+// func GenerateImageSync(c *gin.Context) {
+// 	data := &types.GenerateParams{}
+// 	if err := c.BindJSON(data); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+// 		return
+// 	}
 
-	app := c.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(*data, app.MQ())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
+// 	app := c.MustGet("app").(*app.App)
+// 	reqParams, err := generation.NewRequest(*data, app.MQ())
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+// 		return
+// 	}
 
-	c.Stream(func(w io.Writer) bool {
-		c.Header("Content-Type", "application/json")
-		output, err := generation.GenerateImageSync(app, reqParams)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
-			return false
-		}
+// 	c.Stream(func(w io.Writer) bool {
+// 		c.Header("Content-Type", "application/json")
+// 		output, err := generation.GenerateImageSync(app, reqParams)
+// 		if err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
+// 			return false
+// 		}
 
-		for url := range output {
-			urlc, _ := json.Marshal(url)
-			c.Writer.Write(urlc)
-		}
+// 		for url := range output {
+// 			urlc, _ := json.Marshal(url)
+// 			c.Writer.Write(urlc)
+// 		}
 
-		c.Writer.Flush()
-		return false
-	})
-}
+// 		c.Writer.Flush()
+// 		return false
+// 	})
+// }
 
 func SubmitRequest(c *gin.Context) {
 	var params = types.GenerateParams{}
@@ -80,13 +79,6 @@ func SubmitRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return
 	}
-
-	// if err := c.BindJSON(&params); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-	// 	return
-	// }
-
-	fmt.Println("submit params: ", params)
 
 	if params.WebhookUrl == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "webhook_url is required"})
@@ -105,13 +97,13 @@ func SubmitRequest(c *gin.Context) {
 		fmt.Println("Error marshaling params: ", err)
 	}
 
-	createData := db.CreateJobParams{
+	job := models.Job{
 		Input:  input,
+		Status: models.JobStatusQueued,
 		ID:     uuid.MustParse(reqParams.ID),
-		Status: db.JobStatusEnumINQUEUE,
 	}
 
-	if _, err := app.JobsRepo.Create(app.Context(), createData); err != nil {
+	if _, err := app.JobsRepo.Create(app.Context(), &job); err != nil {
 		fmt.Println("Error creating job: ", err)
 	}
 
@@ -124,76 +116,71 @@ func SubmitRequest(c *gin.Context) {
 }
 
 func GetJob(c *gin.Context) {
-	app := c.MustGet("app").(*app.App)
-
-	id := uuid.MustParse(c.Param("id"))
-	job, err := app.JobsRepo.GetWithImages(app.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	var input map[string]interface{}
-	if err := json.Unmarshal(job.Input, &input); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	var images []map[string]interface{}
-	if err := json.Unmarshal(job.Images.([]byte), &images); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	var output JobOutput
-	for _, image := range images {
-		output.Urls = append(output.Urls, image["url"].(string))
-	}
-
-	jsonJob := JobWithOutput{
-		Input:       input,
-		Output:      output,
-		ID:          job.ID.String(),
-		Status:      string(job.Status),
-		CreatedAt:   job.CreatedAt.Time,
-		CompletedAt: &job.CompletedAt.Time,
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"data": jsonJob,
-	})
-}
-
-func GetJobStatus(c *gin.Context) {
 	id := c.Param("id")
-	app := c.MustGet("app").(*app.App)
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+		return
+	}
 
-	job, err := app.JobsRepo.Get(app.Context(), id)
+	app := c.MustGet("app").(*app.App)
+	job, err := app.JobsRepo.GetByID(app.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": job.Status,
-	})
-}
-
-func StreamJob(c *gin.Context) {
-	app := c.MustGet("app").(*app.App)
-	fmt.Println("Streaming job: ", c.Param("id"))
-
-	id := uuid.MustParse(c.Param("id"))
-	// job, err := app.JobsRepo.Get(app.Context(), id)
-	// if err != nil {
+	// var input map[string]interface{}
+	// if err := json.Unmarshal(job.Input, &input); err != nil {
 	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 	// 	return
 	// }
 
-	// if job == nil {
-	// 	c.JSON(http.StatusNotFound, gin.H{"message": "job not found"})
+	// var images []map[string]interface{}
+	// if err := json.Unmarshal(job.Images.([]byte), &images); err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 	// 	return
 	// }
+
+	// var output JobOutput
+	// for _, image := range images {
+	// 	output.Urls = append(output.Urls, image["url"].(string))
+	// }
+
+	// jsonJob := JobWithOutput{
+	// 	Input:       input,
+	// 	Output:      output,
+	// 	ID:          job.ID.String(),
+	// 	Status:      string(job.Status),
+	// 	CreatedAt:   job.CreatedAt.Time,
+	// 	CompletedAt: &job.CompletedAt.Time,
+	// }
+
+	c.JSON(http.StatusOK, gin.H{"data": job})
+}
+
+func GetJobStatus(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+		return
+	}
+
+	app := c.MustGet("app").(*app.App)
+	job, err := app.JobsRepo.GetByID(app.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": job.Status})
+}
+
+func StreamJob(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+		return
+	}
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -201,12 +188,13 @@ func StreamJob(c *gin.Context) {
 	c.Writer.WriteHeader(http.StatusOK)
 	c.Writer.Flush()
 
+	app := c.MustGet("app").(*app.App)
 	for {
 		select {
 		case <-c.Request.Context().Done():
 			return
 		default:
-			topic := config.DefaultStreamsTopic + "/" + id.String()
+			topic := config.DefaultStreamsTopic + "/" + id
 			message, err := app.MQ().Receive(app.Context(), topic)
 			if err != nil {
 				if errors.Is(err, mq.ErrTopicClosed) || errors.Is(err, mq.ErrQueueClosed) {
@@ -258,13 +246,13 @@ func SubmitAndStreamRequest(c *gin.Context) {
 		fmt.Println("Error marshaling params: ", err)
 	}
 
-	createData := db.CreateJobParams{
+	job := models.Job{
 		Input:  input,
+		Status: models.JobStatusQueued,
 		ID:     uuid.MustParse(reqParams.ID),
-		Status: db.JobStatusEnumINQUEUE,
 	}
 
-	if _, err := app.JobsRepo.Create(app.Context(), createData); err != nil {
+	if _, err := app.JobsRepo.Create(app.Context(), &job); err != nil {
 		fmt.Println("Error creating job: ", err)
 	}
 

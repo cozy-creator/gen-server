@@ -2,7 +2,6 @@ package mq
 
 import (
 	"context"
-	"fmt"
 	"sync"
 )
 
@@ -47,12 +46,10 @@ func (q *InMemoryMQ) Receive(ctx context.Context, topic string) (interface{}, er
 			return nil, ErrQueueClosed
 		case data, ok := <-ch:
 			if !ok {
-				fmt.Println("Message not found: ", topic)
 				q.topics.Delete(topic)
 				return nil, ErrTopicClosed
 			}
 
-			fmt.Println("Message received: ", topic, len(data))
 			return data, nil
 		}
 	}
