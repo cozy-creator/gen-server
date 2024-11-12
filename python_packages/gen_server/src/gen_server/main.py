@@ -162,7 +162,7 @@ async def load_and_warm_up_models():
         if model_id in warmup_models:
             try:
                 logger.info(f"Loading and warming up model: {model_id}")
-                await model_memory_manager.load(model_id, None)
+                # await model_memory_manager.load(model_id, None)
                 await model_memory_manager.warm_up_pipeline(model_id)
             except Exception as e:
                 logger.error(f"Error loading or warming up model {model_id}: {e}")

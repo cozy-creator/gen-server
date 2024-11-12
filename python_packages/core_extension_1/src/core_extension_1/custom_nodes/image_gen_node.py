@@ -209,8 +209,9 @@ class ImageGenNode(CustomNode):
             model_config = self.config_manager.get_model_config(model_id, class_name)
 
             # Already handled by the method
-            self.handle_lora(pipeline, lora_info)
-            print("DONE HANDLING LORA")
+            if lora_info:
+                self.handle_lora(pipeline, lora_info)
+                print("DONE HANDLING LORA")
 
             controlnet_inputs = []
             if controlnet_model_ids:
@@ -252,20 +253,12 @@ class ImageGenNode(CustomNode):
                 print("DONE SETTING UP IP ADAPTER")
 
 
-            # Apply optimizations
-            # force_full_optimization = num_images > 1  
-            # self.model_memory_manager.apply_optimizations(pipeline, model_id, force_full_optimization)
-            # print(f"{'Full' if force_full_optimization else 'Standard'} optimizations applied")
-
-
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
             gen_params = {
                 "prompt": positive_prompt,
                 "width": width,
                 "height": height,
-                # "num_images_per_prompt": num_images,
-                # "num_inference_steps": 5,
                 "num_inference_steps": model_config["num_inference_steps"],
                 "generator": torch.Generator().manual_seed(random_seed)
                 if random_seed is not None
@@ -274,7 +267,6 @@ class ImageGenNode(CustomNode):
             }
 
             if isinstance(pipeline, FluxPipeline):
-                # gen_params["guidance_scale"] = 0.0
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
             else:
                 if model_id != "playground2.5":
@@ -288,8 +280,6 @@ class ImageGenNode(CustomNode):
 
             if ip_adapter_embeds is not None:
                 gen_params["ip_adapter_image_embeds"] = ip_adapter_embeds
-
-            # pipeline.enable_model_cpu_offload()
 
             # Initialize an empty list to store the image tensors
             image_tensors = []
