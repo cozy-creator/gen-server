@@ -19,6 +19,7 @@ dependencies = [
     "aiohttp_cors",
     "aioshutil",
     "aiohttp_middlewares",
+    "backoff",
     "blake3",
     "einops",
     "grpcio",

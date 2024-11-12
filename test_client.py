@@ -107,7 +107,7 @@ async def main():
     
     async for image in client.receive_response():
         image_count += 1
-        # Include timestamp and prompt in filename (shortened prompt to avoid too long filenames)
+        # Use timestamp and prompt in filename
         prompt_slug = request_data["positive_prompt"][:30].replace(" ", "_").replace("/", "_")
         output_path = os.path.join(
             output_dir, 

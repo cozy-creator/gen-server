@@ -17,6 +17,9 @@ from ..config import get_config
 from ..utils.utils import serialize_config
 import hashlib
 import time
+import re
+from urllib.parse import urlparse, parse_qs, unquote
+import backoff
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +34,9 @@ class ModelSource:
         elif "civitai.com" in source_str:
             self.type = "civitai"
             self.location = source_str
+        elif source_str.startswith("file:"):
+            self.type = "file"
+            self.location = source_str[5:]
         elif source_str.startswith(("http://", "https://")):
             self.type = "direct"
             self.location = source_str
@@ -44,6 +50,9 @@ class ModelManager:
         self.base_cache_dir = cache_dir or os.path.expanduser("~/.cache")
         self.cozy_cache_dir = os.path.join(self.base_cache_dir, "cozy-creator", "models")
         self.session: Optional[aiohttp.ClientSession] = None
+
+        config = serialize_config(get_config())
+        self.civitai_api_key = config["civitai_api_key"]
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -81,9 +90,58 @@ class ModelManager:
                 subfolder = "/".join(parts[2:])
 
         return repo_id, subfolder, filename
+    
+    async def _get_civitai_filename(self, url: str) -> Optional[str]:
+        """Extract original filename from Civitai redirect response"""
+        try:
+            headers = {}
+            if self.civitai_api_key:
+                headers["Authorization"] = f"Bearer {self.civitai_api_key}"
+
+            need_cleanup = False
+            if not self.session:
+                self.session = aiohttp.ClientSession()
+                need_cleanup = True
+
+            try:
+                async with self.session.get(url, headers=headers, allow_redirects=False) as response:
+                    if response.status in (301, 302, 307):
+                        location = response.headers.get('location')
+                        if location:
+                            # Parse the query parameters from the redirect URL
+                            parsed = urlparse(location)
+                            query_params = parse_qs(parsed.query)
+                            
+                            # Look for response-content-disposition parameter
+                            content_disp = query_params.get('response-content-disposition', [None])[0]
+                            if content_disp:
+                                # Extract filename from content disposition
+                                match = re.search(r'filename="([^"]+)"', content_disp)
+                                if match:
+                                    return unquote(match.group(1))
+                            
+                            # Fallback to path if no content disposition
+                            path = parsed.path
+                            if path:
+                                return os.path.basename(path)
+                
+                return None
+            finally:
+                # Clean up the session if we created it
+                if need_cleanup and self.session:
+                    await self.session.close()
+                    self.session = None
+                    
+        except Exception as e:
+            logger.error(f"Error getting Civitai filename: {e}")
+            # Make sure to clean up session on error if we created it
+            if 'need_cleanup' in locals() and need_cleanup and self.session:
+                await self.session.close()
+                self.session = None
+            return None
 
     async def is_downloaded(self, model_id: str) -> tuple[bool, Optional[str]]:
-        """Check if a model is downloaded, handling all source types"""
+        """Check if a model is downloaded, handling all source types including Civitai filename variants"""
         try:
             config = serialize_config(get_config())
             model_info = config["enabled_models"].get(model_id)
@@ -93,17 +151,60 @@ class ModelManager:
 
             source = ModelSource(model_info["source"])
 
-            # Check main source
+            # Handle local files - just check if they exist
+            if source.type == "file":
+                exists = os.path.exists(source.location)
+                if not exists:
+                    logger.error(f"Local file not found: {source.location}")
+                return exists, None
+
+            # Handle HuggingFace models as before
             if source.type == "huggingface":
                 is_downloaded, variant = self._check_repo_downloaded(source.location)
                 print(f"Repo {source.location} is downloaded: {is_downloaded}, variant: {variant}")
                 return is_downloaded, variant
+            
+            # Special handling for Civitai models
+            elif source.type == "civitai":
+                # First check the default numeric ID path
+                default_path = await self._get_cache_path(model_id, source)
+                if self._check_file_downloaded(default_path):
+                    return True, None
+                
+                # If not found, try to get the original filename
+                if not self.session:
+                    self.session = aiohttp.ClientSession()
+                    need_cleanup = True
+                else:
+                    need_cleanup = False
+
+                try:
+                    original_filename = await self._get_civitai_filename(source.location)
+                    if original_filename:
+                        dir_path = os.path.dirname(default_path)
+                        alternate_path = os.path.join(dir_path, original_filename)
+                        if self._check_file_downloaded(alternate_path):
+                            return True, None
+                finally:
+                    if need_cleanup and self.session:
+                        await self.session.close()
+                        self.session = None
+
+                return False, None
+            
+            # Handle direct downloads
             else:
-                return self._check_file_downloaded(self._get_cache_path(model_id, source)), None
+                cache_path = await self._get_cache_path(model_id, source)
+                return self._check_file_downloaded(cache_path), None
 
         except Exception as e:
             logger.error(f"Error checking download status for {model_id}: {e}")
             return False, None
+        
+    def _get_model_directory(self, model_id: str, url_hash: str) -> str:
+        """Get the directory path for a model"""
+        safe_name = model_id.replace('/', '-')
+        return os.path.join(self.cozy_cache_dir, f"{safe_name}--{url_hash}")
 
     async def download_model(self, model_id: str, source: ModelSource):
         """Download a model from any source"""
@@ -118,14 +219,21 @@ class ModelManager:
             return await self._download_direct(model_id, source.location)
 
     async def _download_civitai(self, model_id: str, url: str):
-        """Handle Civitai-specific download logic"""
+        """Handle Civitai-specific download logic with proper filename handling"""
+        if not self.session:
+            raise RuntimeError("Session not initialized. Use async with context.")
+
         # Convert to API URL if needed
         if "/api/download/" not in url:
             model_path = urlparse(url).path
             model_number = model_path.split("/models/")[1].split("/")[0]
             api_url = f"https://civitai.com/api/v1/models/{model_number}"
-            
-            async with self.session.get(api_url) as response:
+
+            headers = {}
+            if self.civitai_api_key:
+                headers["Authorization"] = f"Bearer {self.civitai_api_key}"
+
+            async with self.session.get(api_url, headers=headers) as response:
                 if response.status != 200:
                     raise Exception(f"Failed to get Civitai model info: {response.status}")
                 data = await response.json()
@@ -137,75 +245,144 @@ class ModelManager:
         else:
             download_url = url
 
-        await self._download_direct(model_id, download_url)
+        # Get original filename from redirect
+        original_filename = await self._get_civitai_filename(download_url)
+        if original_filename:
+            # Update the cache path with the original filename
+            dest_path = await self._get_cache_path(model_id, ModelSource(download_url))
+            if original_filename != os.path.basename(dest_path):
+                dir_path = os.path.dirname(dest_path)
+                dest_path = os.path.join(dir_path, original_filename)
+        
+        # Download with the correct filename
+        await self._download_direct(model_id, download_url, dest_path)
 
-    async def _download_direct(self, model_id: str, url: str):
-        """Download from direct URL with progress bar"""
-        dest_path = self._get_cache_path(model_id, ModelSource(url))
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientError, asyncio.TimeoutError),
+        max_tries=3
+    )
+    async def _download_direct(self, model_id: str, url: str, dest_path: Optional[str] = None):
+        """Download from direct URL with progress bar and retry logic"""
+        if dest_path is None:
+            dest_path = await self._get_cache_path(model_id, ModelSource(url))
+            
         temp_path = dest_path + '.tmp'
         
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
-        async with self.session.get(url) as response:
-            if response.status != 200:
-                raise Exception(f"Download failed with status {response.status}")
+        headers = {}
+        if self.civitai_api_key:
+            headers["Authorization"] = f"Bearer {self.civitai_api_key}"
 
-            total_size = int(response.headers.get('content-length', 0))
-            
-            with tqdm(total=total_size, unit='iB', unit_scale=True) as pbar:
-                try:
-                    with open(temp_path, 'wb') as f:
-                        async for chunk in response.content.iter_chunked(8192):
-                            f.write(chunk)
-                            pbar.update(len(chunk))
+        timeout = aiohttp.ClientTimeout(total=None, connect=60, sock_read=60)
+        
+        try:
+            async with self.session.get(url, headers=headers, timeout=timeout) as response:
+                if response.status != 200:
+                    raise Exception(f"Download failed with status {response.status}")
 
-                    # Verify download
-                    if await self._verify_file(temp_path):
-                        os.rename(temp_path, dest_path)
-                    else:
-                        raise Exception("File verification failed")
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+                last_progress_update = time.time()
+                stall_timer = 0
+                
+                with tqdm(total=total_size, unit='iB', unit_scale=True) as pbar:
+                    try:
+                        with open(temp_path, 'wb') as f:
+                            async for chunk in response.content.iter_chunked(8192):
+                                if chunk:  # filter out keep-alive chunks
+                                    f.write(chunk)
+                                    downloaded_size += len(chunk)
+                                    pbar.update(len(chunk))
+                                    
+                                    # Check for download stalls
+                                    current_time = time.time()
+                                    if current_time - last_progress_update > 30:  # 30 seconds without progress
+                                        stall_timer += current_time - last_progress_update
+                                        if stall_timer > 120:  # 2 minutes total stall time
+                                            raise Exception("Download stalled for too long")
+                                    else:
+                                        stall_timer = 0
+                                        last_progress_update = current_time
 
-                except Exception as e:
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                    raise e
+                        # Verify downloaded size
+                        if total_size > 0 and downloaded_size != total_size:
+                            raise Exception(f"Download incomplete. Expected {total_size} bytes, got {downloaded_size} bytes")
+
+                        # Verify file integrity
+                        if await self._verify_file(temp_path):
+                            os.rename(temp_path, dest_path)
+                            logger.info(f"Downloaded and saved as: {os.path.basename(dest_path)}")
+                        else:
+                            raise Exception("File verification failed")
+
+                    except Exception as e:
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
+                        raise Exception(f"Download failed: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error downloading {url}: {str(e)}")
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise
 
     async def _verify_file(self, path: str) -> bool:
-        """Verify downloaded file integrity"""
-        if not os.path.exists(path):
-            print(f"File {path} does not exist")
+        """Verify downloaded file integrity with more thorough checks"""
+        try:
+            if not os.path.exists(path):
+                logger.error(f"File {path} does not exist")
+                return False
+
+            # Size check
+            file_size = os.path.getsize(path)
+            if file_size < 1024 * 1024:  # 1MB minimum
+                logger.error(f"File {path} is too small: {file_size} bytes")
+                return False
+
+            # Extension check
+            check_path = path[:-4] if path.endswith('.tmp') else path
+            valid_extensions = {'.safetensors', '.ckpt', '.pt', '.bin'}
+            if not any(check_path.endswith(ext) for ext in valid_extensions):
+                logger.error(f"File {check_path} has invalid extension")
+                return False
+
+            # Try to open the file to ensure it's not corrupted
+            with open(path, 'rb') as f:
+                f.read(1024 * 1024)
+                f.seek(-1024 * 1024, 2)
+                f.read(1024 * 1024)
+
+            logger.info(f"File {path} passed all verification checks")
+            return True
+            
+        except Exception as e:
+            logger.error(f"File verification failed: {str(e)}")
             return False
 
-        # Size check
-        if os.path.getsize(path) < 1024 * 1024:  # 1MB minimum
-            print(f"File {path} is too small")
-            return False
-
-        # Extension check
-        valid_extensions = {'.safetensors', '.ckpt', '.pt', '.bin'}
-        if not any(path.endswith(ext) for ext in valid_extensions):
-            print(f"File {path} has invalid extension")
-            return False
-
-        print(f"File {path} is valid")
-        return True
-
-    def _get_cache_path(self, model_id: str, source: ModelSource) -> str:
+    async def _get_cache_path(self, model_id: str, source: ModelSource) -> str:
         """Get the cache path for a model"""
         if source.type == "huggingface":
             return os.path.join(HF_HUB_CACHE, 
-                              repo_folder_name(source.location, "model"))
+                            repo_folder_name(source.location, "model"))
 
         # For non-HF models
         safe_name = model_id.replace('/', '-')
         url_hash = hashlib.sha256(source.location.encode()).hexdigest()[:8]
-        
 
         # Create model directory with hash
         model_dir = os.path.join(self.cozy_cache_dir, f"{safe_name}--{url_hash}")
         os.makedirs(model_dir, exist_ok=True)
 
-        # Get filename from URL, fallback to safe name if none
+        if source.type == "civitai":
+            # Try to get original filename from Civitai
+            print(f"Getting Civitai filename for {source.location}")
+            original_filename = await self._get_civitai_filename(source.location)
+            if original_filename:
+                return os.path.join(model_dir, original_filename)
+
+        # Fallback for direct downloads or if couldn't get Civitai filename
         url_path = urlparse(source.location).path
         filename = os.path.basename(url_path) if url_path else f"{safe_name}.safetensors"
         
@@ -221,7 +398,6 @@ class ModelManager:
             self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
         )
 
-        print(f"Storage Folder: {storage_folder}")
         if not os.path.exists(storage_folder):
             return False, None
 
@@ -243,7 +419,6 @@ class ModelManager:
         if os.path.exists(model_index_path):
             with open(model_index_path, "r") as f:
                 model_index = json.load(f)
-                print(model_index)
                 required_folders = {
                     k
                     for k, v in model_index.items()
@@ -392,23 +567,28 @@ class ModelManager:
     #     return os.path.exists(full_path) and not full_path.endswith(".incomplete")
 
     def _check_file_downloaded(self, path: str) -> bool:
-            """Check if a file exists and is complete in the cache"""
-            if not os.path.exists(path):
-                print(f"File {path} does not exist")
+        """Check if a file exists and is complete in the cache"""
+        # First check if the exact path exists
+        if os.path.exists(path):
+            # Check for temporary or incomplete markers
+            if os.path.exists(f"{path}.tmp") or os.path.exists(f"{path}.incomplete"):
+                print(f"Found incomplete markers for {path}")
                 return False
-
-            # Check for temporary file
-            if os.path.exists(f"{path}.tmp"):
-                print(f"File {path}.tmp exists")
-                return False
-
-            # Check for .incomplete file (similar to HF's approach)
-            if os.path.exists(f"{path}.incomplete"):
-                print(f"File {path}.incomplete exists")
-                return False
-
-            print(f"File {path} is valid")
+            print(f"Found complete file at {path}")
             return True
+
+        # If path doesn't exist, check the directory for any valid model files
+        dir_path = os.path.dirname(path)
+        if os.path.exists(dir_path):
+            for file in os.listdir(dir_path):
+                file_path = os.path.join(dir_path, file)
+                if file.endswith(('.safetensors', '.ckpt', '.pt', '.bin')):
+                    if not os.path.exists(f"{file_path}.tmp") and not os.path.exists(f"{file_path}.incomplete"):
+                        print(f"Found alternative model file at {file_path}")
+                        return True
+
+        print(f"No valid model files found in {dir_path}")
+        return False
 
 
     def list(self) -> List[str]:

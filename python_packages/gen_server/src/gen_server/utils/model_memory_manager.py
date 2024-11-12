@@ -25,10 +25,13 @@ from ..globals import (
     get_hf_model_manager,
     get_architectures,
     get_available_torch_device,
+    get_model_downloader,
 )
+from .model_downloader import ModelSource
 from ..utils.load_models import load_state_dict_from_file
 from ..utils.utils import serialize_config
 from ..utils.quantize_models import quantize_model_fp8
+
 # from OmniGen import OmniGenPipeline
 
 # Configure logging
@@ -46,7 +49,7 @@ class GPUEnum(Enum):
     VERY_HIGH = 30
 
 # Constants
-VRAM_SAFETY_MARGIN_GB = 4.0
+VRAM_SAFETY_MARGIN_GB = 7.0
 RAM_SAFETY_MARGIN_GB = 4.0
 VRAM_THRESHOLD = 1.4
 
@@ -66,6 +69,7 @@ PIPELINE_MAPPING = {
     "sdxl": StableDiffusionXLPipeline,
     "sd": StableDiffusionPipeline,
     "flux": FluxPipeline,
+    "sd1.5": StableDiffusionPipeline,
 }
 
 class LRUCache:
@@ -161,6 +165,7 @@ class ModelMemoryManager:
         self.should_quantize: bool = False
         
         # Managers and caches
+        self.model_downloader = get_model_downloader()
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.lru_cache = LRUCache()
@@ -442,9 +447,11 @@ class ModelMemoryManager:
             if not model_config:
                 logger.error(f"Model {model_id} not found in configuration")
                 return None
+            
+            
 
             # Prepare memory and determine load location
-            estimated_size = self._get_model_size(model_config)
+            estimated_size = await self._get_model_size(model_config, model_id)
             load_location = self._determine_load_location(estimated_size)
 
             if load_location == "none":
@@ -497,7 +504,7 @@ class ModelMemoryManager:
 
         try:
             if prefix == "hf":
-                is_downloaded, variant = self.hf_model_manager.is_downloaded(model_id)
+                is_downloaded, variant = await self.model_downloader.is_downloaded(model_id)
                 if not is_downloaded:
                     logger.info(f"Model {model_id} not downloaded")
                     return None
@@ -507,6 +514,24 @@ class ModelMemoryManager:
             elif prefix in ["file", "ct"]:
                 return await self.load_single_file_model(
                     model_id, path, prefix, gpu, type
+                )
+            elif source.startswith(("http://", "https://")):
+                # Handle Civitai/direct download models
+                source_obj = ModelSource(source)  # Create ModelSource object
+                is_downloaded = await self.model_downloader.is_downloaded(model_id)
+                if not is_downloaded:
+                    logger.info(f"Model {model_id} not downloaded")
+                    return None
+                
+                # Get the cached path from model manager with ModelSource
+                cached_path = await self.model_downloader._get_cache_path(model_id, source_obj)
+                if not os.path.exists(cached_path):
+                    logger.error(f"Cached model file not found at {cached_path}")
+                    return None
+                    
+                # Load as single file model
+                return await self.load_single_file_model(
+                    model_id, cached_path, "file", gpu, type
                 )
             else:
                 logger.error(f"Unsupported model source prefix: {prefix}")
@@ -1003,10 +1028,16 @@ class ModelMemoryManager:
             return None
 
         try:
-            model_path = self._get_model_path(path, prefix)
-            if not os.path.exists(model_path):
-                logger.error(f"Model file not found: {model_path}")
-                return None
+            print(f"Model path: {path}")
+            if prefix != "file":
+                model_path = self._get_model_path(path, prefix)
+                if not os.path.exists(model_path):
+                    logger.error(f"Model file not found: {model_path}")
+                    return None
+            else:
+                model_path = path
+            
+            
 
             pipeline = await self._load_pipeline_from_file(
                 pipeline_class, model_path, model_id, type
@@ -1463,22 +1494,60 @@ class ModelMemoryManager:
         model = self.get_model(model_id)
         return model.device if model else None
 
-    def _get_model_size(self, model_config: Dict[str, Any]) -> float:
+    # def _get_model_size(self, model_config: Dict[str, Any]) -> float:
+    #     """
+    #     Calculate the total size of a model including all its components.
+        
+    #     Args:
+    #         model_config: Model configuration dictionary
+            
+    #     Returns:
+    #         Total size in GB
+    #     """
+    #     if any(prefix in model_config["source"] for prefix in ["ct:", "file:"]):
+    #         path = model_config["source"].replace("ct:", "").replace("file:", "")
+    #         return os.path.getsize(path) / (1024**3)
+
+    #     repo_id = model_config["source"].replace("hf:", "")
+    #     return self._calculate_repo_size(repo_id, model_config)
+
+    async def _get_model_size(self, model_config: Dict[str, Any], model_id: str) -> float:
         """
         Calculate the total size of a model including all its components.
         
         Args:
-            model_config: Model configuration dictionary
+            model_config: Model configuration dictionary from enabled_models
+            model_id: The model identifier (key from enabled_models)
             
         Returns:
-            Total size in GB
+            Size in GB
         """
-        if any(prefix in model_config["source"] for prefix in ["ct:", "file:"]):
-            path = model_config["source"].replace("ct:", "").replace("file:", "")
-            return os.path.getsize(path) / (1024**3)
-
-        repo_id = model_config["source"].replace("hf:", "")
-        return self._calculate_repo_size(repo_id, model_config)
+        source = model_config["source"]
+        
+        if source.startswith(("http://", "https://")):
+            # For downloaded HTTP(S) models, get size from cache
+            try:
+                source_obj = ModelSource(source)  # Create ModelSource object
+                cache_path = await self.model_downloader._get_cache_path(model_id, source_obj)
+                print(f"Cache Path: {cache_path}")
+                if os.path.exists(cache_path):
+                    return os.path.getsize(cache_path) / (1024**3)
+                else:
+                    logger.warning(f"Cache file not found for {model_id}, assuming default size")
+                    return 4.0  # Default size assumption in GB for SDXL models
+            except Exception as e:
+                logger.error(f"Error getting cached model size: {e}")
+                return 4.0  # Default fallback size
+        elif source.startswith("file:"):
+            path = source.replace("file:", "")
+            return os.path.getsize(path) / (1024**3) if os.path.exists(path) else 0
+        elif source.startswith("hf:"):
+            # Handle HuggingFace models as before
+            repo_id = source.replace("hf:", "")
+            return self._calculate_repo_size(repo_id, model_config)
+        else:
+            logger.error(f"Unsupported source type for size calculation: {source}")
+            return 0
 
     def _calculate_repo_size(
         self,

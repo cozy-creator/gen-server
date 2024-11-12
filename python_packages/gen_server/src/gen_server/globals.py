@@ -23,6 +23,9 @@ _HF_MODEL_MANAGER = None
 # Model Memory Manager
 _MODEL_MEMORY_MANAGER = None
 
+# Model Downloader
+_MODEL_DOWNLOADER = None
+
 # API_ENDPOINTS: dict[str, Callable[[], Iterable[web.AbstractRouteDef]]] = {}
 RouteDefinition = Union[Iterable[web.RouteDef], web.RouteTableDef]
 _API_ENDPOINTS: dict[str, RouteDefinition] = {}
@@ -60,6 +63,14 @@ def get_hf_model_manager():
 
         _HF_MODEL_MANAGER = HFModelManager()
     return _HF_MODEL_MANAGER
+
+def get_model_downloader():
+    """Get or create the global ModelManager instance"""
+    global _MODEL_DOWNLOADER
+    if _MODEL_DOWNLOADER is None:
+        from .utils.model_downloader import ModelManager
+        _MODEL_DOWNLOADER = ModelManager()
+    return _MODEL_DOWNLOADER
 
 
 def get_model_memory_manager():
