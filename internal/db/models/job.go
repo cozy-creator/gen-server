@@ -13,7 +13,7 @@ const (
 	JobStatusFailed    JobStatus = "FAILED"
 	JobStatusQueued    JobStatus = "IN_QUEUE"
 	JobStatusCompleted JobStatus = "COMPLETED"
-	JobStatusRunning   JobStatus = "IN_PROGRESS"
+	JobStatusProgress  JobStatus = "IN_PROGRESS"
 )
 
 type Job struct {
@@ -22,6 +22,7 @@ type Job struct {
 	ID          uuid.UUID       `bun:",pk"`
 	Status      JobStatus       `bun:",notnull"`
 	Input       json.RawMessage `bun:",type:jsonb,notnull"`
-	CompletedAt bun.NullTime    `bun:",nullzero,notnull"`
+	UpdatedAt   bun.NullTime    `bun:",nullzero"`
+	CompletedAt bun.NullTime    `bun:",nullzero"`
 	CreatedAt   bun.NullTime    `bun:",nullzero,notnull,default:current_timestamp"`
 }

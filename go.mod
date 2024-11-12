@@ -19,6 +19,9 @@ require (
 	github.com/sashabaranov/go-openai v1.30.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
+	github.com/uptrace/bun v1.2.5
+	github.com/uptrace/bun/dialect/pgdialect v1.2.5
+	github.com/uptrace/bun/driver/pgdriver v1.2.5
 	go.uber.org/zap v1.27.0
 	gocv.io/x/gocv v0.38.0
 	golang.org/x/image v0.20.0
@@ -30,10 +33,12 @@ require (
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/AthenZ/athenz v1.10.39 // indirect
 	github.com/DataDog/zstd v1.5.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.4.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/coder/websocket v1.8.12 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
@@ -63,9 +68,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
-	github.com/uptrace/bun v1.2.5 // indirect
-	github.com/uptrace/bun/dialect/pgdialect v1.2.5 // indirect
-	github.com/uptrace/bun/driver/pgdriver v1.2.5 // indirect
+	github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
@@ -143,7 +146,7 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.10.0 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
+	golang.org/x/crypto v0.28.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect

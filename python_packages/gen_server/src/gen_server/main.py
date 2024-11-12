@@ -177,7 +177,7 @@ async def main_async():
     startup_extensions()
 
     # Verify and download models
-    # await verify_and_download_models()
+    await verify_and_download_models()
 
     # Load and warm up models
     await load_and_warm_up_models()

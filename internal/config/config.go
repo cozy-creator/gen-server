@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -40,6 +41,7 @@ type Config struct {
 	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
 	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
 	EnabledModels []EnabledModelsConfig `mapstructure:"enabled_models"`
+	WarmupModels  string                `mapstructure:"warmup_models"`
 }
 
 type S3Config struct {
@@ -70,8 +72,7 @@ type PulsarConfig struct {
 }
 
 type DBConfig struct {
-	Driver string `mapstructure:"driver"`
-	DSN    string `mapstructure:"dsn"`
+	DSN string `mapstructure:"dsn"`
 }
 
 type LumaAIConfig struct {
@@ -90,32 +91,15 @@ func InitConfig() error {
 		return err
 	}
 
-	fmt.Println("cozy home: ", cozyHome)
-
 	if err = createCozyHomeDirs(cozyHome); err != nil {
-		return err
-	}
-
-	assetsDir, err := getAssetsDir(cozyHome)
-	if err != nil {
-		return err
-	}
-
-	modelsDir, err := getModelsDir(cozyHome)
-	if err != nil {
-		return err
-	}
-
-	tempDir, err := getTempDir(cozyHome)
-	if err != nil {
 		return err
 	}
 
 	// Set the cozy home directory, assets directory, models directory, and temp directory in viper
 	viper.Set("cozy_home", cozyHome)
-	viper.Set("assets_dir", assetsDir)
-	viper.Set("models_dir", modelsDir)
-	viper.Set("temp_dir", tempDir)
+	viper.Set("temp_dir", path.Join(cozyHome, "temp"))
+	viper.Set("assets_dir", path.Join(cozyHome, "assets"))
+	viper.Set("models_dir", path.Join(cozyHome, "models"))
 
 	envFile := viper.GetString("env_file")
 	if envFile == "" {
@@ -127,10 +111,10 @@ func InitConfig() error {
 			return fmt.Errorf("failed to stat .env file: %w", err)
 		}
 
-		if err := templates.WriteEnv(envFile); err != nil {
+		if err := templates.WriteEnv(filepath.Join(cozyHome, ".env.example")); err != nil {
 			return fmt.Errorf("failed to create .env file: %w", err)
 		}
-
+	} else {
 		if err := godotenv.Load(envFile); err != nil {
 			return fmt.Errorf("failed to load env file: %w", err)
 		}
@@ -171,7 +155,7 @@ func InitConfig() error {
 		viper.AddConfigPath(cozyHome)
 	}
 
-	if err := LoadConfig(false); err != nil {
+	if err := LoadConfig(); err != nil {
 		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
 			fmt.Println("No config file found. Using default config.")
 		} else {
@@ -182,18 +166,13 @@ func InitConfig() error {
 	return nil
 }
 
-func LoadConfig(reload bool) error {
-	if config != nil && !reload {
-		return fmt.Errorf("config already loaded")
-	}
-
+func LoadConfig() error {
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("error reading config: %w", err)
 	}
 
 	config = &Config{}
-	err := viper.Unmarshal(config)
-	if err != nil {
+	if err := viper.Unmarshal(config); err != nil {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
@@ -230,61 +209,6 @@ func getCozyHome() (string, error) {
 	return cozyHome, nil
 }
 
-func getAssetsDir(cozyHome string) (string, error) {
-	if cozyHome == "" {
-		return "", ErrCozyHomeNotSet
-	}
-
-	assetsDir := viper.GetString("assets_dir")
-	if assetsDir == "" {
-		assetsDir = filepath.Join(cozyHome, "assets")
-	}
-
-	assetsDir, err := pathutil.ExpandPath(assetsDir)
-	if err != nil {
-		return "", ErrCozyHomeExpandFailed
-	}
-
-	return assetsDir, nil
-}
-
-func getModelsDir(cozyHome string) (string, error) {
-	if cozyHome == "" {
-		return "", ErrCozyHomeNotSet
-	}
-
-	modelsDir := viper.GetString("models_dir")
-	if modelsDir == "" {
-		modelsDir = filepath.Join(cozyHome, "models")
-	}
-
-	modelsDir, err := pathutil.ExpandPath(modelsDir)
-	if err != nil {
-		return "", ErrCozyHomeExpandFailed
-	}
-
-	viper.Set("models_dir", modelsDir)
-	return modelsDir, nil
-}
-
-func getTempDir(cozyHome string) (string, error) {
-	if cozyHome == "" {
-		return "", ErrCozyHomeNotSet
-	}
-
-	tempDir := viper.GetString("temp_dir")
-	if tempDir == "" {
-		tempDir = filepath.Join(cozyHome, "temp")
-	}
-
-	tempDir, err := pathutil.ExpandPath(tempDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to expand cozy home path: %w", err)
-	}
-
-	return tempDir, nil
-}
-
 func createCozyHomeDirs(cozyHome string) error {
 	subdirs := []string{"assets", "models", "temp"}
 	if err := os.MkdirAll(cozyHome, os.ModePerm); err != nil {
@@ -299,4 +223,14 @@ func createCozyHomeDirs(cozyHome string) error {
 	}
 
 	return nil
+}
+
+func parseWarmupModels() ([]string, error) {
+	warmupModels := viper.GetString("warmup_models")
+	fmt.Println("Warmup Models", warmupModels)
+	if warmupModels == "" {
+		return nil, nil
+	}
+
+	return strings.Split(warmupModels, ","), nil
 }

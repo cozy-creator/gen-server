@@ -33,17 +33,13 @@ var runCmd = &cobra.Command{
 func initRunFlags() {
 	flags := runCmd.Flags()
 	flags.Int("port", 8881, "Port to run the server on")
-	flags.String("host", "localhost", "Host to run the server on")
 	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
-	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
+	flags.String("host", "localhost", "Host to run the server on")
 	flags.String("environment", "development", "Environment configuration")
-	flags.String("models-dir", "", "Directory for models (default: {home}/models)")
-	flags.String("aux-models-dirs", "", "Additional directories for model files")
-	flags.String("temp-dir", "", "Directory for temporary files (default: {home}/temp)")
-	flags.String("assets-dir", "", "Directory for assets (default: {home}/assets)")
+	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
+	flags.String("warmup-models", "", "Models to be loaded and warmed up on startup")
 
-	flags.String("db-driver", "sqlite3", "Database driver")
-	flags.String("db-dsn", ":memory:", "Database DSN (Connection URL or Path)")
+	flags.String("db-dsn", "file:./test.db", "Database DSN (Connection URL or Path)")
 
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 
@@ -64,16 +60,13 @@ func bindFlags() {
 
 	viper.BindPFlag("port", flags.Lookup("port"))
 	viper.BindPFlag("host", flags.Lookup("host"))
-	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
 	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
+	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
 	viper.BindPFlag("environment", flags.Lookup("environment"))
-	viper.BindPFlag("models_path", flags.Lookup("models-path"))
-	viper.BindPFlag("assets_path", flags.Lookup("assets-path"))
+	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
-	viper.BindPFlag("aux_models_paths", flags.Lookup("aux-models-paths"))
 
 	// Database
-	viper.BindPFlag("db.driver", flags.Lookup("db-driver"))
 	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
 
 	// S3 Credentials
@@ -148,12 +141,12 @@ func runApp(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		if err := downloadEnabledModels(ctx, app.Config()); err != nil {
-			errc <- err
-		}
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	if err := downloadEnabledModels(ctx, app.Config()); err != nil {
+	// 		errc <- err
+	// 	}
+	// }()
 
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 

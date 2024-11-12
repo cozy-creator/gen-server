@@ -1,15 +1,17 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"os"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/db/migrations"
-	"github.com/spf13/cobra"
+
 	"github.com/uptrace/bun/extra/bundebug"
 	"github.com/uptrace/bun/migrate"
+
+	"github.com/spf13/cobra"
 )
 
 var dbCmd = &cobra.Command{
@@ -18,13 +20,17 @@ var dbCmd = &cobra.Command{
 }
 
 func init() {
+	err := config.InitConfig()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
+	setupMigrationCmd(dbCmd)
 }
 
 func setupMigrationCmd(cmd *cobra.Command) error {
-	cfg := config.GetConfig()
-	ctx := context.Background()
-	driver, err := db.NewConnection(ctx, cfg)
+	driver, err := db.NewConnection(cmd.Context(), config.GetConfig())
 	if err != nil {
 		return err
 	}
@@ -36,7 +42,6 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 	))
 
 	migrator := migrate.NewMigrator(db, migrations.Migrations)
-
 	migrationCmd := &cobra.Command{
 		Use:   "migration",
 		Short: "Utility for handling database migrations",
@@ -124,6 +129,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file, err := migrator.CreateGoMigration(cmd.Context(), args[0])
 			if err != nil {
+				fmt.Println(err)
 				return err
 			}
 
@@ -172,6 +178,8 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		statusCmd,
 		markAppliedCmd,
 	)
-	
+
+	dbCmd.AddCommand(migrationCmd)
+
 	return nil
 }

@@ -29,7 +29,7 @@ func init() {
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
 	// Add subcommands
-	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd)
+	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd, dbCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
 	// Initialize flags

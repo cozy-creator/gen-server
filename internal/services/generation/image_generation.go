@@ -10,14 +10,15 @@ import (
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
-	"github.com/cozy-creator/gen-server/internal/db"
+	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 	"github.com/cozy-creator/gen-server/pkg/logger"
-	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack"
+
+	"github.com/google/uuid"
 )
 
 func receiveImage(requestId string, outputFormat string, app *app.App) (string, string, error) {
@@ -165,18 +166,19 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 		urls  []string
 	)
 
-	job, err := app.JobsRepo.Get(app.Context(), uuid.MustParse(params.ID))
+	if _, err := uuid.Parse(params.ID); err != nil {
+		return err
+	}
+	job, err := app.JobsRepo.GetByID(app.Context(), params.ID)
 	if err != nil {
 		return err
 	}
 
-	if job.Status != db.JobStatusEnumINQUEUE {
+	if job.Status != models.JobStatusQueued {
 		return fmt.Errorf("job is not in queue")
 	}
 
-	updateArg := db.UpdateJobStatusParams{ID: uuid.MustParse(params.ID), Status: db.JobStatusEnumINPROGRESS}
-	if err := app.JobsRepo.UpdateStatus(app.Context(), updateArg); err != nil {
-		fmt.Println("Error updating job status: ", err)
+	if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusProgress); err != nil {
 		return err
 	}
 
@@ -186,8 +188,6 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			if len(urls) > 0 {
 				callback(urls, index, params.Model, StatusCancelled)
 			}
-			fmt.Println("Error receiving image: ", err)
-
 			return ctx.Err()
 		default:
 			url, _, err := receiveImage(params.ID, params.OutputFormat, app)
@@ -197,59 +197,71 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 						fmt.Println("Error publishing end message to MQ: ", err)
 						return err
 					}
+
+					event := GenerationEvent{
+						Type: "status",
+						Data: GenerationStatusData{
+							JobID:  params.ID,
+							Status: StatusCompleted,
+						},
+					}
+
+					if err := publishEvent(params.ID, event, app); err != nil {
+						return err
+					}
 					callback(urls, index, params.Model, StatusCompleted)
 					return nil
 				}
 
-				fmt.Println("Error receiving image: ", err)
+				statusEvent := GenerationEvent{
+					Type: "status",
+					Data: GenerationStatusData{
+						JobID:        params.ID,
+						Status:       StatusFailed,
+						ErrorMessage: err.Error(),
+					},
+				}
 
+				if err := publishEvent(params.ID, statusEvent, app); err != nil {
+					return err
+				}
+
+				errorEvent := GenerationEvent{
+					Type: "error",
+					Data: GenerationErrorData{
+						JobID:        params.ID,
+						ErrorMessage: err.Error(),
+						ErrorType:    "output_failed",
+					},
+				}
+
+				if err := publishEvent(params.ID, errorEvent, app); err != nil {
+					return err
+				}
 				return err
 			}
 
-			fmt.Println("url....", url)
-
 			if url != "" {
-				fmt.Println("ddddd: ", url)
-				createArgs := db.CreateImageParams{
+				imageData := models.Image{
 					ID:    uuid.Must(uuid.NewRandom()),
 					JobID: uuid.MustParse(params.ID),
 					Url:   url,
 				}
 
-				output := struct {
-					Url      string `msgpack:"url"`
-					Model    string `msgpack:"model"`
-					JobID    string `msgpack:"job_id"`
-					MimeType string `msgpack:"mime_type"`
-				}{
-					Url:      url,
-					JobID:    params.ID,
-					MimeType: "image/png",
-					Model:    params.Model,
-				}
-
-				mapO := struct {
-					Type string      `msgpack:"type"`
-					Data interface{} `msgpack:"data"`
-				}{
+				event := GenerationEvent{
 					Type: "output",
-					Data: output,
+					Data: GenerationOutputData{
+						Url:      url,
+						JobID:    params.ID,
+						MimeType: "image/png",
+					},
 				}
 
-				fmt.Println("mapO: ", mapO)
-
-				data, err := msgpack.Marshal(&mapO)
-				if err != nil {
-					fmt.Println("Error marshaling output: ", err)
+				if err := publishEvent(params.ID, event, app); err != nil {
 					return err
 				}
 
-				if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, data); err != nil {
-					fmt.Println("Error publishing image to MQ: ", err)
-					return err
-				}
-
-				if _, err := app.ImagesRepo.Create(app.Context(), createArgs); err != nil {
+				if _, err := app.ImagesRepo.Create(app.Context(), &imageData); err != nil {
 					fmt.Println("Error creating image: ", err)
 					return err
 				}
@@ -257,8 +269,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 
 			if url == "" {
 				time.Sleep(time.Second)
-				updateArg := db.UpdateJobStatusParams{Status: db.JobStatusEnumCOMPLETED, ID: uuid.MustParse(params.ID)}
-				if err := app.JobsRepo.UpdateStatus(app.Context(), updateArg); err != nil {
+				if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusCompleted); err != nil {
 					return err
 				}
 
@@ -276,4 +287,18 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			}
 		}
 	}
+}
+
+func publishEvent(id string, event GenerationEvent, app *app.App) error {
+	data, err := msgpack.Marshal(&event)
+	if err != nil {
+		return err
+	}
+
+	if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+id, data); err != nil {
+		fmt.Println("Error publishing image to MQ: ", err)
+		return err
+	}
+
+	return nil
 }
