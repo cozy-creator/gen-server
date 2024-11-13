@@ -219,7 +219,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			}
 
 			if url == "" {
-				fmt.Println("gnot!!")
+				fmt.Println("Received image-gen request")
 				time.Sleep(time.Second)
 				if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusCompleted); err != nil {
 					return err

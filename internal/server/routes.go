@@ -18,7 +18,7 @@ func (s *Server) SetupRoutes(app *app.App) {
 	// Not an API, just a simple file server endpoint
 	s.ginEngine.GET("/file/:filename", handlerWrapper(app, api.GetFile))
 
-	apiV1 := s.ginEngine.Group("/api/v1")
+	apiV1 := s.ginEngine.Group("/v1")
 
 	// Authentication middleware
 	apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
