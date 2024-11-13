@@ -20,7 +20,7 @@ type Server struct {
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	gin.SetMode(getGinMode(cfg.Environment))
+	gin.SetMode("debug")
 	r := gin.New()
 
 	// Setup logger middleware
@@ -32,10 +32,10 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// Setup CORS middleware
 	r.Use(cors.New(
 		cors.Config{
-			AllowOrigins:     []string{"*"},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
-			ExposeHeaders:    []string{"Content-Length"},
+			AllowOrigins:     []string{"*"},
+			AllowHeaders:     []string{"*"},
+			ExposeHeaders:    []string{"*"},
 			AllowCredentials: true,
 			MaxAge:           300,
 		},
