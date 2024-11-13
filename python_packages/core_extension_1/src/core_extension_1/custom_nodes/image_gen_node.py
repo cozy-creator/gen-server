@@ -1,15 +1,6 @@
 import traceback
 import torch
 
-from diffusers.pipelines.pipeline_utils import DiffusionPipeline
-
-# from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import StableDiffusionPipeline
-# from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
-# from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
-# from diffusers.schedulers.scheduling_ddim import DDIMScheduler
-# from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
-# from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
-# from diffusers.schedulers.scheduling_edm_dpmsolver_multistep import EDMDPMSolverMultistepScheduler
 from typing import Callable, Optional, List
 
 from diffusers import (
@@ -24,6 +15,7 @@ from diffusers import (
     FluxControlNetPipeline,
     FluxTransformer2DModel,
     StableDiffusion3Pipeline,
+    
 )
 
 from gen_server.utils.image import aspect_ratio_to_dimensions
@@ -42,56 +34,6 @@ from gen_server.utils.image import tensor_to_pil
 from tqdm import tqdm
 
 
-# from gen_server.utils.model_memory_manager import ModelMemoryManager
-
-
-poseable_character_task_data = {
-    # Models information
-    "models": {
-        "stabilityai/stable-diffusion-xl-base-1.0": 1,
-        "runwayml/stable-diffusion-v1-5": 2,
-    },
-    # Image generation parameters
-    "positive_prompt": "A beautiful anime girl with long blue hair, wearing a white dress, standing in a field of flowers",
-    "negative_prompt": "low quality, bad anatomy, distorted face, blurry",
-    "aspect_ratio": "3/4",
-    "random_seed": 42,
-    # ControlNet inputs
-    "pose_image": "path/to/pose_reference.png",
-    "depth_image": "path/to/depth_reference.png",
-    "controlnet_model_ids": [
-        "xinsir/controlnet-openpose-sdxl-1.0",
-        "diffusers/controlnet-depth-sdxl-1.0",
-    ],
-    # IP-Adapter input
-    "style_image": "path/to/style_reference.jpg",
-    # LoRA information (optional)
-    "lora_info": {
-        "repo_id": "path/to/lora/weights",
-        "weight_name": "anime_style_lora.safetensors",
-        "adapter_name": "anime_style",
-        "model_scale": 0.7,
-        "text_encoder_scale": 0.5,
-        "text_encoder_2_scale": 0.5,
-    },
-    # Face regeneration parameters
-    "face_prompt": "beautiful anime face, detailed eyes, soft smile",
-    "face_mask_feather_iterations": 5,
-    # Background generation parameters
-    "background_prompt": "Beautiful flower field, sunny day, anime style background",
-    # Additional parameters
-    "guidance_scale": 7.5,
-    "num_inference_steps": 30,
-    "strength": 0.7,  # For face regeneration
-}
-
-
-# images_completed = overall_step // self.num_steps
-        
-# if images_completed < self.num_images:
-#     self.pbar.set_postfix({
-#         "Image": f"{images_completed}/{self.num_images}"
-#     })
 
 class ProgressCallback:
     def __init__(self, num_steps, num_images):
@@ -179,6 +121,7 @@ class ImageGenNode(CustomNode):
 
             # self.controlnets[key] = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16)
         return self.controlnets[key]
+    
 
     async def __call__(  # type: ignore
         self,
@@ -255,6 +198,12 @@ class ImageGenNode(CustomNode):
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
+            # Set up default positive prompt if it exists in model_config
+            if "default_positive_prompt" in model_config:
+                positive_prompt = model_config["default_positive_prompt"] + ", " + positive_prompt
+            else:
+                positive_prompt = positive_prompt
+
             gen_params = {
                 "prompt": positive_prompt,
                 "width": width,
@@ -266,12 +215,24 @@ class ImageGenNode(CustomNode):
                 "output_type": "pt",
             }
 
+
             if isinstance(pipeline, FluxPipeline):
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
             else:
                 if model_id != "playground2.5":
                     # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
-                    gen_params["negative_prompt"] = negative_prompt
+                    # Check model_config for negative prompt and append it to the negative prompt
+                    if "default_negative_prompt" in model_config:
+                        gen_params["negative_prompt"] = model_config["default_negative_prompt"] + ", " + negative_prompt
+                    else:
+                        gen_params["negative_prompt"] = negative_prompt
+
+                    print(f"Negative Prompt: {gen_params['negative_prompt']}")
+
+            print(f"Prompt: {gen_params['prompt']}")
+            
+                    
+                    
 
             gen_params["guidance_scale"] = model_config["guidance_scale"]
 

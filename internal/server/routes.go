@@ -25,10 +25,10 @@ func (s *Server) SetupRoutes(app *app.App) {
 
 	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))
 
-	apiV1.GET("jobs/:id", handlerWrapper(app, api.GetJob))
-	apiV1.GET("jobs/:id/stream", handlerWrapper(app, api.StreamJob))
+	apiV1.GET("/jobs/:id", handlerWrapper(app, api.GetJob))
+	apiV1.GET("/jobs/:id/stream", handlerWrapper(app, api.StreamJob))
 	apiV1.POST("/jobs/submit", handlerWrapper(app, api.SubmitRequest))
-	apiV1.POST("jobs/stream", handlerWrapper(app, api.SubmitAndStreamRequest))
+	apiV1.POST("/jobs/stream", handlerWrapper(app, api.SubmitAndStreamRequest))
 
 	apiV1.POST("/workflow/execute", handlerWrapper(app, api.ExecuteWorkflow))
 	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflow))
@@ -37,14 +37,6 @@ func (s *Server) SetupRoutes(app *app.App) {
 	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatus))
 	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModels))
 	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModels))
-
-	// Replicate
-	// apiV1.POST("/generate/replicate", handlerWrapper(app, api.GenerateReplicateImageSync))
-	// apiV1.POST("/generate_async/replicate", handlerWrapper(app, api.GenerateReplicateImageAsync))
-
-	// // Image to Image
-	// apiV1.POST("/image-to-image", handlerWrapper(app, api.GenerateImageToImageSync))
-	// apiV1.POST("/image-to-image_async", handlerWrapper(app, api.GenerateImageToImageAsync))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

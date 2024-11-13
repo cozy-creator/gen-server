@@ -15,6 +15,17 @@ from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionXLPipeline,
     FluxPipeline,
+    EulerDiscreteScheduler,
+    EulerAncestralDiscreteScheduler,
+    DPMSolverMultistepScheduler,
+    DPMSolverSinglestepScheduler,
+    KDPM2DiscreteScheduler,
+    KDPM2AncestralDiscreteScheduler,
+    HeunDiscreteScheduler,
+    LMSDiscreteScheduler,
+    DEISMultistepScheduler,
+    UniPCMultistepScheduler,
+    FlowMatchEulerDiscreteScheduler,
 )
 from diffusers.loaders import FromSingleFileMixin
 from huggingface_hub.constants import HF_HUB_CACHE
@@ -31,6 +42,7 @@ from .model_downloader import ModelSource
 from ..utils.load_models import load_state_dict_from_file
 from ..utils.utils import serialize_config
 from ..utils.quantize_models import quantize_model_fp8
+from gen_server.utils.model_config_manager import ModelConfigManager
 
 # from OmniGen import OmniGenPipeline
 
@@ -52,6 +64,82 @@ class GPUEnum(Enum):
 VRAM_SAFETY_MARGIN_GB = 7.0
 RAM_SAFETY_MARGIN_GB = 4.0
 VRAM_THRESHOLD = 1.4
+
+# Scheduer mapping
+
+SCHEDULER_CONFIGS = {
+    "DPM++ 2M": {
+        "class": DPMSolverMultistepScheduler,
+        "kwargs": {}
+    },
+    "DPM++ 2M Karras": {
+        "class": DPMSolverMultistepScheduler,
+        "kwargs": {"use_karras_sigmas": True}
+    },
+    "DPM++ 2M SDE": {
+        "class": DPMSolverMultistepScheduler,
+        "kwargs": {"algorithm_type": "sde-dpmsolver++"}
+    },
+    "DPM++ 2M SDE Karras": {
+        "class": DPMSolverMultistepScheduler,
+        "kwargs": {
+            "use_karras_sigmas": True,
+            "algorithm_type": "sde-dpmsolver++"
+        }
+    },
+    "DPM++ SDE": {
+        "class": DPMSolverSinglestepScheduler,
+        "kwargs": {}
+    },
+    "DPM++ SDE Karras": {
+        "class": DPMSolverSinglestepScheduler,
+        "kwargs": {"use_karras_sigmas": True}
+    },
+    "DPM2": {
+        "class": KDPM2DiscreteScheduler,
+        "kwargs": {}
+    },
+    "DPM2 Karras": {
+        "class": KDPM2DiscreteScheduler,
+        "kwargs": {"use_karras_sigmas": True}
+    },
+    "DPM2 a": {
+        "class": KDPM2AncestralDiscreteScheduler,
+        "kwargs": {}
+    },
+    "DPM2 a Karras": {
+        "class": KDPM2AncestralDiscreteScheduler,
+        "kwargs": {"use_karras_sigmas": True}
+    },
+    "Euler": {
+        "class": EulerDiscreteScheduler,
+        "kwargs": {}
+    },
+    "Euler Ancestral": {
+        "class": EulerAncestralDiscreteScheduler,
+        "kwargs": {}
+    },
+    "Heun": {
+        "class": HeunDiscreteScheduler,
+        "kwargs": {}
+    },
+    "LMS": {
+        "class": LMSDiscreteScheduler,
+        "kwargs": {}
+    },
+    "LMS Karras": {
+        "class": LMSDiscreteScheduler,
+        "kwargs": {"use_karras_sigmas": True}
+    },
+    "DEIS": {
+        "class": DEISMultistepScheduler,
+        "kwargs": {}
+    },
+    "UniPC": {
+        "class": UniPCMultistepScheduler,
+        "kwargs": {}
+    }
+}
 
 MODEL_COMPONENTS = {
     "flux": [
@@ -169,6 +257,32 @@ class ModelMemoryManager:
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.lru_cache = LRUCache()
+        self.model_config_manager = ModelConfigManager()
+
+    def _setup_scheduler(self, pipeline: DiffusionPipeline, scheduler_name: str) -> None:
+        """
+        Sets up the scheduler for the pipeline based on the config name.
+        
+        Args:
+            pipeline: The diffusion pipeline
+            scheduler_name: Name of the scheduler from the config
+        """
+        if not scheduler_name or scheduler_name not in SCHEDULER_CONFIGS:
+            print(f"Warning: Scheduler '{scheduler_name}' not found in configs. Using default scheduler.")
+            return
+
+        scheduler_config = SCHEDULER_CONFIGS[scheduler_name]
+        try:
+            # Create new scheduler instance with the pipeline's existing config
+            new_scheduler = scheduler_config["class"].from_config(
+                pipeline.scheduler.config,
+                **scheduler_config["kwargs"]
+            )
+            pipeline.scheduler = new_scheduler
+            print(f"Successfully set scheduler to {scheduler_name}")
+        except Exception as e:
+            print(f"Error setting scheduler {scheduler_name}: {e}")
+            print("Falling back to default scheduler")
 
     def _get_memory_info(self) -> Tuple[float, float]:
         """
@@ -468,7 +582,13 @@ class ModelMemoryManager:
                 return None
             
             print(f"Load location: {load_location}")
+
+            # Get the model default configs from the model config manager
+            model_default_configs = self.model_config_manager.get_model_config(model_id, pipeline.__class__.__name__)
             
+            # Set up scheduler if specified in config
+            if "scheduler" in model_default_configs and model_default_configs["scheduler"] != "":
+                self._setup_scheduler(pipeline, model_default_configs["scheduler"])
             
 
             # Place in appropriate memory location
@@ -1534,10 +1654,10 @@ class ModelMemoryManager:
                     return os.path.getsize(cache_path) / (1024**3)
                 else:
                     logger.warning(f"Cache file not found for {model_id}, assuming default size")
-                    return 4.0  # Default size assumption in GB for SDXL models
+                    return 7.0  # Default size assumption (never going to be used)
             except Exception as e:
                 logger.error(f"Error getting cached model size: {e}")
-                return 4.0  # Default fallback size
+                return 7.0  # Default fallback size (never going to be used for anything)
         elif source.startswith("file:"):
             path = source.replace("file:", "")
             return os.path.getsize(path) / (1024**3) if os.path.exists(path) else 0
