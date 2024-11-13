@@ -1,6 +1,8 @@
 package repository
 
-import "context"
+import (
+	"context"
+)
 
 type Repository[T any] interface {
 	Create(ctx context.Context, arg *T) (*T, error)

@@ -78,7 +78,7 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
 			logger.Error("Failed to parse request data", err)
 			continue
 		}
-
+		fmt.Println("requestid: ", request.ID)
 		outputs, errorc := requestHandler(ctx, cfg, &request)
 		generationTopic := getGenerationTopic(request.ID)
 
@@ -154,11 +154,19 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 }
 
 func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParams, error) {
-	if params.ID == "" {
-		params.ID = uuid.NewString()
+	newParams := types.GenerateParams{
+		ID:             uuid.NewString(),
+		OutputFormat:   params.OutputFormat,
+		Model:          params.Model,
+		NumOutputs:     params.NumOutputs,
+		RandomSeed:     params.RandomSeed,
+		AspectRatio:    params.AspectRatio,
+		PositivePrompt: params.PositivePrompt,
+		NegativePrompt: params.NegativePrompt,
+		WebhookUrl:     params.WebhookUrl,
 	}
 
-	data, err := json.Marshal(&params)
+	data, err := json.Marshal(&newParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal json data: %w", err)
 	}
@@ -167,7 +175,7 @@ func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParams, e
 		return nil, fmt.Errorf("failed to publish message to queue: %w", err)
 	}
 
-	return &params, nil
+	return &newParams, nil
 }
 
 func handleReceiveError(err error, errorc chan error) bool {
@@ -183,4 +191,8 @@ func handleReceiveError(err error, errorc chan error) bool {
 
 func getGenerationTopic(requestId string) string {
 	return config.DefaultGeneratePrefix + requestId
+}
+
+func getStreamTopic(requestId string) string {
+	return config.DefaultStreamsTopic + "/" + requestId
 }

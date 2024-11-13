@@ -10,10 +10,12 @@ import (
 
 type IImageRepository interface {
 	Repository[models.Image]
+	WithTx(tx *bun.Tx) IImageRepository
+	WithDB(db *bun.DB) IImageRepository
 }
 
 type ImageRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 func NewImageRepository(db *bun.DB) IImageRepository {
@@ -56,4 +58,12 @@ func (r *ImageRepository) UpdateByID(ctx context.Context, id string, image *mode
 func (r *ImageRepository) DeleteByID(ctx context.Context, id string) error {
 	_, err := r.db.NewDelete().Model(&models.Image{}).Where("id = ?", id).Exec(ctx)
 	return err
+}
+
+func (r *ImageRepository) WithTx(tx *bun.Tx) IImageRepository {
+	return &ImageRepository{db: tx}
+}
+
+func (r *ImageRepository) WithDB(db *bun.DB) IImageRepository {
+	return &ImageRepository{db: db}
 }
