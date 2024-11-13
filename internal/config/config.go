@@ -177,6 +177,10 @@ func LoadConfig() error {
 	return nil
 }
 
+func IsLoaded() bool {
+	return config != nil
+}
+
 func GetConfig() *Config {
 	if config == nil {
 		panic("config not loaded")

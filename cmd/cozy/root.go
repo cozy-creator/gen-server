@@ -37,10 +37,11 @@ func init() {
 }
 
 func onCommandInit() {
-	err := config.InitConfig()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if !config.IsLoaded() {
+		if err := config.InitConfig(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	}
 }
 

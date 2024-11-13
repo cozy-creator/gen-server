@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
-	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
+	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/uptrace/bun"
 	"github.com/vmihailenco/msgpack"
 
 	"github.com/google/uuid"
@@ -164,19 +165,8 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 		urls  []string
 	)
 
-	if _, err := uuid.Parse(params.ID); err != nil {
-		return err
-	}
-	job, err := app.JobsRepo.GetByID(app.Context(), params.ID)
-	if err != nil {
-		return err
-	}
-
-	if job.Status != models.JobStatusQueued {
-		return fmt.Errorf("job is not in queue")
-	}
-
-	if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusProgress); err != nil {
+	if err := handleGenerationBegin(app, params.ID); err != nil {
+		logger.Error("error handling generation begin: ", err)
 		return err
 	}
 
@@ -189,86 +179,27 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			return ctx.Err()
 		default:
 			url, _, err := receiveImage(params.ID, params.OutputFormat, app)
+			fmt.Println("url: ", url)
 			if err != nil {
-				statusEvent := GenerationEvent{
-					Type: "status",
-					Data: GenerationStatusData{
-						JobID:        params.ID,
-						Status:       StatusFailed,
-						ErrorMessage: err.Error(),
-					},
-				}
-
-				if err := publishEvent(params.ID, statusEvent, app); err != nil {
+				if err := handleGenerationError(app, params.ID, err.Error(), "output_failed"); err != nil {
+					logger.Error("error handling generation error: ", err)
 					return err
 				}
-
-				errorEvent := GenerationEvent{
-					Type: "error",
-					Data: GenerationErrorData{
-						JobID:        params.ID,
-						ErrorMessage: err.Error(),
-						ErrorType:    "output_failed",
-					},
-				}
-
-				if err := publishEvent(params.ID, errorEvent, app); err != nil {
-					return err
-				}
+				logger.Error("error receiving image: ", err)
 				return err
 			}
 
 			if url == "" {
-				fmt.Println("Received image-gen request")
-				time.Sleep(time.Second)
-				if err := app.JobsRepo.UpdateJobStatusByID(app.Context(), params.ID, models.JobStatusCompleted); err != nil {
+				if err := handleGenerationCompletion(app, params.ID); err != nil {
+					logger.Error("error handling generation completion: ", err)
 					return err
 				}
-
-				if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+params.ID, []byte("END")); err != nil {
-					fmt.Println("Error publishing end message to MQ: ", err)
-					return err
-				}
-
-				event := GenerationEvent{
-					Type: "status",
-					Data: GenerationStatusData{
-						JobID:  params.ID,
-						Status: StatusCompleted,
-					},
-				}
-
-				if err := publishEvent(params.ID, event, app); err != nil {
-					return err
-				}
-
 				callback(urls, index, params.Model, StatusCompleted)
 				return nil
 			} else {
-				fmt.Println("got!!")
 				urls = append(urls, url)
-				imageData := models.Image{
-					ID:    uuid.Must(uuid.NewRandom()),
-					JobID: uuid.MustParse(params.ID),
-					Url:   url,
-				}
-
-				event := GenerationEvent{
-					Type: "output",
-					Data: GenerationOutputData{
-						Url:       url,
-						JobID:     params.ID,
-						MimeType:  "image/png",
-						FileBytes: []byte{},
-					},
-				}
-
-				if err := publishEvent(params.ID, event, app); err != nil {
-					return err
-				}
-
-				if _, err := app.ImagesRepo.Create(app.Context(), &imageData); err != nil {
-					fmt.Println("Error creating image: ", err)
+				if err := handleImageOutput(app, params.ID, url, "image/png"); err != nil {
+					logger.Error("error handling image output: ", err)
 					return err
 				}
 			}
@@ -284,14 +215,215 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 	}
 }
 
-func publishEvent(id string, event GenerationEvent, app *app.App) error {
-	data, err := msgpack.Marshal(&event)
+func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) error {
+	eventData := GenerationStatusData{
+		JobID:        id,
+		Status:       status,
+		ErrorMessage: errMsg,
+	}
+
+	ctx := app.Context()
+	event := models.NewEvent(uuid.MustParse(id), "status", eventData)
+	if tx != nil {
+		if _, err := app.EventRepository.WithTx(tx).Create(ctx, event); err != nil {
+			if err := tx.Rollback(); err != nil {
+				logger.Error("Error rolling back transaction:", err.Error())
+				return err
+			}
+			logger.Error("error creating event: ", err)
+			return err
+		}
+	} else {
+		if _, err := app.EventRepository.Create(ctx, event); err != nil {
+			logger.Error("error creating event: ", err)
+			return err
+		}
+	}
+
+	data, err := msgpack.Marshal(&GenerationEvent{Type: event.Type, Data: eventData})
 	if err != nil {
+		logger.Error("error marshaling event: ", err)
+		return err
+	}
+	if err := app.MQ().Publish(ctx, getStreamTopic(id), data); err != nil {
+		logger.Error("error publishing event: ", err)
 		return err
 	}
 
-	if err := app.MQ().Publish(app.Context(), config.DefaultStreamsTopic+"/"+id, data); err != nil {
-		fmt.Println("Error publishing image to MQ: ", err)
+	return nil
+}
+
+func handleImageOutput(app *app.App, id, url, mimeType string) error {
+	ctx := app.Context()
+	tx, err := app.DB().BeginTx(ctx, nil)
+	image := models.NewImage(url, uuid.MustParse(id))
+	if _, err := app.ImageRepository.WithTx(&tx).Create(ctx, image); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+		logger.Error("error creating image: ", err)
+		return err
+	}
+
+	eventData := GenerationOutputData{
+		Url:       url,
+		JobID:     id,
+		FileBytes: []byte{},
+		MimeType:  "image/png",
+	}
+	event := models.NewEvent(uuid.MustParse(id), "output", eventData)
+	if _, err := app.EventRepository.WithTx(&tx).Create(ctx, event); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+		logger.Error("error creating event in output: ", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Error("Error committing transaction:", err.Error())
+		return err
+	}
+
+	data, err := msgpack.Marshal(&GenerationEvent{Data: event, Type: event.Type})
+	if err != nil {
+		logger.Error("error marshaling event: ", err)
+		return err
+	}
+
+	if err := app.MQ().Publish(ctx, getStreamTopic(id), data); err != nil {
+		logger.Error("error publishing event: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func handleGenerationCompletion(app *app.App, id string) error {
+	ctx := app.Context()
+	tx, err := app.DB().BeginTx(ctx, nil)
+	if err != nil {
+		logger.Error("error beginning transaction: ", err)
+		return err
+	}
+
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusCompleted); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+		return err
+	}
+
+	if err := publishStatusEvent(app, &tx, id, StatusCompleted, ""); err != nil {
+		logger.Error("error publishing status event: ", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Error("Error committing transaction:", err.Error())
+		return err
+	}
+
+	if err := app.MQ().Publish(ctx, getStreamTopic(id), []byte("END")); err != nil {
+		logger.Error("error publishing end event: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func handleGenerationError(app *app.App, id, errMsg, errType string) error {
+	ctx := app.Context()
+	tx, err := app.DB().BeginTx(ctx, nil)
+	if err != nil {
+		logger.Error("error beginning transaction: ", err)
+		return err
+	}
+	eventData := GenerationErrorData{
+		JobID:        id,
+		ErrorType:    errType,
+		ErrorMessage: errMsg,
+	}
+
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusFailed); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+
+		logger.Error("error updating job status in output: ", err)
+		return err
+	}
+
+	event := models.NewEvent(uuid.MustParse(id), "error", eventData)
+	if _, err := app.EventRepository.WithTx(&tx).Create(ctx, event); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+
+		logger.Error("error creating event in output: ", err)
+		return err
+	}
+
+	if err := publishStatusEvent(app, &tx, id, StatusFailed, errMsg); err != nil {
+		logger.Error("error publishing status event in output: ", err)
+		return err
+	}
+
+	data, err := msgpack.Marshal(&GenerationEvent{Type: event.Type, Data: eventData})
+	if err != nil {
+		logger.Error("error marshaling event in output: ", err)
+		return err
+	}
+
+	if err := app.MQ().Publish(ctx, getStreamTopic(id), data); err != nil {
+		logger.Error("error publishing event in output: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func handleGenerationBegin(app *app.App, id string) error {
+	ctx := app.Context()
+	job, err := app.JobRepository.GetByID(ctx, id)
+	if err != nil {
+		fmt.Println("Error getting job: ", err)
+		return err
+	}
+
+	if job.Status != models.JobStatusQueued {
+		logger.Error("job is not in queue")
+		return fmt.Errorf("job is not in queue")
+	}
+
+	tx, err := app.DB().BeginTx(ctx, nil)
+	if err != nil {
+		logger.Error("error beginning transaction in gen begin: ", err)
+		return err
+	}
+
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusProgress); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logger.Error("Error rolling back transaction:", err.Error())
+			return err
+		}
+
+		logger.Error("error updating job status in gen begin: ", err)
+		return err
+	}
+
+	if err := publishStatusEvent(app, &tx, id, StatusInProgress, ""); err != nil {
+		logger.Error("error publishing status event in gen begin: ", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Error("Error committing transaction:", err.Error())
 		return err
 	}
 

@@ -10,13 +10,15 @@ import (
 
 type IAPIKeyRepository interface {
 	Repository[models.APIKey]
+	WithTx(tx *bun.Tx) IAPIKeyRepository
+	WithDB(db *bun.DB) IAPIKeyRepository
 	RevokeAPIKeyWithHash(ctx context.Context, keyHash string) error
 	GetAPIKeyWithHash(ctx context.Context, keyHash string) (*models.APIKey, error)
 	ListAPIKeys(ctx context.Context) ([]models.APIKey, error)
 }
 
 type APIKeyRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 func NewAPIKeyRepository(db *bun.DB) IAPIKeyRepository {
@@ -82,4 +84,12 @@ func (r *APIKeyRepository) ListAPIKeys(ctx context.Context) ([]models.APIKey, er
 	}
 
 	return apiKeys, nil
+}
+
+func (r *APIKeyRepository) WithTx(tx *bun.Tx) IAPIKeyRepository {
+	return &APIKeyRepository{db: tx}
+}
+
+func (r *APIKeyRepository) WithDB(db *bun.DB) IAPIKeyRepository {
+	return &APIKeyRepository{db: db}
 }

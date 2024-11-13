@@ -8,9 +8,19 @@ import (
 type Image struct {
 	bun.BaseModel `bun:"table:images"`
 
-	ID        uuid.UUID    `bun:",pk"`
+	ID        uuid.UUID    `bun:",type:uuid,pk"`
 	Url       string       `bun:",notnull"`
-	JobID     uuid.UUID    `bun:",notnull"`
+	MimeType  string       `bun:",notnull"`
+	JobID     uuid.UUID    `bun:",type:uuid,notnull"`
+	Job       *Job         `bun:"rel:belongs-to,join:job_id=id"`
 	UpdatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 	CreatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
+}
+
+func NewImage(url string, jobID uuid.UUID) *Image {
+	return &Image{
+		Url:   url,
+		JobID: jobID,
+		ID:    uuid.Must(uuid.NewRandom()),
+	}
 }
