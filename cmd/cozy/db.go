@@ -28,6 +28,10 @@ var dbCmd = &cobra.Command{
 			bundebug.FromEnv(),
 		))
 
+		if err := migrations.InitMigrations(); err != nil {
+			return err
+		}
+
 		migrator := migrate.NewMigrator(db, migrations.Migrations)
 		cmd.SetContext(context.WithValue(cmd.Context(), "migrator", migrator))
 		return nil

@@ -15,7 +15,7 @@ func AuthenticationMiddleware(c *gin.Context) {
 
 	if apikey != "" {
 		apikey := hashutil.Sha3256Hash([]byte(apikey))
-		result, err := app.APIKeyRepo.GetAPIKeyWithHash(c.Request.Context(), apikey)
+		result, err := app.APIKeyRepository.GetAPIKeyWithHash(c.Request.Context(), apikey)
 		if err != nil {
 			app.Logger.Error("Failed to get API key", zap.Error(err))
 			c.JSON(401, gin.H{"message": "The provided API key is invalid"})

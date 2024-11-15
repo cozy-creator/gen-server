@@ -23,10 +23,11 @@ type App struct {
 	cancelFunc   context.CancelFunc
 	fileuploader *fileuploader.Uploader
 
-	Logger     *zap.Logger
-	JobsRepo   repository.IJobRepository
-	ImagesRepo repository.IImageRepository
-	APIKeyRepo repository.IAPIKeyRepository
+	Logger           *zap.Logger
+	JobRepository    repository.IJobRepository
+	ImageRepository  repository.IImageRepository
+	APIKeyRepository repository.IAPIKeyRepository
+	EventRepository  repository.IEventRepository
 }
 
 type OptionFunc func(app *App)
@@ -81,9 +82,10 @@ func (app *App) InitializeDB() error {
 	}
 
 	app.db = db.GetDB()
-	app.JobsRepo = repository.NewJobRepository(app.db)
-	app.ImagesRepo = repository.NewImageRepository(app.db)
-	app.APIKeyRepo = repository.NewAPIKeyRepository(app.db)
+	app.JobRepository = repository.NewJobRepository(app.db)
+	app.ImageRepository = repository.NewImageRepository(app.db)
+	app.EventRepository = repository.NewEventRepository(app.db)
+	app.APIKeyRepository = repository.NewAPIKeyRepository(app.db)
 	return nil
 }
 

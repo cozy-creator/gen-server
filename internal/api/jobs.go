@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,73 +14,36 @@ import (
 	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 )
 
-type Job struct {
+type JobResponse struct {
 	ID          string                 `json:"id"`
 	Status      string                 `json:"status"`
 	Input       map[string]interface{} `json:"input"`
+	Events      []EventResponse        `json:"events"`
+	Images      []ImageResponse        `json:"images"`
 	CreatedAt   time.Time              `json:"created_at"`
 	CompletedAt *time.Time             `json:"completed_at"`
 }
 
-type JobOutput struct {
-	Urls []string `json:"urls"`
+type EventResponse struct {
+	Type string                 `json:"type"`
+	Data map[string]interface{} `json:"data"`
 }
 
-type JobWithOutput struct {
-	ID          string                 `json:"id"`
-	Status      string                 `json:"status"`
-	Input       map[string]interface{} `json:"input"`
-	Output      JobOutput              `json:"output"`
-	CreatedAt   time.Time              `json:"created_at"`
-	CompletedAt *time.Time             `json:"completed_at"`
+type ImageResponse struct {
+	Url      string `json:"url"`
+	MimeType string `json:"mime_type"`
 }
-
-// func GenerateImageSync(c *gin.Context) {
-// 	data := &types.GenerateParams{}
-// 	if err := c.BindJSON(data); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-// 		return
-// 	}
-
-// 	app := c.MustGet("app").(*app.App)
-// 	reqParams, err := generation.NewRequest(*data, app.MQ())
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-// 		return
-// 	}
-
-// 	c.Stream(func(w io.Writer) bool {
-// 		c.Header("Content-Type", "application/json")
-// 		output, err := generation.GenerateImageSync(app, reqParams)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"message": "unable to complete image generation"})
-// 			return false
-// 		}
-
-// 		for url := range output {
-// 			urlc, _ := json.Marshal(url)
-// 			c.Writer.Write(urlc)
-// 		}
-
-// 		c.Writer.Flush()
-// 		return false
-// 	})
-// }
 
 func SubmitRequest(c *gin.Context) {
 	var params = types.GenerateParams{}
 	if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
-		return
-	}
-
-	if params.WebhookUrl == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "webhook_url is required"})
 		return
 	}
 
@@ -92,18 +54,16 @@ func SubmitRequest(c *gin.Context) {
 		return
 	}
 
-	input, err := json.Marshal(reqParams)
+	encodedParams, err := msgpack.Marshal(reqParams)
 	if err != nil {
 		fmt.Println("Error marshaling params: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
 
-	job := models.Job{
-		Input:  input,
-		Status: models.JobStatusQueued,
-		ID:     uuid.MustParse(reqParams.ID),
-	}
-
-	if _, err := app.JobsRepo.Create(app.Context(), &job); err != nil {
+	fmt.Println("Params: ", reqParams)
+	id := uuid.MustParse(reqParams.ID)
+	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
 		fmt.Println("Error creating job: ", err)
 	}
 
@@ -123,39 +83,13 @@ func GetJob(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	job, err := app.JobsRepo.GetByID(app.Context(), id)
+	job, err := app.JobRepository.GetFullByID(app.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	// var input map[string]interface{}
-	// if err := json.Unmarshal(job.Input, &input); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-	// 	return
-	// }
-
-	// var images []map[string]interface{}
-	// if err := json.Unmarshal(job.Images.([]byte), &images); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-	// 	return
-	// }
-
-	// var output JobOutput
-	// for _, image := range images {
-	// 	output.Urls = append(output.Urls, image["url"].(string))
-	// }
-
-	// jsonJob := JobWithOutput{
-	// 	Input:       input,
-	// 	Output:      output,
-	// 	ID:          job.ID.String(),
-	// 	Status:      string(job.Status),
-	// 	CreatedAt:   job.CreatedAt.Time,
-	// 	CompletedAt: &job.CompletedAt.Time,
-	// }
-
-	c.JSON(http.StatusOK, gin.H{"data": job})
+	c.JSON(http.StatusOK, gin.H{"data": toJobResponse(job)})
 }
 
 func GetJobStatus(c *gin.Context) {
@@ -166,7 +100,7 @@ func GetJobStatus(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	job, err := app.JobsRepo.GetByID(app.Context(), id)
+	job, err := app.JobRepository.GetByID(app.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -228,32 +162,37 @@ func StreamJob(c *gin.Context) {
 }
 
 func SubmitAndStreamRequest(c *gin.Context) {
-	var params = types.GenerateParams{}
-	if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
+	var body types.GenerateParams
+	if err := c.ShouldBindWith(&body, binding.MsgPack); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
 		return
 	}
 
 	app := c.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(params, app.MQ())
+	reqParams, err := generation.NewRequest(body, app.MQ())
+	fmt.Println("Params-: ", reqParams)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	input, err := json.Marshal(reqParams)
+	id := uuid.MustParse(reqParams.ID)
+	fmt.Println("ID: ", id, reqParams.ID)
+	encodedParams, err := msgpack.Marshal(reqParams)
 	if err != nil {
 		fmt.Println("Error marshaling params: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
 
-	job := models.Job{
-		Input:  input,
-		Status: models.JobStatusQueued,
-		ID:     uuid.MustParse(reqParams.ID),
-	}
+	idd := uuid.MustParse(reqParams.ID)
+	fmt.Println("IDd: ", idd, reqParams.ID)
 
-	if _, err := app.JobsRepo.Create(app.Context(), &job); err != nil {
+	fmt.Println("Params: ", reqParams)
+	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
 		fmt.Println("Error creating job: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
 
 	go generation.GenerateImageAsync(app, reqParams)
@@ -286,10 +225,6 @@ func SubmitAndStreamRequest(c *gin.Context) {
 				break
 			}
 
-			// if _, err = fmt.Fprintf(c.Writer, string(messageData)); err != nil {
-			// 	continue
-			// }
-
 			if _, err := c.Writer.Write(messageData); err != nil {
 				continue
 			}
@@ -297,5 +232,44 @@ func SubmitAndStreamRequest(c *gin.Context) {
 			fmt.Println("data: ", string(messageData))
 			c.Writer.Flush()
 		}
+	}
+}
+
+func toJobResponse(job *models.Job) *JobResponse {
+	var events []EventResponse
+	for _, event := range job.Events {
+		var eventData map[string]interface{}
+		if err := msgpack.Unmarshal(event.Data, &eventData); err != nil {
+			fmt.Println("Error unmarshaling event data: ", err)
+			return nil
+		}
+		events = append(events, EventResponse{
+			Type: event.Type,
+			Data: eventData,
+		})
+	}
+
+	var images []ImageResponse
+	for _, image := range job.Images {
+		images = append(images, ImageResponse{
+			Url:      image.Url,
+			MimeType: image.MimeType,
+		})
+	}
+
+	var decodedInput map[string]interface{}
+	if err := msgpack.Unmarshal(job.Input, &decodedInput); err != nil {
+		fmt.Println("Error unmarshaling input: ", err)
+		return nil
+	}
+
+	return &JobResponse{
+		ID:          job.ID.String(),
+		Status:      string(job.Status),
+		Input:       decodedInput,
+		Events:      events,
+		Images:      images,
+		CreatedAt:   job.CreatedAt.Time,
+		CompletedAt: &job.CompletedAt.Time,
 	}
 }
