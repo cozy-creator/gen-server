@@ -38,23 +38,22 @@ async def verify_and_download_models():
     """Verify and download all models on startup"""
     config = serialize_config(get_config())
     async with ModelManager() as manager:
+        # Prepare download tasks for main models
+        main_tasks = []
         for model_id, model_info in config["enabled_models"].items():
             source = ModelSource(model_info["source"])
-
-            # Check if downloaded
             is_downloaded, variant = await manager.is_downloaded(model_id)
-            print(
-                f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}"
-            )
+            print(f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}")
+            
             if not is_downloaded:
-                logger.info(f"Downloading {model_id} from {source.type} source")
-                try:
-                    await manager.download_model(model_id, source)
-                except Exception as e:
-                    logger.error(f"Failed to download {model_id}: {e}")
-                    continue
+                task = asyncio.create_task(
+                    manager.download_model(model_id, source)
+                )
+                main_tasks.append((model_id, task))
 
-            # Handle components
+        # Prepare download tasks for components
+        component_tasks = []
+        for model_id, model_info in config["enabled_models"].items():
             if "components" in model_info and model_info["components"] is not None:
                 for comp_name, comp_info in model_info["components"].items():
                     if isinstance(comp_info, dict) and "source" in comp_info:
@@ -63,12 +62,26 @@ async def verify_and_download_models():
 
                         is_downloaded, _ = await manager.is_downloaded(comp_id)
                         if not is_downloaded:
-                            try:
-                                await manager.download_model(comp_id, comp_source)
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to download component {comp_id}: {e}"
-                                )
+                            task = asyncio.create_task(
+                                manager.download_model(comp_id, comp_source)
+                            )
+                            component_tasks.append((comp_id, task))
+
+        # Wait for all main models to download
+        for model_id, task in main_tasks:
+            try:
+                await task
+                logger.info(f"Downloaded {model_id}")
+            except Exception as e:
+                logger.error(f"Failed to download {model_id}: {e}")
+
+        # Wait for all components to download
+        for comp_id, task in component_tasks:
+            try:
+                await task
+                logger.info(f"Downloaded component {comp_id}")
+            except Exception as e:
+                logger.error(f"Failed to download component {comp_id}: {e}")
 
 
 def request_handler(context: RequestContext):

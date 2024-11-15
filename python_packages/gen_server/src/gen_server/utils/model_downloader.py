@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 from typing import Optional, List, Tuple, Dict, Any
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from gen_server.utils.paths import get_models_dir
 from huggingface_hub import HfApi, hf_hub_download, scan_cache_dir, snapshot_download
 from huggingface_hub.file_download import repo_folder_name
 import torch
@@ -48,7 +49,7 @@ class ModelManager:
         self.hf_api = HfApi()
         self.cache_dir = cache_dir or HF_HUB_CACHE
         self.base_cache_dir = cache_dir or os.path.expanduser("~/.cache")
-        self.cozy_cache_dir = os.path.join(self.base_cache_dir, "cozy-creator", "models")
+        self.cozy_cache_dir = get_models_dir()
         self.session: Optional[aiohttp.ClientSession] = None
 
         config = serialize_config(get_config())
@@ -263,7 +264,7 @@ class ModelManager:
         max_tries=3
     )
     async def _download_direct(self, model_id: str, url: str, dest_path: Optional[str] = None):
-        """Download from direct URL with progress bar and retry logic"""
+        """Download from direct URL with progress bar, retry logic, and resume capability"""
         if dest_path is None:
             dest_path = await self._get_cache_path(model_id, ModelSource(url))
             
@@ -275,21 +276,42 @@ class ModelManager:
         if self.civitai_api_key:
             headers["Authorization"] = f"Bearer {self.civitai_api_key}"
 
+        # Check if we have a partial download
+        initial_size = 0
+        if os.path.exists(temp_path):
+            initial_size = os.path.getsize(temp_path)
+            if initial_size > 0:
+                headers['Range'] = f'bytes={initial_size}-'
+                logger.info(f"Resuming download from byte {initial_size}")
+
         timeout = aiohttp.ClientTimeout(total=None, connect=60, sock_read=60)
         
         try:
             async with self.session.get(url, headers=headers, timeout=timeout) as response:
-                if response.status != 200:
-                    raise Exception(f"Download failed with status {response.status}")
+                # Handle resume responses
+                if initial_size > 0:
+                    if response.status == 206:  # Partial Content, resume successful
+                        total_size = initial_size + int(response.headers.get('content-length', 0))
+                    elif response.status == 200:  # Server doesn't support resume
+                        logger.warning("Server doesn't support resume, starting from beginning")
+                        total_size = int(response.headers.get('content-length', 0))
+                        initial_size = 0
+                    else:
+                        raise Exception(f"Resume failed with status {response.status}")
+                else:
+                    if response.status != 200:
+                        raise Exception(f"Download failed with status {response.status}")
+                    total_size = int(response.headers.get('content-length', 0))
 
-                total_size = int(response.headers.get('content-length', 0))
-                downloaded_size = 0
+                # Open file in append mode if resuming, write mode if starting fresh
+                mode = 'ab' if initial_size > 0 else 'wb'
+                downloaded_size = initial_size
                 last_progress_update = time.time()
                 stall_timer = 0
                 
-                with tqdm(total=total_size, unit='iB', unit_scale=True) as pbar:
+                with tqdm(total=total_size, initial=initial_size, unit='iB', unit_scale=True) as pbar:
                     try:
-                        with open(temp_path, 'wb') as f:
+                        with open(temp_path, mode) as f:
                             async for chunk in response.content.iter_chunked(8192):
                                 if chunk:  # filter out keep-alive chunks
                                     f.write(chunk)
@@ -315,17 +337,14 @@ class ModelManager:
                             os.rename(temp_path, dest_path)
                             logger.info(f"Downloaded and saved as: {os.path.basename(dest_path)}")
                         else:
-                            raise Exception("File verification failed")
+                            raise Exception("File verification failed - will attempt resume on next try")
 
                     except Exception as e:
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
-                        raise Exception(f"Download failed: {str(e)}")
+                        logger.error(f"Download error (temporary file kept for resume): {str(e)}")
+                        raise
 
         except Exception as e:
             logger.error(f"Error downloading {url}: {str(e)}")
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
             raise
 
     async def _verify_file(self, path: str) -> bool:
@@ -341,7 +360,7 @@ class ModelManager:
                 logger.error(f"File {path} is too small: {file_size} bytes")
                 return False
 
-            # Extension check
+            # Extension check - we check the final intended path, not the .tmp path
             check_path = path[:-4] if path.endswith('.tmp') else path
             valid_extensions = {'.safetensors', '.ckpt', '.pt', '.bin'}
             if not any(check_path.endswith(ext) for ext in valid_extensions):
@@ -350,6 +369,7 @@ class ModelManager:
 
             # Try to open the file to ensure it's not corrupted
             with open(path, 'rb') as f:
+                # Read first and last 1MB to check file accessibility
                 f.read(1024 * 1024)
                 f.seek(-1024 * 1024, 2)
                 f.read(1024 * 1024)
