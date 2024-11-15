@@ -50,7 +50,7 @@ type S3Config struct {
 	Bucket      string `mapstructure:"bucket_name"`
 	AccessKey   string `mapstructure:"access_key"`
 	SecretKey   string `mapstructure:"secret_key"`
-	PublicUrl   string `mapstructure:"vanity_url"`
+	VanityUrl   string `mapstructure:"vanity_url"`
 	EndpointUrl string `mapstructure:"endpoint_url"`
 }
 

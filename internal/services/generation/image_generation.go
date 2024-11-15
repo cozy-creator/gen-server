@@ -256,7 +256,7 @@ func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) err
 func handleImageOutput(app *app.App, id, url, mimeType string) error {
 	ctx := app.Context()
 	tx, err := app.DB().BeginTx(ctx, nil)
-	image := models.NewImage(url, uuid.MustParse(id))
+	image := models.NewImage(url, uuid.MustParse(id), mimeType)
 	if _, err := app.ImageRepository.WithTx(&tx).Create(ctx, image); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
@@ -270,7 +270,7 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 		Url:       url,
 		JobID:     id,
 		FileBytes: []byte{},
-		MimeType:  "image/png",
+		MimeType:  mimeType,
 	}
 	event := models.NewEvent(uuid.MustParse(id), "output", eventData)
 	if _, err := app.EventRepository.WithTx(&tx).Create(ctx, event); err != nil {
@@ -287,7 +287,7 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 		return err
 	}
 
-	data, err := msgpack.Marshal(&GenerationEvent{Data: event, Type: event.Type})
+	data, err := msgpack.Marshal(&GenerationEvent{Data: eventData, Type: event.Type})
 	if err != nil {
 		logger.Error("error marshaling event: ", err)
 		return err

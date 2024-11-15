@@ -18,7 +18,7 @@ import (
 
 type S3FileStorage struct {
 	client      *s3.Client
-	PublicUrl   string
+	VanityUrl   string
 	EndpointUrl string
 	Bucket      string
 	Folder      string
@@ -51,7 +51,7 @@ func NewS3FileStorage(cfg *config.Config) (*S3FileStorage, error) {
 		client:      s3Client,
 		Folder:      cfg.S3.Folder,
 		Bucket:      cfg.S3.Bucket,
-		PublicUrl:   cfg.S3.PublicUrl,
+		VanityUrl:   cfg.S3.VanityUrl,
 		EndpointUrl: cfg.S3.EndpointUrl,
 	}, nil
 }
@@ -96,7 +96,7 @@ func (u *S3FileStorage) Upload(file FileInfo) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s/%s", u.PublicUrl, key), nil
+	return fmt.Sprintf("%s/%s", u.VanityUrl, key), nil
 }
 
 func (u *S3FileStorage) UploadMultiple(files []FileInfo) ([]string, error) {

@@ -12,6 +12,7 @@ type IJobRepository interface {
 	Repository[models.Job]
 	WithTx(tx *bun.Tx) IJobRepository
 	WithDB(db *bun.DB) IJobRepository
+	GetFullByID(ctx context.Context, id string) (*models.Job, error)
 	UpdateJobStatusByID(ctx context.Context, id string, status models.JobStatus) error
 }
 
@@ -40,6 +41,15 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) (*models.Jo
 func (r *JobRepository) GetByID(ctx context.Context, id string) (*models.Job, error) {
 	var job models.Job
 	if err := r.db.NewSelect().Model(&job).Where("id = ?", id).Scan(ctx); err != nil {
+		return nil, err
+	}
+
+	return &job, nil
+}
+
+func (r *JobRepository) GetFullByID(ctx context.Context, id string) (*models.Job, error) {
+	var job models.Job
+	if err := r.db.NewSelect().Model(&job).Relation("Events").Relation("Images").Where("id = ?", id).Scan(ctx); err != nil {
 		return nil, err
 	}
 
