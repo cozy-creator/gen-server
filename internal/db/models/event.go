@@ -19,7 +19,7 @@ type Event struct {
 
 	ID        uuid.UUID    `bun:",type:uuid,pk"`
 	Type      EventType    `bun:",notnull"`
-	Data      []byte       `bun:",msgpack"`
+	Data      []byte       `bun:",notnull"`
 	JobID     uuid.UUID    `bun:",type:uuid,notnull"`
 	Job       *Job         `bun:"rel:belongs-to,join:job_id=id"`
 	CreatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`

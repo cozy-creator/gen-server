@@ -17,10 +17,11 @@ type Image struct {
 	CreatedAt bun.NullTime `bun:",nullzero,notnull,default:current_timestamp"`
 }
 
-func NewImage(url string, jobID uuid.UUID) *Image {
+func NewImage(url string, jobID uuid.UUID, mimeType string) *Image {
 	return &Image{
-		Url:   url,
-		JobID: jobID,
-		ID:    uuid.Must(uuid.NewRandom()),
+		Url:      url,
+		JobID:    jobID,
+		MimeType: mimeType,
+		ID:       uuid.Must(uuid.NewRandom()),
 	}
 }

@@ -20,25 +20,24 @@ import (
 	"github.com/gin-gonic/gin/binding"
 )
 
-type Job struct {
+type JobResponse struct {
 	ID          string                 `json:"id"`
 	Status      string                 `json:"status"`
 	Input       map[string]interface{} `json:"input"`
+	Events      []EventResponse        `json:"events"`
+	Images      []ImageResponse        `json:"images"`
 	CreatedAt   time.Time              `json:"created_at"`
 	CompletedAt *time.Time             `json:"completed_at"`
 }
 
-type JobOutput struct {
-	Urls []string `json:"urls"`
+type EventResponse struct {
+	Type string                 `json:"type"`
+	Data map[string]interface{} `json:"data"`
 }
 
-type JobWithOutput struct {
-	ID          string                 `json:"id"`
-	Status      string                 `json:"status"`
-	Input       map[string]interface{} `json:"input"`
-	Output      JobOutput              `json:"output"`
-	CreatedAt   time.Time              `json:"created_at"`
-	CompletedAt *time.Time             `json:"completed_at"`
+type ImageResponse struct {
+	Url      string `json:"url"`
+	MimeType string `json:"mime_type"`
 }
 
 func SubmitRequest(c *gin.Context) {
@@ -59,11 +58,6 @@ func SubmitRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-
-	// input, err := json.Marshal(reqParams)
-	// if err != nil {
-	// 	fmt.Println("Error marshaling params: ", err)
-	// }
 
 	encodedParams, err := msgpack.Marshal(reqParams)
 	if err != nil {
@@ -94,39 +88,13 @@ func GetJob(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	job, err := app.JobRepository.GetByID(app.Context(), id)
+	job, err := app.JobRepository.GetFullByID(app.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	// var input map[string]interface{}
-	// if err := json.Unmarshal(job.Input, &input); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-	// 	return
-	// }
-
-	// var images []map[string]interface{}
-	// if err := json.Unmarshal(job.Images.([]byte), &images); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-	// 	return
-	// }
-
-	// var output JobOutput
-	// for _, image := range images {
-	// 	output.Urls = append(output.Urls, image["url"].(string))
-	// }
-
-	// jsonJob := JobWithOutput{
-	// 	Input:       input,
-	// 	Output:      output,
-	// 	ID:          job.ID.String(),
-	// 	Status:      string(job.Status),
-	// 	CreatedAt:   job.CreatedAt.Time,
-	// 	CompletedAt: &job.CompletedAt.Time,
-	// }
-
-	c.JSON(http.StatusOK, gin.H{"data": job})
+	c.JSON(http.StatusOK, gin.H{"data": toJobResponse(job)})
 }
 
 func GetJobStatus(c *gin.Context) {
@@ -262,10 +230,6 @@ func SubmitAndStreamRequest(c *gin.Context) {
 				break
 			}
 
-			// if _, err = fmt.Fprintf(c.Writer, string(messageData)); err != nil {
-			// 	continue
-			// }
-
 			if _, err := c.Writer.Write(messageData); err != nil {
 				continue
 			}
@@ -273,5 +237,44 @@ func SubmitAndStreamRequest(c *gin.Context) {
 			fmt.Println("data: ", string(messageData))
 			c.Writer.Flush()
 		}
+	}
+}
+
+func toJobResponse(job *models.Job) *JobResponse {
+	var events []EventResponse
+	for _, event := range job.Events {
+		var eventData map[string]interface{}
+		if err := msgpack.Unmarshal(event.Data, &eventData); err != nil {
+			fmt.Println("Error unmarshaling event data: ", err)
+			return nil
+		}
+		events = append(events, EventResponse{
+			Type: event.Type,
+			Data: eventData,
+		})
+	}
+
+	var images []ImageResponse
+	for _, image := range job.Images {
+		images = append(images, ImageResponse{
+			Url:      image.Url,
+			MimeType: image.MimeType,
+		})
+	}
+
+	var decodedInput map[string]interface{}
+	if err := msgpack.Unmarshal(job.Input, &decodedInput); err != nil {
+		fmt.Println("Error unmarshaling input: ", err)
+		return nil
+	}
+
+	return &JobResponse{
+		ID:          job.ID.String(),
+		Status:      string(job.Status),
+		Input:       decodedInput,
+		Events:      events,
+		Images:      images,
+		CreatedAt:   job.CreatedAt.Time,
+		CompletedAt: &job.CompletedAt.Time,
 	}
 }
