@@ -32,7 +32,6 @@ type GenerateParams struct {
 	ID             string `json:"id,omitempty" msgpack:"id,omitempty"`
 	PositivePrompt string `json:"positive_prompt" msgpack:"positive_prompt"`
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
-	WebhookUrl     string `json:"webhook_url,omitempty" msgpack:"webhook_url,omitempty"`
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`
 }
 

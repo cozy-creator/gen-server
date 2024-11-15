@@ -163,7 +163,6 @@ func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParams, e
 		AspectRatio:    params.AspectRatio,
 		PositivePrompt: params.PositivePrompt,
 		NegativePrompt: params.NegativePrompt,
-		WebhookUrl:     params.WebhookUrl,
 	}
 
 	data, err := json.Marshal(&newParams)

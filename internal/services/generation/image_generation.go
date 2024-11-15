@@ -13,7 +13,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
-	"github.com/cozy-creator/gen-server/internal/utils/webhookutil"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/uptrace/bun"
 	"github.com/vmihailenco/msgpack"
@@ -103,31 +102,31 @@ func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.G
 func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
 	ctx := app.Context()
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
-	invoke := func(response types.GenerationResponse) {
-		if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
-			fmt.Println("Failed to invoke webhook:", err)
-		}
-	}
+	// invoke := func(response types.GenerationResponse) {
+	// 	if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
+	// 		fmt.Println("Failed to invoke webhook:", err)
+	// 	}
+	// }
 
 	sendResponse := func(urls []string, index int8, currentModel, status string) {
-		response := types.GenerationResponse{
-			Index:  index,
-			Input:  params,
-			Status: status,
-			ID:     params.ID,
-			Output: types.GeneratedOutput{
-				URLs:  urls,
-				Model: currentModel,
-			},
-		}
+		// 	response := types.GenerationResponse{
+		// 		Index:  index,
+		// 		Input:  params,
+		// 		Status: status,
+		// 		ID:     params.ID,
+		// 		Output: types.GeneratedOutput{
+		// 			URLs:  urls,
+		// 			Model: currentModel,
+		// 		},
+		// 	}
 
-		invoke(response)
+		// invoke(response)
 	}
 
 	if err := processImageGen(ctx, params, app, sendResponse); err != nil {
 		if !errors.Is(err, mq.ErrTopicClosed) {
 			fmt.Println("Error processing image gen: ", err)
-			invoke(types.GenerationResponse{Status: StatusFailed})
+			// invoke(types.GenerationResponse{Status: StatusFailed})
 		}
 	}
 }
