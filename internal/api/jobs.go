@@ -47,11 +47,6 @@ func SubmitRequest(c *gin.Context) {
 		return
 	}
 
-	if params.WebhookUrl == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "webhook_url is required"})
-		return
-	}
-
 	app := c.MustGet("app").(*app.App)
 	reqParams, err := generation.NewRequest(params, app.MQ())
 	if err != nil {
