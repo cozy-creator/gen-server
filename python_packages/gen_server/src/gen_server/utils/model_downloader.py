@@ -52,8 +52,11 @@ class ModelManager:
         self.cozy_cache_dir = get_models_dir()
         self.session: Optional[aiohttp.ClientSession] = None
 
-        config = serialize_config(get_config())
-        self.civitai_api_key = config["civitai_api_key"]
+        # config = serialize_config(get_config())
+        # self.civitai_api_key = config["civitai_api_key"]
+
+        # check env for civitai api key
+        self.civitai_api_key = os.getenv("CIVITAI_API_KEY")
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()

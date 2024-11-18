@@ -24,6 +24,16 @@ from gen_server.utils.model_downloader import ModelSource, ModelManager
 from gen_server.config import get_config
 from gen_server.utils.utils import serialize_config
 from gen_server.model_command_handler import ModelCommandHandler
+import warnings
+
+
+# Ignore warnings from pydantic_settings (/run/secrets does not exist)
+warnings.filterwarnings(
+    "ignore",
+    message=r'directory ".*" does not exist',
+    category=UserWarning,
+    module="pydantic_settings.sources",
+)
 
 
 logging.basicConfig(
