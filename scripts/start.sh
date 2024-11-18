@@ -29,16 +29,18 @@ start_jupyter() {
                 --allow-root \
                 --ServerApp.allow_origin=* \
                 --IdentityProvider.token=$JUPYTER_PASSWORD \
+                --ServerApp.token=$JUPYTER_PASSWORD \
+                --ServerApp.allow_credentials=true \ 
                 --FileContentsManager.delete_to_trash=False \
                 --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \
                 --ServerApp.root_dir='/app' &
     echo "JupyterLab started"
 }
 
-download_test_db() {
-    wget https://github.com/user-attachments/files/17260326/test.db.zip
-    unzip -o test.db.zip
-}
+# download_test_db() {
+#     wget https://github.com/user-attachments/files/17260326/test.db.zip
+#     unzip -o test.db.zip
+# }
 
 setup_jupyter_runtime
 download_test_db

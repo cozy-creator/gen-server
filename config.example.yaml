@@ -3,27 +3,40 @@
 # inside of the .env file and access them via os.environ.get(), or use k8s secrets.
 
 enabled_models:
-  flux.1-schnell:
+  flux.1-schnell-fp8:
+    type: flux
     source: hf:black-forest-labs/FLUX.1-schnell
     components:
       transformer:
         source: hf:cozy-creator/Flux.1-schnell-8bit
       text_encoder_2:
         source: hf:cozy-creator/Flux.1-schnell-8bit
-    type: flux
 
   flux.1-dev:
     source: hf:black-forest-labs/FLUX.1-dev
+  
+  flux.1-dev-fp8:
+    source: hf:black-forest-labs/FLUX.1-dev
     components:
+      text_encoder_2:
+        source: hf:cozy-creator/FLUX.1-dev-8bit
       transformer:
-        source: hf:sayakpaul/flux.1-dev-nf4-with-bnb-integration
+        source: hf:cozy-creator/FLUX.1-dev-8bit
+
+  flux.1-dev-nf4:
+    source: hf:black-forest-labs/FLUX.1-dev
+    components:
+      text_encoder_2:
+        source: hf:hf-internal-testing/flux.1-dev-nf4-pkg
+      transformer:
+        source: hf:hf-internal-testing/flux.1-dev-nf4-pkg
 
   openflux.1:
     source: hf:ostris/OpenFLUX.1
     custom_pipeline: pipeline_flux_with_cfg
     
   sd3.5-large:
-    source: stabilityai/stable-diffusion-3.5-large
+    source: hf:stabilityai/stable-diffusion-3.5-large
     components:
       transformer:
         source: cozy-creator/stable-diffusion-3.5-large-8bit

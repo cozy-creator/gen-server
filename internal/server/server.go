@@ -19,8 +19,8 @@ type Server struct {
 	inner      *http.Server
 }
 
-func NewServer(cfg *config.Config) (*Server, error) {
-	gin.SetMode("debug")
+func NewServer(config *config.Config) (*Server, error) {
+	gin.SetMode(getGinMode(config.Environment))
 	r := gin.New()
 
 	// Setup logger middleware
@@ -42,7 +42,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	))
 
 	// Serve static files
-	if cfg.Environment == "production" {
+	if config.Environment == "production" {
 		r.Use(static.Serve("/", static.LocalFile("/srv/www/cozy/dist", true)))
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
@@ -51,10 +51,11 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	r.Use(gin.Recovery())
 
 	return &Server{
+		listenAddr: fmt.Sprintf("%s:%d", config.Host, config.Port),
 		ginEngine: r,
 		inner: &http.Server{
 			Handler: r,
-			Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Addr:    fmt.Sprintf("%s:%d", config.Host, config.Port),
 		},
 	}, nil
 }
