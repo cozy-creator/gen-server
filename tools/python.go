@@ -133,7 +133,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		return fmt.Errorf("main.py not found in gen-server path")
 	}
 
-	fmt.Println("Starting Python Gen Server...", cfg.WarmupModels)
+	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
 	cmd, err := ExecutePythonCommand(mainFilePath, "--environment", cfg.Environment, "--port", strconv.Itoa(cfg.TcpPort), "--warmup-models", cfg.WarmupModels)
 	if err != nil {
 		return err
