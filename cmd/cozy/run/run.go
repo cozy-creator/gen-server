@@ -16,7 +16,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/server"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
-	"github.com/cozy-creator/gen-server/internal/services/models"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
 
@@ -24,14 +23,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-var runCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start the cozy gen-server",
 	RunE:  runApp,
 }
 
-func initRunFlags() {
-	flags := runCmd.Flags()
+func init() {
+	flags := Cmd.Flags()
 	flags.Int("port", 8881, "Port to run the server on")
 	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("host", "localhost", "Host to run the server on")
@@ -56,7 +55,7 @@ func initRunFlags() {
 }
 
 func bindFlags() {
-	flags := runCmd.Flags()
+	flags := Cmd.Flags()
 
 	viper.BindPFlag("port", flags.Lookup("port"))
 	viper.BindPFlag("host", flags.Lookup("host"))
@@ -210,13 +209,13 @@ func runWorkflowProcessor(app *app.App) error {
 	return nil
 }
 
-func downloadEnabledModels(ctx context.Context, cfg *config.Config) error {
-	if err := models.DownloadEnabledModels(ctx, cfg); err != nil {
-		return err
-	}
+// func downloadEnabledModels(ctx context.Context, cfg *config.Config) error {
+// 	if err := models.DownloadEnabledModels(ctx, cfg); err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func runServer(app *app.App) (*server.Server, error) {
 	server, err := server.NewServer(app.Config())
@@ -240,3 +239,4 @@ func runServer(app *app.App) (*server.Server, error) {
 		return server, nil
 	}
 }
+

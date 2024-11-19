@@ -122,9 +122,9 @@ def install_binary(install_dir: Path):
             logger.info("Go not installed, downloading cozy binary")
             binary_name = get_binary_name()
             install_path = install_dir / binary_name
-            # if install_path.exists():
-            #     logger.info(f"Binary already exists at {install_path}")
-            #     return
+            if install_path.exists():
+                logger.info(f"Binary already exists at {install_path}")
+                return
 
             download_url = get_binary_download_url()
             response = download_with_retry(download_url)
@@ -232,9 +232,10 @@ class CustomBuildHook(BuildHookInterface):
                 )
                 return
 
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                executor.submit(install_binary, bin_directory)
-                executor.submit(install_web, web_directory)
+            # Python process is no longer primary
+            # with ThreadPoolExecutor(max_workers=2) as executor:
+            #     executor.submit(install_binary, bin_directory)
+            #     executor.submit(install_web, web_directory)
 
         except Exception as e:
             logger.error(f"Error in CustomBuildHook: {e}")
