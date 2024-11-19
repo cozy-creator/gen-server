@@ -16,6 +16,13 @@ var rootCmd = &cobra.Command{
 	Long:  "A generative AI engine that allows you to create and run generative AI models on your own computer or in the cloud",
 }
 
+func Execute() {
+  if err := rootCmd.Execute(); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(1)
+  }
+}
+
 func init() {
 	cobra.OnInitialize(onCommandInit)
 
@@ -29,7 +36,7 @@ func init() {
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
 	// Add subcommands
-	rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd, dbCmd, apiKeyCmd)
+	// rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd, dbCmd, apiKeyCmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
 	// Initialize flags
@@ -43,8 +50,4 @@ func onCommandInit() {
 			os.Exit(1)
 		}
 	}
-}
-
-func GetRootCmd() *cobra.Command {
-	return rootCmd
 }

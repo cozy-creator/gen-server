@@ -84,4 +84,6 @@ func init() {
 	downloadCmd.Flags().String("repo-type", "", "The type of the repo to download")
 	downloadCmd.Flags().Bool("force-download", false, "Force download of the file or repo")
 	downloadCmd.Flags().String("revision", "", "The revision of the model to download")
+
+	rootCmd.AddCommand(downloadCmd)
 }

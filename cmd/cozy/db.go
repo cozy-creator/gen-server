@@ -13,6 +13,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type dbContextKey string
+const migratorKey dbContextKey = "migrator"
+
 var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Utility for database management",
@@ -33,14 +36,14 @@ var dbCmd = &cobra.Command{
 		}
 
 		migrator := migrate.NewMigrator(db, migrations.Migrations)
-		cmd.SetContext(context.WithValue(cmd.Context(), "migrator", migrator))
+		cmd.SetContext(context.WithValue(cmd.Context(), migratorKey, migrator))
 		return nil
 	},
 }
 
 func init() {
-	cobra.OnInitialize(onCommandInit)
 	setupMigrationCmd(dbCmd)
+	rootCmd.AddCommand(dbCmd)
 }
 
 func setupMigrationCmd(cmd *cobra.Command) error {
@@ -53,7 +56,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "init",
 		Short: "create migration tables",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 			return migrator.Init(cmd.Context())
 		},
 	}
@@ -62,7 +65,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "migrate",
 		Short: "migrate database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
@@ -86,7 +89,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "rollback",
 		Short: "rollback the last migration group",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
@@ -110,7 +113,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "lock",
 		Short: "Lock the database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			if err := migrator.Lock(cmd.Context()); err != nil {
 				return err
@@ -124,7 +127,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "unlock",
 		Short: "Unlock the database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			if err := migrator.Unlock(cmd.Context()); err != nil {
 				return err
@@ -138,7 +141,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "create-go",
 		Short: "Create a Go migration file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			file, err := migrator.CreateGoMigration(cmd.Context(), args[0])
 			if err != nil {
@@ -155,7 +158,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "status",
 		Short: "Print the status of the migrations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			status, err := migrator.MigrationsWithStatus(cmd.Context())
 			if err != nil {
@@ -170,7 +173,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		Use:   "mark-applied",
 		Short: "Mark all migrations as applied without actually running them",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			migrator := cmd.Context().Value("migrator").(*migrate.Migrator)
+			migrator := cmd.Context().Value(migratorKey).(*migrate.Migrator)
 
 			group, err := migrator.Migrate(cmd.Context(), migrate.WithNopMigration())
 			if err != nil {
@@ -196,7 +199,7 @@ func setupMigrationCmd(cmd *cobra.Command) error {
 		markAppliedCmd,
 	)
 
-	dbCmd.AddCommand(migrationCmd)
+	cmd.AddCommand(migrationCmd)
 
 	return nil
 }

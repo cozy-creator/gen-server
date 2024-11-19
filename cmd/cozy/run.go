@@ -240,3 +240,7 @@ func runServer(app *app.App) (*server.Server, error) {
 		return server, nil
 	}
 }
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+}

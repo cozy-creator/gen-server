@@ -87,4 +87,5 @@ func init() {
 	buildWebCmd.Flags().StringVar(&webDir, "web-dir", defaultWebDir, "The directory containing the web assets")
 	buildWebCmd.Flags().StringVar(&distDir, "dist-dir", "", "The directory to store the built web bundle")
 	buildWebCmd.Flags().StringVar(&packageManager, "package-manager", defaultPackageManager, "The package manager to use for building the web bundle")
+	rootCmd.AddCommand(buildWebCmd)
 }

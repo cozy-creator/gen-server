@@ -39,9 +39,9 @@ enabled_models:
     source: hf:stabilityai/stable-diffusion-3.5-large
     components:
       transformer:
-        source: cozy-creator/stable-diffusion-3.5-large-8bit
+        source: hf:cozy-creator/stable-diffusion-3.5-large-8bit
       text_encoder_3:
-        source: cozy-creator/stable-diffusion-3.5-large-8bit
+        source: hf:cozy-creator/stable-diffusion-3.5-large-8bit
 
   sdxl.base:
     source: hf:stabilityai/stable-diffusion-xl-base-1.0
