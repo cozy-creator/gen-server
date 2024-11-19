@@ -16,7 +16,7 @@ import (
 type dbContextKey string
 const migratorKey dbContextKey = "migrator"
 
-var dbCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "db",
 	Short: "Utility for database management",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -42,8 +42,7 @@ var dbCmd = &cobra.Command{
 }
 
 func init() {
-	setupMigrationCmd(dbCmd)
-	rootCmd.AddCommand(dbCmd)
+	setupMigrationCmd(Cmd)
 }
 
 func setupMigrationCmd(cmd *cobra.Command) error {

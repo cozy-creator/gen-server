@@ -4,6 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	// Subcommands
+	apiKey "github.com/cozy-creator/gen-server/cmd/cozy/api_key"
+	buildWeb "github.com/cozy-creator/gen-server/cmd/cozy/build_web"
+	db "github.com/cozy-creator/gen-server/cmd/cozy/db"
+	download "github.com/cozy-creator/gen-server/cmd/cozy/download"
+	run "github.com/cozy-creator/gen-server/cmd/cozy/run"
+
 	"github.com/cozy-creator/gen-server/internal/config"
 
 	"github.com/spf13/cobra"
@@ -36,11 +43,8 @@ func init() {
 	viper.BindPFlag("env_file", rootCmd.PersistentFlags().Lookup("env-file"))
 
 	// Add subcommands
-	// rootCmd.AddCommand(runCmd, downloadCmd, buildWebCmd, dbCmd, apiKeyCmd)
+	rootCmd.AddCommand(run.Cmd, download.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
-
-	// Initialize flags
-	initRunFlags()
 }
 
 func onCommandInit() {

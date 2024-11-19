@@ -47,7 +47,12 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Ensure that we are building from this local copy of the files
+ENV SERVICE_NAME=gen-server
+ENV NAMESPACE=cozy-creator
+ENV APP=/src/${NAMESPACE}/${SERVICE_NAME}/
+ENV WORKDIR=${GOPATH}${APP}
+WORKDIR $WORKDIR
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -68,13 +73,13 @@ COPY main.go .
 RUN echo "Building for architecture: $GOARCH and OS: $GOOS" && \
     if [ "$GOARCH" = "amd64" ] && [ "$(uname -m)" = "aarch64" ]; then \
         # Cross-compile from arm64 to amd64
-        CC=x86_64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy-server .; \
+        CC=x86_64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
     elif [ "$GOARCH" = "arm64" ] && [ "$(uname -m)" = "x86_64" ]; then \
         # Cross-compile from amd64 to arm64
-        CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy-server .; \
+        CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
     else \
         # Native compilation (when target architecture matches host)
-        CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy-server .; \
+        CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
     fi
 
 
@@ -148,7 +153,11 @@ RUN pip install ./python_packages/gen_server[performance] && \
 COPY --from=web-builder /app/web/dist /srv/www/cozy
 
 # Copy the binary we built in stage-2
-COPY --from=go-builder /app/cozy-server /usr/local/bin/cozy-server
+ENV SERVICE_NAME=gen-server
+ENV NAMESPACE=cozy-creator
+ENV APP=/src/${NAMESPACE}/${SERVICE_NAME}/
+ENV GOPATH=/go
+COPY --from=go-builder ${GOPATH}${APP}/cozy /usr/local/bin/cozy
 
 # Copy start script
 COPY scripts/start.sh .

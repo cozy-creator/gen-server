@@ -58,7 +58,7 @@ trap 'kill $(jobs -p)' SIGTERM SIGINT
 setup_jupyter_runtime
 # download_test_db
 
-cozy-server run & # Start the Cozy server
+cozy run & # Start the Cozy server
 COZY_PID=$!
 
 start_jupyter

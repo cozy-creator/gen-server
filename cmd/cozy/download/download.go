@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var downloadCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download models from hugging face",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,14 +76,12 @@ var downloadCmd = &cobra.Command{
 }
 
 func init() {
-	downloadCmd.Flags().String("cache-dir", "", "The directory to cache the downloaded file or repo")
-	downloadCmd.Flags().String("repo-id", "", "The ID of the model repository to download from")
-	downloadCmd.Flags().String("file-name", "", "The name of the file to download, if not specified, the entire repo will be downloaded")
-	downloadCmd.Flags().String("sub-folder", "", "The subfolder within the repo to download from")
-	downloadCmd.Flags().String("variant", "", "The variant of the model to download")
-	downloadCmd.Flags().String("repo-type", "", "The type of the repo to download")
-	downloadCmd.Flags().Bool("force-download", false, "Force download of the file or repo")
-	downloadCmd.Flags().String("revision", "", "The revision of the model to download")
-
-	rootCmd.AddCommand(downloadCmd)
+	Cmd.Flags().String("cache-dir", "", "The directory to cache the downloaded file or repo")
+	Cmd.Flags().String("repo-id", "", "The ID of the model repository to download from")
+	Cmd.Flags().String("file-name", "", "The name of the file to download, if not specified, the entire repo will be downloaded")
+	Cmd.Flags().String("sub-folder", "", "The subfolder within the repo to download from")
+	Cmd.Flags().String("variant", "", "The variant of the model to download")
+	Cmd.Flags().String("repo-type", "", "The type of the repo to download")
+	Cmd.Flags().Bool("force-download", false, "Force download of the file or repo")
+	Cmd.Flags().String("revision", "", "The revision of the model to download")
 }

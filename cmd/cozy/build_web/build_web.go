@@ -21,7 +21,7 @@ var (
 	packageManager string
 )
 
-var buildWebCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "build-web",
 	Short: "Build the web bundle",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -84,8 +84,7 @@ var buildWebCmd = &cobra.Command{
 }
 
 func init() {
-	buildWebCmd.Flags().StringVar(&webDir, "web-dir", defaultWebDir, "The directory containing the web assets")
-	buildWebCmd.Flags().StringVar(&distDir, "dist-dir", "", "The directory to store the built web bundle")
-	buildWebCmd.Flags().StringVar(&packageManager, "package-manager", defaultPackageManager, "The package manager to use for building the web bundle")
-	rootCmd.AddCommand(buildWebCmd)
+	Cmd.Flags().StringVar(&webDir, "web-dir", defaultWebDir, "The directory containing the web assets")
+	Cmd.Flags().StringVar(&distDir, "dist-dir", "", "The directory to store the built web bundle")
+	Cmd.Flags().StringVar(&packageManager, "package-manager", defaultPackageManager, "The package manager to use for building the web bundle")
 }

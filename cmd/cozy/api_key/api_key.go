@@ -17,7 +17,7 @@ import (
 type contextKey string
 const apiKeyRepoKey contextKey = "apikey_repo"
 
-var apiKeyCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "api-key",
 	Short: "Manage Cozy API keys",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -101,6 +101,5 @@ var listAPIKeysCmd = &cobra.Command{
 }
 
 func init() {
-	apiKeyCmd.AddCommand(newAPIKeyCmd, revokeAPIKeyCmd, listAPIKeysCmd)
-	rootCmd.AddCommand(apiKeyCmd)
+	Cmd.AddCommand(newAPIKeyCmd, revokeAPIKeyCmd, listAPIKeysCmd)
 }
