@@ -51,7 +51,7 @@ func (u *LocalFileStorage) Upload(file FileInfo) (string, error) {
 		return "", ErrUnknownFileKind
 	}
 
-	cfg := config.GetConfig()
+	cfg := config.MustGetConfig()
 	return fmt.Sprintf("http://%s:%d/file/%s%s", cfg.Host, cfg.Port, file.Name, file.Extension), nil
 }
 

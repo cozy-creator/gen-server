@@ -10,7 +10,7 @@ import (
 var Migrations = migrate.NewMigrations()
 
 func InitMigrations() error {
-	cfg := config.GetConfig()
+	cfg := config.MustGetConfig()
 
 	if cfg != nil && cfg.Environment != "production" {
 		if err := Migrations.DiscoverCaller(); err != nil {

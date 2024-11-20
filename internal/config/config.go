@@ -40,7 +40,7 @@ type Config struct {
 	DB            *DBConfig             `mapstructure:"db"`
 	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
 	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
-	EnabledModels []EnabledModelsConfig `mapstructure:"enabled_models"`
+	PipelineDefs []PipelineDefs `mapstructure:"enabled_models"`
 	WarmupModels  string                `mapstructure:"warmup_models"`
 }
 
@@ -54,14 +54,15 @@ type S3Config struct {
 	EndpointUrl string `mapstructure:"endpoint_url"`
 }
 
-type EnabledModelsConfig struct {
-	Type       string                    `mapstructure:"type"`
-	Source     string                    `mapstructure:"source"`
-	Components map[string]ModelComponent `mapstructure:"components"`
+type PipelineDefs struct {
+	ClassName  string                    	`mapstructure:"class_name"`
+	Source     string                    	`mapstructure:"source"`
+	Components map[string]PipelineComponent `mapstructure:"components"`
 }
 
-type ModelComponent struct {
-	Source string `mapstructure:"source"`
+type PipelineComponent struct {
+	ClassName string `mapstructure:"class_name"`
+	Source    string `mapstructure:"source"`
 }
 
 type PulsarConfig struct {
@@ -181,7 +182,7 @@ func IsLoaded() bool {
 	return config != nil
 }
 
-func GetConfig() *Config {
+func MustGetConfig() *Config {
 	if config == nil {
 		panic("config not loaded")
 	}

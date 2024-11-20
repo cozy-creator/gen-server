@@ -45,13 +45,13 @@ func WithLogger(logger *zap.Logger) OptionFunc {
 }
 
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	logger, err := logger.InitLogger(config)
 	if err != nil {
 		return nil, err
 	}
 	defer logger.Sync()
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &App{
 		ctx:        ctx,

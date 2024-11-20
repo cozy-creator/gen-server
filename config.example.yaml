@@ -4,7 +4,6 @@
 
 enabled_models:
   flux.1-schnell-fp8:
-    type: flux
     source: hf:black-forest-labs/FLUX.1-schnell
     components:
       transformer:
@@ -47,31 +46,29 @@ enabled_models:
     source: hf:stabilityai/stable-diffusion-xl-base-1.0
 
   pony.v6:
-    type: sdxl
+    class_name: sdxl
     source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   cyberrealistic.pony:
-    type: sdxl
+    class_name: sdxl
     source: https://civitai.com/api/download/models/953264?type=Model&format=SafeTensor&size=pruned&fp=fp16
   
   wai.ani.ponyxl:
-    type: sdxl
-    source: https://civitai.com/api/download/models/404154?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    class_name: sdxl
+    source: https://civitai.com/api/download/models/1065370?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   illustrious.xl:
-    type: sdxl 
-    source: https://civitai.com/api/download/models/795765?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    class_name: sdxl 
+    source: https://civitai.com/api/download/models/889818?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   real.dream.pony:
-    type: sdxl
-    source: https://civitai.com/api/download/models/153568?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    class_name: sdxl
+    source: https://civitai.com/api/download/models/832353?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   pony.realism:
-    type: sdxl
-    source: https://civitai.com/api/download/models/372465?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    class_name: sdxl
+    source: https://civitai.com/api/download/models/914390?type=Model&format=SafeTensor&size=full&fp=fp16
 
   playground2.5:
     source: hf:playgroundai/playground-v2.5-1024px-aesthetic
-
-
 

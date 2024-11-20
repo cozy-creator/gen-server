@@ -20,7 +20,7 @@ var Cmd = &cobra.Command{
 	Use:   "db",
 	Short: "Utility for database management",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		driver, err := db.NewConnection(cmd.Context(), config.GetConfig())
+		driver, err := db.NewConnection(cmd.Context(), config.MustGetConfig())
 		if err != nil {
 			return err
 		}

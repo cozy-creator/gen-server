@@ -115,7 +115,7 @@ func (u *S3FileStorage) UploadMultiple(files []FileInfo) ([]string, error) {
 
 func (u *S3FileStorage) GetFile(filename string) (*FileInfo, error) {
 	ctx := context.TODO()
-	cfg := config.GetConfig()
+	cfg := config.MustGetConfig()
 
 	params := &s3.GetObjectInput{
 		Bucket: &cfg.S3.Bucket,

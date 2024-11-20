@@ -17,19 +17,16 @@ func NewConnection(ctx context.Context, config *config.Config) (drivers.Driver, 
 	}
 
 	dsn := config.DB.DSN
-	if driver == "sqlite" {
+	switch driver {
+	case "sqlite":
 		return drivers.NewSQLiteDriver(ctx, sqliteshim.ShimName, dsn)
-	}
-
-	if driver == "libsql" {
+	case "libsql":
 		return drivers.NewSQLiteDriver(ctx, "libsql", dsn)
-	}
-
-	if driver == "postgres" {
+	case "postgres":
 		return drivers.NewPGDriver(ctx, dsn)
+	default:
+		return nil, fmt.Errorf("invalid database driver: %s", driver)
 	}
-
-	return nil, fmt.Errorf("invalid database driver: %s", driver)
 }
 
 func detectDriver(dsn string) (string, error) {

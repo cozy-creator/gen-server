@@ -26,10 +26,10 @@ type ModelSource struct {
 var client = hub.DefaultClient()
 
 func DownloadEnabledModels(ctx context.Context, config *config.Config) error {
-	modelJSON, _ := json.MarshalIndent(config.EnabledModels, "", "  ")
+	modelJSON, _ := json.MarshalIndent(config.PipelineDefs, "", "  ")
     fmt.Printf("Enabled Model list:\n%s\n", string(modelJSON))
 
-	if len(config.EnabledModels) == 0 {
+	if len(config.PipelineDefs) == 0 {
 		fmt.Println("To download enabled models, please specify them in config.yaml")
 		return nil
 	}
@@ -37,7 +37,7 @@ func DownloadEnabledModels(ctx context.Context, config *config.Config) error {
 	var wg sync.WaitGroup
 
 MainLoop:
-	for _, model := range config.EnabledModels {
+	for _, model := range config.PipelineDefs {
 		select {
         case <-ctx.Done():
             return ctx.Err()

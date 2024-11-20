@@ -162,7 +162,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 }
 
 func createNewApp() (*app.App, error) {
-	app, err := app.NewApp(config.GetConfig())
+	app, err := app.NewApp(config.MustGetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +180,7 @@ func createNewApp() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	app.InitializeUploadWorker(filestorage)
 
 	return app, nil
