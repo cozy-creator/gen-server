@@ -11,6 +11,7 @@ venv/
 .mypy_cache/
 *.log
 test2.py
+.new_test/
 
 # system files
 *.DS_Store

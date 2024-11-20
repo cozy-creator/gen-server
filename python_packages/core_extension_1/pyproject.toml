@@ -8,7 +8,8 @@ description = "Generative-AI server for content production"
 version = "0.1.0"
 authors = [{ name = "Paul Fidika", email = "paul@fidika.com" }]
 dependencies = [
-    "accelerate",
+    "accelerate@git+https://github.com/huggingface/accelerate.git",
+    "bitsandbytes",
     "controlnet_aux",
     "gen_server",
     "groundingdino-py",
