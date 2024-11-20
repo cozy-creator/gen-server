@@ -12,7 +12,7 @@ var Migrations = migrate.NewMigrations()
 func InitMigrations() error {
 	cfg := config.MustGetConfig()
 
-	if cfg != nil && cfg.Environment != "production" {
+	if cfg != nil && cfg.Environment != "prod" {
 		if err := Migrations.DiscoverCaller(); err != nil {
 			fmt.Println("Error discovering caller: ", err)
 			return err

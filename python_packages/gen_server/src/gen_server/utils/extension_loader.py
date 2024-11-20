@@ -3,7 +3,7 @@ import sys
 import logging
 from typing import TypeVar, Optional
 
-from gen_server.base_types.common import Validator
+from ..base_types.common import Validator
 from .utils import to_snake_case
 from ..base_types import CustomNode
 

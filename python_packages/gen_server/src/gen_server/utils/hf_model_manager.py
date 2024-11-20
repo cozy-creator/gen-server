@@ -88,7 +88,7 @@ class HFModelManager:
 
             config = serialize_config(config)
             # print(f"Config: {config}")
-            model_info = config["enabled_models"].get(model_id)
+            model_info = config["pipeline_defs"].get(model_id)
             if not model_info:
                 logger.error(f"Model {model_id} not found in configuration.")
                 return False, None

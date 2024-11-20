@@ -1,6 +1,6 @@
 from typing import List, Optional
-from gen_server.globals import get_hf_model_manager, get_model_memory_manager
-from gen_server.utils.model_config_manager import ModelConfigManager
+from .globals import get_hf_model_manager, get_model_memory_manager
+from .utils.model_config_manager import ModelConfigManager
 from diffusers import (
     DiffusionPipeline,
     StableDiffusionPipeline,

@@ -25,7 +25,7 @@ func NewLogger(cfg *config.Config) (*zap.Logger, error) {
 		l   *zap.Logger
 		err error
 	)
-	if cfg.Environment == "production" {
+	if cfg.Environment == "prod" {
 		l, err = zap.NewProduction()
 	} else if cfg.Environment == "test" {
 		l = zap.NewExample()

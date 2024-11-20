@@ -1,6 +1,6 @@
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
-from .base_types.pydantic_models import ModelConfig
+from .base_types.pydantic_models import PipelineConfig
 
 
 from .base_types import (
@@ -13,7 +13,7 @@ from .base_types import (
 from .utils.device import get_torch_device
 
 
-_ENABLED_MODELS: dict[str, ModelConfig] = {}
+_ENABLED_MODELS: dict[str, PipelineConfig] = {}
 
 _available_torch_device: TorchDevice = get_torch_device()
 
@@ -64,11 +64,13 @@ def get_hf_model_manager():
         _HF_MODEL_MANAGER = HFModelManager()
     return _HF_MODEL_MANAGER
 
+
 def get_model_downloader():
     """Get or create the global ModelManager instance"""
     global _MODEL_DOWNLOADER
     if _MODEL_DOWNLOADER is None:
         from .utils.model_downloader import ModelManager
+
         _MODEL_DOWNLOADER = ModelManager()
     return _MODEL_DOWNLOADER
 

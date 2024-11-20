@@ -42,7 +42,7 @@ func NewServer(config *config.Config) (*Server, error) {
 	))
 
 	// Serve static files
-	if config.Environment == "production" {
+	if config.Environment == "prod" {
 		r.Use(static.Serve("/", static.LocalFile("/srv/www/cozy/dist", true)))
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
@@ -83,7 +83,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func getGinMode(env string) string {
 	switch env {
-	case "development":
+	case "dev":
 		return gin.DebugMode
 	case "test":
 		return gin.TestMode

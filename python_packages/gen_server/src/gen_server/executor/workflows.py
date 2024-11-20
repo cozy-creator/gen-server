@@ -12,11 +12,11 @@ from diffusers.callbacks import PipelineCallback
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from PIL import Image
 from pathlib import Path
-from gen_server.utils.paths import get_assets_dir, get_home_dir
+from ..utils.paths import get_assets_dir, get_home_dir
 from queue import Queue
 import torchvision.transforms as T
 import os
-from gen_server.utils.image import tensor_to_bytes
+from utils.image import tensor_to_bytes
 
 
 from ..globals import (
@@ -351,7 +351,6 @@ async def generate_images_non_io(
     logger.info(f"Image generated in {time.time() - start} seconds")
 
 
-
 async def flux_train_workflow(
     task_data: dict[str, Any],
     cancel_event: Optional[Event],
@@ -391,16 +390,19 @@ async def flux_train_workflow(
             image_paths=image_paths,
             captions=initial_captions,
             use_auto_captioning=use_auto_captioning,
-            output_directory=image_directory
+            output_directory=image_directory,
         )
 
         processed_directory = caption_result["processed_directory"]
-        yield {"status": "captions_processed", "processed_directory": processed_directory}
+        yield {
+            "status": "captions_processed",
+            "processed_directory": processed_directory,
+        }
 
         # Step 2: Train LoRA
         if cancel_event is not None and cancel_event.is_set():
             raise asyncio.CancelledError("Operation was cancelled.")
-        
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -417,25 +419,37 @@ async def flux_train_workflow(
             low_vram=low_vram,
             seed=seed,
             walk_seed=walk_seed,
-            cancel_event=cancel_event
+            cancel_event=cancel_event,
         )
 
         final_result = None
         try:
             async for update in save_node(train_generator):
-                if update['type'] == 'sample_images':
-                    yield {"status": "sample_generated", "current_step": update['step'], "sample_paths": update['paths']}
-                elif update['type'] == 'lora_file':
-                    yield {"status": "lora_saved", "current_step": update['step'], "lora_path": update['path']}
-                elif update['type'] == 'step':
-                    yield {"status": "training_progress", "current_step": update['current'], "total_steps": update['total']}
-                elif update['type'] == 'final_result':
+                if update["type"] == "sample_images":
+                    yield {
+                        "status": "sample_generated",
+                        "current_step": update["step"],
+                        "sample_paths": update["paths"],
+                    }
+                elif update["type"] == "lora_file":
+                    yield {
+                        "status": "lora_saved",
+                        "current_step": update["step"],
+                        "lora_path": update["path"],
+                    }
+                elif update["type"] == "step":
+                    yield {
+                        "status": "training_progress",
+                        "current_step": update["current"],
+                        "total_steps": update["total"],
+                    }
+                elif update["type"] == "final_result":
                     print("Final result received")
                     final_result = update
-                elif update['type'] == 'cancelled':
+                elif update["type"] == "cancelled":
                     yield update
                     break
-                    
+
                 if cancel_event.is_set():
                     break
         except asyncio.CancelledError:
@@ -448,7 +462,7 @@ async def flux_train_workflow(
                 "status": "training_completed",
                 "lora_path": final_result["final_lora"],
                 "processed_directory": processed_directory,
-                "image_captions": caption_result["image_captions"]
+                "image_captions": caption_result["image_captions"],
             }
 
     except asyncio.CancelledError:
@@ -463,51 +477,49 @@ async def flux_train_workflow(
     logger.info(f"FLUX LoRA training completed in {time.time() - start} seconds")
 
 
-
-async def image_regen_workflow(task_data: Dict[str, Any], cancel_event: Any = None) -> Dict[str, Any]:
+async def image_regen_workflow(
+    task_data: Dict[str, Any], cancel_event: Any = None
+) -> Dict[str, Any]:
     custom_nodes = get_custom_nodes()
     image_regen_node = custom_nodes["core_extension_1.image_regen_node"]()
     select_area_node = custom_nodes["core_extension_1.select_area_node"]()
 
     # Convert image and mask to tensors if they're file paths
-    if isinstance(task_data['image'], str):
-        image_path = os.path.join(get_home_dir(), task_data['image'])
-        image = Image.open(image_path).convert('RGB')
+    if isinstance(task_data["image"], str):
+        image_path = os.path.join(get_home_dir(), task_data["image"])
+        image = Image.open(image_path).convert("RGB")
         image_tensor = T.ToTensor()(image).unsqueeze(0)
     else:
-        image = task_data['image']
+        image = task_data["image"]
 
     # Generate or load mask
-    if 'mask' in task_data:
-        if isinstance(task_data['mask'], str):
-            mask_path = os.path.join(get_home_dir(), task_data['mask'])
-            mask = Image.open(mask_path).convert('L')
+    if "mask" in task_data:
+        if isinstance(task_data["mask"], str):
+            mask_path = os.path.join(get_home_dir(), task_data["mask"])
+            mask = Image.open(mask_path).convert("L")
             # mask = T.ToTensor()(mask).unsqueeze(0)
         else:
-            mask = task_data['mask']
+            mask = task_data["mask"]
     else:
         # Generate mask using SelectAreaNode
         select_area_result = await select_area_node(
             image=image_tensor.squeeze(0),
-            text_prompt=task_data['mask_prompt'],
-            feather_radius=task_data.get('feather_radius', 0)
+            text_prompt=task_data["mask_prompt"],
+            feather_radius=task_data.get("feather_radius", 0),
         )
-        mask = select_area_result['face_mask']
-
-    
+        mask = select_area_result["face_mask"]
 
     result = await image_regen_node(
         image=image,
         mask=mask,
-        prompt=task_data['prompt'],
-        model_id=task_data['model_id'],
-        negative_prompt=task_data.get('negative_prompt', ''),
-        num_inference_steps=task_data.get('num_inference_steps', 25),
-        strength=task_data.get('strength', 0.7)
+        prompt=task_data["prompt"],
+        model_id=task_data["model_id"],
+        negative_prompt=task_data.get("negative_prompt", ""),
+        num_inference_steps=task_data.get("num_inference_steps", 25),
+        strength=task_data.get("strength", 0.7),
     )
 
     # result['regenerated_image'] = tensor_to_bytes(result['regenerated_image'])
-
 
     return result
 
@@ -658,15 +670,16 @@ async def generate_images_unified(
         ip_adapter_embeds = task_data.get("ip_adapter_embeds")
 
         # Get the ImageGenNode and ControlNetFeatureDetector
-        
+
         image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
-        controlnet_feature_detector = custom_nodes["core_extension_1.controlnet_feature_detector"]()
+        controlnet_feature_detector = custom_nodes[
+            "core_extension_1.controlnet_feature_detector"
+        ]()
         for model_id, num_images in models.items():
             if cancel_event is not None and cancel_event.is_set():
                 raise asyncio.CancelledError("Operation was cancelled.")
 
             try:
-
                 lora_info = None
                 if lora_path:
                     lora_prep_node = custom_nodes["core_extension_1.load_lora_node"]()
@@ -677,7 +690,7 @@ async def generate_images_unified(
                         text_encoder_2_scale=text_encoder_2_scale,
                         adapter_name=adapter_name,
                     )
-                
+
                 # Prepare ControlNet inputs
                 controlnet_model_ids = []
                 openpose_image = None
@@ -687,20 +700,23 @@ async def generate_images_unified(
                         controlnet_model_ids.append(controlnet_info["model_id"])
                         control_image = controlnet_info["control_image"]
                         feature_type = controlnet_info["feature_type"]
-                        
+
                         # Generate control image
                         control_result = controlnet_feature_detector(
                             image=control_image,
                             feature_type=feature_type,
                             threshold1=controlnet_info.get("threshold1", 100),
-                            threshold2=controlnet_info.get("threshold2", 200)
+                            threshold2=controlnet_info.get("threshold2", 200),
                         )
                         processed_control_image = control_result["control_image"]
-                        
+
                         # Assign the processed image to the correct variable based on feature type
                         if feature_type.lower() == "openpose":
                             openpose_image = processed_control_image
-                        elif feature_type.lower() in ["canny", "depth"]:  # Assuming depth uses the same slot as canny
+                        elif feature_type.lower() in [
+                            "canny",
+                            "depth",
+                        ]:  # Assuming depth uses the same slot as canny
                             depth_map = processed_control_image
 
                 # Run the ImageGenNode
@@ -715,7 +731,7 @@ async def generate_images_unified(
                     controlnet_model_ids=controlnet_model_ids,
                     openpose_image=openpose_image,
                     depth_map=depth_map,
-                    ip_adapter_embeds=ip_adapter_embeds
+                    ip_adapter_embeds=ip_adapter_embeds,
                 )
 
                 images = result["images"]
@@ -727,7 +743,9 @@ async def generate_images_unified(
 
                 tensor_images = images.to("cpu")
                 tensor_images.share_memory_()
-                logger.info(f"Generated images for model '{model_id}'. Tensor dimensions: {tensor_images.shape}")
+                logger.info(
+                    f"Generated images for model '{model_id}'. Tensor dimensions: {tensor_images.shape}"
+                )
 
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -735,7 +753,9 @@ async def generate_images_unified(
                 yield tensor_images
 
             except Exception as e:
-                logger.error(f"Error generating images for model '{model_id}': {str(e)}")
+                logger.error(
+                    f"Error generating images for model '{model_id}': {str(e)}"
+                )
                 traceback.print_exc()
 
     except asyncio.CancelledError:

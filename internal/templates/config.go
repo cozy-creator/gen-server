@@ -15,7 +15,7 @@ s3:
   folder: "public"
   vanity_url: "https://storage.cozy.dev"
 
-enabled_models:
+pipeline_defs:
   playground2.5:
     source: hf:playgroundai/playground-v2.5-1024px-aesthetic
 `

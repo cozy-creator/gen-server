@@ -3,28 +3,25 @@ import asyncio
 from concurrent.futures import Future, ProcessPoolExecutor
 import json
 import logging
-
+import os
 import struct
 import sys
 import time
+import warnings
 from typing import Any, Callable
 
-from gen_server.base_types.custom_node import custom_node_validator
-from gen_server.base_types.pydantic_models import RunCommandConfig
-from gen_server.config import init_config
-from gen_server.globals import update_custom_nodes, update_architectures
-from gen_server.tcp_server import TCPServer, RequestContext
-from gen_server.worker.gpu_worker import generate_images_non_io
-from gen_server.utils.cli_helpers import parse_known_args_wrapper
-from gen_server.utils.extension_loader import load_extensions
-from gen_server.utils.image import tensor_to_bytes
-import os
-from gen_server.globals import get_model_memory_manager
-from gen_server.utils.model_downloader import ModelSource, ModelManager
-from gen_server.config import get_config
-from gen_server.utils.utils import serialize_config
-from gen_server.model_command_handler import ModelCommandHandler
-import warnings
+from .base_types.custom_node import custom_node_validator
+from .base_types.pydantic_models import RunCommandConfig
+from .config import init_config
+from .globals import update_custom_nodes, update_architectures
+from .tcp_server import TCPServer, RequestContext
+from .worker.gpu_worker import generate_images_non_io
+from .utils.cli_helpers import parse_known_args_wrapper
+from .utils.extension_loader import load_extensions
+from .utils.image import tensor_to_bytes
+from .globals import get_model_memory_manager
+from .utils.model_downloader import ModelSource, ModelManager
+from .model_command_handler import ModelCommandHandler
 
 
 # Ignore warnings from pydantic_settings (/run/secrets does not exist)
@@ -44,30 +41,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def verify_and_download_models():
+async def verify_and_download_models(config: RunCommandConfig):
     """Verify and download all models on startup"""
-    config = serialize_config(get_config())
+
     async with ModelManager() as manager:
         # Prepare download tasks for main models
         main_tasks = []
-        for model_id, model_info in config["enabled_models"].items():
-            source = ModelSource(model_info["source"])
+        for model_id, model_info in config.pipeline_defs.items():
+            source = ModelSource(model_info.source)
             is_downloaded, variant = await manager.is_downloaded(model_id)
-            print(f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}")
-            
+            print(
+                f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}"
+            )
+
             if not is_downloaded:
-                task = asyncio.create_task(
-                    manager.download_model(model_id, source)
-                )
+                task = asyncio.create_task(manager.download_model(model_id, source))
                 main_tasks.append((model_id, task))
 
         # Prepare download tasks for components
         component_tasks = []
-        for model_id, model_info in config["enabled_models"].items():
-            if "components" in model_info and model_info["components"] is not None:
-                for comp_name, comp_info in model_info["components"].items():
+        for model_id, model_info in config.pipeline_defs.items():
+            if model_info.components is not None:
+                for comp_name, comp_info in model_info.components.items():
                     if isinstance(comp_info, dict) and "source" in comp_info:
-                        comp_source = ModelSource(comp_info["source"])
+                        comp_source = ModelSource(comp_info.source)
                         comp_id = f"{model_id}/{comp_name}"
 
                         is_downloaded, _ = await manager.is_downloaded(comp_id)
@@ -110,18 +107,19 @@ def request_handler(context: RequestContext):
                 # Run the async command handler in a new event loop
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                response = loop.run_until_complete(command_handler.handle_command(json_data))
-                
+                response = loop.run_until_complete(
+                    command_handler.handle_command(json_data)
+                )
+
                 # Send response
                 response_bytes = json.dumps(response).encode()
                 size = struct.pack("!I", len(response_bytes))
                 context.send(size + response_bytes)
             except Exception as e:
                 logger.error(f"Error handling model command: {e}")
-                error_response = json.dumps({
-                    "status": "error",
-                    "error": str(e)
-                }).encode()
+                error_response = json.dumps(
+                    {"status": "error", "error": str(e)}
+                ).encode()
                 size = struct.pack("!I", len(error_response))
                 context.send(size + error_response)
         else:
@@ -133,19 +131,22 @@ def request_handler(context: RequestContext):
                 async for [model_id, images] in generate_images_non_io(json_data):
                     outputs = tensor_to_bytes(images)
                     model_id_bytes = model_id.encode("utf-8")
-                    model_id_header = struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+                    model_id_header = (
+                        struct.pack("!I", len(model_id_bytes)) + model_id_bytes
+                    )
                     for output in outputs:
-                        total_size = struct.pack("!I", len(model_id_header) + len(output))
+                        total_size = struct.pack(
+                            "!I", len(model_id_header) + len(output)
+                        )
                         context.send(total_size + model_id_header + output)
 
             loop.run_until_complete(generate())
 
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON data: {e}")
-        error_response = json.dumps({
-            "status": "error",
-            "error": "Invalid JSON"
-        }).encode()
+        error_response = json.dumps(
+            {"status": "error", "error": "Invalid JSON"}
+        ).encode()
         size = struct.pack("!I", len(error_response))
         context.send(size + error_response)
 
@@ -171,14 +172,12 @@ def startup_extensions():
     )
 
 
-async def load_and_warm_up_models():
-    print("Here")
+async def load_and_warm_up_models(config: RunCommandConfig):
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
-    warmup_models = model_memory_manager.get_warmup_models()
+    warmup_models = config.warmup_models
 
-    logger.info(f"Starting to load and warm up {len(warmup_models)} models")
-    logger.info(f"Warmup models {warmup_models}")
+    logger.info(f"Warming up the following models: {warmup_models}")
 
     for model_id in model_ids:
         if model_id in warmup_models:
@@ -199,10 +198,10 @@ async def main_async():
     startup_extensions()
 
     # Verify and download models
-    await verify_and_download_models()
+    await verify_and_download_models(config)
 
     # Load and warm up models
-    await load_and_warm_up_models()
+    await load_and_warm_up_models(config)
 
     # Run the TCP server
     run_tcp_server(config)

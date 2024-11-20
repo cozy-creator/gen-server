@@ -2,7 +2,7 @@
 # Do not include sensitive information (tokens, keys) in a config.yaml file; place them
 # inside of the .env file and access them via os.environ.get(), or use k8s secrets.
 
-enabled_models:
+pipeline_defs:
   flux.1-schnell-fp8:
     source: hf:black-forest-labs/FLUX.1-schnell
     components:
@@ -31,8 +31,9 @@ enabled_models:
         source: hf:hf-internal-testing/flux.1-dev-nf4-pkg
 
   openflux.1:
+    # community-provided diffusers pipeline; overwrites the FluxPipeline class_name from model_index.json
+    class_name: pipeline_flux_with_cfg
     source: hf:ostris/OpenFLUX.1
-    custom_pipeline: pipeline_flux_with_cfg
     
   sd3.5-large:
     source: hf:stabilityai/stable-diffusion-3.5-large
@@ -46,6 +47,7 @@ enabled_models:
     source: hf:stabilityai/stable-diffusion-xl-base-1.0
 
   pony.v6:
+    # civiitai does not provide model_index.json files, hence class_name must be specified manually
     class_name: sdxl
     source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
 

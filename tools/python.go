@@ -134,7 +134,14 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 	}
 
 	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
-	cmd, err := ExecutePythonCommand(mainFilePath, "--environment", cfg.Environment, "--port", strconv.Itoa(cfg.TcpPort), "--warmup-models", cfg.WarmupModels)
+	cmd, err := ExecutePythonCommand(
+		mainFilePath,
+		"--environment", cfg.Environment,
+		"--host", cfg.Host,
+		"--port", strconv.Itoa(cfg.TcpPort),
+        "--warmup-models", strings.Join(cfg.WarmupModels, ","),
+		"--models-path", cfg.ModelsDir,
+	)
 	if err != nil {
 		return err
 	}

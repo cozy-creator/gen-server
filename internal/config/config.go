@@ -40,8 +40,8 @@ type Config struct {
 	DB            *DBConfig             `mapstructure:"db"`
 	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
 	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
-	PipelineDefs []PipelineDefs `mapstructure:"enabled_models"`
-	WarmupModels  string                `mapstructure:"warmup_models"`
+	PipelineDefs  []PipelineDefs        `mapstructure:"pipeline_defs"`
+	WarmupModels  []string              `mapstructure:"warmup_models"`
 }
 
 type S3Config struct {
@@ -228,12 +228,3 @@ func createCozyHomeDirs(cozyHome string) error {
 	return nil
 }
 
-func parseWarmupModels() ([]string, error) {
-	warmupModels := viper.GetString("warmup_models")
-	fmt.Println("Warmup Models", warmupModels)
-	if warmupModels == "" {
-		return nil, nil
-	}
-
-	return strings.Split(warmupModels, ","), nil
-}

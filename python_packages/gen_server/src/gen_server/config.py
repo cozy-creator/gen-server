@@ -37,6 +37,7 @@ def get_config() -> RunCommandConfig:
     """
     if cozy_config is None:
         raise ValueError("Config has not been loaded yet")
+
     return cozy_config
 
 
@@ -54,23 +55,24 @@ def init_config(
 ) -> RunCommandConfig:
     """
     Loads the configuration for the server.
-    This should be called at the start of the server.
+    This should be called at the start of the Python server.
     """
     cli_settings = CliSettingsSource(
         RunCommandConfig,
         root_parser=run_parser,
         cli_parse_args=True,
-        cli_enforce_required=False,
+        cli_enforce_required=True,
         # overwrite this method so that we don't get errors from unknown args
         parse_args_method=parse_args_method,
     )
 
-    # This updates the configuration globally
     cozy_config = RunCommandConfig(
         _env_file=env_file,  # type: ignore
         _secrets_dir=secrets_dir,  # type: ignore
         _cli_settings_source=cli_settings(args=True),  # type: ignore
     )
+
+    # This updates the configuration globally for the Python server
     set_config(cozy_config)
 
     return cozy_config
@@ -80,7 +82,11 @@ def is_model_enabled(model_name: str) -> bool:
     """
     Returns a boolean indicating whether a model is enabled in the global configuration.
     """
-    return model_name in get_config().enabled_models
+    config = get_config()
+    if config.pipeline_defs is None:
+        return False
+
+    return model_name in config.pipeline_defs.keys()
 
 
 def get_mock_config(
@@ -93,7 +99,6 @@ def get_mock_config(
 
     environment = "test"
     home_dir = DEFAULT_HOME_DIR
-    models_path = os.path.join(home_dir, "models")
 
     if filesystem_type == FilesystemTypeEnum.LOCAL:
         os.environ["COZY_FILESYSTEM_TYPE"] = filesystem_type
@@ -113,6 +118,4 @@ def get_mock_config(
         port=8881,
         host="127.0.0.1",
         environment=environment,
-        models_path=models_path,
-        home_dir=home_dir,
     )

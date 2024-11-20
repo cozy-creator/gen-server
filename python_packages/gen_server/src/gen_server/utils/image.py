@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from PIL import Image
 
-from gen_server.utils.device import get_torch_device
-from gen_server.utils.load_models import from_file
+from .device import get_torch_device
+from .load_models import from_file
 from torchvision.transforms import ToPILImage
 from io import BytesIO
 
@@ -145,7 +145,7 @@ def aspect_ratio_to_dimensions(aspect_ratio: str, class_name: str) -> tuple[int,
         "AuraFlow",
         "StableDiffusion3Pipeline",
         "FluxPipeline",
-        "FluxInpaintPipeline"
+        "FluxInpaintPipeline",
     }
 
     size = "large" if class_name in large_models else "default"

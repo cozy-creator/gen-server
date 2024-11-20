@@ -34,7 +34,7 @@ func init() {
 	flags.Int("port", 8881, "Port to run the server on")
 	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("host", "localhost", "Host to run the server on")
-	flags.String("environment", "development", "Environment configuration")
+	flags.String("environment", "dev", "Environment configuration")
 	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("warmup-models", "", "Models to be loaded and warmed up on startup")
 
@@ -180,14 +180,14 @@ func createNewApp() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	app.InitializeUploadWorker(filestorage)
 
 	return app, nil
 }
 
 func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
-	if err := tools.StartPythonGenServer(ctx, "0.2.2", cfg); err != nil {
+	if err := tools.StartPythonGenServer(ctx, "0.3.0", cfg); err != nil {
 		return err
 	}
 
