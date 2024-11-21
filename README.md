@@ -35,6 +35,8 @@ The plan is to release this all under a non-commercial usage license, and charge
 
 (TO DO)
 
+Note that relative file paths are relative to the current working directory, not the location of the gen-server executable. You can use relative file paths with flags like `--public-dir` and `--env-file`.
+
 It's recommended to use the config.yaml file as a config-map if you're deploying this in a Kubernetes environment.
 
 

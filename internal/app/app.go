@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
 	"github.com/cozy-creator/gen-server/internal/db/drivers"
+	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/db/repository"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
@@ -77,6 +79,31 @@ func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
 
 func (app *App) InitializeDB() error {
 	db, err := db.NewConnection(app.ctx, app.config)
+	if err != nil {
+		return err
+	}
+
+	// Ensure tables exist before initializing repositories
+	err = db.GetDB().RunInTx(app.ctx, nil,
+		func(ctx context.Context, tx bun.Tx) error {
+			tables := []interface{}{
+				(*models.APIKey)(nil),
+				(*models.Job)(nil),
+				(*models.Image)(nil),
+				(*models.Event)(nil),
+			}
+
+			for _, table := range tables {
+				_, err := tx.NewCreateTable().
+					Model(table).
+					IfNotExists().
+					Exec(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to create table: %w", err)
+				}
+			}
+			return nil
+		})
 	if err != nil {
 		return err
 	}

@@ -114,6 +114,26 @@ class RunCommandConfig(BaseSettings):
         ),
     )
 
+    @field_validator("pipeline_defs", mode="before")
+    @classmethod
+    def parse_pipeline_defs(cls, v: Any) -> dict[str, PipelineConfig]:
+        # If it's already a dict, return as is
+        if isinstance(v, dict):
+            return v
+
+        # If it's a string, try to parse it as JSON
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return {
+                    model_id: PipelineConfig(**config)
+                    for model_id, config in parsed.items()
+                }
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON for pipeline_defs: {e}")
+
+        return dict()  # Return empty dict as default
+
     @field_validator("warmup_models", mode="before")
     @classmethod
     def parse_and_set_warmup_models(cls, v: Any, info: ValidationInfo) -> list[str]:

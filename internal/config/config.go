@@ -29,11 +29,13 @@ type Config struct {
 	CozyHome      string                `mapstructure:"cozy_home"`
 	TcpTimeout    int                   `mapstructure:"tcp_timeout"`
 	Environment   string                `mapstructure:"environment"`
+	DisableAuth   bool                  `mapstructure:"disable_auth"`
 	AssetsDir     string                `mapstructure:"assets_dir"`
 	ModelsDir     string                `mapstructure:"models_dir"`
 	TempDir       string                `mapstructure:"temp_dir"`
 	AuxModelsDirs []string              `mapstructure:"aux_models_dirs"`
 	Filesystem    string                `mapstructure:"filesystem_type"`
+	PublicDir     string                `mapstructure:"public_dir"`
 	MQType        string                `mapstructure:"mq_type"`
 	S3            *S3Config             `mapstructure:"s3"`
 	Pulsar        *PulsarConfig         `mapstructure:"pulsar"`
@@ -57,12 +59,7 @@ type S3Config struct {
 type PipelineDefs struct {
 	ClassName  string                    	`mapstructure:"class_name"`
 	Source     string                    	`mapstructure:"source"`
-	Components map[string]PipelineComponent `mapstructure:"components"`
-}
-
-type PipelineComponent struct {
-	ClassName string `mapstructure:"class_name"`
-	Source    string `mapstructure:"source"`
+	Components map[string]*PipelineDefs		`mapstructure:"components"`
 }
 
 type PulsarConfig struct {
@@ -146,6 +143,7 @@ func InitConfig() error {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix(cozyPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
+
 	if configFilePath != "" {
 		viper.SetConfigFile(configFilePath)
 	} else {

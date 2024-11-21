@@ -158,7 +158,7 @@ def run_tcp_server(config: RunCommandConfig):
     server.start(lambda addr, port: print(f"Server started on {addr}:{port}"))
 
 
-def startup_extensions():
+def startup_extensions(_config: RunCommandConfig):
     start_time_custom_nodes = time.time()
 
     update_custom_nodes(
@@ -195,7 +195,7 @@ async def main_async():
     run_parser = argparse.ArgumentParser(description="Cozy Creator")
     config = init_config(run_parser, parse_known_args_wrapper)
 
-    startup_extensions()
+    startup_extensions(config)
 
     # Verify and download models
     await verify_and_download_models(config)

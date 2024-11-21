@@ -37,6 +37,11 @@ func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 			pythonPath = filepath.Join(venvPath, "bin", "python")
 		}
 
+		// Verify the file exists
+		if _, err := os.Stat(pythonPath); err != nil {
+			return nil, fmt.Errorf("python.exe not found at %s: %w", pythonPath, err)
+		}
+
 		cmd := exec.Command(pythonPath, args...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -50,11 +55,6 @@ func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 				os.PathListSeparator, 
 				os.Getenv("PATH")),
 		)
-
-		err := cmd.Run()
-		if err != nil {
-			return nil, err
-		}
 
 		return cmd, nil
 	}
@@ -96,58 +96,6 @@ func ExecutePythonCommandWithOutput(args ...string) (string, error) {
 	}
 
 	return "", fmt.Errorf("python may not be installed, please check and try again")
-}
-
-func GetPythonSitePackagesPath() (string, error) {
-	codeString := "import sysconfig; print(sysconfig.get_paths()['purelib'])"
-	return ExecutePythonCommandWithOutput("-c", codeString)
-}
-
-func ResolveGenServerPath(version string) (string, error) {
-	sitePackages, err := GetPythonSitePackagesPath()
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println("Site packages path:", sitePackages)
-
-	// If gen-server is in site-packages, it's probably installed in non-editable mode
-	genServerPath := filepath.Join(sitePackages, "gen_server")
-	if _, err := os.Stat(genServerPath); err == nil {
-		return genServerPath, nil
-	}
-
-	// If gen-server is not in site-packages, it's probably installed in editable mode,
-	// so try to find it in the gen_server-<version>.dist-info directory
-	genServerPath = filepath.Clean(filepath.Join(sitePackages, fmt.Sprintf("gen_server-%s.dist-info", version)))
-	if _, err := os.Stat(genServerPath); err == nil {
-		content, err := os.ReadFile(filepath.Join(genServerPath, "direct_url.json"))
-		if err != nil {
-			return "", err
-		}
-
-		var directUrl map[string]any
-		if err := json.Unmarshal(content, &directUrl); err != nil {
-			return "", err
-		}
-		if directUrl["url"] == nil {
-			return "", fmt.Errorf("direct_url.json does not contain a url key")
-		}
-
-		urlPath, err := StripFilePrefix(directUrl["url"].(string))
-		if err != nil {
-			return "", err
-		}
-
-		genServerPath = filepath.Join(urlPath, "src", "gen_server")
-		if _, err := os.Stat(genServerPath); err != nil {
-			return "", err
-		}
-
-		return filepath.Clean(genServerPath), nil
-	}
-
-	return "", fmt.Errorf("gen-server not found in site-packages")
 }
 
 func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
@@ -215,6 +163,58 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 	}
 
 	return nil
+}
+
+func GetPythonSitePackagesPath() (string, error) {
+	codeString := "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+	return ExecutePythonCommandWithOutput("-c", codeString)
+}
+
+func ResolveGenServerPath(version string) (string, error) {
+	sitePackages, err := GetPythonSitePackagesPath()
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println("Site packages path:", sitePackages)
+
+	// If gen-server is in site-packages, it's probably installed in non-editable mode
+	genServerPath := filepath.Join(sitePackages, "gen_server")
+	if _, err := os.Stat(genServerPath); err == nil {
+		return genServerPath, nil
+	}
+
+	// If gen-server is not in site-packages, it's probably installed in editable mode,
+	// so try to find it in the gen_server-<version>.dist-info directory
+	genServerPath = filepath.Clean(filepath.Join(sitePackages, fmt.Sprintf("gen_server-%s.dist-info", version)))
+	if _, err := os.Stat(genServerPath); err == nil {
+		content, err := os.ReadFile(filepath.Join(genServerPath, "direct_url.json"))
+		if err != nil {
+			return "", err
+		}
+
+		var directUrl map[string]any
+		if err := json.Unmarshal(content, &directUrl); err != nil {
+			return "", err
+		}
+		if directUrl["url"] == nil {
+			return "", fmt.Errorf("direct_url.json does not contain a url key")
+		}
+
+		urlPath, err := StripFilePrefix(directUrl["url"].(string))
+		if err != nil {
+			return "", err
+		}
+
+		genServerPath = filepath.Join(urlPath, "src", "gen_server")
+		if _, err := os.Stat(genServerPath); err != nil {
+			return "", err
+		}
+
+		return filepath.Clean(genServerPath), nil
+	}
+
+	return "", fmt.Errorf("gen-server not found in site-packages")
 }
 
 func StripFilePrefix(uri string) (string, error) {

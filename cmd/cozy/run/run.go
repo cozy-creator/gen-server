@@ -35,12 +35,14 @@ func init() {
 	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.String("environment", "dev", "Environment configuration")
+	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
 	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
 	flags.String("warmup-models", "", "Models to be loaded and warmed up on startup")
 
 	flags.String("db-dsn", "file:./test.db", "Database DSN (Connection URL or Path)")
 
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
+	flags.String("public-dir", "", "Path where static files should be served from. Relative paths are relative to the current working directory, not the location of the gen-server executable.")
 
 	flags.String("s3-access-key", "", "S3 access key")
 	flags.String("s3-secret-key", "", "S3 secret key")
@@ -62,6 +64,7 @@ func bindFlags() {
 	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
 	viper.BindPFlag("environment", flags.Lookup("environment"))
+	viper.BindPFlag("disable_auth", flags.Lookup("disable-auth"))
 	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 

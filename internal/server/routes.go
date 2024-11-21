@@ -20,8 +20,10 @@ func (s *Server) SetupRoutes(app *app.App) {
 
 	apiV1 := s.ginEngine.Group("/v1")
 
-	// Authentication middleware
-	apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
+	// Authentication middleware. Auth is required in prod.
+	if !app.Config().DisableAuth || app.Config().Environment == "prod" {
+		apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
+	}
 
 	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))
 
