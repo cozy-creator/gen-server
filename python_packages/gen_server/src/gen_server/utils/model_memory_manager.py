@@ -110,7 +110,7 @@ SCHEDULER_CONFIGS = {
     "UniPC": {"class": UniPCMultistepScheduler, "kwargs": {}},
 }
 
-# Update model components to use class names
+# Keys correspond to diffusers pipeline classes
 MODEL_COMPONENTS = {
     "FluxPipeline": [
         "vae",
@@ -141,39 +141,35 @@ MODEL_COMPONENTS = {
 
 
 def get_pipeline_class(
-    class_name: Optional[Union[str, Tuple[str, str]]],
-) -> Type[DiffusionPipeline]:
+    class_name: Union[str, Tuple[str, str]],
+) -> Tuple[Type[DiffusionPipeline], Optional[str]]:
     """Get the appropriate pipeline class based on class_name configuration.
+    Learn about custom-pipelines here: https://huggingface.co/docs/diffusers/v0.6.0/en/using-diffusers/custom_pipelines
+    Note that from_single_file does not support custom pipelines, only from_pretrained does.
 
     Args:
         class_name: Either a string naming a diffusers class, or a tuple of (package, class)
 
     Returns:
-        Pipeline class to use
+        Tuple of (Pipeline class to use, custom_pipeline to include as a kwarg to the pipeline)
     """
-    if class_name is None:
-        return DiffusionPipeline
-
+    # class_name is in the form of [package, class]
     if isinstance(class_name, tuple):
         # Load from custom package
         package, cls = class_name
         module = importlib.import_module(package)
-        return getattr(module, cls)
+        return (getattr(module, cls), None)
 
-    # Try loading from diffusers first
+    # Try loading class_name as a diffusers class
     try:
-        return getattr(importlib.import_module("diffusers"), class_name)
+        pipeline_class = getattr(importlib.import_module("diffusers"), class_name)
+        if not issubclass(pipeline_class, DiffusionPipeline):
+            raise TypeError(f"{class_name} does not inherit from DiffusionPipeline")
+        return (pipeline_class, None)
+
     except (ImportError, AttributeError):
-        # Fall back to custom pipeline
-        return DiffusionPipeline
-
-
-PIPELINE_MAPPING = {
-    "sdxl": StableDiffusionXLPipeline,
-    "sd": StableDiffusionPipeline,
-    "flux": FluxPipeline,
-    "sd1.5": StableDiffusionPipeline,
-}
+        # Assume the class name is the name of a custom pipeline
+        return (DiffusionPipeline, class_name)
 
 
 class LRUCache:
@@ -621,11 +617,24 @@ class ModelMemoryManager:
                 is_downloaded, variant = await self.model_downloader.is_downloaded(
                     model_id
                 )
+
                 if not is_downloaded:
                     logger.info(f"Model {model_id} not downloaded")
                     return None
+
+                # Get model index and use as fallback in case class_name is unspecified
+                if class_name is None:
+                    model_index = await self.hf_model_manager.get_diffusers_multifolder_components(
+                        path
+                    )
+                    if model_index and "_class_name" in model_index:
+                        class_name = model_index["_class_name"]
+                    else:
+                        logger.error(f"Unknown diffusers class_name for {model_id}")
+                        return None
+
                 return await self.load_huggingface_model(
-                    model_id, path, gpu, class_name, variant, model_config
+                    model_id, path, class_name, gpu, variant, model_config
                 )
             elif prefix in ["file", "ct"]:
                 return await self.load_single_file_model(
@@ -989,8 +998,8 @@ class ModelMemoryManager:
         self,
         model_id: str,
         repo_id: str,
+        class_name: Union[str, Tuple[str, str]],
         gpu: Optional[int] = None,
-        class_name: Optional[Union[str, Tuple[str, str]]] = None,
         variant: Optional[str] = None,
         model_config: Optional[PipelineConfig] = None,
     ) -> Optional[DiffusionPipeline]:
@@ -1011,16 +1020,16 @@ class ModelMemoryManager:
         try:
             pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
             variant = None if variant == "" else variant
+            # TO DO: make this more robust
             torch_dtype = (
                 torch.bfloat16 if "flux" in model_id.lower() else torch.float16
             )
 
             # Get appropriate pipeline class
-            pipeline_class = get_pipeline_class(class_name)
+            (pipeline_class, custom_pipeline) = get_pipeline_class(class_name)
 
-            if isinstance(class_name, str) and class_name not in pipeline_kwargs:
-                # If class_name is a string and not already in kwargs, treat as custom pipeline
-                pipeline_kwargs["custom_pipeline"] = class_name
+            if custom_pipeline:
+                pipeline_kwargs["custom_pipeline"] = custom_pipeline
 
             pipeline = pipeline_class.from_pretrained(
                 repo_id,
@@ -1103,7 +1112,7 @@ class ModelMemoryManager:
                     component.source, model_class_name, key
                 )
         except Exception as e:
-            logger.error(f"Error preparing component {key}: {str(e)}")
+            logger.error("Error preparing component {}: {}".format(key, str(e)))
             return None
 
     async def load_single_file_model(
@@ -1129,14 +1138,12 @@ class ModelMemoryManager:
         """
         logger.info(f"Loading single file model {model_id}")
 
+        # TO DO: we could try inferring the class using our old detect_model code here!
         if class_name is None:
             logger.error("Model class_name must be specified for single file models")
             return None
 
-        pipeline_class = get_pipeline_class(class_name)
-        if not pipeline_class:
-            logger.error(f"Unsupported model class: {class_name}")
-            return None
+        (pipeline_class, custom_pipeline) = get_pipeline_class(class_name)
 
         try:
             print(f"Model path: {path}")
@@ -1157,7 +1164,7 @@ class ModelMemoryManager:
             return pipeline
 
         except Exception as e:
-            logger.error(f"Error loading single file model: {str(e)}")
+            logger.error("Error loading single file model: {}".format(str(e)))
             return None
 
     def _get_model_path(self, path: str, prefix: str) -> str:

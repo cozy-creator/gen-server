@@ -41,7 +41,7 @@ It's recommended to use the config.yaml file as a config-map if you're deploying
 ### Building Docker Container
 
 ```sh
-docker build -t cozycreator/gen-server:0.3.0 .
+docker build -t cozycreator/gen-server:0.3.6 .
 ```
 
 ### Running Container Locally

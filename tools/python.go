@@ -135,6 +135,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 
 	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
 	cmd, err := ExecutePythonCommand(
+		"-m",
 		mainFilePath,
 		"--environment", cfg.Environment,
 		"--host", cfg.Host,
