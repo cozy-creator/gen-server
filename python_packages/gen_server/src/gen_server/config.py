@@ -3,7 +3,7 @@ import argparse
 from typing import Optional, List, Callable
 from pydantic_settings import CliSettingsSource
 
-from .base_types.pydantic_models import RunCommandConfig, FilesystemTypeEnum
+from .base_types.pydantic_models import RunCommandConfig
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
@@ -89,30 +89,14 @@ def is_model_enabled(model_name: str) -> bool:
     return model_name in config.pipeline_defs.keys()
 
 
-def get_mock_config(
-    filesystem_type: FilesystemTypeEnum = FilesystemTypeEnum.LOCAL,
-) -> RunCommandConfig:
+def get_mock_config() -> RunCommandConfig:
     """
     Returns a mock (or test) version of the global configuration object.
     This can be used outside of the cozy server environment.
     """
 
     environment = "test"
-    home_dir = DEFAULT_HOME_DIR
-
-    if filesystem_type == FilesystemTypeEnum.LOCAL:
-        os.environ["COZY_FILESYSTEM_TYPE"] = filesystem_type
-        os.environ["COZY_ASSETS_PATH"] = os.path.join(home_dir, "assets")
-    else:
-        os.environ["COZY_FILESYSTEM_TYPE"] = FilesystemTypeEnum.S3
-        os.environ["COZY_S3__FOLDER"] = "public"
-        os.environ["COZY_S3__ACCESS_KEY"] = "test"
-        os.environ["COZY_S3__SECRET_KEY"] = "test"
-        os.environ["COZY_S3__REGION_NAME"] = "us-east-1"
-        os.environ["COZY_S3__BUCKET_NAME"] = "test-bucket"
-        os.environ["COZY_S3__ENDPOINT_URL"] = (
-            "https://voidtech-storage-dev.nyc3.digitaloceanspaces.com"
-        )
+    # home_dir = DEFAULT_HOME_DIR
 
     return RunCommandConfig(
         port=8881,

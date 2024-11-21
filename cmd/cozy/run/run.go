@@ -188,6 +188,7 @@ func createNewApp() (*app.App, error) {
 
 func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
 	if err := tools.StartPythonGenServer(ctx, "0.3.0", cfg); err != nil {
+		fmt.Println("Error starting Python Gen Server: ", err)
 		return err
 	}
 

@@ -57,3 +57,9 @@ performance = ["accelerate", "triton", "xformers"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gen_server"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/gen_server"]

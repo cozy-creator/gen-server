@@ -25,16 +25,47 @@ func CommandExists(command string) (bool, error) {
 }
 
 func ExecutePythonCommand(args ...string) (*exec.Cmd, error) {
-	commands := []string{"python", "python3"}
+	// First check if we're in a venv
+	venvPath := os.Getenv("VIRTUAL_ENV")
+	if venvPath != "" {
+		// Use the Python from the active venv
+		var pythonPath string
+		if runtime.GOOS == "windows" {
+			pythonPath = filepath.Join(venvPath, "Scripts", "python.exe")
+		} else {
+			pythonPath = filepath.Join(venvPath, "bin", "python")
+		}
 
+		cmd := exec.Command(pythonPath, args...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Ensure venv environment is properly set
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("VIRTUAL_ENV=%s", venvPath),
+			fmt.Sprintf("PATH=%s%c%s", 
+				filepath.Join(venvPath, "bin"), 
+				os.PathListSeparator, 
+				os.Getenv("PATH")),
+		)
+
+		err := cmd.Run()
+		if err != nil {
+			return nil, err
+		}
+
+		return cmd, nil
+	}
+
+	// Fallback to system Python if no venv is active
+	commands := []string{"python", "python3"}
 	for _, pythonBin := range commands {
 		if _, err := CommandExists(pythonBin); err == nil {
 			cmd := exec.Command(pythonBin, args...)
-
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-
 			cmd.Env = os.Environ()
 
 			err := cmd.Run()
@@ -82,6 +113,8 @@ func ResolveGenServerPath(version string) (string, error) {
 		return "", err
 	}
 
+	fmt.Println("Site packages path:", sitePackages)
+
 	// If gen-server is in site-packages, it's probably installed in non-editable mode
 	genServerPath := filepath.Join(sitePackages, "gen_server")
 	if _, err := os.Stat(genServerPath); err == nil {
@@ -123,20 +156,21 @@ func ResolveGenServerPath(version string) (string, error) {
 
 func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
 	ctx = context.WithoutCancel(ctx)
-	genServerPath, err := ResolveGenServerPath(version)
-	if err != nil {
-		return err
-	}
+	// genServerPath, err := ResolveGenServerPath(version)
+	// if err != nil {
+	// 	return err
+	// }
 
-	mainFilePath := filepath.Join(genServerPath, "main.py")
-	if _, err := os.Stat(mainFilePath); err != nil {
-		return fmt.Errorf("main.py not found in gen-server path")
-	}
+	// mainFilePath := filepath.Join(genServerPath, "main")
+	// if _, err := os.Stat(mainFilePath); err != nil {
+	// 	return fmt.Errorf("main.py not found in gen-server path")
+	// }
 
 	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
 	cmd, err := ExecutePythonCommand(
 		"-m",
-		mainFilePath,
+		// mainFilePath,
+		"gen_server.main",
 		"--environment", cfg.Environment,
 		"--host", cfg.Host,
 		"--port", strconv.Itoa(cfg.TcpPort),
