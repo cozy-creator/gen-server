@@ -35,7 +35,7 @@ The plan is to release this all under a non-commercial usage license, and charge
 
 (TO DO)
 
-It's recommended to use the config.yaml file as a config-map if you're deployingthis in a Kubernetes environment.
+It's recommended to use the config.yaml file as a config-map if you're deploying this in a Kubernetes environment.
 
 
 ### Building Docker Container

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -24,7 +25,7 @@ func CommandExists(command string) (bool, error) {
 	return true, nil
 }
 
-func ExecutePythonCommand(args ...string) (*exec.Cmd, error) {
+func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 	// First check if we're in a venv
 	venvPath := os.Getenv("VIRTUAL_ENV")
 	if venvPath != "" {
@@ -67,11 +68,6 @@ func ExecutePythonCommand(args ...string) (*exec.Cmd, error) {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			cmd.Env = os.Environ()
-
-			err := cmd.Run()
-			if err != nil {
-				return nil, err
-			}
 
 			return cmd, nil
 		}
@@ -166,8 +162,14 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 	// 	return fmt.Errorf("main.py not found in gen-server path")
 	// }
 
+	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
+    if err != nil {
+        log.Printf("failed to marshal pipeline defs: %v", err)
+        pipelineDefsJson = []byte{}
+    }
+
 	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
-	cmd, err := ExecutePythonCommand(
+	cmd, err := CreatePythonCommand(
 		"-m",
 		// mainFilePath,
 		"gen_server.main",
@@ -176,8 +178,14 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		"--port", strconv.Itoa(cfg.TcpPort),
         "--warmup-models", strings.Join(cfg.WarmupModels, ","),
 		"--models-path", cfg.ModelsDir,
+		"--pipeline-defs", string(pipelineDefsJson),
 	)
 	if err != nil {
+		return err
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
@@ -194,6 +202,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		}
 	}()
 
+	// Wait for the command to finish
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
 			fmt.Println("Python Gen Server stopped successfully")
