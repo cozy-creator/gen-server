@@ -116,6 +116,8 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
         pipelineDefsJson = []byte{}
     }
 
+	fmt.Println("Pipeline defs: ", string(pipelineDefsJson))
+
 	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
 	cmd, err := CreatePythonCommand(
 		"-m",

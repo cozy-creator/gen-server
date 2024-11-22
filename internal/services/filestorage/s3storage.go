@@ -25,7 +25,7 @@ type S3FileStorage struct {
 }
 
 func NewS3FileStorage(cfg *config.Config) (*S3FileStorage, error) {
-	if strings.ToLower(cfg.Filesystem) != strings.ToLower(config.FilesystemS3) {
+	if strings.ToLower(cfg.FilesystemType) != strings.ToLower(config.FilesystemS3) {
 		return nil, fmt.Errorf("filesystem is not s3")
 	}
 	if cfg.S3 == nil {

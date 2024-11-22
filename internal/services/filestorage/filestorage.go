@@ -33,7 +33,7 @@ type FileStorage interface {
 }
 
 func NewFileStorage(cfg *config.Config) (FileStorage, error) {
-	filesystem := strings.ToLower(cfg.Filesystem)
+	filesystem := strings.ToLower(cfg.FilesystemType)
 	fmt.Println("filesystem: ", filesystem)
 
 	if filesystem == strings.ToLower(config.FilesystemLocal) {
@@ -42,5 +42,5 @@ func NewFileStorage(cfg *config.Config) (FileStorage, error) {
 		return NewS3FileStorage(cfg)
 	}
 
-	return nil, fmt.Errorf("invalid filesystem type %s", cfg.Filesystem)
+	return nil, fmt.Errorf("invalid filesystem type %s", cfg.FilesystemType)
 }

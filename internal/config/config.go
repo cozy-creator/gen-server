@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/templates"
 	"github.com/cozy-creator/gen-server/internal/utils/pathutil"
@@ -20,30 +19,27 @@ const (
 	FilesystemS3    = "s3"
 )
 
-const cozyPrefix = "COZY"
-
+// TO DO: it's confusing the mix of dashes - and underscores _ ???
 type Config struct {
-	Port          int                   `mapstructure:"port"`
-	Host          string                `mapstructure:"host"`
-	TcpPort       int                   `mapstructure:"tcp_port"`
-	CozyHome      string                `mapstructure:"cozy_home"`
-	TcpTimeout    int                   `mapstructure:"tcp_timeout"`
-	Environment   string                `mapstructure:"environment"`
-	DisableAuth   bool                  `mapstructure:"disable_auth"`
-	AssetsDir     string                `mapstructure:"assets_dir"`
-	ModelsDir     string                `mapstructure:"models_dir"`
-	TempDir       string                `mapstructure:"temp_dir"`
-	AuxModelsDirs []string              `mapstructure:"aux_models_dirs"`
-	Filesystem    string                `mapstructure:"filesystem_type"`
-	PublicDir     string                `mapstructure:"public_dir"`
-	MQType        string                `mapstructure:"mq_type"`
-	S3            *S3Config             `mapstructure:"s3"`
-	Pulsar        *PulsarConfig         `mapstructure:"pulsar"`
-	DB            *DBConfig             `mapstructure:"db"`
-	LumaAI        *LumaAIConfig         `mapstructure:"luma_ai"`
-	Replicate     *ReplicateConfig      `mapstructure:"replicate"`
-	PipelineDefs  []PipelineDefs        `mapstructure:"pipeline_defs"`
-	WarmupModels  []string              `mapstructure:"warmup_models"`
+	Port           int                     `mapstructure:"port"`
+	Host           string                  `mapstructure:"host"`
+	TcpPort        int                     `mapstructure:"tcp-port"`
+	CozyHome       string                  `mapstructure:"cozy-home"`
+	Environment    string                  `mapstructure:"environment"`
+	DisableAuth    bool                    `mapstructure:"disable-auth"`
+	AssetsDir      string                  `mapstructure:"assets_dir"`
+	ModelsDir      string                  `mapstructure:"models_dir"`
+	TempDir        string                  `mapstructure:"temp_dir"`
+	AuxModelsDirs  []string                `mapstructure:"aux_models_dirs"`
+	FilesystemType string                  `mapstructure:"filesystem-type"`
+	PublicDir      string                  `mapstructure:"public_dir"`
+	S3             *S3Config               `mapstructure:"s3"`
+	Pulsar         *PulsarConfig           `mapstructure:"pulsar"`
+	DB             *DBConfig               `mapstructure:"db"`
+	LumaAI         *LumaAIConfig           `mapstructure:"luma_ai"`
+	Replicate      *ReplicateConfig        `mapstructure:"replicate"`
+	PipelineDefs   map[string]*PipelineDefs `mapstructure:"pipeline_defs"`
+	WarmupModels   []string                `mapstructure:"warmup_models"`
 }
 
 type S3Config struct {
@@ -64,8 +60,6 @@ type PipelineDefs struct {
 
 type PulsarConfig struct {
 	URL                    string `mapstructure:"url"`
-	OperationTimeout       int    `mapstructure:"operation_timeout"`
-	ConnectionTimeout      int    `mapstructure:"connection_timeout"`
 	MaxConcurrentConsumers int    `mapstructure:"max_concurrent_consumers"`
 }
 
@@ -83,7 +77,7 @@ type ReplicateConfig struct {
 
 var config *Config
 
-func InitConfig() error {
+func LoadEnvAndConfigFiles() error {
 	cozyHome, err := getCozyHome()
 	if err != nil {
 		return err
@@ -99,51 +93,25 @@ func InitConfig() error {
 	viper.Set("assets_dir", path.Join(cozyHome, "assets"))
 	viper.Set("models_dir", path.Join(cozyHome, "models"))
 
-	envFile := viper.GetString("env_file")
-	if envFile == "" {
-		envFile = filepath.Join(cozyHome, ".env")
-	}
+	envFilePath := viper.GetString("env_file")
+	configFilePath := viper.GetString("config_file")
 
-	if _, err := os.Stat(envFile); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to stat .env file: %w", err)
-		}
+	// Consider writing example .env and config.yaml files
+	writeExampleTemplates(envFilePath, configFilePath, cozyHome)
 
-		if err := templates.WriteEnv(filepath.Join(cozyHome, ".env.example")); err != nil {
-			return fmt.Errorf("failed to create .env file: %w", err)
+	// Set default file paths if not provided
+	defaultEnvFilePath, _ := getDefaultFilePaths(cozyHome)
+
+	// Load .env file into the environment. Does not override any environment variables already set.
+	if envFilePath != "" {
+		if err := godotenv.Load(envFilePath); err != nil {
+			fmt.Printf("failed to load env file at %s: %v", envFilePath, err)
 		}
 	} else {
-		if err := godotenv.Load(envFile); err != nil {
-			return fmt.Errorf("failed to load env file: %w", err)
-		}
+		godotenv.Load(defaultEnvFilePath)
 	}
 
-	configFilePath := viper.GetString("config_file")
-	if configFilePath == "" {
-		configFilePath = filepath.Join(cozyHome, "config.yaml")
-	}
-
-	// Check if we should write config.example.yaml file
-	_, err = os.Stat(configFilePath)
-	if err != nil && os.IsNotExist(err) {
-		configExample := filepath.Join(cozyHome, "config.example.yaml")
-
-		// Check if config.example.yaml exists
-		_, exampleErr := os.Stat(configExample)
-		if os.IsNotExist(exampleErr) {
-			// Create config.example.yaml
-			if err := templates.WriteConfig(configExample); err != nil {
-				return fmt.Errorf("failed to create config.example.yaml file: %w", err)
-			}
-		} else if exampleErr != nil {
-			return fmt.Errorf("failed to stat config.example.yaml file: %w", exampleErr)
-		}
-	}
-
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix(cozyPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
-
+	fmt.Println("config file path:", configFilePath)
 	if configFilePath != "" {
 		viper.SetConfigFile(configFilePath)
 	} else {
@@ -152,7 +120,7 @@ func InitConfig() error {
 		viper.AddConfigPath(cozyHome)
 	}
 
-	if err := LoadConfig(); err != nil {
+	if err := loadConfig(); err != nil {
 		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
 			fmt.Println("No config file found. Using default config.")
 		} else {
@@ -160,16 +128,22 @@ func InitConfig() error {
 		}
 	}
 
+	// configJSON, _ := json.MarshalIndent(config, "", "  ")
+	// fmt.Printf("config that got loaded:\n%s\n", string(configJSON))
+
 	return nil
 }
 
-func LoadConfig() error {
+func loadConfig() error {
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("error reading config: %w", err)
 	}
 
+	// Config struct is no longer nil
 	config = &Config{}
-	if err := viper.Unmarshal(config); err != nil {
+
+	// Copy Viper's internal config-state into our local struct
+	if err := viper.Unmarshal(&config); err != nil {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
@@ -193,6 +167,7 @@ func MustGetConfig() *Config {
 // 1. The `cozy_home` flag from viper.
 // 2. The `COZY_HOME` environment variable.
 // 3. The default cozy home directory.
+// TO DO: shouldn't viper take care of these env and defaults for us? So we don't do this manually?
 func getCozyHome() (string, error) {
 	cozyHome := viper.GetString("cozy_home")
 	if cozyHome == "" {
@@ -226,3 +201,34 @@ func createCozyHomeDirs(cozyHome string) error {
 	return nil
 }
 
+func writeExampleTemplates(envFilePath string, configFilePath string, cozyHome string) error {
+	defaultEnvFilePath, defaultConfigFilePath := getDefaultFilePaths(cozyHome)
+
+	exampleEnvFilePath := filepath.Join(cozyHome, ".env.example")
+	exampleConfigFilePath := filepath.Join(cozyHome, "config.example.yaml")
+
+	// Consider writing example .env and config.yaml files
+	if _, err := os.Stat(defaultEnvFilePath); envFilePath == "" && os.IsNotExist(err) {
+		if _, err := os.Stat(exampleEnvFilePath); os.IsNotExist(err) {
+			err = templates.WriteEnv(exampleEnvFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to create .env file: %w", err)
+			}
+		}
+	}
+
+	if _, err := os.Stat(defaultConfigFilePath); configFilePath == "" && os.IsNotExist(err) {
+		if _, err := os.Stat(exampleConfigFilePath); os.IsNotExist(err) {
+			err = templates.WriteConfig(exampleConfigFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to create config.yaml file: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getDefaultFilePaths(cozyHome string) (string, string) {
+	return filepath.Join(cozyHome, ".env"), filepath.Join(cozyHome, "config.yaml")
+}

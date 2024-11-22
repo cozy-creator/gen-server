@@ -16,7 +16,7 @@ type LocalFileStorage struct {
 }
 
 func NewLocalFileStorage(cfg *config.Config) (*LocalFileStorage, error) {
-	if strings.ToLower(cfg.Filesystem) != strings.ToLower(config.FilesystemLocal) {
+	if strings.ToLower(cfg.FilesystemType) != strings.ToLower(config.FilesystemLocal) {
 		return nil, fmt.Errorf("filesystem is not local")
 	}
 

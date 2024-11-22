@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,20 +25,21 @@ import (
 )
 
 var Cmd = &cobra.Command{
-	Use:   "run",
-	Short: "Start the cozy gen-server",
-	RunE:  runApp,
+	Use:     "run",
+	Short:   "Start the cozy gen-server",
+	// PreRunE: bindFlags,
+	RunE:    runApp,
 }
 
 func init() {
 	flags := Cmd.Flags()
+
 	flags.Int("port", 8881, "Port to run the server on")
 	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.String("environment", "dev", "Environment configuration")
 	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
-	flags.String("mq-type", "inmemory", "Message queue type: 'inmemory' or 'pulsar'")
-	flags.String("warmup-models", "", "Models to be loaded and warmed up on startup")
+	flags.StringSlice("warmup-models", []string{}, "Models to be loaded and warmed up on startup")
 
 	flags.String("db-dsn", "file:./test.db", "Database DSN (Connection URL or Path)")
 
@@ -52,34 +54,35 @@ func init() {
 	flags.String("s3-public-url", "", "Public URL for S3 files")
 	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
 
-	bindFlags()
+	// bindFlags()
 	bindEnvs()
 }
 
-func bindFlags() {
-	flags := Cmd.Flags()
+// func bindFlags(cmd *cobra.Command, args []string) error {
+// 	flags := cmd.Flags()
 
-	viper.BindPFlag("port", flags.Lookup("port"))
-	viper.BindPFlag("host", flags.Lookup("host"))
-	viper.BindPFlag("mq_type", flags.Lookup("mq-type"))
-	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
-	viper.BindPFlag("environment", flags.Lookup("environment"))
-	viper.BindPFlag("disable_auth", flags.Lookup("disable-auth"))
-	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
-	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
+// 	viper.BindPFlag("port", flags.Lookup("port"))
+// 	viper.BindPFlag("host", flags.Lookup("host"))
+// 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
+// 	viper.BindPFlag("environment", flags.Lookup("environment"))
+// 	viper.BindPFlag("disable_auth", flags.Lookup("disable-auth"))
+// 	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
+// 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 
-	// Database
-	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
+// 	// Database
+// 	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
 
-	// S3 Credentials
-	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
-	viper.BindPFlag("s3.secret_key", flags.Lookup("s3-secret-key"))
-	viper.BindPFlag("s3.region_name", flags.Lookup("s3-region-name"))
-	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
-	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
-	viper.BindPFlag("s3.vanity_url", flags.Lookup("s3-vanity-url"))
-	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
-}
+// 	// S3 Credentials
+// 	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
+// 	viper.BindPFlag("s3.secret_key", flags.Lookup("s3-secret-key"))
+// 	viper.BindPFlag("s3.region_name", flags.Lookup("s3-region-name"))
+// 	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
+// 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
+// 	viper.BindPFlag("s3.vanity_url", flags.Lookup("s3-vanity-url"))
+// 	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
+
+// 	return nil
+// }
 
 func bindEnvs() {
 	// External API services
@@ -169,6 +172,13 @@ func createNewApp() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TO DO: remove this block
+	configJSON, err := json.MarshalIndent(app.Config(), "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+	fmt.Printf("Finalized config: %s\n", configJSON)
 
 	if err := app.InitializeMQ(); err != nil {
 		fmt.Println("Error initializing MQ: ", err)

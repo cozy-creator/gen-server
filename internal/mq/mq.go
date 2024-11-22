@@ -3,7 +3,6 @@ package mq
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 )
@@ -30,12 +29,9 @@ type MQ interface {
 }
 
 func NewMQ(cfg *config.Config) (MQ, error) {
-	switch cfg.MQType {
-	case MQTypeInMemory:
-		return NewInMemoryMQ(10)
-	case MQTypePulsar:
+	if cfg != nil && cfg.Pulsar != nil {
 		return NewPulsarMQ(cfg.Pulsar)
-	default:
-		return nil, fmt.Errorf("unknown MQ type: %s", cfg.MQType)
+	} else {
+		return NewInMemoryMQ(10)
 	}
 }

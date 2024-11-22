@@ -37,7 +37,6 @@ def load_extensions(
 ) -> dict[str, T]:
     discovered_plugins = entry_points(group=entry_point_group)
     plugins: dict[str, T] = {}
-    # print(f"Discovered plugins: {discovered_plugins}")
 
     for entry_point in discovered_plugins:
         # Scope the plugin's name using the distribution name; ex. 'cozy_creator.sdxl' rather than just 'sdxl'

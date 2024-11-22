@@ -117,6 +117,7 @@ class RunCommandConfig(BaseSettings):
     @field_validator("pipeline_defs", mode="before")
     @classmethod
     def parse_pipeline_defs(cls, v: Any) -> dict[str, PipelineConfig]:
+        print("Pipeline defs: ", v)
         # If it's already a dict, return as is
         if isinstance(v, dict):
             return v

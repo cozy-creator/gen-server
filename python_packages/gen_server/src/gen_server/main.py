@@ -10,10 +10,12 @@ import time
 import warnings
 from typing import Any, Callable
 
+from regex import P
+
 from .base_types.custom_node import custom_node_validator
 from .base_types.pydantic_models import RunCommandConfig
 from .config import init_config
-from .globals import update_custom_nodes, update_architectures
+from .globals import update_custom_nodes, update_architectures, get_custom_nodes
 from .tcp_server import TCPServer, RequestContext
 from .worker.gpu_worker import generate_images_non_io
 from .utils.cli_helpers import parse_known_args_wrapper
@@ -161,9 +163,13 @@ def run_tcp_server(config: RunCommandConfig):
 def startup_extensions(_config: RunCommandConfig):
     start_time_custom_nodes = time.time()
 
-    update_custom_nodes(
-        load_extensions("cozy_creator.custom_nodes", validator=custom_node_validator)
+    custom_nodes = load_extensions(
+        "cozy_creator.custom_nodes", validator=custom_node_validator
     )
+    if not custom_nodes:
+        logger.warning("No custom nodes were loaded! Generation cannot function.")
+
+    update_custom_nodes(custom_nodes)
 
     update_architectures(load_extensions("cozy_creator.architectures"))
 
@@ -196,6 +202,8 @@ async def main_async():
     config = init_config(run_parser, parse_known_args_wrapper)
 
     startup_extensions(config)
+
+    print("Pipeline definitions found:", config.pipeline_defs)
 
     # Verify and download models
     await verify_and_download_models(config)

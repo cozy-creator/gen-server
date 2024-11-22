@@ -149,7 +149,7 @@ func newConsumer(client pulsar.Client, topic string) (*pulsar.Consumer, error) {
 		SubscriptionName: strings.ReplaceAll(topic, "/", "-"),
 	}
 
-	fmt.Println("hdhd.%s", topic)
+	fmt.Printf("hdhd.%s\n", topic)
 	consumer, err := client.Subscribe(options)
 	if err != nil {
 		log.Printf("Stack trace: %s\n", debug.Stack()) // Print the stack trace

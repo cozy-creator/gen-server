@@ -54,7 +54,7 @@ func GetFile(c *gin.Context) {
 		return
 	}
 
-	if app.Config().Filesystem == config.FilesystemLocal {
+	if app.Config().FilesystemType == config.FilesystemLocal {
 		file, err := storage.ResolveFile(filename, "", false)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"message": "file not found"})
