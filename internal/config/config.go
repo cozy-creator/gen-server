@@ -21,25 +21,25 @@ const (
 
 // TO DO: it's confusing the mix of dashes - and underscores _ ???
 type Config struct {
-	Port           int                     `mapstructure:"port"`
-	Host           string                  `mapstructure:"host"`
-	TcpPort        int                     `mapstructure:"tcp-port"`
-	CozyHome       string                  `mapstructure:"cozy-home"`
-	Environment    string                  `mapstructure:"environment"`
-	DisableAuth    bool                    `mapstructure:"disable-auth"`
-	AssetsDir      string                  `mapstructure:"assets_dir"`
-	ModelsDir      string                  `mapstructure:"models_dir"`
-	TempDir        string                  `mapstructure:"temp_dir"`
-	AuxModelsDirs  []string                `mapstructure:"aux_models_dirs"`
-	FilesystemType string                  `mapstructure:"filesystem-type"`
-	PublicDir      string                  `mapstructure:"public_dir"`
-	S3             *S3Config               `mapstructure:"s3"`
-	Pulsar         *PulsarConfig           `mapstructure:"pulsar"`
-	DB             *DBConfig               `mapstructure:"db"`
-	LumaAI         *LumaAIConfig           `mapstructure:"luma_ai"`
-	Replicate      *ReplicateConfig        `mapstructure:"replicate"`
-	PipelineDefs   map[string]*PipelineDefs `mapstructure:"pipeline_defs"`
-	WarmupModels   []string                `mapstructure:"warmup_models"`
+	Port           int                      `mapstructure:"port"`
+	Host           string                   `mapstructure:"host"`
+	TcpPort        int                      `mapstructure:"tcp-port"`
+	CozyHome       string                   `mapstructure:"cozy-home"`
+	Environment    string                   `mapstructure:"environment"`
+	DisableAuth    bool                     `mapstructure:"disable-auth"`
+	AssetsDir      string                   `mapstructure:"assets-dir"`
+	ModelsDir      string                   `mapstructure:"models-dir"`
+	TempDir        string                   `mapstructure:"temp-dir"`
+	AuxModelsDirs  []string                 `mapstructure:"aux-models-dirs"`
+	FilesystemType string                   `mapstructure:"filesystem-type"`
+	PublicDir      string                   `mapstructure:"public-dir"`
+	S3             *S3Config                `mapstructure:"s3"`
+	Pulsar         *PulsarConfig            `mapstructure:"pulsar"`
+	DB             *DBConfig                `mapstructure:"db"`
+	LumaAI         *LumaAIConfig            `mapstructure:"luma"`
+	Replicate      *ReplicateConfig         `mapstructure:"replicate"`
+	PipelineDefs   map[string]*PipelineDefs `mapstructure:"pipeline-defs"`
+	WarmupModels   []string                 `mapstructure:"warmup-models"`
 }
 
 type S3Config struct {
@@ -53,14 +53,14 @@ type S3Config struct {
 }
 
 type PipelineDefs struct {
-	ClassName  string                    	`mapstructure:"class_name"`
-	Source     string                    	`mapstructure:"source"`
-	Components map[string]*PipelineDefs		`mapstructure:"components"`
+	ClassName  string                   `mapstructure:"class-name"`
+	Source     string                   `mapstructure:"source"`
+	Components map[string]*PipelineDefs `mapstructure:"components"`
 }
 
 type PulsarConfig struct {
 	URL                    string `mapstructure:"url"`
-	MaxConcurrentConsumers int    `mapstructure:"max_concurrent_consumers"`
+	MaxConcurrentConsumers int    `mapstructure:"max-concurrent-consumers"`
 }
 
 type DBConfig struct {
@@ -68,11 +68,11 @@ type DBConfig struct {
 }
 
 type LumaAIConfig struct {
-	APIKey string `mapstructure:"api_key"`
+	APIKey string `mapstructure:"api-key"`
 }
 
 type ReplicateConfig struct {
-	APIKey string `mapstructure:"api_key"`
+	APIKey string `mapstructure:"api-key"`
 }
 
 var config *Config
@@ -111,7 +111,6 @@ func LoadEnvAndConfigFiles() error {
 		godotenv.Load(defaultEnvFilePath)
 	}
 
-	fmt.Println("config file path:", configFilePath)
 	if configFilePath != "" {
 		viper.SetConfigFile(configFilePath)
 	} else {
@@ -127,9 +126,6 @@ func LoadEnvAndConfigFiles() error {
 			return err
 		}
 	}
-
-	// configJSON, _ := json.MarshalIndent(config, "", "  ")
-	// fmt.Printf("config that got loaded:\n%s\n", string(configJSON))
 
 	return nil
 }

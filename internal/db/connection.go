@@ -11,6 +11,10 @@ import (
 )
 
 func NewConnection(ctx context.Context, config *config.Config) (drivers.Driver, error) {
+	if config.DB == nil {
+		return nil, fmt.Errorf("database configuration is not set")
+	}
+
 	driver, err := detectDriver(config.DB.DSN)
 	if err != nil {
 		return nil, err

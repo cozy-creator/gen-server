@@ -25,10 +25,9 @@ import (
 )
 
 var Cmd = &cobra.Command{
-	Use:     "run",
-	Short:   "Start the cozy gen-server",
-	// PreRunE: bindFlags,
-	RunE:    runApp,
+	Use:   "run",
+	RunE:  runApp,
+	Short: "Start the cozy gen-server",
 }
 
 func init() {
@@ -41,27 +40,25 @@ func init() {
 	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
 	flags.StringSlice("warmup-models", []string{}, "Models to be loaded and warmed up on startup")
 
-	flags.String("db-dsn", "file:./test.db", "Database DSN (Connection URL or Path)")
+	flags.String("db.dsn", "file:./data/main.db", "Database DSN (Connection URL or Path)")
 
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 	flags.String("public-dir", "", "Path where static files should be served from. Relative paths are relative to the current working directory, not the location of the gen-server executable.")
 
-	flags.String("s3-access-key", "", "S3 access key")
-	flags.String("s3-secret-key", "", "S3 secret key")
-	flags.String("s3-region-name", "", "S3 region name")
-	flags.String("s3-bucket-name", "", "S3 bucket name")
-	flags.String("s3-folder", "", "S3 folder")
-	flags.String("s3-public-url", "", "Public URL for S3 files")
-	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
+	flags.String("s3.access-key", "", "S3 access key")
+	flags.String("s3.secret-key", "", "S3 secret key")
+	flags.String("s3.region-name", "", "S3 region name")
+	flags.String("s3.bucket-name", "", "S3 bucket name")
+	flags.String("s3.folder", "", "S3 folder")
+	flags.String("s3.public-url", "", "Public URL for S3 files")
+	flags.String("s3.endpoint-url", "", "S3 endpoint URL")
 
-	// bindFlags()
+	// bindFlags(flags)
 	bindEnvs()
 }
 
-// func bindFlags(cmd *cobra.Command, args []string) error {
-// 	flags := cmd.Flags()
-
-// 	viper.BindPFlag("port", flags.Lookup("port"))
+// func bindFlags(flags *pflag.FlagSet) {
+// viper.BindPFlag("port", flags.Lookup("port"))
 // 	viper.BindPFlag("host", flags.Lookup("host"))
 // 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
 // 	viper.BindPFlag("environment", flags.Lookup("environment"))
@@ -69,8 +66,10 @@ func init() {
 // 	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
 // 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 
-// 	// Database
-// 	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
+// Database
+// if err := viper.BindPFlag("db.dsn", flags.Lookup("db-dsn")); err != nil {
+// 	fmt.Println("err-0", err.Error())
+// }
 
 // 	// S3 Credentials
 // 	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
@@ -80,8 +79,6 @@ func init() {
 // 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
 // 	viper.BindPFlag("s3.vanity_url", flags.Lookup("s3-vanity-url"))
 // 	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
-
-// 	return nil
 // }
 
 func bindEnvs() {
@@ -95,11 +92,11 @@ func bindEnvs() {
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println("Recovered from panic:", err)
-		}
-	}()
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		fmt.Println("Recovered from panic:", err)
+	// 	}
+	// }()
 
 	var wg sync.WaitGroup
 	errc := make(chan error, 4)
@@ -254,4 +251,3 @@ func runServer(app *app.App) (*server.Server, error) {
 		return server, nil
 	}
 }
-
