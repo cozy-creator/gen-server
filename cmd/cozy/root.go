@@ -9,7 +9,7 @@ import (
 	apiKey "github.com/cozy-creator/gen-server/cmd/cozy/api_key"
 	buildWeb "github.com/cozy-creator/gen-server/cmd/cozy/build_web"
 	db "github.com/cozy-creator/gen-server/cmd/cozy/db"
-	download "github.com/cozy-creator/gen-server/cmd/cozy/download"
+	// download "github.com/cozy-creator/gen-server/cmd/cozy/download"
 	run "github.com/cozy-creator/gen-server/cmd/cozy/run"
 	"github.com/cozy-creator/gen-server/internal/config"
 
@@ -76,7 +76,8 @@ func init() {
 	viper.BindPFlag("env_file", pflags.Lookup("env-file"))
 
 	// Add subcommands
-	Cmd.AddCommand(run.Cmd, download.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)
+	// Cmd.AddCommand(run.Cmd, download.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)
+	Cmd.AddCommand(run.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)
 	Cmd.CompletionOptions.HiddenDefaultCmd = true
 }
 

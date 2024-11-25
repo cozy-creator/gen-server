@@ -19,6 +19,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
+	"github.com/cozy-creator/gen-server/internal/services/model_downloader"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -146,12 +147,12 @@ func runApp(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
-	// go func() {
-	// 	defer wg.Done()
-	// 	if err := downloadEnabledModels(ctx, app.Config()); err != nil {
-	// 		errc <- err
-	// 	}
-	// }()
+	go func() {
+		defer wg.Done()
+		if err := downloadEnabledModels(app); err != nil {
+			errc <- err
+		}
+	}()
 
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 
@@ -224,13 +225,13 @@ func runWorkflowProcessor(app *app.App) error {
 	return nil
 }
 
-// func downloadEnabledModels(ctx context.Context, cfg *config.Config) error {
-// 	if err := models.DownloadEnabledModels(ctx, cfg); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
+func downloadEnabledModels(app *app.App) error {
+    manager, err := model_downloader.NewModelDownloaderManager(app)
+    if err != nil {
+        return err
+    }
+    return manager.InitializeModels()
+}
 
 func runServer(app *app.App) (*server.Server, error) {
 	server, err := server.NewServer(app.Config())
