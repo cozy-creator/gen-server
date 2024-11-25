@@ -25,25 +25,6 @@ var Cmd = &cobra.Command{
 	Use:   "cozy",
 	Short: "Cozy Creator CLI",
 	Long:  "A generative AI engine that allows you to create and run generative AI models on your own computer or in the cloud",
-
-	// This function is triggered right before this command and any of its subcommands
-	// PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-	// 	// Bind all flags from the current command persistent parent flags
-	// 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-	// 		return err
-	// 	}
-
-	// 	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
-	// 		return err
-	// 	}
-
-	// 	// Load config and env files
-	// 	if err := config.LoadEnvAndConfigFiles(); err != nil {
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// },
 }
 
 func Execute() {
@@ -53,11 +34,16 @@ func Execute() {
 	}
 }
 
+// The order of operations for Cobra commands are:
+// 1. init()
+// 2. OnInitialize() hooks
+// 3. PreRun() hooks
+// 4. Each command's actual Run() function
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	pflags := Cmd.PersistentFlags()
-	pflags.String("cozy-home", "", "Path to the cozy-creator home directory")
+	pflags.String("home-dir", "", "Path to the cozy-creator home directory")
 	pflags.String("config-file", "", "Path to the config file")
 	pflags.String("env-file", "", "Path to the env file")
 
@@ -69,21 +55,30 @@ func init() {
 	))
 	viper.AutomaticEnv()
 
-	// Bind flags to viper
-	viper.BindPFlag("cozy_home", pflags.Lookup("cozy-home"))
+	// Bind CLI flags to viper
+	viper.BindPFlag("cozy_home", pflags.Lookup("home-dir"))
 	viper.BindPFlag("config_file", pflags.Lookup("config-file"))
 	viper.BindPFlag("env_file", pflags.Lookup("env-file"))
 
-	// Set sensible defaults
+	// Bind environment variables to viper
+	viper.BindEnv("cozy_home", "COZY_HOME")
+	viper.BindEnv("config_file", "COZY_CONFIG_FILE")
+	viper.BindEnv("env_file", "COZY_ENV_FILE")
+
+	// Set sensible default
 	viper.SetDefault("cozy_home", os.ExpandEnv(DefaultCozyHome))
-	viper.SetDefault("config_file", filepath.Join(viper.GetString("cozy_home"), "config.yaml"))
 
 	// Add subcommands
 	Cmd.AddCommand(run.Cmd, download.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)
 	Cmd.CompletionOptions.HiddenDefaultCmd = true
 }
 
+
 func initConfig() {
+	// Set defaults that depend upon the location of the cozy home directory
+	viper.SetDefault("config_file", filepath.Join(viper.GetString("cozy_home"), "config.yaml"))
+
+	// Load environment variables and config files
 	if err := config.LoadEnvAndConfigFiles(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

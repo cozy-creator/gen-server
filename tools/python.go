@@ -38,26 +38,28 @@ func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 		}
 
 		// Verify the file exists
-		if _, err := os.Stat(pythonPath); err != nil {
-			return nil, fmt.Errorf("python.exe not found at %s: %w", pythonPath, err)
+		if _, err := os.Stat(pythonPath); err == nil {
+			cmd := exec.Command(pythonPath, args...)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			// Ensure venv environment is properly set
+			cmd.Env = append(os.Environ(),
+				fmt.Sprintf("VIRTUAL_ENV=%s", venvPath),
+				fmt.Sprintf("PATH=%s%c%s", 
+					filepath.Join(venvPath, "bin"), 
+					os.PathListSeparator, 
+					os.Getenv("PATH")),
+			)
+
+			return cmd, nil
+		} else {
+			fmt.Printf("python.exe not found at %s\n", pythonPath)
 		}
-
-		cmd := exec.Command(pythonPath, args...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		// Ensure venv environment is properly set
-		cmd.Env = append(os.Environ(),
-			fmt.Sprintf("VIRTUAL_ENV=%s", venvPath),
-			fmt.Sprintf("PATH=%s%c%s", 
-				filepath.Join(venvPath, "bin"), 
-				os.PathListSeparator, 
-				os.Getenv("PATH")),
-		)
-
-		return cmd, nil
 	}
+
+	fmt.Println("No venv found; using global system Python")
 
 	// Fallback to system Python if no venv is active
 	commands := []string{"python", "python3"}
@@ -123,6 +125,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		"-m",
 		// mainFilePath,
 		"gen_server.main",
+		"--home-dir", cfg.CozyHome,
 		"--environment", cfg.Environment,
 		"--host", cfg.Host,
 		"--port", strconv.Itoa(config.TCPPort),

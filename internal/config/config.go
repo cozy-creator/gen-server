@@ -105,25 +105,26 @@ func LoadEnvAndConfigFiles() error {
 	viper.Set("temp_dir", path.Join(cozyHome, "temp"))
 	viper.Set("assets_dir", path.Join(cozyHome, "assets"))
 	viper.Set("models_dir", path.Join(cozyHome, "models"))
-	writeExampleTemplates()
 
 	configFilePath := viper.GetString("config_file")
 	viper.SetConfigFile(configFilePath)
 
 	if err := readAndUnmarshalConfig(); err != nil {
-		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-			fmt.Println("No config file found. Using default config.")
-		} else {
-			return err
-		}
+		return err
 	}
+
+	writeExampleTemplates()
 
 	return nil
 }
 
 func readAndUnmarshalConfig() error {
 	if err := viper.ReadInConfig(); err != nil {
-		return fmt.Errorf("error reading config: %w", err)
+		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			fmt.Println("No config file found. Using default config.")
+		} else {
+			// return err
+		}
 	}
 
 	// Copy Viper's internal config-state into our local struct

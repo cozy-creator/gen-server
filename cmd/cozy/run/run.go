@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -32,6 +33,7 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
+	cobra.OnInitialize(initDefaults)
 	flags := Cmd.Flags()
 
 	flags.Int("port", 8881, "Port to run the server on")
@@ -42,45 +44,17 @@ func init() {
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 	flags.String("public-dir", "", "Path where static files should be served from. Relative paths are relative to the current working directory, not the location of the gen-server executable.")
 
-	flags.String("db-dsn", "file:./data/main.db", "Database DSN (Connection URL or Path)")
+	flags.String("db-dsn", "", "Database DSN (Connection URL or Path)")
 	flags.String("pulsar-url", "", "URL of the pulsar broker. Example: pulsar+ssl://my-cluster.streamnative.cloud:6651")
-
-	flags.String("s3-access-key", "", "S3 access key")
-	flags.String("s3-secret-key", "", "S3 secret key")
-	flags.String("s3-region-name", "", "S3 region name")
-	flags.String("s3-bucket-name", "", "S3 bucket name")
-	flags.String("s3-folder", "", "S3 folder")
-	flags.String("s3-public-url", "", "Public URL for S3 files")
-	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
 
 	viper.BindPFlags(flags)
 
-	// bindFlags(flags)
+	// These have to be bound manually due to nesting
+	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
+	viper.BindPFlag("pulsar.url", flags.Lookup("pulsar-url"))
+
 	bindEnvs()
 }
-
-// func bindFlags(flags *pflag.FlagSet) {
-// 	viper.BindPFlag("port", flags.Lookup("port"))
-// 	viper.BindPFlag("host", flags.Lookup("host"))
-// 	viper.BindPFlag("environment", flags.Lookup("environment"))
-// 	viper.BindPFlag("disable_auth", flags.Lookup("disable-auth"))
-// 	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
-// 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
-
-// 	// Database
-// 	if err := viper.BindPFlag("db.dsn", flags.Lookup("db-dsn")); err != nil {
-// 		fmt.Println("err-0", err.Error())
-// 	}
-
-// 	// S3 Credentials
-// 	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
-// 	viper.BindPFlag("s3.secret_key", flags.Lookup("s3-secret-key"))
-// 	viper.BindPFlag("s3.region_name", flags.Lookup("s3-region-name"))
-// 	viper.BindPFlag("s3.bucket_name", flags.Lookup("s3-bucket-name"))
-// 	viper.BindPFlag("s3.folder", flags.Lookup("s3-folder"))
-// 	viper.BindPFlag("s3.vanity_url", flags.Lookup("s3-vanity-url"))
-// 	viper.BindPFlag("s3.endpoint_url", flags.Lookup("s3-endpoint-url"))
-// }
 
 func bindEnvs() {
 	// Core settings (will use COZY_ prefix)
@@ -113,6 +87,11 @@ func bindEnvs() {
 	viper.BindEnv("runway.api_key", "RUNWAY_API_KEY")
 	viper.BindEnv("bfl.api_key", "BFL_API_KEY")
 	viper.BindEnv("hf_token", "HF_TOKEN")
+}
+
+// Initialize defaults that depend upon the location of the cozy home directory
+func initDefaults() {
+	viper.SetDefault("db.dsn", "file:" + filepath.Join(viper.GetString("cozy_home"), "data", "main.db"))
 }
 
 func runApp(_ *cobra.Command, _ []string) error {
