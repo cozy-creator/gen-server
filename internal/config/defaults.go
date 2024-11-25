@@ -2,7 +2,7 @@ package config
 
 import "errors"
 
-var DefaultCozyHome = "~/.cozy-creator"
+const TCPPort = 8882
 
 var (
 	DefaultGenerateTopic  = "cozy-creator/generations/requests"

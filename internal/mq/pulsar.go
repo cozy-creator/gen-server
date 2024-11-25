@@ -70,9 +70,12 @@ func (mq *PulsarMQ) CloseTopic(topic string) error {
 	return nil
 }
 
-func (mq *PulsarMQ) Close() error {
-	mq.client.Close()
-	return nil
+func (p *PulsarMQ) Close() error {
+    if p.client != nil {
+        p.client.Close()
+    }
+	
+    return nil
 }
 
 func (mq *PulsarMQ) Ack(topic string, message interface{}) error {
@@ -128,7 +131,6 @@ func newPulsarClient(config *config.PulsarConfig) (pulsar.Client, error) {
 	}
 
 	client, err := pulsar.NewClient(options)
-	defer client.Close()
 
 	return client, err
 }

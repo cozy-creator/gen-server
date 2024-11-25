@@ -29,7 +29,7 @@ type MQ interface {
 }
 
 func NewMQ(cfg *config.Config) (MQ, error) {
-	if cfg != nil && cfg.Pulsar != nil {
+	if cfg != nil && cfg.Pulsar != nil && cfg.Pulsar.URL != "" {
 		return NewPulsarMQ(cfg.Pulsar)
 	} else {
 		return NewInMemoryMQ(10)
