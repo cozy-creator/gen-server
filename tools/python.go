@@ -125,7 +125,7 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
 		"gen_server.main",
 		"--environment", cfg.Environment,
 		"--host", cfg.Host,
-		"--port", strconv.Itoa(cfg.TcpPort),
+		"--port", strconv.Itoa(config.TCPPort),
         "--warmup-models", strings.Join(cfg.WarmupModels, ","),
 		"--models-path", cfg.ModelsDir,
 		"--pipeline-defs", string(pipelineDefsJson),

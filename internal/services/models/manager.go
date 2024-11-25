@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 )
 
@@ -76,7 +77,7 @@ func sendModelCommand(app *app.App, req ModelLoadRequest) error {
 	ctx := app.Context()
 	cfg := app.Config()
 
-	serverAddress := fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort)
+	serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
 	client, err := tcpclient.NewTCPClient(serverAddress, timeout, 1)
 	if err != nil {
 		return fmt.Errorf("failed to create TCP client: %w", err)
@@ -130,7 +131,7 @@ func sendModelCommandWithResponse(app *app.App, req ModelLoadRequest) ([]byte, e
 	ctx := app.Context()
 	cfg := app.Config()
 
-	serverAddress := fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort)
+	serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
 	client, err := tcpclient.NewTCPClient(serverAddress, timeout, 1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TCP client: %w", err)

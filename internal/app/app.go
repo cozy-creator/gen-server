@@ -18,12 +18,12 @@ import (
 )
 
 type App struct {
-	mq           mq.MQ
-	db           *bun.DB
-	config       *config.Config
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
-	fileuploader *fileuploader.Uploader
+	mq           	mq.MQ
+	db           	*bun.DB
+	config       	*config.Config
+	ctx          	context.Context
+	cancelFunc   	context.CancelFunc
+	fileuploader 	*fileuploader.Uploader
 
 	Logger           *zap.Logger
 	JobRepository    repository.IJobRepository

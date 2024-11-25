@@ -117,7 +117,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 
 		timeout := time.Duration(500) * time.Second
 		// timeout := time.Duration(cfg.TcpTimeout) * time.Second
-		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort)
+		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
 		client, err := tcpclient.NewTCPClient(serverAddress, timeout, 1)
 		if err != nil {
 			errorc <- err

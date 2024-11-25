@@ -2,6 +2,11 @@
 # Do not include sensitive information (tokens, keys) in a config.yaml file; place them
 # inside of the .env file and access them via os.environ.get(), or use k8s secrets.
 
+# port: 9997
+
+# db:
+#   dsn: "postgres://user:password@localhost:5432/cozy"
+
 pipeline_defs:
   flux.1-schnell-fp8:
     source: hf:black-forest-labs/FLUX.1-schnell

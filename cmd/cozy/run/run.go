@@ -26,50 +26,51 @@ import (
 
 var Cmd = &cobra.Command{
 	Use:   "run",
-	RunE:  runApp,
 	Short: "Start the cozy gen-server",
+	// PreRunE: bindFlags,
+	RunE:  runApp,
 }
 
 func init() {
 	flags := Cmd.Flags()
 
 	flags.Int("port", 8881, "Port to run the server on")
-	flags.Int("tcp-port", 8882, "Port to run the tcp server on")
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.String("environment", "dev", "Environment configuration")
 	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
 	flags.StringSlice("warmup-models", []string{}, "Models to be loaded and warmed up on startup")
-
-	flags.String("db.dsn", "file:./data/main.db", "Database DSN (Connection URL or Path)")
-
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 	flags.String("public-dir", "", "Path where static files should be served from. Relative paths are relative to the current working directory, not the location of the gen-server executable.")
 
-	flags.String("s3.access-key", "", "S3 access key")
-	flags.String("s3.secret-key", "", "S3 secret key")
-	flags.String("s3.region-name", "", "S3 region name")
-	flags.String("s3.bucket-name", "", "S3 bucket name")
-	flags.String("s3.folder", "", "S3 folder")
-	flags.String("s3.public-url", "", "Public URL for S3 files")
-	flags.String("s3.endpoint-url", "", "S3 endpoint URL")
+	flags.String("db-dsn", "file:./data/main.db", "Database DSN (Connection URL or Path)")
+	flags.String("pulsar-url", "", "URL of the pulsar broker. Example: pulsar+ssl://my-cluster.streamnative.cloud:6651")
+
+	flags.String("s3-access-key", "", "S3 access key")
+	flags.String("s3-secret-key", "", "S3 secret key")
+	flags.String("s3-region-name", "", "S3 region name")
+	flags.String("s3-bucket-name", "", "S3 bucket name")
+	flags.String("s3-folder", "", "S3 folder")
+	flags.String("s3-public-url", "", "Public URL for S3 files")
+	flags.String("s3-endpoint-url", "", "S3 endpoint URL")
+
+	viper.BindPFlags(flags)
 
 	// bindFlags(flags)
 	bindEnvs()
 }
 
 // func bindFlags(flags *pflag.FlagSet) {
-// viper.BindPFlag("port", flags.Lookup("port"))
+// 	viper.BindPFlag("port", flags.Lookup("port"))
 // 	viper.BindPFlag("host", flags.Lookup("host"))
-// 	viper.BindPFlag("tcp_port", flags.Lookup("tcp-port"))
 // 	viper.BindPFlag("environment", flags.Lookup("environment"))
 // 	viper.BindPFlag("disable_auth", flags.Lookup("disable-auth"))
 // 	viper.BindPFlag("warmup_models", flags.Lookup("warmup-models"))
 // 	viper.BindPFlag("filesystem_type", flags.Lookup("filesystem-type"))
 
-// Database
-// if err := viper.BindPFlag("db.dsn", flags.Lookup("db-dsn")); err != nil {
-// 	fmt.Println("err-0", err.Error())
-// }
+// 	// Database
+// 	if err := viper.BindPFlag("db.dsn", flags.Lookup("db-dsn")); err != nil {
+// 		fmt.Println("err-0", err.Error())
+// 	}
 
 // 	// S3 Credentials
 // 	viper.BindPFlag("s3.access_key", flags.Lookup("s3-access-key"))
@@ -82,10 +83,33 @@ func init() {
 // }
 
 func bindEnvs() {
-	// External API services
+	// Core settings (will use COZY_ prefix)
+	// Example: COZY_PORT
+    viper.BindEnv("port")
+    viper.BindEnv("host")
+    viper.BindEnv("environment")
+    viper.BindEnv("disable_auth")
+    viper.BindEnv("warmup_models")
+    viper.BindEnv("filesystem_type")
+    viper.BindEnv("public_dir")
+
+	viper.BindEnv("db.dsn")
+	viper.BindEnv("pulsar.url")
+
+	// S3 environment bindings (will automatically use COZY_ prefix)
+	// example: COZY_S3_ACCESS_KEY
+	viper.BindEnv("s3.access_key")
+	viper.BindEnv("s3.secret_key")
+	viper.BindEnv("s3.region_name")
+	viper.BindEnv("s3.bucket_name")
+	viper.BindEnv("s3.folder")
+	viper.BindEnv("s3.public_url")
+	viper.BindEnv("s3.endpoint_url")
+
+	// External API services (does NOT use COZY_ prefix)
 	viper.BindEnv("openai.api_key", "OPENAI_API_KEY")
 	viper.BindEnv("replicate.api_key", "REPLICATE_API_KEY")
-	viper.BindEnv("luma.api_key", "LUMA_API_KEY")
+	viper.BindEnv("luma_ai.api_key", "LUMA_API_KEY")
 	viper.BindEnv("runway.api_key", "RUNWAY_API_KEY")
 	viper.BindEnv("bfl.api_key", "BFL_API_KEY")
 	viper.BindEnv("hf_token", "HF_TOKEN")
