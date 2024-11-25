@@ -206,7 +206,7 @@ async def main_async():
     print("Pipeline definitions found:", config.pipeline_defs)
 
     # Verify and download models
-    await verify_and_download_models(config)
+    # await verify_and_download_models(config)
 
     # Load and warm up models
     await load_and_warm_up_models(config)
