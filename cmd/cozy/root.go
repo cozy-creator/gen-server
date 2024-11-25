@@ -23,32 +23,33 @@ var Cmd = &cobra.Command{
 	Use:   "cozy",
 	Short: "Cozy Creator CLI",
 	Long:  "A generative AI engine that allows you to create and run generative AI models on your own computer or in the cloud",
-	
+
 	// Runs before this command and any subcommands
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Set global viper options
 		viper.SetEnvPrefix(cozyPrefix)
-        viper.SetEnvKeyReplacer(strings.NewReplacer(
-            `-`, `_`,  // convert hyphens to underscores
-            `.`, `_`,  // convert dots to underscores
-        ))
+		viper.SetEnvKeyReplacer(strings.NewReplacer(
+			`-`, `_`, // convert hyphens to underscores
+			`.`, `_`, // convert dots to underscores
+		))
 		viper.AutomaticEnv()
 
 		// Bind all flags from the current command persistent parent flags
-        if err := viper.BindPFlags(cmd.Flags()); err != nil {
-            return err
-        }
-        if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
-            return err
-        }
-        
-        // Load config and env files
-        if err := config.LoadEnvAndConfigFiles(); err != nil {
-            return err
-        }
+		if err := viper.BindPFlags(cmd.Flags()); err != nil {
+			return err
+		}
 
-        return nil
-    },
+		if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
+			return err
+		}
+
+		// Load config and env files
+		if err := config.LoadEnvAndConfigFiles(); err != nil {
+			return err
+		}
+
+		return nil
+	},
 }
 
 func Execute() {
@@ -68,7 +69,8 @@ func init() {
 	pflags.String("env-file", "", "Path to the env file")
 
 	// Without this, viper will treat every dot (.) in a key as a delimiter
-    *viper.GetViper() = *viper.NewWithOptions(viper.KeyDelimiter(":::"))
+	// *viper.GetViper() = *viper.NewWithOptions(viper.KeyDelimiter(":::"))
+	viper.KeyDelimiter(":::")
 
 	// Bind flags to viper
 	viper.BindPFlag("cozy_home", pflags.Lookup("cozy-home"))
