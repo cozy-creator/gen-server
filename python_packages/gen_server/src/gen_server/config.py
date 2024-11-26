@@ -3,12 +3,12 @@ import argparse
 from typing import Optional, List, Callable
 from pydantic_settings import CliSettingsSource
 
-from .base_types.pydantic_models import RunCommandConfig
+from .base_types.config import RuntimeConfig
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
 
-cozy_config: Optional[RunCommandConfig] = None
+cozy_config: Optional[RuntimeConfig] = None
 """
 Global configuration for the Cozy Gen-Server
 """
@@ -22,7 +22,7 @@ def config_loaded() -> bool:
     return cozy_config is not None
 
 
-def set_config(config: RunCommandConfig):
+def set_config(config: RuntimeConfig):
     """
     Sets the global configuration object .
     """
@@ -30,7 +30,7 @@ def set_config(config: RunCommandConfig):
     cozy_config = config
 
 
-def get_config() -> RunCommandConfig:
+def get_config() -> RuntimeConfig:
     """
     Returns the global configuration object. This is only available if the config has been loaded, which happens at
     the start of the server, else it will raise an error.
@@ -52,13 +52,13 @@ def init_config(
     parse_args_method: ParseArgsMethod,
     env_file: Optional[str] = None,
     secrets_dir: Optional[str] = "/run/secrets",
-) -> RunCommandConfig:
+) -> RuntimeConfig:
     """
     Loads the configuration for the server.
     This should be called at the start of the Python server.
     """
     cli_settings = CliSettingsSource(
-        RunCommandConfig,
+        RuntimeConfig,
         root_parser=run_parser,
         cli_parse_args=True,
         cli_enforce_required=True,
@@ -66,11 +66,14 @@ def init_config(
         parse_args_method=parse_args_method,
     )
 
-    cozy_config = RunCommandConfig(
+    print("Parsing arguments")
+
+    cozy_config = RuntimeConfig(
         _env_file=env_file,  # type: ignore
         _secrets_dir=secrets_dir,  # type: ignore
         _cli_settings_source=cli_settings(args=True),  # type: ignore
     )
+    print("Config parsed:", cozy_config)
 
     # This updates the configuration globally for the Python server
     set_config(cozy_config)
@@ -89,7 +92,7 @@ def is_model_enabled(model_name: str) -> bool:
     return model_name in config.pipeline_defs.keys()
 
 
-def get_mock_config() -> RunCommandConfig:
+def get_mock_config() -> RuntimeConfig:
     """
     Returns a mock (or test) version of the global configuration object.
     This can be used outside of the cozy server environment.
@@ -98,7 +101,7 @@ def get_mock_config() -> RunCommandConfig:
     environment = "test"
     # home_dir = DEFAULT_HOME_DIR
 
-    return RunCommandConfig(
+    return RuntimeConfig(
         port=8881,
         host="127.0.0.1",
         environment=environment,

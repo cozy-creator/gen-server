@@ -10,6 +10,7 @@ import (
 	apiKey "github.com/cozy-creator/gen-server/cmd/cozy/api_key"
 	buildWeb "github.com/cozy-creator/gen-server/cmd/cozy/build_web"
 	db "github.com/cozy-creator/gen-server/cmd/cozy/db"
+
 	// download "github.com/cozy-creator/gen-server/cmd/cozy/download"
 	run "github.com/cozy-creator/gen-server/cmd/cozy/run"
 	"github.com/cozy-creator/gen-server/internal/config"

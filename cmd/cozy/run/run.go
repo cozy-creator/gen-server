@@ -18,9 +18,9 @@ import (
 	"github.com/cozy-creator/gen-server/internal/server"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
+	"github.com/cozy-creator/gen-server/internal/services/model_downloader"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
-	"github.com/cozy-creator/gen-server/internal/services/model_downloader"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

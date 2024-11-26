@@ -102,15 +102,6 @@ func ExecutePythonCommandWithOutput(args ...string) (string, error) {
 
 func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
 	ctx = context.WithoutCancel(ctx)
-	// genServerPath, err := ResolveGenServerPath(version)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// mainFilePath := filepath.Join(genServerPath, "main")
-	// if _, err := os.Stat(mainFilePath); err != nil {
-	// 	return fmt.Errorf("main.py not found in gen-server path")
-	// }
 
 	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
     if err != nil {
@@ -118,21 +109,24 @@ func StartPythonGenServer(ctx context.Context, version string, cfg *config.Confi
         pipelineDefsJson = []byte{}
     }
 
-	fmt.Println("Pipeline defs: ", string(pipelineDefsJson))
-
-	fmt.Println("Starting Python Gen Server. Models to start with:", cfg.WarmupModels)
-	cmd, err := CreatePythonCommand(
+	args := []string{
 		"-m",
-		// mainFilePath,
 		"gen_server.main",
 		"--home-dir", cfg.CozyHome,
 		"--environment", cfg.Environment,
 		"--host", cfg.Host,
 		"--port", strconv.Itoa(config.TCPPort),
-        "--warmup-models", strings.Join(cfg.WarmupModels, ","),
 		"--models-path", cfg.ModelsDir,
-		"--pipeline-defs", string(pipelineDefsJson),
-	)
+	}
+
+	if len(cfg.WarmupModels) > 0 {
+		args = append(args, "--warmup-models", strings.Join(cfg.WarmupModels, ","))
+	}
+	if len(pipelineDefsJson) > 0 {
+		args = append(args, "--pipeline-defs", string(pipelineDefsJson))
+	}
+
+	cmd, err := CreatePythonCommand(args...)
 	if err != nil {
 		return err
 	}

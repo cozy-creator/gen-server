@@ -21,15 +21,15 @@ const (
 type Config struct {
 	Port           int                      `mapstructure:"port"`
 	Host           string                   `mapstructure:"host"`
-	CozyHome       string                   `mapstructure:"cozy-home"`
+	CozyHome       string                   `mapstructure:"cozy_home"`
 	Environment    string                   `mapstructure:"environment"`
-	DisableAuth    bool                     `mapstructure:"disable-auth"`
-	AssetsDir      string                   `mapstructure:"assets-dir"`
-	ModelsDir      string                   `mapstructure:"models-dir"`
-	TempDir        string                   `mapstructure:"temp-dir"`
+	AssetsDir      string                   `mapstructure:"assets_dir"`
+	ModelsDir      string                   `mapstructure:"models_dir"`
+	TempDir        string                   `mapstructure:"temp_dir"`
 	AuxModelsDirs  []string                 `mapstructure:"aux-models-dirs"`
 	FilesystemType string                   `mapstructure:"filesystem-type"`
 	PublicDir      string                   `mapstructure:"public-dir"`
+	DisableAuth    bool                     `mapstructure:"disable-auth"`
 	S3             *S3Config                `mapstructure:"s3"`
 	Pulsar         *PulsarConfig            `mapstructure:"pulsar"`
 	DB             *DBConfig                `mapstructure:"db"`

@@ -1,10 +1,9 @@
 import os
 import json
-from enum import Enum
-from typing import Type, Optional, Any, Union
+from typing import Type, Optional, Any
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic_settings import PydanticBaseSettingsSource, YamlConfigSettingsSource
+from pydantic_settings import PydanticBaseSettingsSource
 
 DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 

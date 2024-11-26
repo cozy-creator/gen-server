@@ -29,7 +29,6 @@ dependencies = [
     "peft",
     "protobuf",
     "pydantic>=2.0",
-    "pydantic_settings>=2.3",
     "python-dotenv",
     "PyYAML",
     "safetensors>=0.4.2",

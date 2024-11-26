@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 from concurrent.futures import Future, ProcessPoolExecutor
 import json
@@ -10,21 +9,18 @@ import time
 import warnings
 from typing import Any, Callable
 
-from regex import P
-
 from .base_types.custom_node import custom_node_validator
-from .base_types.pydantic_models import RunCommandConfig
-from .config import init_config
-from .globals import update_custom_nodes, update_architectures, get_custom_nodes
+from .globals import update_custom_nodes, update_architectures
 from .tcp_server import TCPServer, RequestContext
 from .worker.gpu_worker import generate_images_non_io
-from .utils.cli_helpers import parse_known_args_wrapper
 from .utils.extension_loader import load_extensions
 from .utils.image import tensor_to_bytes
 from .globals import get_model_memory_manager
 from .utils.model_downloader import ModelSource, ModelManager
 from .model_command_handler import ModelCommandHandler
 
+from .base_types.config import parse_arguments, RuntimeConfig
+from .config import set_config
 
 # Ignore warnings from pydantic_settings (/run/secrets does not exist)
 warnings.filterwarnings(
@@ -43,7 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def verify_and_download_models(config: RunCommandConfig):
+async def verify_and_download_models(config: RuntimeConfig):
     """Verify and download all models on startup"""
 
     async with ModelManager() as manager:
@@ -153,14 +149,14 @@ def request_handler(context: RequestContext):
         context.send(size + error_response)
 
 
-def run_tcp_server(config: RunCommandConfig):
+def run_tcp_server(config: RuntimeConfig):
     server = TCPServer(port=config.port, host=config.host)
 
     server.set_handler(request_handler)
     server.start(lambda addr, port: print(f"Server started on {addr}:{port}"))
 
 
-def startup_extensions(_config: RunCommandConfig):
+def startup_extensions(_config: RuntimeConfig):
     start_time_custom_nodes = time.time()
 
     custom_nodes = load_extensions(
@@ -178,7 +174,7 @@ def startup_extensions(_config: RunCommandConfig):
     )
 
 
-async def load_and_warm_up_models(config: RunCommandConfig):
+async def load_and_warm_up_models(config: RuntimeConfig):
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
     warmup_models = config.warmup_models
@@ -198,12 +194,12 @@ async def load_and_warm_up_models(config: RunCommandConfig):
 
 
 async def main_async():
-    run_parser = argparse.ArgumentParser(description="Cozy Creator")
-    config = init_config(run_parser, parse_known_args_wrapper)
+    config = parse_arguments()
+    print("All python definitions found: ", config)
+
+    set_config(config)  # Do we need these dumb global variables?
 
     startup_extensions(config)
-
-    print("Pipeline definitions found:", config.pipeline_defs)
 
     # Verify and download models
     # await verify_and_download_models(config)
