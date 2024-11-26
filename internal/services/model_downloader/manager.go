@@ -22,21 +22,22 @@ type ModelDownloaderManager struct {
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 	hubClient := hub.DefaultClient()
 
-	// TODO: add civitai api key
-	// if app.Config().CivitaiAPIKey != "" {
-	// 	hubClient.WithAuth(app.Config().CivitaiAPIKey)
-	// }
+	civitaiAPIKey := ""
+	if app.Config().Civitai != nil {
+		civitaiAPIKey = app.Config().Civitai.APIKey
+	}
 
 	return &ModelDownloaderManager{
 		app: 		app,
 		hubClient: 	hubClient,
 		logger: 	app.Logger.Named("model_downloader"),
 		ctx: 		app.Context(),
-		// civitaiClient: app.Config().CivitaiAPIKey,
+		civitaiAPIKey: civitaiAPIKey,
 	}, nil
 }
 
 func (m *ModelDownloaderManager) InitializeModels() error {
+	ctx := m.ctx
 	pipelineDefs := m.app.Config().PipelineDefs
 	if len(pipelineDefs) == 0 {
 		m.logger.Info("No models configured in pipeline definitions")
@@ -51,7 +52,11 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 		go func(modelID string) {
 			defer wg.Done()
 
-			downloaded, err := m.IsDownloaded(modelID)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				downloaded, err := m.IsDownloaded(modelID)
 			if err != nil {
 				errorChan <- fmt.Errorf("failed to check if model %s is downloaded: %w", modelID, err)
 				return
@@ -62,24 +67,33 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				if err := m.Download(modelID); err != nil {
 					errorChan <- fmt.Errorf("failed to download model %s: %w", modelID, err)
 				}
-			} else {
-				m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+				} else {
+					m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+				}
 			}
 		}(modelID)
 	}
 
 	// wait for all goroutines to finish
-	wg.Wait()
-	close(errorChan)
+	done := make(chan struct{})
+    go func() {
+        wg.Wait()
+        close(done)
+        close(errorChan)
+    }()
 
-	// check for any errors
-	for err := range errorChan {
-		if err != nil {
-			return fmt.Errorf("error during model initialization: %w", err)
-		}
-	}
-
-	return nil
+    select {
+    case <-ctx.Done():
+        return context.Canceled
+    case <-done:
+        // Check for any errors
+        for err := range errorChan {
+            if err != nil {
+                return fmt.Errorf("error during model initialization: %w", err)
+            }
+        }
+        return nil
+    }
 }
 
 func (m *ModelDownloaderManager) Download(modelID string) error {
