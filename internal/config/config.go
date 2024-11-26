@@ -28,7 +28,7 @@ type Config struct {
 	TempDir        string                   `mapstructure:"temp_dir"`
 	AuxModelsDirs  []string                 `mapstructure:"aux-models-dirs"`
 	FilesystemType string                   `mapstructure:"filesystem-type"`
-	PublicDir      string                   `mapstructure:"public-dir"`
+	PublicDir      string                   `mapstructure:"public_dir"`
 	DisableAuth    bool                     `mapstructure:"disable-auth"`
 	S3             *S3Config                `mapstructure:"s3"`
 	Pulsar         *PulsarConfig            `mapstructure:"pulsar"`

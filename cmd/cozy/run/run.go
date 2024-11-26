@@ -50,9 +50,10 @@ func init() {
 
 	viper.BindPFlags(flags)
 
-	// These have to be bound manually due to nesting
+	// These have to be bound manually due to nesting and hyphens
 	viper.BindPFlag("db.dsn", flags.Lookup("db-dsn"))
 	viper.BindPFlag("pulsar.url", flags.Lookup("pulsar-url"))
+	viper.BindPFlag("public_dir", flags.Lookup("public-dir"))
 
 	bindEnvs()
 }
@@ -90,9 +91,10 @@ func bindEnvs() {
 	viper.BindEnv("hf_token", "HF_TOKEN")
 }
 
-// Initialize defaults that depend upon the location of the cozy home directory
+// Initialize defaults that depend upon other environment variables being initialized first
 func initDefaults() {
 	viper.SetDefault("db.dsn", "file:" + filepath.Join(viper.GetString("cozy_home"), "data", "main.db"))
+	viper.SetDefault("public_dir", server.GetDefaultPublicDir(viper.GetString("environment")))
 }
 
 func runApp(_ *cobra.Command, _ []string) error {

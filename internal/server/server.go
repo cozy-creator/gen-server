@@ -43,9 +43,9 @@ func NewServer(config *config.Config) (*Server, error) {
 
 	// Serve static files
 	staticPath := config.PublicDir
-	if (staticPath == "") {
-		staticPath = getDefaultPublicDir(config.Environment)
-	}
+	// if (staticPath == "") {
+	// 	staticPath = GetDefaultPublicDir(config.Environment)
+	// }
 	r.Use(static.Serve("/", static.LocalFile(staticPath, true)))
 	r.Use(gin.Recovery())
 
@@ -91,7 +91,7 @@ func getGinMode(env string) string {
 	}
 }
 
-func getDefaultPublicDir(env string) string {
+func GetDefaultPublicDir(env string) string {
     switch env {
     case "prod":
         return "/srv/www/cozy/dist"
