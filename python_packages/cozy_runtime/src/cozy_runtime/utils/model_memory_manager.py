@@ -41,7 +41,7 @@ from ..globals import (
 from .model_downloader import ModelSource
 from ..utils.load_models import load_state_dict_from_file
 from ..utils.quantize_models import quantize_model_fp8
-from ..base_types.pydantic_models import PipelineConfig
+from ..base_types.config import PipelineConfig
 from .model_config_manager import ModelConfigManager
 
 # from OmniGen import OmniGenPipeline
