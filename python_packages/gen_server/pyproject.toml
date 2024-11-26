@@ -45,14 +45,8 @@ dependencies = [
 [project.optional-dependencies]
 performance = ["accelerate", "triton", "xformers"]
 
-# [tool.setuptools.packages.find]
-# where = ["src"]
-# include = ["gen_server*"]
-# exclude = ["tests", "tests.*"]
-# namespaces = false
-
-# [tool.setuptools.package-data]
-# "gen_server" = ["py.typed"]
+[project.scripts]
+cozy-runtime = "gen_server.main:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true

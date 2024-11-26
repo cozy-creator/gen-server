@@ -231,7 +231,3 @@ def named_future(
     future = executor.submit(func, *args, **kwargs)
     future.__dict__["name"] = name
     return future
-
-
-if __name__ == "__main__":
-    main()
