@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
     "github.com/cozy-creator/hf-hub/hub"
     "go.uber.org/zap"
+	"github.com/vbauerster/mpb/v7"
 )
 
 
@@ -17,6 +19,8 @@ type ModelDownloaderManager struct {
 	logger 		*zap.Logger
 	ctx 		context.Context
 	civitaiAPIKey string
+	progress		*mpb.Progress
+	progressMu		sync.Mutex
 }
 
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
@@ -27,12 +31,18 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 		civitaiAPIKey = app.Config().Civitai.APIKey
 	}
 
+	progress := mpb.New(
+		mpb.WithWidth(60),
+		mpb.WithRefreshRate(180*time.Millisecond),
+	)
+
 	return &ModelDownloaderManager{
 		app: 		app,
 		hubClient: 	hubClient,
 		logger: 	app.Logger.Named("model_downloader"),
 		ctx: 		app.Context(),
 		civitaiAPIKey: civitaiAPIKey,
+		progress:		progress,
 	}, nil
 }
 

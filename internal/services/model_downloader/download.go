@@ -191,14 +191,17 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		initialSize = info.Size()
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	// use append mode if resuming, else create new
+	flag := os.O_CREATE | os.O_WRONLY
+	if initialSize > 0 {
+		flag |= os.O_APPEND
 	}
 
-	if m.civitaiAPIKey != "" {
-		req.Header.Set("Authorization", "Bearer " + m.civitaiAPIKey)
+	out, err := os.OpenFile(tmpPath, flag, 0644)
+	if err != nil {
+		return err
 	}
+	defer out.Close()
 
 	client := &http.Client{
 		Timeout: 0, // No total timeout
@@ -212,6 +215,20 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		},
 	}
 
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if m.civitaiAPIKey != "" {
+		req.Header.Set("Authorization", "Bearer " + m.civitaiAPIKey)
+	}
+
+	if initialSize > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", initialSize))
+	}
+
+	
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
@@ -226,6 +243,10 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		} else if resp.StatusCode == http.StatusOK {
 			// server does not support partial content (i.e. resume)
 			m.logger.Warn("Server doesn't support resume, starting download from beginning")
+			initialSize = 0
+			out.Seek(0, 0)
+			out.Truncate(0)
+			totalSize = resp.ContentLength
 		} else {
 			return fmt.Errorf("resume failed with status %d", resp.StatusCode)
 		}
@@ -236,25 +257,22 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		totalSize = resp.ContentLength
 	}
 
-	// open file in appropriate mode
-	flag := os.O_CREATE | os.O_WRONLY
-	if initialSize > 0 {
-		flag |= os.O_APPEND
-	}
+	// setup progress bar
+	// description := "Downloading"
+	// if initialSize > 0 {
+	// 	description = "Resuming download"
+	// }
 
-	f, err := os.OpenFile(tmpPath, flag, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer f.Close()
 
 	// setup progress bar
-	progress := mpb.New(
-		mpb.WithWidth(60),
-		mpb.WithRefreshRate(180*time.Millisecond),
-	)
+	// progress := mpb.New(
+	// 	mpb.WithWidth(60),
+	// 	mpb.WithRefreshRate(180*time.Millisecond),
+	// )
 
-	bar := progress.AddBar(totalSize,
+	m.progressMu.Lock()
+
+	bar := m.progress.AddBar(totalSize,
 		mpb.PrependDecorators(
 			decor.Name(filepath.Base(destPath), decor.WC{W: 40, C: decor.DidentRight}),
 			decor.CountersKibiByte("% .2f / % .2f"),
@@ -266,6 +284,8 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		),
 	)
 
+	m.progressMu.Unlock()
+
 	// set initial progress
 	if initialSize > 0 {
 		bar.SetCurrent(initialSize)
@@ -276,13 +296,15 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 	stallTimer := time.Duration(0)
 
 	reader := bar.ProxyReader(resp.Body)
+	defer reader.Close()
+
 	buf := make([]byte, 32*1024) // 32KB buffer
 
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
 			// write chunk
-			if _, werr := f.Write(buf[:n]); werr != nil {
+			if _, werr := out.Write(buf[:n]); werr != nil {
 				return fmt.Errorf("write failed: %w", werr)
 			}
 

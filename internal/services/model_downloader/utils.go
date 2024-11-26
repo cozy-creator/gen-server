@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 
 	"github.com/cozy-creator/hf-hub/hub"
 )
@@ -35,7 +36,7 @@ func (m *ModelDownloaderManager) getCachePath(modelID string, source *ModelSourc
 func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
     // Check if repo exists in cache
     storageFolder := filepath.Join(hubClient.CacheDir, repoFolderName(repoID, "model"))
-    if _, err := os.Stat(storageFolder); err != nil {
+    if !pathExists(storageFolder) {
         return false, nil
     }
 
@@ -48,12 +49,135 @@ func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
 
     // Check snapshot folder exists
     snapshotPath := filepath.Join(storageFolder, "snapshots", string(commitHash))
-    if _, err := os.Stat(snapshotPath); err != nil {
+    if !pathExists(snapshotPath) {
         return false, nil
     }
 
-    return true, nil
+    // check model_index.json exists
+    modelIndexPath := filepath.Join(snapshotPath, "model_index.json")
+    if pathExists(modelIndexPath) {
+        data, err := os.ReadFile(modelIndexPath)
+        if err != nil {
+            return false, nil
+        }
+
+        var modelIndex map[string]interface{}
+        if err := json.Unmarshal(data, &modelIndex); err != nil {
+            return false, nil
+        }
+
+        // get required folders
+        requiredFolders := make(map[string]bool)
+        for k, v := range modelIndex {
+            if list, ok := v.([]interface{}); ok {
+                if len(list) == 2 && list[0] != nil && list[1] != nil {
+                    requiredFolders[k] = true
+                }
+            }
+        }
+
+        fmt.Println(requiredFolders)
+
+        // ignore folders
+        ignoredFolders := map[string]bool{
+            "_class_name":         true,
+            "_diffusers_version":  true,
+            "scheduler":           true,
+            "feature_extractor":   true,
+            "tokenizer":           true,
+            "tokenizer_2":         true,
+            "tokenizer_3":         true,
+            "safety_checker":      true,
+        }
+
+        for ignored := range ignoredFolders {
+            delete(requiredFolders, ignored)
+        }
+
+        variants := []string{"bf16", "fp8", "fp16", ""}
+
+        checkFolderCompleteness := func(folderPath string, variant string) bool {
+            if !pathExists(folderPath) {
+                return false
+            }
+
+            err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+                if err != nil {
+                    return err
+                }
+
+                if info.IsDir() {
+                    return nil
+                }
+
+                // Check for incomplete files
+                if strings.HasSuffix(info.Name(), ".incomplete") {
+                    return fmt.Errorf("incomplete file found")
+                }
+
+                // Check for variant-specific files
+                if variant != "" {
+                    if strings.HasSuffix(info.Name(), fmt.Sprintf("%s.safetensors", variant)) ||
+                        strings.HasSuffix(info.Name(), fmt.Sprintf("%s.bin", variant)) {
+                        return fmt.Errorf("found complete file")
+                    }
+                } else {
+                    // Check for non-variant files
+                    if strings.HasSuffix(info.Name(), ".safetensors") ||
+                        strings.HasSuffix(info.Name(), ".bin") ||
+                        strings.HasSuffix(info.Name(), ".ckpt") {
+                        return fmt.Errorf("found complete file")
+                    }
+                }
+
+                return nil
+            })
+            
+            return err != nil && err.Error() == "found complete file"
+        }
+
+        // Check if all required folders have files for a specific variant
+        checkVariantCompleteness := func(variant string) bool {
+            for folder := range requiredFolders {
+                folderPath := filepath.Join(snapshotPath, folder)
+                if !checkFolderCompleteness(folderPath, variant) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        // Check variants in order of preference
+        for _, variant := range variants {
+            if checkVariantCompleteness(variant) {
+                return true, nil
+            }
+        }
+    } else {
+        // For repos without model_index.json, check the blob folder
+        blobFolder := filepath.Join(storageFolder, "blobs")
+        if pathExists(blobFolder) {
+            var hasIncomplete bool
+            err := filepath.Walk(blobFolder, func(path string, info os.FileInfo, err error) error {
+                if err != nil {
+                    return err
+                }
+                if !info.IsDir() && strings.HasSuffix(info.Name(), ".incomplete") {
+                    hasIncomplete = true
+                    return fmt.Errorf("found incomplete file")
+                }
+                return nil
+            })
+
+            if err == nil && !hasIncomplete {
+                return true, nil
+            }
+        }
+    }
+
+    return false, nil
 }
+
 
 
 func (m *ModelDownloaderManager) isSourceDownloaded(modelID string, source *ModelSource) (bool, error) {
@@ -149,4 +273,9 @@ func (m *ModelDownloaderManager) verifyFile(path string) error {
     }
 
     return nil
+}
+
+func pathExists(path string) bool {
+    _, err := os.Stat(path)
+    return err == nil
 }
