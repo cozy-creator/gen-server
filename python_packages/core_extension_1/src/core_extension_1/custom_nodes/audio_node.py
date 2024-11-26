@@ -1,9 +1,10 @@
 import torch
 import torchaudio
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 import os
 import json
 from typing import Union
+
 
 class AudioNode(CustomNode):
     """Loads an audio file from a file path or URL."""
@@ -24,7 +25,7 @@ class AudioNode(CustomNode):
     @staticmethod
     def get_spec():
         """Returns the node specification."""
-        spec_file = os.path.join(os.path.dirname(__file__), 'audio_node.json')
-        with open(spec_file, 'r', encoding='utf-8') as f:
+        spec_file = os.path.join(os.path.dirname(__file__), "audio_node.json")
+        with open(spec_file, "r", encoding="utf-8") as f:
             spec = json.load(f)
         return spec

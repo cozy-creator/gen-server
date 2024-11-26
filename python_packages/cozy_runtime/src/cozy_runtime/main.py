@@ -19,7 +19,8 @@ from .globals import get_model_memory_manager
 from .utils.model_downloader import ModelSource, ModelManager
 from .model_command_handler import ModelCommandHandler
 
-from .base_types.config import parse_arguments, RuntimeConfig
+from .base_types.config import RuntimeConfig
+from .parse_cli import parse_arguments
 from .config import set_config
 
 # Ignore warnings from pydantic_settings (/run/secrets does not exist)
@@ -231,3 +232,7 @@ def named_future(
     future = executor.submit(func, *args, **kwargs)
     future.__dict__["name"] = name
     return future
+
+
+if __name__ == "__main__":
+    main()

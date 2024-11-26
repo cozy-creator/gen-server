@@ -1,11 +1,11 @@
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 from typing import Dict, List, Any
 import os
 import shutil
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
 from PIL import Image
-from gen_server.utils.paths import get_assets_dir, get_home_dir
+from cozy_runtime.utils.paths import get_assets_dir, get_home_dir
 
 
 class CustomCaptionNode(CustomNode):
@@ -14,19 +14,27 @@ class CustomCaptionNode(CustomNode):
         self.captions = {}
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.torch_dtype = torch.float16 if self.device == "cuda" else torch.float32
-        self.model = AutoModelForCausalLM.from_pretrained(
-            'microsoft/Florence-2-large', 
-            trust_remote_code=True, 
-            torch_dtype=self.torch_dtype
-        ).eval().to(self.device)
-        self.processor = AutoProcessor.from_pretrained('microsoft/Florence-2-large', trust_remote_code=True)
+        self.model = (
+            AutoModelForCausalLM.from_pretrained(
+                "microsoft/Florence-2-large",
+                trust_remote_code=True,
+                torch_dtype=self.torch_dtype,
+            )
+            .eval()
+            .to(self.device)
+        )
+        self.processor = AutoProcessor.from_pretrained(
+            "microsoft/Florence-2-large", trust_remote_code=True
+        )
         self.home_dir = get_home_dir()
 
-    async def __call__(self, 
-                       image_paths: List[str], 
-                       captions: Dict[str, str] = None,
-                       use_auto_captioning: bool = False,
-                       output_directory: str = None) -> Dict[str, Any]:
+    async def __call__(
+        self,
+        image_paths: List[str],
+        captions: Dict[str, str] = None,
+        use_auto_captioning: bool = False,
+        output_directory: str = None,
+    ) -> Dict[str, Any]:
         """
         Manage custom captions for images, with optional auto-captioning and processing.
 
@@ -40,12 +48,15 @@ class CustomCaptionNode(CustomNode):
             Dict[str, Any]: Dictionary containing image captions and processed directory information.
         """
         result = {}
-        
+
         # Sometimes, user will pass in a single directory that contains images.
         # If so, we need to get all the images in the directory and process them.
         if len(image_paths) == 1 and os.path.isdir(f"{self.home_dir}/{image_paths[0]}"):
-            image_paths = [os.path.join(image_paths[0], f) for f in os.listdir(f"{self.home_dir}/{image_paths[0]}") if 
-                           os.path.isfile(os.path.join(f"{self.home_dir}/{image_paths[0]}", f))]
+            image_paths = [
+                os.path.join(image_paths[0], f)
+                for f in os.listdir(f"{self.home_dir}/{image_paths[0]}")
+                if os.path.isfile(os.path.join(f"{self.home_dir}/{image_paths[0]}", f))
+            ]
         elif len(image_paths) == 0:
             raise ValueError("No image paths provided")
 
@@ -57,7 +68,10 @@ class CustomCaptionNode(CustomNode):
                 self.captions[image_path] = captions[image_path]
             elif image_path not in self.captions:
                 # check if a caption exists for the image in that same directory using the same name but with .txt extension
-                caption_path = os.path.join(os.path.dirname(image_path), f"{os.path.splitext(image_name)[0]}.txt")
+                caption_path = os.path.join(
+                    os.path.dirname(image_path),
+                    f"{os.path.splitext(image_name)[0]}.txt",
+                )
                 if os.path.exists(caption_path):
                     with open(caption_path, "r") as f:
                         self.captions[image_path] = f.read()
@@ -69,7 +83,7 @@ class CustomCaptionNode(CustomNode):
 
             result[image_path] = {
                 "name": image_name,
-                "caption": self.captions[image_path]
+                "caption": self.captions[image_path],
             }
             print(f"Image: {image_name}, Caption: {self.captions[image_path]}")
 
@@ -77,35 +91,33 @@ class CustomCaptionNode(CustomNode):
         if output_directory:
             processed_directory = self.process_images(image_paths, output_directory)
 
-        return {
-            "image_captions": result,
-            "processed_directory": processed_directory
-        }
+        return {"image_captions": result, "processed_directory": processed_directory}
 
     def auto_caption_image(self, image_path: str) -> str:
-
         prompt = "<MORE_DETAILED_CAPTION>"
 
         image = Image.open(image_path).convert("RGB")
-        inputs = self.processor(text=prompt, images=image, return_tensors="pt").to(self.device, self.torch_dtype)
-        
+        inputs = self.processor(text=prompt, images=image, return_tensors="pt").to(
+            self.device, self.torch_dtype
+        )
+
         with torch.no_grad():
             generated_ids = self.model.generate(
                 input_ids=inputs["input_ids"],
                 pixel_values=inputs["pixel_values"],
                 max_new_tokens=1024,
                 num_beams=3,
-                do_sample=False
+                do_sample=False,
             )
-        
-        generated_text = self.processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
+
+        generated_text = self.processor.batch_decode(
+            generated_ids, skip_special_tokens=False
+        )[0]
         parsed_answer = self.processor.post_process_generation(
-            generated_text, 
-            task=prompt, 
-            image_size=(image.width, image.height)
+            generated_text, task=prompt, image_size=(image.width, image.height)
         )
         print(f"Auto-captioned image: {parsed_answer}")
-        
+
         return parsed_answer[prompt]
 
     def process_images(self, image_paths: List[str], output_directory: str) -> str:
@@ -117,7 +129,9 @@ class CustomCaptionNode(CustomNode):
             image_path = os.path.join(self.home_dir, image_path)
             image_file = os.path.basename(image_path)
             new_image_path = os.path.join(processed_directory, image_file)
-            new_caption_path = os.path.join(processed_directory, f"{os.path.splitext(image_file)[0]}.txt")
+            new_caption_path = os.path.join(
+                processed_directory, f"{os.path.splitext(image_file)[0]}.txt"
+            )
 
             # Copy image to processed directory
             shutil.copy2(image_path, new_image_path)

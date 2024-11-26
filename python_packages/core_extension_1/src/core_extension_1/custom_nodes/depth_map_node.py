@@ -1,5 +1,5 @@
 import torch
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 import os
 from typing import Union
 from transformers import pipeline
@@ -9,7 +9,7 @@ from PIL import Image
 import numpy as np
 import json
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 from typing import Dict, Union
 from torchvision import transforms as T
 
@@ -185,7 +185,7 @@ class DepthMapNode(CustomNode):
             depth_image = Image.fromarray(depth_image)
         elif isinstance(depth_image, torch.Tensor):
             depth_image = T.ToPILImage()(depth_image)
-        
+
         depth_image.save("depth_map.png")
 
         return {"depth_map": depth_image}

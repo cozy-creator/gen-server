@@ -4,7 +4,7 @@ import time
 import torch
 from typing import Any, Optional
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
 from contextlib import nullcontext
@@ -43,7 +43,7 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
         self._output_space = "SDXL"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -83,7 +83,9 @@ class SDXLUNet(Architecture[UNet2DConditionModel]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                unet, new_unet_state_dict, dtype=torch.float16
+            )
             if unet._keys_to_ignore_on_load_unexpected is not None:
                 for pat in unet._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [

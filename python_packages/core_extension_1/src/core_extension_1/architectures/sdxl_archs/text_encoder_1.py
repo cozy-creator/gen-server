@@ -4,7 +4,7 @@ import time
 from typing import Any, Optional
 
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 from diffusers.utils.import_utils import is_accelerate_available
@@ -51,7 +51,7 @@ class SDXLTextEncoder(Architecture[CLIPTextModel]):
         self._output_space = "SDXL"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         required_keys = {

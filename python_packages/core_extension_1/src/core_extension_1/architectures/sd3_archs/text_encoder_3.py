@@ -1,7 +1,7 @@
 import json
 import time
 from typing import Optional, Any
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import T5EncoderModel, T5Config
 from diffusers.utils.import_utils import is_accelerate_available
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
@@ -13,7 +13,7 @@ import torch
 import logging
 from contextlib import nullcontext
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
@@ -80,7 +80,7 @@ class SD3TextEncoder3(Architecture[T5EncoderModel]):
             else None
         )
 
-    def load(self, state_dict: StateDict, device: TorchDevice = "cpu"): # type: ignore
+    def load(self, state_dict: StateDict, device: TorchDevice = "cpu"):  # type: ignore
         """
         Loads the SD3 Text Encoder 3 model from the given state dictionary.
         """

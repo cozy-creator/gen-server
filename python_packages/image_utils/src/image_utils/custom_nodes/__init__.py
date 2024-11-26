@@ -2,13 +2,13 @@ from multiprocessing import Pool
 from typing import List
 import os
 from PIL.Image import Image
-from gen_server.utils.paths import get_next_counter
+from cozy_runtime.utils.paths import get_next_counter
 import torch
 from typing import Optional
 
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
-from gen_server.utils.paths import get_assets_dir
+from cozy_runtime.utils.paths import get_assets_dir
 
 from typing import TypedDict
 

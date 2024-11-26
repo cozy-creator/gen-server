@@ -6,16 +6,18 @@ from typing import Optional, Any
 from typing_extensions import override
 from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.loaders.single_file_utils import convert_ldm_unet_checkpoint
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from contextlib import nullcontext
 import logging
 import re
 from diffusers.utils.import_utils import is_accelerate_available
+
 if is_accelerate_available():
     from accelerate import init_empty_weights
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_unet.json")
-
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_unet.json"
+)
 
 
 logger = logging.getLogger(__name__)
@@ -35,13 +37,13 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
                 self._model = UNet2DConditionModel(**config)
 
             self._config = config
-        
+
         self._display_name = "SD1 UNet"
         self._input_space = "SD1"
         self._output_space = "SD1"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -80,7 +82,9 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(unet, new_unet_state_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                unet, new_unet_state_dict, dtype=torch.float16
+            )
             if unet._keys_to_ignore_on_load_unexpected is not None:
                 for pat in unet._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
@@ -97,6 +101,5 @@ class SD1UNet(Architecture[UNet2DConditionModel]):
                 unet.to(device=device)
 
             unet.to(torch.float16)
-        
 
         print(f"UNet state dict loaded in {time.time() - start} seconds")

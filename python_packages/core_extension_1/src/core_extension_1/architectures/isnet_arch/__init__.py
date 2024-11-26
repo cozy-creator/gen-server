@@ -4,7 +4,7 @@ import time
 from typing import Any, Optional
 
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 import torch
 
 from .isnet import ISNetDIS as ISNetDISModel
@@ -31,7 +31,9 @@ class ISNetDIS(Architecture[ISNetDISModel]):
         state_dict: Optional[StateDict] = None,
         **ignored: Any,
     ) -> Optional[ComponentMetadata]:
-        required_keys = {"is_net"}  # Ensure to change this to its actual keys. This is just a random key to prevent it from being detected by other models
+        required_keys = {
+            "is_net"
+        }  # Ensure to change this to its actual keys. This is just a random key to prevent it from being detected by other models
 
         return (
             ComponentMetadata(

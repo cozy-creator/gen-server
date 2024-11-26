@@ -1,6 +1,6 @@
 import torch
-from gen_server.base_types import CustomNode
-from gen_server.utils.file_handler import get_file_handler
+from cozy_runtime.base_types import CustomNode
+from cozy_runtime.utils.file_handler import get_file_handler
 from typing import List, Union, Tuple
 from PIL import Image
 import io
@@ -19,11 +19,12 @@ class SizeHandling(Enum):
 class LoadImageNode(CustomNode):
     """Loads images from file IDs or byte data, handling size variations."""
 
-    async def __call__(self, 
-                 filenames: list[str | bytes],
-                 size_handling: SizeHandling = SizeHandling.BATCH_BY_SIZE,
-                 target_size: Tuple[int, int] = (1024, 1024)
-        ) -> dict[str, Union[torch.Tensor, List[torch.Tensor]]]:
+    async def __call__(
+        self,
+        filenames: list[str | bytes],
+        size_handling: SizeHandling = SizeHandling.BATCH_BY_SIZE,
+        target_size: Tuple[int, int] = (1024, 1024),
+    ) -> dict[str, Union[torch.Tensor, List[torch.Tensor]]]:
         """
         Args:
             filenames: A list of file IDs (strings) or binary encoded byte data.
@@ -50,7 +51,9 @@ class LoadImageNode(CustomNode):
                     # Load from bytes
                     image = Image.open(io.BytesIO(filename))
                 else:
-                    raise TypeError("Invalid filename type. Must be string (file ID) or bytes.")
+                    raise TypeError(
+                        "Invalid filename type. Must be string (file ID) or bytes."
+                    )
 
                 images.append(image)
 
@@ -85,7 +88,9 @@ class LoadImageNode(CustomNode):
 
     def process_images(self, images: List[Image.Image]) -> torch.Tensor:
         """Converts PIL Images to tensors and stacks them into a batch."""
-        tensor_images = [torch.from_numpy(np.array(img)).permute(2, 0, 1) / 255.0 for img in images] 
+        tensor_images = [
+            torch.from_numpy(np.array(img)).permute(2, 0, 1) / 255.0 for img in images
+        ]
         return torch.stack(tensor_images)
 
     def batch_images_by_size(self, images: List[Image.Image]) -> List[torch.Tensor]:
@@ -103,8 +108,7 @@ class LoadImageNode(CustomNode):
     @staticmethod
     def get_spec():
         """Returns the node specification."""
-        spec_file = os.path.join(os.path.dirname(__file__), 'load_image_node.json')
-        with open(spec_file, 'r', encoding='utf-8') as f:
+        spec_file = os.path.join(os.path.dirname(__file__), "load_image_node.json")
+        with open(spec_file, "r", encoding="utf-8") as f:
             spec = json.load(f)
         return spec
-

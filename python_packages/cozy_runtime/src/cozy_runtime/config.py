@@ -1,11 +1,7 @@
 import os
 import argparse
 from typing import Optional, List, Callable
-from pydantic_settings import CliSettingsSource
-
 from .base_types.config import RuntimeConfig
-
-DEFAULT_HOME_DIR = os.path.expanduser("~/.cozy-creator/")
 
 
 cozy_config: Optional[RuntimeConfig] = None
@@ -17,7 +13,7 @@ Global configuration for the Cozy Gen-Server
 def config_loaded() -> bool:
     """
     Returns a boolean indicating whether the config has been loaded.
-    This will return True if called within the gen_server runtime, since the config is loaded at the start of the server.
+    This will return True if called within the cozy runtime, since the config is loaded at the start.
     """
     return cozy_config is not None
 
@@ -45,40 +41,6 @@ ParseArgsMethod = Callable[
     [argparse.ArgumentParser, Optional[List[str]], Optional[argparse.Namespace]],
     Optional[argparse.Namespace],
 ]
-
-
-def init_config(
-    run_parser: argparse.ArgumentParser,
-    parse_args_method: ParseArgsMethod,
-    env_file: Optional[str] = None,
-    secrets_dir: Optional[str] = "/run/secrets",
-) -> RuntimeConfig:
-    """
-    Loads the configuration for the server.
-    This should be called at the start of the Python server.
-    """
-    cli_settings = CliSettingsSource(
-        RuntimeConfig,
-        root_parser=run_parser,
-        cli_parse_args=True,
-        cli_enforce_required=True,
-        # overwrite this method so that we don't get errors from unknown args
-        parse_args_method=parse_args_method,
-    )
-
-    print("Parsing arguments")
-
-    cozy_config = RuntimeConfig(
-        _env_file=env_file,  # type: ignore
-        _secrets_dir=secrets_dir,  # type: ignore
-        _cli_settings_source=cli_settings(args=True),  # type: ignore
-    )
-    print("Config parsed:", cozy_config)
-
-    # This updates the configuration globally for the Python server
-    set_config(cozy_config)
-
-    return cozy_config
 
 
 def is_model_enabled(model_name: str) -> bool:

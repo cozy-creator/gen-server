@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 from PIL import Image
 from typing import Any
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 from controlnet_aux import OpenposeDetector
 import os
-from gen_server.utils.paths import get_assets_dir
+from cozy_runtime.utils.paths import get_assets_dir
 import json
 
 

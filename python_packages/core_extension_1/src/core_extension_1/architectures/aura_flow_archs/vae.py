@@ -4,7 +4,7 @@ from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 import json
 from typing import Optional, Any
 
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 import time
 import torch
 from diffusers.utils.import_utils import is_accelerate_available
@@ -23,15 +23,12 @@ if is_accelerate_available():
     from accelerate import init_empty_weights
 
 
-
 class AuraFlowVAEArch(Architecture[AutoencoderKL]):
     """
     The Variational Auto-Encoder used by AuraFlow models
     """
 
-
     def __init__(self, **ignored: Any):
-
         self._display_name = "AuraFlow VAE"
         self._input_space = "AuraFlow"
         self._output_space = "AuraFlow"
@@ -48,7 +45,7 @@ class AuraFlowVAEArch(Architecture[AutoencoderKL]):
             self._config = config
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls,
         state_dict: StateDict,
         metadata: dict[str, Any],
@@ -76,9 +73,7 @@ class AuraFlowVAEArch(Architecture[AutoencoderKL]):
         vae = self._model
 
         vae_state_dict = {
-            key: state_dict[key]
-            for key in state_dict
-            if key.startswith("vae")
+            key: state_dict[key] for key in state_dict if key.startswith("vae")
         }
 
         new_vae_state_dict = convert_ldm_vae_checkpoint(

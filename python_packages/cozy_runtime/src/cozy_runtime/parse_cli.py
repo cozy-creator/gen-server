@@ -1,105 +1,84 @@
 import argparse
 import json
 import os
-from dataclasses import dataclass
-from typing import Optional
 import logging
+from .base_types.config import RuntimeConfig, PipelineConfig
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # ====== Parse cli arguments ======
 
 
-@dataclass
-class PipelineConfig:
-    source: str
-    class_name: Optional[str | tuple[str, str]]
-    components: Optional[dict[str, "ComponentConfig"]]
-
-
-@dataclass
-class ComponentConfig:
-    source: str
-    class_name: Optional[str | tuple[str, str]]
-
-
-@dataclass
-class RuntimeConfig:
-    home_dir: str
-    environment: str
-    host: str
-    port: int
-    pipeline_defs: dict[str, PipelineConfig]
-    warmup_models: list[str]
-    models_path: str
-
-
-def parse_pipeline_defs(value):
+def parse_pipeline_defs(value: Optional[str]) -> dict[str, PipelineConfig]:
     """Parse pipeline definitions from command line argument"""
     if not value:
         return {}
 
     try:
-        if isinstance(value, str):
-            return json.loads(value)
-        if isinstance(value, dict):
-            return value
-        return {}
+        loaded = json.loads(value)
+        if isinstance(loaded, dict):
+            return loaded
+        else:
+            logger.error("Pipeline definitions are not a dictionary")
+            return {}
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse pipeline definitions: {e}")
         return {}
 
 
-def parse_warmup_models(value):
+def parse_warmup_models(value: Optional[str]) -> list[str]:
     """Parse warmup models from command line argument"""
     if not value:
         return []
 
-    if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError:
-            return value.split(",")
-    return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value.split(",")
 
 
 def parse_arguments() -> RuntimeConfig:
     """Parse command line arguments and return configuration"""
     parser = argparse.ArgumentParser(description="Cozy Creator")
 
-    config = get_default_config()
+    default_config = RuntimeConfig()
 
     parser.add_argument(
-        "--home-dir", default=config.home_dir, help="Cozy creator's home directory"
+        "--home-dir",
+        default=default_config.home_dir,
+        help="Cozy creator's home directory",
     )
     parser.add_argument(
         "--environment",
-        default=config.environment,
+        default=default_config.environment,
         help="Server environment (dev/prod)",
     )
-    parser.add_argument("--host", default=config.host, help="Hostname or IP-address")
+    parser.add_argument(
+        "--host", default=default_config.host, help="Hostname or IP-address"
+    )
     parser.add_argument(
         "--port",
         type=int,
-        default=config.port,
+        default=default_config.port,
         help="Port to bind Python runtime to",
     )
     parser.add_argument(
         "--pipeline-defs",
         type=str,
-        default=config.pipeline_defs,
+        default=default_config.pipeline_defs,
         help="JSON string of pipeline definitions",
     )
     parser.add_argument(
         "--warmup-models",
         type=str,
-        default=config.warmup_models,
+        default=default_config.warmup_models,
         help="Comma-separated list or JSON array of models to warm up",
     )
     parser.add_argument(
         "--models-path",
         type=str,
-        default=config.models_path,
+        default=default_config.models_path,
         help="Path to models directory",
     )
 
@@ -117,16 +96,3 @@ def parse_arguments() -> RuntimeConfig:
     )
 
     return config
-
-
-def get_default_config() -> RuntimeConfig:
-    """Returns default configuration values"""
-    return RuntimeConfig(
-        home_dir=os.path.expanduser("~/.cozy-creator/"),
-        environment="dev",
-        host="0.0.0.0" if os.path.exists("/.dockerenv") else "localhost",
-        port=8882,
-        pipeline_defs={},
-        warmup_models=[],
-        models_path=os.path.expanduser("~/.cozy-creator/models"),
-    )

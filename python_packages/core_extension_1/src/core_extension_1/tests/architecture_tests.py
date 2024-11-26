@@ -1,10 +1,13 @@
 import os.path
 import unittest
 
-from gen_server.base_types.architecture import SpandrelArchitectureAdapter, Architecture
+from cozy_runtime.base_types.architecture import (
+    SpandrelArchitectureAdapter,
+    Architecture,
+)
 from spandrel.architectures.ESRGAN import ESRGANArch
 
-from gen_server.utils import load_models
+from cozy_runtime.utils import load_models
 from ..architectures.sd3_archs import (
     SD3UNet,
 )

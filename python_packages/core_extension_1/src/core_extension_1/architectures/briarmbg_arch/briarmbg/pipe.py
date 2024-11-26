@@ -8,7 +8,7 @@ from transformers import Pipeline
 from transformers.image_utils import load_image
 from PIL import Image
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 
 class RMBGPipe(Pipeline):

@@ -7,7 +7,7 @@ from diffusers.loaders.single_file_utils import (
     convert_ldm_vae_checkpoint,
     create_vae_diffusers_config_from_ldm,
 )
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 import time
 import torch
 from diffusers.utils.import_utils import is_accelerate_available
@@ -15,7 +15,7 @@ from contextlib import nullcontext
 import logging
 import re
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,9 @@ if is_accelerate_available():
     from accelerate import init_empty_weights
 
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sd3_config.json")
-
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "sd3_config.json"
+)
 
 
 class SD3VAEArch(Architecture[AutoencoderKL]):
@@ -57,7 +58,7 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
         required_keys = {
             "first_stage_model.encoder.conv_in.bias",
             "text_encoders.clip_g.transformer.text_model.embeddings.position_embedding.weight",
-            "text_encoders.clip_l.transformer.text_model.encoder.layers.11.mlp.fc1.weight"
+            "text_encoders.clip_l.transformer.text_model.encoder.layers.11.mlp.fc1.weight",
         }
 
         return (
@@ -78,9 +79,7 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
         vae = self._model
 
         vae_state_dict = {
-            key: state_dict[key]
-            for key in state_dict
-            if key.startswith("vae.")
+            key: state_dict[key] for key in state_dict if key.startswith("vae.")
         }
 
         new_vae_state_dict = convert_ldm_vae_checkpoint(
@@ -94,7 +93,9 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict, dtype=torch.bfloat16)
+            unexpected_keys = load_model_dict_into_meta(
+                vae, new_vae_state_dict, dtype=torch.bfloat16
+            )
             if vae._keys_to_ignore_on_load_unexpected is not None:
                 for pat in vae._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
@@ -107,6 +108,5 @@ class SD3VAEArch(Architecture[AutoencoderKL]):
                 )
         else:
             vae.load_state_dict(new_vae_state_dict)
-
 
         print(f"VAE state dict loaded in {time.time() - start} seconds")

@@ -18,12 +18,94 @@ import (
 	"github.com/cozy-creator/gen-server/internal/config"
 )
 
+const RUNTIME_COMMAND = "cozy-runtime"
+
 func CommandExists(command string) (bool, error) {
 	if _, err := exec.LookPath(command); err != nil {
 		return false, err
 	}
 	return true, nil
 }
+
+func CreateCozyRuntimeCommand(args ...string) (*exec.Cmd, error) {
+	if _, err := CommandExists(RUNTIME_COMMAND); err == nil {
+		cmd := exec.Command(RUNTIME_COMMAND, args...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = os.Environ()
+
+		return cmd, nil
+	}
+
+	return nil, fmt.Errorf("the command 'cozy-runtime' is not installed in the system-path; please install it")
+}
+
+func StartPythonRuntime(ctx context.Context, cfg *config.Config) error {
+	ctx = context.WithoutCancel(ctx)
+
+	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
+    if err != nil {
+        log.Printf("failed to marshal pipeline defs: %v", err)
+        pipelineDefsJson = []byte{}
+    }
+
+	args := []string{
+		"--home-dir", cfg.CozyHome,
+		"--environment", cfg.Environment,
+		"--host", cfg.Host,
+		"--port", strconv.Itoa(config.TCPPort),
+		"--models-path", cfg.ModelsDir,
+	}
+
+	if len(cfg.WarmupModels) > 0 {
+		args = append(args, "--warmup-models", strings.Join(cfg.WarmupModels, ","))
+	}
+	if len(pipelineDefsJson) > 0 {
+		args = append(args, "--pipeline-defs", string(pipelineDefsJson))
+	}
+
+	cmd, err := CreateCozyRuntimeCommand(args...)
+	if err != nil {
+		return err
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("Stopping Python Runtime...")
+				cmd.Process.Kill()
+				return
+			default:
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+	// Wait for the command to finish
+	if err := cmd.Wait(); err != nil {
+		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
+			fmt.Println("Python Runtime stopped successfully")
+			return nil
+		}
+
+		fmt.Println("Python Runtime stopped unexpectedly")
+
+		return fmt.Errorf("error waiting for Python Runtime to exit: %w", err)
+	}
+
+	return nil
+}
+
+
+// ==== The rest of the code in this file is mostly useless ====
+
 
 func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 	// First check if we're in a venv
@@ -98,70 +180,6 @@ func ExecutePythonCommandWithOutput(args ...string) (string, error) {
 	}
 
 	return "", fmt.Errorf("python may not be installed, please check and try again")
-}
-
-func StartPythonGenServer(ctx context.Context, version string, cfg *config.Config) error {
-	ctx = context.WithoutCancel(ctx)
-
-	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
-    if err != nil {
-        log.Printf("failed to marshal pipeline defs: %v", err)
-        pipelineDefsJson = []byte{}
-    }
-
-	args := []string{
-		"-m",
-		"gen_server.main",
-		"--home-dir", cfg.CozyHome,
-		"--environment", cfg.Environment,
-		"--host", cfg.Host,
-		"--port", strconv.Itoa(config.TCPPort),
-		"--models-path", cfg.ModelsDir,
-	}
-
-	if len(cfg.WarmupModels) > 0 {
-		args = append(args, "--warmup-models", strings.Join(cfg.WarmupModels, ","))
-	}
-	if len(pipelineDefsJson) > 0 {
-		args = append(args, "--pipeline-defs", string(pipelineDefsJson))
-	}
-
-	cmd, err := CreatePythonCommand(args...)
-	if err != nil {
-		return err
-	}
-
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("Stopping Python Gen Server...")
-				cmd.Process.Kill()
-				return
-			default:
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-
-	// Wait for the command to finish
-	if err := cmd.Wait(); err != nil {
-		if ctx.Err() != nil && errors.Is(ctx.Err(), context.Canceled) {
-			fmt.Println("Python Gen Server stopped successfully")
-			return nil
-		}
-
-		fmt.Println("Python Gen Server stopped unexpectedly")
-
-		return fmt.Errorf("error waiting for Python Gen Server to exit: %w", err)
-	}
-
-	return nil
 }
 
 func GetPythonSitePackagesPath() (string, error) {

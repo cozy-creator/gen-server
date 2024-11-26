@@ -7,7 +7,7 @@ from diffusers.loaders.single_file_utils import (
     convert_ldm_vae_checkpoint,
     create_vae_diffusers_config_from_ldm,
 )
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 import time
 import torch
 from diffusers.utils.import_utils import is_accelerate_available
@@ -15,7 +15,7 @@ from contextlib import nullcontext
 import logging
 import re
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +60,10 @@ class VAEArch(Architecture[AutoencoderKL]):
             print("In play")
 
         elif "sd_merge_models" in metadata:
-            sd_merge_models = json.loads(metadata['sd_merge_models'])
+            sd_merge_models = json.loads(metadata["sd_merge_models"])
             for model_key, model_data in sd_merge_models.items():
-                if 'name' in model_data and "PONY" in model_data['name']:
-                    pony_name = model_data['name']
+                if "name" in model_data and "PONY" in model_data["name"]:
+                    pony_name = model_data["name"]
                     print(pony_name)
                     result: ComponentMetadata = {
                         "display_name": "Pony VAE",
@@ -74,7 +74,7 @@ class VAEArch(Architecture[AutoencoderKL]):
                         os.path.dirname(os.path.abspath(__file__)), "sdxl_config.json"
                     )
                     break
-                
+
             if result == {}:
                 result: ComponentMetadata = {
                     "display_name": "SDXL VAE",
@@ -118,16 +118,15 @@ class VAEArch(Architecture[AutoencoderKL]):
             self._config = config
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls,
         state_dict: StateDict,
         metadata: dict[str, Any],
     ) -> Optional[ComponentMetadata]:
         required_keys = {
             "first_stage_model.encoder.conv_in.bias",
-            "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight"
+            "conditioner.embedders.0.transformer.text_model.embeddings.position_embedding.weight",
         }
-
 
         if all(key in state_dict for key in required_keys):
             component_metadata, _ = cls._determine_type(metadata)
@@ -159,7 +158,9 @@ class VAEArch(Architecture[AutoencoderKL]):
             from diffusers.models.model_loading_utils import load_model_dict_into_meta
 
             print("Using accelerate")
-            unexpected_keys = load_model_dict_into_meta(vae, new_vae_state_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                vae, new_vae_state_dict, dtype=torch.float16
+            )
             if vae._keys_to_ignore_on_load_unexpected is not None:
                 for pat in vae._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [
@@ -172,6 +173,5 @@ class VAEArch(Architecture[AutoencoderKL]):
                 )
         else:
             vae.load_state_dict(new_vae_state_dict)
-
 
         print(f"VAE state dict loaded in {time.time() - start} seconds")
