@@ -1,7 +1,7 @@
 import json
 import time
 from typing import Optional, Any
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModelWithProjection, CLIPTextConfig, CLIPTextModel
 from diffusers.utils.import_utils import is_accelerate_available
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
@@ -11,7 +11,7 @@ import torch
 import logging
 from contextlib import nullcontext
 
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class FluxTextEncoder1(Architecture[CLIPTextModel]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """

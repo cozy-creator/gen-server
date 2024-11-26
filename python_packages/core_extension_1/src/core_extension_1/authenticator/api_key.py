@@ -6,8 +6,8 @@ from typing import Any, Dict, Optional
 
 from aiohttp import web
 
-from gen_server.base_types import ApiAuthenticator
-from gen_server.base_types.authenticator import AuthenticationError
+from cozy_runtime.base_types import ApiAuthenticator
+from cozy_runtime.base_types.authenticator import AuthenticationError
 
 logger = logging.Logger(__name__)
 

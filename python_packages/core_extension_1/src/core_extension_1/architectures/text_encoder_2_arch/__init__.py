@@ -1,7 +1,7 @@
 import json
 import time
 from typing import Dict, Optional, Any
-from gen_server import (
+from cozy_runtime import (
     Architecture,
     StateDict,
     TorchDevice,
@@ -17,7 +17,7 @@ import os
 import torch
 import logging
 from contextlib import nullcontext
-from gen_server.utils.device import get_torch_device
+from cozy_runtime.utils.device import get_torch_device
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,9 @@ class TextEncoder2(Architecture[CLIPTextModelWithProjection]):
         if is_accelerate_available():
             print("Using accelerate")
             # torch_dtype = next(text_model.parameters()).dtype
-            unexpected_keys = load_model_dict_into_meta(text_model, text_model_dict, dtype=torch.float16)
+            unexpected_keys = load_model_dict_into_meta(
+                text_model, text_model_dict, dtype=torch.float16
+            )
             if text_model._keys_to_ignore_on_load_unexpected is not None:
                 for pat in text_model._keys_to_ignore_on_load_unexpected:
                     unexpected_keys = [

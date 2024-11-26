@@ -4,7 +4,7 @@ from importlib import resources
 import shutil
 from typing import Optional
 
-from gen_server import examples
+import cozy_runtime.examples
 from ..config import get_config
 
 # from ..globals import get_model_config

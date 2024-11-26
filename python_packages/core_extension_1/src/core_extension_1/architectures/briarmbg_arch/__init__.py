@@ -4,7 +4,7 @@ import time
 from typing import Any, Optional
 
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 import torch
 
 from .briarmbg import BriaRMBG as BriaRMBGModel

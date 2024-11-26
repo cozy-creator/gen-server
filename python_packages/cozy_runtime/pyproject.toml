@@ -3,9 +3,9 @@ requires = ["hatchling", "requests"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gen_server"
-description = "Generative-AI server for content production"
-version = "0.3.0"
+name = "cozy_runtime"
+description = "Python runtime for AI content generation."
+version = "0.3.1"
 authors = [
     { name = "Paul Fidika", email = "paul@fidika.com" },
     { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" },
@@ -46,13 +46,13 @@ dependencies = [
 performance = ["accelerate", "triton", "xformers"]
 
 [project.scripts]
-cozy-runtime = "gen_server.main:main"
+cozy-runtime = "cozy_runtime.main:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gen_server"]
+packages = ["src/cozy_runtime"]
 
 [tool.hatch.build.targets.sdist]
-packages = ["src/gen_server"]
+packages = ["src/cozy_runtime"]

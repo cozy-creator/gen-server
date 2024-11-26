@@ -34,8 +34,8 @@ from spandrel.architectures.PLKSR import PLKSRArch
 from spandrel.architectures.NAFNet import NAFNetArch
 from spandrel.architectures.SAFMN import SAFMNArch
 
-from gen_server import StateDict
-from gen_server.base_types.architecture import (
+from cozy_runtime import StateDict
+from cozy_runtime.base_types.architecture import (
     SpandrelArchitectureAdapter,
     ComponentMetadata,
 )

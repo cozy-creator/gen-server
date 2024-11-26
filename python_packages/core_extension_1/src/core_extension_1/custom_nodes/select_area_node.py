@@ -1,5 +1,5 @@
 import torch
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 from segment_anything import sam_model_registry, SamPredictor
 from groundingdino.util.inference import load_model, predict
 import groundingdino.datasets.transforms as T
@@ -11,7 +11,8 @@ import os
 import json
 from huggingface_hub.constants import HF_HUB_CACHE
 from typing import Union
-from gen_server.globals import get_model_memory_manager
+from cozy_runtime.globals import get_model_memory_manager
+
 
 class SelectAreaNode(CustomNode):
     """Selects an area in an image based on a text prompt using GroundingDino and SAM."""
@@ -24,7 +25,12 @@ class SelectAreaNode(CustomNode):
         self.grounding_dino_model = self.load_groundingdino()
         self.model_memory_manager = get_model_memory_manager()
 
-    async def __call__(self, image: Union[torch.Tensor, np.ndarray], text_prompt: str = "face", feather_radius: int = 0) -> dict[str, Image.Image]: # type: ignore
+    async def __call__(
+        self,
+        image: Union[torch.Tensor, np.ndarray],
+        text_prompt: str = "face",
+        feather_radius: int = 0,
+    ) -> dict[str, Image.Image]:  # type: ignore
         """
         Args:
             image: Input image tensor (C, H, W) or PIL Image.
@@ -35,11 +41,15 @@ class SelectAreaNode(CustomNode):
         try:
             if isinstance(image, torch.Tensor):
                 image = image.cpu()  # Move the tensor to the CPU
-                image = Image.fromarray((image * 255).permute(1, 2, 0).numpy().astype(np.uint8))
+                image = Image.fromarray(
+                    (image * 255).permute(1, 2, 0).numpy().astype(np.uint8)
+                )
             elif isinstance(image, np.ndarray):
                 image = Image.fromarray(image)
             elif not isinstance(image, Image.Image):
-                raise TypeError("Input image must be a torch.Tensor, np.ndarray, or PIL Image.")
+                raise TypeError(
+                    "Input image must be a torch.Tensor, np.ndarray, or PIL Image."
+                )
 
             image_np = np.array(image)
             self.sam_predictor.set_image(image_np)
@@ -61,7 +71,9 @@ class SelectAreaNode(CustomNode):
                     combined_mask = np.logical_or(combined_mask, masks[0])
 
                 # Feather the mask (optional)
-                combined_mask = self.feather_mask(combined_mask, iterations=feather_radius)  # Adjust iterations as needed
+                combined_mask = self.feather_mask(
+                    combined_mask, iterations=feather_radius
+                )  # Adjust iterations as needed
 
                 mask_image = Image.fromarray(combined_mask.astype(np.uint8) * 255)
 
@@ -70,10 +82,11 @@ class SelectAreaNode(CustomNode):
 
                 self.model_memory_manager.flush_memory()
 
-
                 return {"face_mask": mask_image}
             else:
-                raise ValueError(f"No objects matching '{text_prompt}' found in the image.")
+                raise ValueError(
+                    f"No objects matching '{text_prompt}' found in the image."
+                )
 
         except Exception as e:
             raise ValueError(f"Error selecting area: {e}")
@@ -93,7 +106,9 @@ class SelectAreaNode(CustomNode):
 
         component_repo = "alexgenovese/background-workflow"
 
-        checkpoint_file = self.get_model_path(component_repo, "groundingdino_swint_ogc.pth")
+        checkpoint_file = self.get_model_path(
+            component_repo, "groundingdino_swint_ogc.pth"
+        )
 
         model = load_model(config_file, checkpoint_file)
         model.to(self.device)
@@ -110,7 +125,9 @@ class SelectAreaNode(CustomNode):
         image_transformed, _ = transform(image, None)
         return image_transformed
 
-    def detect_objects(self, image: Image.Image, text_prompt: str) -> tuple[torch.Tensor, torch.Tensor, list[str]]:
+    def detect_objects(
+        self, image: Image.Image, text_prompt: str
+    ) -> tuple[torch.Tensor, torch.Tensor, list[str]]:
         image_transformed = self.transform_image(image)
         boxes, logits, phrases = predict(
             model=self.grounding_dino_model,
@@ -130,16 +147,14 @@ class SelectAreaNode(CustomNode):
             mask = scipy.ndimage.gaussian_filter(mask, sigma=1)
             mask[mask > 0] = 1
         return mask
-    
+
     def get_model_path(self, component_repo: str, model_name: str) -> str:
         storage_folder = os.path.join(
             self.cache_dir, "models--" + component_repo.replace("/", "--")
         )
 
         if not os.path.exists(storage_folder):
-            raise FileNotFoundError(
-                f"Model {component_repo} not found"
-            )
+            raise FileNotFoundError(f"Model {component_repo} not found")
 
         # Get the latest commit hash
         refs_path = os.path.join(storage_folder, "refs", "main")
@@ -149,16 +164,14 @@ class SelectAreaNode(CustomNode):
         with open(refs_path, "r") as f:
             commit_hash = f.read().strip()
 
-        checkpoint = os.path.join(
-            storage_folder, "snapshots", commit_hash, model_name
-        )
+        checkpoint = os.path.join(storage_folder, "snapshots", commit_hash, model_name)
 
         return checkpoint
 
     @staticmethod
-    def get_spec(): # type: ignore
+    def get_spec():  # type: ignore
         """Returns the node specification."""
-        spec_file = os.path.join(os.path.dirname(__file__), 'select_area_node.json')
-        with open(spec_file, 'r', encoding='utf-8') as f:
+        spec_file = os.path.join(os.path.dirname(__file__), "select_area_node.json")
+        with open(spec_file, "r", encoding="utf-8") as f:
             spec = json.load(f)
         return spec

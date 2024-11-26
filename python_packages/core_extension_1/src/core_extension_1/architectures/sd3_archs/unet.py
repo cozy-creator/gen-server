@@ -1,7 +1,7 @@
 import json
 import time
 from typing import Optional, Any
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
 from diffusers.loaders.single_file_utils import (
     convert_sd3_transformer_checkpoint_to_diffusers,
@@ -46,7 +46,7 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
         self._output_space = "SD3"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
@@ -102,6 +102,5 @@ class SD3UNet(Architecture[SD3Transformer2DModel]):
         else:
             unet.load_state_dict(new_unet_state_dict)
             unet.to(torch.float16)
-
 
         print(f"UNet loaded in {time.time() - start:.2f} seconds")

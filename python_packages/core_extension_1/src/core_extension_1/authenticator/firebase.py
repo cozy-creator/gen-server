@@ -5,7 +5,7 @@ from typing import Optional
 from aiohttp import web
 from firebase_admin import credentials, initialize_app, firestore, auth
 
-from gen_server.base_types import ApiAuthenticator
+from cozy_runtime.base_types import ApiAuthenticator
 from dotenv import load_dotenv
 
 load_dotenv()

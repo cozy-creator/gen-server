@@ -2,9 +2,10 @@ import torch
 from typing import Optional, List
 from diffusers import CogVideoXPipeline
 from diffusers.utils import export_to_video
-from gen_server.base_types import CustomNode
-from gen_server.globals import get_model_memory_manager, get_available_torch_device
-from gen_server.utils.model_config_manager import ModelConfigManager
+from cozy_runtime.base_types import CustomNode
+from cozy_runtime.globals import get_model_memory_manager, get_available_torch_device
+from cozy_runtime.utils.model_config_manager import ModelConfigManager
+
 
 class CogVideoXNode(CustomNode):
     def __init__(self):
@@ -56,4 +57,3 @@ class CogVideoXNode(CustomNode):
 
     #     # Additional optimizations can be added here if needed
     #     print("Optimizations applied to CogVideoX pipeline")
-

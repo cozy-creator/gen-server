@@ -17,11 +17,11 @@ from diffusers import (
     StableDiffusion3Pipeline,
 )
 
-from gen_server.utils.image import aspect_ratio_to_dimensions
-from gen_server.base_types import CustomNode
+from cozy_runtime.utils.image import aspect_ratio_to_dimensions
+from cozy_runtime.base_types import CustomNode
 from importlib import import_module
-from gen_server.utils.model_config_manager import ModelConfigManager
-from gen_server.globals import (
+from cozy_runtime.utils.model_config_manager import ModelConfigManager
+from cozy_runtime.globals import (
     get_hf_model_manager,
     get_available_torch_device,
     get_model_memory_manager,
@@ -29,9 +29,8 @@ from gen_server.globals import (
 from diffusers import FluxPipeline
 import os
 import json
-from gen_server.utils.image import tensor_to_pil
+from cozy_runtime.utils.image import tensor_to_pil
 from tqdm import tqdm
-
 
 
 class ProgressCallback:
@@ -45,7 +44,7 @@ class ProgressCallback:
     def on_step_end(self, pipeline, step_number, timestep, callback_kwargs):
         overall_step = self.last_update + step_number
         scaled_step = int((overall_step / self.total_steps) * self.num_steps)
-        
+
         if scaled_step > self.pbar.n:
             self.pbar.update(scaled_step - self.pbar.n)
 
@@ -120,7 +119,6 @@ class ImageGenNode(CustomNode):
 
             # self.controlnets[key] = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16)
         return self.controlnets[key]
-    
 
     async def __call__(  # type: ignore
         self,
@@ -136,7 +134,6 @@ class ImageGenNode(CustomNode):
         lora_info: Optional[dict[str, any]] = None,
         controlnet_model_ids: Optional[List[str]] = None,
     ):
-        
         print(random_seed)
         try:
             pipeline = await self._get_pipeline(model_id)
@@ -194,12 +191,13 @@ class ImageGenNode(CustomNode):
 
                 print("DONE SETTING UP IP ADAPTER")
 
-
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
             # Set up default positive prompt if it exists in model_config
             if "default_positive_prompt" in model_config:
-                positive_prompt = model_config["default_positive_prompt"] + ", " + positive_prompt
+                positive_prompt = (
+                    model_config["default_positive_prompt"] + ", " + positive_prompt
+                )
             else:
                 positive_prompt = positive_prompt
 
@@ -214,7 +212,6 @@ class ImageGenNode(CustomNode):
                 "output_type": "pt",
             }
 
-
             if isinstance(pipeline, FluxPipeline):
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
             else:
@@ -222,16 +219,17 @@ class ImageGenNode(CustomNode):
                     # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
                     # Check model_config for negative prompt and append it to the negative prompt
                     if "default_negative_prompt" in model_config:
-                        gen_params["negative_prompt"] = model_config["default_negative_prompt"] + ", " + negative_prompt
+                        gen_params["negative_prompt"] = (
+                            model_config["default_negative_prompt"]
+                            + ", "
+                            + negative_prompt
+                        )
                     else:
                         gen_params["negative_prompt"] = negative_prompt
 
                     print(f"Negative Prompt: {gen_params['negative_prompt']}")
 
             print(f"Prompt: {gen_params['prompt']}")
-            
-                    
-                    
 
             gen_params["guidance_scale"] = model_config["guidance_scale"]
 
@@ -251,18 +249,17 @@ class ImageGenNode(CustomNode):
             for i in range(num_images):
                 with torch.no_grad():
                     output = pipeline(
-                        **gen_params, 
-                        callback_on_step_end=callback.on_step_end, 
-                        callback_on_step_end_tensor_inputs=['latents']
+                        **gen_params,
+                        callback_on_step_end=callback.on_step_end,
+                        callback_on_step_end_tensor_inputs=["latents"],
                     ).images
 
-                image_tensors.append(output[0]) 
+                image_tensors.append(output[0])
                 # Clear CUDA cache after each iteration
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                callback.on_image_complete() # Signal completion of an image
-
+                callback.on_image_complete()  # Signal completion of an image
 
             callback.close()  # Close the progress bar
 

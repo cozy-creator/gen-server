@@ -135,7 +135,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := runPythonGenServer(ctx, cfg); err != nil {
+		if err := runPythonRuntime(ctx, cfg); err != nil {
 			errc <- err
 		}
 	}()
@@ -256,9 +256,9 @@ func createNewApp() (*app.App, error) {
 	return app, nil
 }
 
-func runPythonGenServer(ctx context.Context, cfg *config.Config) error {
-	if err := tools.StartPythonGenServer(ctx, "0.3.0", cfg); err != nil {
-		fmt.Println("Error starting Python Gen Server: ", err)
+func runPythonRuntime(ctx context.Context, cfg *config.Config) error {
+	if err := tools.StartPythonRuntime(ctx, cfg); err != nil {
+		fmt.Println(err)
 		return err
 	}
 

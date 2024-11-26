@@ -1,7 +1,7 @@
 import json
 import time
 from typing import Optional, Any
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from diffusers import AuraFlowTransformer2DModel
 
 from diffusers.utils.import_utils import is_accelerate_available
@@ -25,8 +25,6 @@ if is_accelerate_available():
     from accelerate import init_empty_weights
 
 
-
-
 class AuraFlowTransformer(Architecture[AuraFlowTransformer2DModel]):
     """
     Architecture definition for the AuraFlow Transformer model.
@@ -48,7 +46,7 @@ class AuraFlowTransformer(Architecture[AuraFlowTransformer2DModel]):
         self._output_space = "AuraFlow"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls, state_dict: StateDict, **ignored: Any
     ) -> Optional[ComponentMetadata]:
         """
@@ -77,9 +75,7 @@ class AuraFlowTransformer(Architecture[AuraFlowTransformer2DModel]):
 
         unet = self._model
         unet_state_dict = {
-            key: state_dict[key]
-            for key in state_dict
-            if key.startswith("model")
+            key: state_dict[key] for key in state_dict if key.startswith("model")
         }
 
         new_unet_state_dict = convert_auraflow_transformer_checkpoint_to_diffusers(
@@ -105,8 +101,4 @@ class AuraFlowTransformer(Architecture[AuraFlowTransformer2DModel]):
             unet.load_state_dict(new_unet_state_dict)
             unet.to(torch.float16)
 
-
         print(f"AuraFlow Transformer loaded in {time.time() - start:.2f} seconds")
-
-
-

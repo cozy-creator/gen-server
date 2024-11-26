@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any
-from gen_server.base_types import CustomNode
+from cozy_runtime.base_types import CustomNode
 
 
 class LoadLoraNode(CustomNode):
@@ -8,13 +8,13 @@ class LoadLoraNode(CustomNode):
     def __init__(self):
         super().__init__()
 
-    def __call__( # type: ignore
+    def __call__(  # type: ignore
         self,
         lora_path: str,
         model_scale: float = 1.0,
         text_encoder_scale: float = 1.0,
         text_encoder_2_scale: float = 1.0,
-        adapter_name: Optional[str] = None
+        adapter_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Load a Lora model.
 
@@ -30,10 +30,12 @@ class LoadLoraNode(CustomNode):
         """
 
         # Split the lora_path into repo_id and weight_name
-        parts = lora_path.split('/', 2)
+        parts = lora_path.split("/", 2)
         if len(parts) < 3:
-            raise ValueError("Invalid lora_path format. Expected format: 'repo_id/model_name/weight_name'")
-        
+            raise ValueError(
+                "Invalid lora_path format. Expected format: 'repo_id/model_name/weight_name'"
+            )
+
         repo_id = f"{parts[0]}/{parts[1]}"
         weight_name = parts[2]
 
@@ -47,5 +49,5 @@ class LoadLoraNode(CustomNode):
             "adapter_name": adapter_name,
             "model_scale": model_scale,
             "text_encoder_scale": text_encoder_scale,
-            "text_encoder_2_scale": text_encoder_2_scale
+            "text_encoder_2_scale": text_encoder_2_scale,
         }

@@ -3,7 +3,7 @@ import json
 import time
 from typing import Optional, Any
 from typing_extensions import override
-from gen_server import Architecture, StateDict, TorchDevice, ComponentMetadata
+from cozy_runtime import Architecture, StateDict, TorchDevice, ComponentMetadata
 from transformers import CLIPTextModel, CLIPTextConfig
 import torch
 
@@ -12,7 +12,9 @@ LDM_CLIP_PREFIX_TO_REMOVE = [
     "conditioner.embedders.0.transformer.",
 ]
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_text_encoder.json")
+config_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "config_text_encoder.json"
+)
 
 
 class SD1TextEncoder(Architecture[CLIPTextModel]):
@@ -33,7 +35,7 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
         self._output_space = "SD1"
 
     @classmethod
-    def detect( # type: ignore
+    def detect(  # type: ignore
         cls,
         state_dict: StateDict,
         **ignored: Any,
@@ -85,8 +87,5 @@ class SD1TextEncoder(Architecture[CLIPTextModel]):
             text_encoder.to(device=device)
 
         text_encoder.to(torch.float16)
-        
 
         print(f"TextEncoder loaded in {time.time() - start} seconds")
-
-    

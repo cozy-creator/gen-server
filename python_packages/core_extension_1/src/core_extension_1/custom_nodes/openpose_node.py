@@ -1,7 +1,7 @@
 import torch
-from gen_server.base_types import CustomNode
-from controlnet_aux import OpenposeDetector 
-import numpy as np 
+from cozy_runtime.base_types import CustomNode
+from controlnet_aux import OpenposeDetector
+import numpy as np
 import os
 from PIL import Image
 import json
@@ -15,7 +15,7 @@ from torchvision import transforms as T
 #     def __init__(self):
 #         super().__init__()
 #         self.openpose = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
-    
+
 #     def __call__(self, image: any) -> Image.Image:
 #         """
 #         Args:
@@ -35,36 +35,37 @@ from torchvision import transforms as T
 #                 image = np.array(image)
 #             else:
 #                 raise TypeError("Input image must be a torch.Tensor or PIL Image.")
-            
+
 #             openpose_image = self.openpose(image)
 #             return {"openpose_image": openpose_image}
 
 #         except Exception as e:
 #             raise ValueError(f"Error detecting poses with OpenPose: {e}")
-    
+
 #     @staticmethod
 #     def get_spec():
 #         """Returns the node specification."""
-#         spec_file = os.path.join(os.path.dirname(__file__), 'openpose_node.json') 
+#         spec_file = os.path.join(os.path.dirname(__file__), 'openpose_node.json')
 #         with open(spec_file, 'r', encoding='utf-8') as f:
 #             spec = json.load(f)
 #         return spec
+
 
 class OpenPoseNode(CustomNode):
     def __init__(self):
         super().__init__()
         self.openpose = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
 
-    async def __call__(self, image: Union[Image.Image, torch.Tensor]) -> Dict[str, torch.Tensor]: # type: ignore
+    async def __call__(
+        self, image: Union[Image.Image, torch.Tensor]
+    ) -> Dict[str, torch.Tensor]:  # type: ignore
         # if isinstance(image, Image.Image):
         #     image = T.ToTensor()(image).unsqueeze(0)
         # elif isinstance(image, torch.Tensor) and image.dim() == 3:
         #     image = image.unsqueeze(0)
-        
+
         openpose_image = self.openpose(image)
         # Save the image to a file
         openpose_image.save("openpose_image.png")
         print("Done")
         return {"openpose_image": openpose_image}
-
-    
