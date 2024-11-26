@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
@@ -89,6 +90,7 @@ func bindEnvs() {
 	viper.BindEnv("runway.api_key", "RUNWAY_API_KEY")
 	viper.BindEnv("bfl.api_key", "BFL_API_KEY")
 	viper.BindEnv("hf_token", "HF_TOKEN")
+	viper.BindEnv("civitai.api_key", "CIVITAI_API_KEY")
 }
 
 // Initialize defaults that depend upon other environment variables being initialized first
@@ -104,6 +106,10 @@ func runApp(_ *cobra.Command, _ []string) error {
 	// 	}
 	// }()
 
+	// create base context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var wg sync.WaitGroup
 	errc := make(chan error, 4)
 	signalc := make(chan os.Signal, 1)
@@ -115,7 +121,6 @@ func runApp(_ *cobra.Command, _ []string) error {
 	defer app.Close()
 
 	cfg := app.Config()
-	ctx := app.Context()
 
 	wg.Add(4)
 
@@ -152,21 +157,70 @@ func runApp(_ *cobra.Command, _ []string) error {
 	go func() {
 		defer wg.Done()
 		if err := downloadEnabledModels(app); err != nil {
-			errc <- err
+			if !errors.Is(err, context.Canceled) {
+				errc <- fmt.Errorf("model download error: %w", err)
+			}
 		}
 	}()
 
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 
+	shutdownComplete := make(chan struct{})
+
+	// wait for shutdown signal
+	go func() {
+		<-signalc
+		fmt.Println("\nReceived shutdown signal. Starting graceful shutdown...")
+
+		cancel()
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+
+		if err := server.Stop(shutdownCtx); err != nil && !errors.Is(err, context.Canceled) {
+            errc <- fmt.Errorf("error stopping server: %w", err)
+            return
+        }
+
+		// wait for all gorutines with timeout
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			fmt.Println("All services stopped successfully")
+		case <-shutdownCtx.Done():
+			fmt.Println("Warning: Shutdown timed out, some services may not have stopped cleanly")
+		}
+		close(shutdownComplete)
+	}()
+
+	// wait for shutdown to complete or error
 	select {
 	case err := <-errc:
+		cancel()
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return err
-	case <-signalc:
-		server.Stop(ctx)
-		return nil
-	default:
-		wg.Wait()
-		return nil
+	case <-ctx.Done():
+		select {
+		case <-shutdownComplete:
+			return nil
+		case <-time.After(35 * time.Second):
+			return nil // Don't return error on timeout
+		case err := <-errc:
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+			return err
+		case <-signalc:
+			fmt.Println("\nForced shutdown initiated")
+			return nil
+		}
 	}
 }
 
@@ -232,7 +286,20 @@ func downloadEnabledModels(app *app.App) error {
     if err != nil {
         return err
     }
-    return manager.InitializeModels()
+
+	ctx := app.Context()
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- manager.InitializeModels()
+	}()
+
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	case err := <-errChan:
+		return err
+	}
 }
 
 func runServer(app *app.App) (*server.Server, error) {

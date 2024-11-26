@@ -35,6 +35,7 @@ type Config struct {
 	DB             *DBConfig                `mapstructure:"db"`
 	LumaAI         *LumaAIConfig            `mapstructure:"luma_ai"`
 	Replicate      *ReplicateConfig         `mapstructure:"replicate"`
+	Civitai        *CivitaiConfig           `mapstructure:"civitai"`
 	PipelineDefs   map[string]*PipelineDefs // unmarshalled manually from config.yaml
 	WarmupModels   []string                 `mapstructure:"warmup-models"`
 }
@@ -74,6 +75,10 @@ type LumaAIConfig struct {
 }
 
 type ReplicateConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+type CivitaiConfig struct {
 	APIKey string `mapstructure:"api_key"`
 }
 

@@ -67,6 +67,8 @@ func (m *ModelDownloaderManager) downloadCivitai(modelID, urlStr string) error {
 		return fmt.Errorf("failed to get Civitai filename: %w", err)
 	}
 
+	fmt.Println("Civitai filename:", filename)
+
 	destDir := m.getCachePath(modelID, &ModelSource{Type: SourceTypeCivitai})
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
