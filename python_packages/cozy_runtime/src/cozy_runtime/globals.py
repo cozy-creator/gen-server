@@ -1,6 +1,6 @@
 from typing import Type, Any, Iterable, Union, Optional
 from aiohttp import web
-from .base_types.pydantic_models import PipelineConfig
+from .base_types.config import PipelineConfig
 
 
 from .base_types import (
