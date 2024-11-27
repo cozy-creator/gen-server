@@ -10,6 +10,7 @@ from collections import OrderedDict
 import time
 
 import torch
+
 from diffusers import (
     DiffusionPipeline,
     FluxInpaintPipeline,
@@ -162,11 +163,13 @@ def get_pipeline_class(
     try:
         pipeline_class = getattr(importlib.import_module("diffusers"), class_name)
         if not issubclass(pipeline_class, DiffusionPipeline):
+            print("custompipeline2", class_name)
             raise TypeError(f"{class_name} does not inherit from DiffusionPipeline")
         return (pipeline_class, None)
 
     except (ImportError, AttributeError):
         # Assume the class name is the name of a custom pipeline
+        print("custompipeline1", class_name)
         return (DiffusionPipeline, class_name)
 
 
@@ -1032,10 +1035,14 @@ class ModelMemoryManager:
 
             # Get appropriate pipeline class
             (pipeline_class, custom_pipeline) = get_pipeline_class(class_name)
+            print("custompipeline", custom_pipeline)
 
-            if custom_pipeline:
+            if custom_pipeline is not None:
                 pipeline_kwargs["custom_pipeline"] = custom_pipeline
 
+            print(
+                f"repo_id={repo_id},torch_dtype={torch_dtype},local_files_only=True,variant={variant},pipeline_kwargs={pipeline_kwargs},"
+            )
             pipeline = pipeline_class.from_pretrained(
                 repo_id,
                 torch_dtype=torch_dtype,
@@ -1051,6 +1058,7 @@ class ModelMemoryManager:
             return pipeline
 
         except Exception as e:
+            traceback.print_exc()
             logger.error("Failed to load model {}: {}".format(model_id, str(e)))
             return None
 
@@ -1088,8 +1096,8 @@ class ModelMemoryManager:
                         pipeline_kwargs[key] = None
 
             # Handle custom pipeline if specified as string
-            if isinstance(class_name, str):
-                pipeline_kwargs["custom_pipeline"] = class_name
+            # if isinstance(class_name, str):
+            #     pipeline_kwargs["custom_pipeline"] = class_name
 
             return pipeline_kwargs
 
