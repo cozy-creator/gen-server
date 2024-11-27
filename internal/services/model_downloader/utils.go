@@ -20,6 +20,7 @@ func repoFolderName(repoID string, repoType string) string {
 }
 
 func (m *ModelDownloaderManager) getCachePath(modelID string, source *ModelSource) string {
+
 	if source.Type == SourceTypeHuggingface {
 		return filepath.Join(m.hubClient.CacheDir, repoFolderName(source.Location, "model"))
 	}
@@ -75,8 +76,6 @@ func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
                 }
             }
         }
-
-        fmt.Println(requiredFolders)
 
         // ignore folders
         ignoredFolders := map[string]bool{
@@ -206,6 +205,7 @@ func (m *ModelDownloaderManager) isSourceDownloaded(modelID string, source *Mode
 
 //  check if any valid model file exists in a directory
 func (m *ModelDownloaderManager) isAnyValidModelInDir(dir string) bool {
+
     entries, err := os.ReadDir(dir)
     if err != nil {
         return false

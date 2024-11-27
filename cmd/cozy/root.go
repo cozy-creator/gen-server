@@ -20,7 +20,7 @@ import (
 )
 
 const cozyPrefix = "COZY"
-const DefaultCozyHome = "$HOME/.cozy-creator" 
+var DefaultCozyHome = ".cozy-creator" 
 
 var Cmd = &cobra.Command{
 	Use:   "cozy",
@@ -42,6 +42,14 @@ func Execute() {
 // 4. Each command's actual Run() function
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting user home directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	DefaultCozyHome = filepath.Join(homeDir, DefaultCozyHome)
 
 	pflags := Cmd.PersistentFlags()
 	pflags.String("home-dir", "", "Path to the cozy-creator home directory")
@@ -67,7 +75,7 @@ func init() {
 	viper.BindEnv("env_file", "COZY_ENV_FILE")
 
 	// Set sensible default
-	viper.SetDefault("cozy_home", os.ExpandEnv(DefaultCozyHome))
+	viper.SetDefault("cozy_home", DefaultCozyHome)
 
 	// Add subcommands
 	// Cmd.AddCommand(run.Cmd, download.Cmd, buildWeb.Cmd, db.Cmd, apiKey.Cmd)

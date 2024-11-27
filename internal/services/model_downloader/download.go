@@ -25,9 +25,9 @@ func (m *ModelDownloaderManager) downloadFromSource(modelID string, source *Mode
 	case SourceTypeHuggingface:
 		return m.downloadHuggingFace(modelID, source.Location)
 	case SourceTypeCivitai:
-		return m.downloadCivitai(modelID, source.Location)
+		return m.downloadCivitai(modelID, source)
 	case SourceTypeDirect:
-		return m.downloadDirect(modelID, source.Location)
+		return m.downloadDirect(modelID, source)
 	case SourceTypeFile:
 		return m.verifyLocalFile(source.Location)
 	default:
@@ -41,35 +41,50 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 		zap.String("repo_id", repoID),
 	)
 
-	downloader := pipeline.NewDiffusionPipelineDownloader(m.hubClient)
-	_, err := downloader.Download(repoID, "", nil)
-	if err != nil {
-		return fmt.Errorf("failed to download model from HuggingFace: %w", err)
+	variants := []string{
+		"bf16",
+		"fp8",
+		"fp16",
+		"",
 	}
 
-	return nil
+	downloader := pipeline.NewDiffusionPipelineDownloader(m.hubClient)
+
+	var lastErr error
+	for _, variant := range variants {
+		_, err := downloader.Download(repoID, variant, nil)
+		if err == nil {
+			m.logger.Info("Successfully downloaded model",
+				zap.String("model_id", modelID),
+				zap.String("variant", variant),
+			)
+			return nil
+		}
+		lastErr = err
+	}
+
+
+	return fmt.Errorf("failed to download model from HuggingFace: %w", lastErr)
 }
 
-func (m *ModelDownloaderManager) downloadCivitai(modelID, urlStr string) error {
+func (m *ModelDownloaderManager) downloadCivitai(modelID string, source *ModelSource) error {
 	m.logger.Info("Downloading from Civitai",
 		zap.String("model_id", modelID),
-		zap.String("url", urlStr),
+		zap.String("url", source.Location),
 	)
 
 	// validate Civitai URL
-	if !strings.Contains(urlStr, "civitai.com/api/download/models/") {
+	if !strings.Contains(source.Location, "civitai.com/api/download/models/") {
 		return fmt.Errorf("invalid Civitai URL format. Expected format: https://civitai.com/api/download/models/<model_number>")
 	}
 
 	// get filename from redirect
-	filename, err := m.getCivitaiFilename(urlStr)
+	filename, err := m.getCivitaiFilename(source.Location)
 	if err != nil {
 		return fmt.Errorf("failed to get Civitai filename: %w", err)
 	}
 
-	fmt.Println("Civitai filename:", filename)
-
-	destDir := m.getCachePath(modelID, &ModelSource{Type: SourceTypeCivitai})
+	destDir := m.getCachePath(modelID, source)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
@@ -85,14 +100,14 @@ func (m *ModelDownloaderManager) downloadCivitai(modelID, urlStr string) error {
 		)
 	}
 
-	return m.downloadWithProgress(urlStr, destPath)
+	return m.downloadWithProgress(source, destPath)
 }
 
 
-func (m *ModelDownloaderManager) downloadDirect(modelID, url string) error {
+func (m *ModelDownloaderManager) downloadDirect(modelID string, source *ModelSource) error {
 	m.logger.Info("Downloading from direct URL",
 		zap.String("model_id", modelID),
-		zap.String("url", url),
+		zap.String("url", source.Location),
 	)
 
 	destPath := m.getCachePath(modelID, &ModelSource{Type: SourceTypeDirect})
@@ -100,7 +115,7 @@ func (m *ModelDownloaderManager) downloadDirect(modelID, url string) error {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	return m.downloadWithProgress(url, destPath)
+	return m.downloadWithProgress(source, destPath)
 }
 
 
@@ -168,7 +183,7 @@ func (m *ModelDownloaderManager) getCivitaiFilename(urlStr string) (string, erro
 }
 
 
-func (m *ModelDownloaderManager) downloadWithProgress(url, destPath string) error {
+func (m *ModelDownloaderManager) downloadWithProgress(source *ModelSource, destPath string) error {
 	// create temporary file
 	tmpPath := destPath + ".tmp"
 	
@@ -179,12 +194,13 @@ func (m *ModelDownloaderManager) downloadWithProgress(url, destPath string) erro
 
 	// retry with backoff
 	return backoff.Retry(func() error {
-		return m.downloadWithResume(url, destPath, tmpPath)
+		return m.downloadWithResume(source.Location, destPath, tmpPath)
 	}, b)
 }
 
 
 func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath string) error {
+
 	// check for partial download
 	var initialSize int64 = 0
 	if info, err := os.Stat(tmpPath); err == nil {
@@ -197,11 +213,15 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		flag |= os.O_APPEND
 	}
 
+
 	out, err := os.OpenFile(tmpPath, flag, 0644)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		out.Sync() // Ensure all writes are flushed
+		out.Close()
+	}()
 
 	client := &http.Client{
 		Timeout: 0, // No total timeout
@@ -257,19 +277,6 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		totalSize = resp.ContentLength
 	}
 
-	// setup progress bar
-	// description := "Downloading"
-	// if initialSize > 0 {
-	// 	description = "Resuming download"
-	// }
-
-
-	// setup progress bar
-	// progress := mpb.New(
-	// 	mpb.WithWidth(60),
-	// 	mpb.WithRefreshRate(180*time.Millisecond),
-	// )
-
 	m.progressMu.Lock()
 
 	bar := m.progress.AddBar(totalSize,
@@ -299,6 +306,7 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 	defer reader.Close()
 
 	buf := make([]byte, 32*1024) // 32KB buffer
+
 
 	for {
 		n, err := reader.Read(buf)
@@ -337,19 +345,24 @@ func (m *ModelDownloaderManager) downloadWithResume(url, destPath, tmpPath strin
 		return fmt.Errorf("download size mismatch: expected %d, got %d", totalSize, downloadedSize)
 	}
 
-	// verify file
-	if err := m.verifyFile(tmpPath); err != nil {
-		return fmt.Errorf("failed to verify file: %w", err)
+	// Ensure all writes are complete
+	if err := out.Sync(); err != nil {
+		return fmt.Errorf("failed to sync file: %w", err)
 	}
+
+	// Close the file explicitly before rename
+	out.Close()
 
 	// move file to final destination
 	if err := os.Rename(tmpPath, destPath); err != nil {
+		fmt.Println("failed to move file:", err)
 		return fmt.Errorf("failed to move file: %w", err)
 	}
 
+	// Use zap to log the model has been downloaded
+	m.logger.Info("Model downloaded",
+		zap.String("model_id", filepath.Base(destPath)),
+	)
+
 	return nil
 }
-
-
-
-
