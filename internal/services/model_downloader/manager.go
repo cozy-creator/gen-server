@@ -107,6 +107,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 }
 
 func (m *ModelDownloaderManager) Download(modelID string) error {
+	fmt.Println("\n\nmodelID\n\n", modelID)
 	modelConfig, ok := m.app.Config().PipelineDefs[modelID]
 	if !ok {
 		return fmt.Errorf("model %s not found in config", modelID)
@@ -121,9 +122,13 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 		return fmt.Errorf("failed to download model: %w", err)
 	}
 
+	fmt.Println("\n\nmodelConfig\n\n", modelConfig)
+
 	// download components
 	for name, comp := range modelConfig.Components {
+		fmt.Println("\n\ncomp\n\n", comp)
 		compSource, err := ParseModelSource(comp.Source)
+		fmt.Println("\n\ncompSource\n\n", compSource)
 		if err != nil {
 			return fmt.Errorf("failed to parse component source for %s: %w", name, err)
 		}
