@@ -51,14 +51,14 @@ type S3Config struct {
 }
 
 type PipelineDefs struct {
-	ClassName  string                   `mapstructure:"class-name"`
-	Source     string                   `mapstructure:"source"`
-	Components map[string]*ComponentDefs `mapstructure:"components"`
+	ClassName  string                    `mapstructure:"class-name" json:"class_name"`
+	Source     string                    `mapstructure:"source" json:"source"`
+	Components map[string]*ComponentDefs `mapstructure:"components" json:"components"`
 }
 
 type ComponentDefs struct {
-	ClassName  string                   `mapstructure:"class-name"`
-	Source     string                   `mapstructure:"source"`
+	ClassName string `mapstructure:"class-name" json:"class_name"`
+	Source    string `mapstructure:"source" json:"source"`
 }
 
 type PulsarConfig struct {
@@ -139,57 +139,57 @@ func readAndUnmarshalConfig() error {
 	}
 
 	// Handle PipelineDefs separately
-    if raw := viper.Get("pipeline_defs"); raw != nil {
-        if rawMap, ok := raw.(map[string]interface{}); ok {
-            pipelineDefs := make(map[string]*PipelineDefs)
-            for key, val := range rawMap {
-                if def := unmarshalPipelineDef(val); def != nil {
-                    pipelineDefs[key] = def
-                }
-            }
-            config.PipelineDefs = pipelineDefs
-        }
-    }
+	if raw := viper.Get("pipeline-defs"); raw != nil {
+		if rawMap, ok := raw.(map[string]interface{}); ok {
+			pipelineDefs := make(map[string]*PipelineDefs)
+			for key, val := range rawMap {
+				if def := unmarshalPipelineDef(val); def != nil {
+					pipelineDefs[key] = def
+				}
+			}
+			config.PipelineDefs = pipelineDefs
+		}
+	}
 
 	return nil
 }
 
 func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
-    modelMap, ok := raw.(map[string]interface{})
-    if !ok {
-        return nil
-    }
+	modelMap, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
 
-    def := &PipelineDefs{}
+	def := &PipelineDefs{}
 
-    // Extract class_name
-    if className, ok := modelMap["class_name"].(string); ok {
-        def.ClassName = className
-    }
+	// Extract class-name
+	if className, ok := modelMap["class-name"].(string); ok {
+		def.ClassName = className
+	}
 
-    // Extract source
-    if source, ok := modelMap["source"].(string); ok {
-        def.Source = source
-    }
+	// Extract source
+	if source, ok := modelMap["source"].(string); ok {
+		def.Source = source
+	}
 
-    // Extract components
-    if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
-        def.Components = make(map[string]*ComponentDefs)
-        for compKey, compVal := range componentsRaw {
-            if compMap, ok := compVal.(map[string]interface{}); ok {
-                compDef := &ComponentDefs{}
-                if className, ok := compMap["class_name"].(string); ok {
-                    compDef.ClassName = className
-                }
-                if source, ok := compMap["source"].(string); ok {
-                    compDef.Source = source
-                }
-                def.Components[compKey] = compDef
-            }
-        }
-    }
+	// Extract components
+	if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
+		def.Components = make(map[string]*ComponentDefs)
+		for compKey, compVal := range componentsRaw {
+			if compMap, ok := compVal.(map[string]interface{}); ok {
+				compDef := &ComponentDefs{}
+				if className, ok := compMap["class-name"].(string); ok {
+					compDef.ClassName = className
+				}
+				if source, ok := compMap["source"].(string); ok {
+					compDef.Source = source
+				}
+				def.Components[compKey] = compDef
+			}
+		}
+	}
 
-    return def
+	return def
 }
 
 func IsLoaded() bool {
@@ -243,4 +243,3 @@ func writeExampleTemplates() error {
 
 	return nil
 }
-

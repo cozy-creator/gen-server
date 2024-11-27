@@ -3,6 +3,7 @@ import gc
 import logging
 import importlib
 from enum import Enum
+import traceback
 from typing import Optional, Any, Dict, List, Tuple, Union, Type
 import psutil
 from collections import OrderedDict
@@ -12,8 +13,6 @@ import torch
 from diffusers import (
     DiffusionPipeline,
     FluxInpaintPipeline,
-    StableDiffusionPipeline,
-    StableDiffusionXLPipeline,
     FluxPipeline,
     EulerDiscreteScheduler,
     EulerAncestralDiscreteScheduler,
@@ -591,6 +590,7 @@ class ModelMemoryManager:
 
         except Exception as e:
             logger.error("Error loading new model {}: {}".format(model_id, str(e)))
+            traceback.print_exc()
             return None
 
     async def _load_model_by_source(
@@ -607,9 +607,15 @@ class ModelMemoryManager:
         Returns:
             Loaded pipeline or None if loading failed
         """
-        source = model_config.source
+
+        if isinstance(model_config, dict):
+            source = model_config.get("source")
+            class_name = model_config.get("class_name")
+        else:
+            source = model_config.source
+            class_name = model_config.class_name
+
         prefix, path = source.split(":", 1)
-        class_name = model_config.class_name
 
         try:
             if prefix == "hf":
@@ -1065,18 +1071,25 @@ class ModelMemoryManager:
 
         pipeline_kwargs = {}
         try:
-            if model_config.components:
-                for key, component in model_config.components.items():
+            if isinstance(model_config, dict):
+                class_name = model_config.get("class_name")
+                components = model_config.get("components")
+            else:
+                class_name = model_config.class_name
+                components = model_config.components
+
+            if components:
+                for key, component in components.items():
                     if component and component.source:
                         pipeline_kwargs[key] = await self._prepare_component(
-                            component, model_config.class_name, key
+                            component, class_name, key
                         )
                     elif component and component.source is None:
                         pipeline_kwargs[key] = None
 
             # Handle custom pipeline if specified as string
-            if isinstance(model_config.class_name, str):
-                pipeline_kwargs["custom_pipeline"] = model_config.class_name
+            if isinstance(class_name, str):
+                pipeline_kwargs["custom_pipeline"] = class_name
 
             return pipeline_kwargs
 
@@ -1102,14 +1115,17 @@ class ModelMemoryManager:
             Loaded component or None if loading failed
         """
         try:
-            if not component.source.endswith((".safetensors", ".bin", ".ckpt", ".pt")):
+            if isinstance(component, dict):
+                source = component.get("source")
+            else:
+                source = component.source
+
+            if not source.endswith((".safetensors", ".bin", ".ckpt", ".pt")):
                 return await self._load_diffusers_component(
-                    component.source.replace("hf:", ""), key
+                    source.replace("hf:", ""), key
                 )
             else:
-                return self._load_custom_component(
-                    component.source, model_class_name, key
-                )
+                return self._load_custom_component(source, model_class_name, key)
         except Exception as e:
             logger.error("Error preparing component {}: {}".format(key, str(e)))
             return None
@@ -1633,7 +1649,11 @@ class ModelMemoryManager:
         Returns:
             Size in GB
         """
-        source = model_config.source
+
+        if isinstance(model_config, dict):
+            source = model_config.get("source")
+        else:
+            source = model_config.source
 
         if source.startswith(("http://", "https://")):
             # For downloaded HTTP(S) models, get size from cache
@@ -1679,8 +1699,13 @@ class ModelMemoryManager:
         """
         total_size = self._get_size_for_repo(repo_id)
 
-        if model_config.components and model_config.components:
-            for key, component in model_config.components.items():
+        if isinstance(model_config, dict):
+            components = model_config.get("components")
+        else:
+            components = model_config.components
+
+        if components and components:
+            for key, component in components.items():
                 if isinstance(component, dict) and "source" in component:
                     component_size = self._calculate_component_size(
                         component, repo_id, key
