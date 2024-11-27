@@ -44,7 +44,6 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 
 	// Check if this is a component download
     if strings.Contains(modelID, "_") {
-		// fmt.Println("\n\nmodelID is a component\n\n")
         // This is a component - use snapshot download
         parts := strings.Split(repoID, "/")
         if len(parts) > 2 {
@@ -89,8 +88,6 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
         }
         return nil
     }
-
-	// fmt.Println("\n\nmodelID is not a component\n\n")
 
 	variants := []string{
 		"bf16",

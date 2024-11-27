@@ -144,6 +144,8 @@ github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/cozy-creator/hf-hub v0.0.0-20241122225038-d35a30339a2d h1:UDckenrASuQnThS76SvWVEqWJVd/HE5dFatxov3bkFU=
 github.com/cozy-creator/hf-hub v0.0.0-20241122225038-d35a30339a2d/go.mod h1:8g8wxV07XSLJyBfZ6ekZQfhLKkF0a4WSuxkjj1QRgq8=
+github.com/cozy-creator/hf-hub v0.0.0-20241127165809-ef3f97a11106 h1:vC2AwN/WSJG9tCcmiYPTQJpHHnsvCbbm+7mQrcgZW74=
+github.com/cozy-creator/hf-hub v0.0.0-20241127165809-ef3f97a11106/go.mod h1:8g8wxV07XSLJyBfZ6ekZQfhLKkF0a4WSuxkjj1QRgq8=
 github.com/cpuguy83/dockercfg v0.3.1 h1:/FpZ+JaygUR/lZP2NlFI2DVfrOEMAIKP5wWEJdoYe9E=
 github.com/cpuguy83/dockercfg v0.3.1/go.mod h1:sugsbF4//dDlL/i+S+rtpIWp+5h0BHJHfjj5/jFyUJc=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
