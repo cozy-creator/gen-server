@@ -85,17 +85,17 @@ async def main():
     output_dir = "generated_images"
     os.makedirs(output_dir, exist_ok=True)
 
-    client = TCPClient('127.0.0.1', 8881)
+    client = TCPClient('127.0.0.1', 8882)
     await client.connect()
 
     # Sample request data
     request_data = {
-        "model": "juggernaut-xl-v9",
+        "model": "playground2.5",
         "num_outputs": 1,
-        "positive_prompt": "A beautiful landscape with mountains and a lake",
-        "negative_prompt": "No people, no buildings",
-        "random_seed": 42,
-        "aspect_ratio": "16/9"
+        "positive_prompt": "a sketch of a camel next to a stream",
+        "negative_prompt": "",
+        "random_seed": 29,
+        "aspect_ratio": "1/1"
     }
 
     print("Sending request...")

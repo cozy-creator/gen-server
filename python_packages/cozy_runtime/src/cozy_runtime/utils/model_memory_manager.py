@@ -631,7 +631,7 @@ class ModelMemoryManager:
                     return None
 
                 # Get model index and use as fallback in case class_name is unspecified
-                if class_name is None:
+                if class_name is None or class_name == "":
                     model_index = await self.hf_model_manager.get_diffusers_multifolder_components(
                         path
                     )
@@ -1088,9 +1088,10 @@ class ModelMemoryManager:
 
             if components:
                 for key, component in components.items():
+                    main_model_source = model_config.get("source")  
                     if component and component.source:
                         pipeline_kwargs[key] = await self._prepare_component(
-                            component, class_name, key
+                            main_model_source,component, class_name, key
                         )
                     elif component and component.source is None:
                         pipeline_kwargs[key] = None
@@ -1107,6 +1108,7 @@ class ModelMemoryManager:
 
     async def _prepare_component(
         self,
+        main_model_source: str,
         component: PipelineConfig,
         model_class_name: Optional[Union[str, Tuple[str, str]]],
         key: str,
@@ -1129,9 +1131,18 @@ class ModelMemoryManager:
                 source = component.source
 
             if not source.endswith((".safetensors", ".bin", ".ckpt", ".pt")):
-                return await self._load_diffusers_component(
-                    source.replace("hf:", ""), key
-                )
+                # check if the url has more than 2 forward slashes. If it does, the last one is the subfolder, the source is the first part
+                # e.g. hf:cozy-creator/Flux.1-schnell-8bit/transformer this will be, source = hf:cozy-creator/Flux.1-schnell-8bit, subfolder = transformer
+                if source.count("/") > 2:
+                    repo_id = "/".join(source.split("/")[:-1])
+                    subfolder = source.split("/")[-1]
+                    return await self._load_diffusers_component(
+                        main_model_source.replace("hf:", ""), repo_id.replace("hf:", ""), subfolder
+                    )
+                else:
+                    return await self._load_diffusers_component(
+                        main_model_source.replace("hf:", ""), source.replace("hf:", "")
+                    )
             else:
                 return self._load_custom_component(source, model_class_name, key)
         except Exception as e:
@@ -1162,7 +1173,7 @@ class ModelMemoryManager:
         logger.info(f"Loading single file model {model_id}")
 
         # TO DO: we could try inferring the class using our old detect_model code here!
-        if class_name is None:
+        if class_name is None or class_name == "":
             logger.error("Model class_name must be specified for single file models")
             return None
 
@@ -1873,7 +1884,7 @@ class ModelMemoryManager:
         return file.endswith((".safetensors", ".bin", ".ckpt"))
 
     async def _load_diffusers_component(
-        self, component_repo: str, component_name: str
+        self, main_model_repo: str, component_repo: str, component_name: Optional[str] = None
     ) -> Any:
         """
         Load a diffusers component.
@@ -1888,11 +1899,11 @@ class ModelMemoryManager:
         try:
             model_index = (
                 await self.hf_model_manager.get_diffusers_multifolder_components(
-                    component_repo
+                    main_model_repo
                 )
             )
             if model_index is None:
-                raise ValueError(f"model_index does not exist for {component_repo}")
+                raise ValueError(f"model_index does not exist for {main_model_repo}")
 
             component_info = model_index.get(component_name)
             if not component_info:
@@ -1902,13 +1913,18 @@ class ModelMemoryManager:
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
 
-            component = model_class.from_pretrained(
-                component_repo,
-                subfolder=component_name,
-                torch_dtype=torch.bfloat16
-                if "flux" in component_repo.lower()
-                else torch.float16,
-            )
+            if component_name:
+                component = model_class.from_pretrained(
+                    component_repo,
+                    subfolder=component_name,
+                    torch_dtype=torch.bfloat16
+                    if "flux" in component_repo.lower()
+                    else torch.float16,
+                )
+            else:
+                component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
+                    if "flux" in component_repo.lower()
+                    else torch.float16,)
 
             if self.should_quantize:
                 quantize_model_fp8(component)

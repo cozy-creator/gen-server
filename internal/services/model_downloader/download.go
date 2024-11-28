@@ -43,29 +43,29 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 	)
 
 	// Check if this is a component download
-    if strings.Contains(modelID, "_") {
+    if strings.Contains(modelID, "___") {
         // This is a component - use snapshot download
         parts := strings.Split(repoID, "/")
-        if len(parts) > 2 {
+		if len(parts) > 2 {
             // Has subfolder - use pattern matching
             baseRepo := strings.Join(parts[:2], "/")
-            subFolder := strings.Join(parts[2:], "/")
-            
-            params := &hub.DownloadParams{
-                Repo: &hub.Repo{
-                    Id: baseRepo,
-                    Type: hub.ModelRepoType,
-                },
-                AllowPatterns: []string{fmt.Sprintf("%s/*", subFolder)},
-            }
-            
-            m.logger.Info("Downloading component subfolder",
-                zap.String("repo", baseRepo),
-                zap.String("subfolder", subFolder),
-            )
+			subFolder := strings.Join(parts[2:], "/")
 
-            _, err := m.hubClient.Download(params)
-            if err != nil {
+		params := &hub.DownloadParams{
+			Repo: &hub.Repo{
+				Id: baseRepo,
+				Type: hub.ModelRepoType,
+			},
+                AllowPatterns: []string{fmt.Sprintf("%s/*", subFolder)},
+		}
+
+            m.logger.Info("Downloading component subfolder",
+			zap.String("repo", baseRepo),
+                zap.String("subfolder", subFolder),
+		)
+
+		_, err := m.hubClient.Download(params)
+		if err != nil {
                 return fmt.Errorf("failed to download component subfolder: %w", err)
             }
         } else {
@@ -84,10 +84,10 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
             _, err := m.hubClient.Download(params)
             if err != nil {
                 return fmt.Errorf("failed to download component repo: %w", err)
-            }
+		}
         }
-        return nil
-    }
+		return nil
+	}
 
 	variants := []string{
 		"bf16",

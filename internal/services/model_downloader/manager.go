@@ -22,6 +22,7 @@ type ModelDownloaderManager struct {
 	civitaiAPIKey string
 	progress		*mpb.Progress
 	progressMu		sync.Mutex
+	subscriptionManager *SubscriptionManager
 }
 
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
@@ -44,6 +45,7 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 		ctx: 		app.Context(),
 		civitaiAPIKey: civitaiAPIKey,
 		progress:		progress,
+		subscriptionManager: NewSubscriptionManager(),
 	}, nil
 }
 
@@ -69,17 +71,21 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 			default:
 				downloaded, err := m.IsDownloaded(modelID)
 				if err != nil {
-				errorChan <- fmt.Errorf("failed to check if model %s is downloaded: %w", modelID, err)
-				return
-			}
+					errorChan <- fmt.Errorf("failed to check if model %s is downloaded: %w", modelID, err)
+					m.subscriptionManager.SetModelStatus(modelID, StatusFailed)
+					return
+				}
 
 			if !downloaded {
+				m.subscriptionManager.SetModelStatus(modelID, StatusDownloading)
 				m.logger.Info("Downloading model", zap.String("model_id", modelID))
 				if err := m.Download(modelID); err != nil {
 					errorChan <- fmt.Errorf("failed to download model %s: %w", modelID, err)
-				}
+					m.subscriptionManager.SetModelStatus(modelID, StatusFailed)
+				   }
 				} else {
 					m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+					m.subscriptionManager.SetModelStatus(modelID, StatusReady)
 				}
 			}
 		}(modelID)
@@ -107,6 +113,11 @@ func (m *ModelDownloaderManager) InitializeModels() error {
     }
 }
 
+func (m *ModelDownloaderManager) WaitForModel(modelID string) error {
+    resultChan := m.subscriptionManager.Subscribe(modelID)
+    return <-resultChan
+}
+
 func (m *ModelDownloaderManager) Download(modelID string) error {
 	modelConfig, ok := m.app.Config().PipelineDefs[modelID]
 	if !ok {
@@ -123,11 +134,6 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 		return fmt.Errorf("failed to download model: %w", err)
 	}
 
-	componentProgress := mpb.New(
-		mpb.WithWidth(60),
-		mpb.WithRefreshRate(180*time.Millisecond),
-	)
-
 	// download components
 	if len(modelConfig.Components) > 0 {
 		var wg sync.WaitGroup
@@ -137,10 +143,6 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 			wg.Add(1)
 			go func(name string, comp *config.ComponentDefs) {
 				defer wg.Done()
-
-				m.progressMu.Lock()
-				m.progress = componentProgress
-				m.progressMu.Unlock()
 			
 				compSource, err := ParseModelSource(comp.Source)
 				if err != nil {
@@ -148,7 +150,7 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 					return
 				}
 
-				if err := m.downloadFromSource(fmt.Sprintf("%s_%s", modelID, name), compSource); err != nil {
+				if err := m.downloadFromSource(fmt.Sprintf("%s___%s", modelID, name), compSource); err != nil {
 					errChan <- fmt.Errorf("failed to download component %s: %w", name, err)
 				}
 			}(name, comp)
@@ -158,7 +160,6 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
-			componentProgress.Wait()
 			close(done)
 			close(errChan)
 		}()
