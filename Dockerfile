@@ -143,9 +143,9 @@ RUN pip install --no-cache-dir jupyterlab
 # Hugging face's official release may be out of date
 RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 
-# Install the gen_server package and its plugin-python_packages
+# Install the cozy_runtime package and its plugin-python_packages
 COPY python_packages/ ./python_packages
-RUN pip install ./python_packages/gen_server[performance] && \
+RUN pip install ./python_packages/cozy_runtime[performance] && \
     pip install ./python_packages/image_utils && \
     pip install ./python_packages/core_extension_1
 

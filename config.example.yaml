@@ -53,27 +53,27 @@ pipeline_defs:
 
   pony.v6:
     # civiitai does not provide model_index.json files, hence class_name must be specified manually
-    class_name: sdxl
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   cyberrealistic.pony:
-    class_name: sdxl
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/953264?type=Model&format=SafeTensor&size=pruned&fp=fp16
   
   wai.ani.ponyxl:
-    class_name: sdxl
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/1065370?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   illustrious.xl:
-    class_name: sdxl 
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/889818?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   real.dream.pony:
-    class_name: sdxl
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/832353?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   pony.realism:
-    class_name: sdxl
+    class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/914390?type=Model&format=SafeTensor&size=full&fp=fp16
 
   playground2.5:
