@@ -51,13 +51,13 @@ type S3Config struct {
 }
 
 type PipelineDefs struct {
-	ClassName  string                    `mapstructure:"class-name" json:"class_name"`
+	ClassName  string                    `mapstructure:"class_name" json:"class_name"`
 	Source     string                    `mapstructure:"source" json:"source"`
 	Components map[string]*ComponentDefs `mapstructure:"components" json:"components"`
 }
 
 type ComponentDefs struct {
-	ClassName string `mapstructure:"class-name" json:"class_name"`
+	ClassName string `mapstructure:"class_name" json:"class_name"`
 	Source    string `mapstructure:"source" json:"source"`
 }
 
@@ -139,7 +139,7 @@ func readAndUnmarshalConfig() error {
 	}
 
 	// Handle PipelineDefs separately
-	if raw := viper.Get("pipeline-defs"); raw != nil {
+	if raw := viper.Get("pipeline_defs"); raw != nil {
 		if rawMap, ok := raw.(map[string]interface{}); ok {
 			pipelineDefs := make(map[string]*PipelineDefs)
 			for key, val := range rawMap {
@@ -162,8 +162,8 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 
 	def := &PipelineDefs{}
 
-	// Extract class-name
-	if className, ok := modelMap["class-name"].(string); ok {
+	// Extract class_name
+	if className, ok := modelMap["class_name"].(string); ok {
 		def.ClassName = className
 	}
 
@@ -178,7 +178,7 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 		for compKey, compVal := range componentsRaw {
 			if compMap, ok := compVal.(map[string]interface{}); ok {
 				compDef := &ComponentDefs{}
-				if className, ok := compMap["class-name"].(string); ok {
+				if className, ok := compMap["class_name"].(string); ok {
 					compDef.ClassName = className
 				}
 				if source, ok := compMap["source"].(string); ok {

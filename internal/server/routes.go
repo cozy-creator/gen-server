@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/cozy-creator/gen-server/internal/api"
@@ -23,6 +24,8 @@ func (s *Server) SetupRoutes(app *app.App) {
 	// Authentication middleware. Auth is required in prod.
 	if !app.Config().DisableAuth || app.Config().Environment == "prod" {
 		apiV1.Use(handlerWrapper(app, middleware.AuthenticationMiddleware))
+	} else {
+		fmt.Println("Warning: authentication is disabled for all requests")
 	}
 
 	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))

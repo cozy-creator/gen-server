@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,7 +105,6 @@ func StartPythonRuntime(ctx context.Context, cfg *config.Config) error {
 
 // ==== The rest of the code in this file is mostly useless ====
 
-
 func CreatePythonCommand(args ...string) (*exec.Cmd, error) {
 	// First check if we're in a venv
 	venvPath := os.Getenv("VIRTUAL_ENV")
@@ -187,92 +185,3 @@ func GetPythonSitePackagesPath() (string, error) {
 	return ExecutePythonCommandWithOutput("-c", codeString)
 }
 
-func ResolveGenServerPath(version string) (string, error) {
-	sitePackages, err := GetPythonSitePackagesPath()
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println("Site packages path:", sitePackages)
-
-	// If gen-server is in site-packages, it's probably installed in non-editable mode
-	genServerPath := filepath.Join(sitePackages, "gen_server")
-	if _, err := os.Stat(genServerPath); err == nil {
-		return genServerPath, nil
-	}
-
-	// If gen-server is not in site-packages, it's probably installed in editable mode,
-	// so try to find it in the gen_server-<version>.dist-info directory
-	genServerPath = filepath.Clean(filepath.Join(sitePackages, fmt.Sprintf("gen_server-%s.dist-info", version)))
-	if _, err := os.Stat(genServerPath); err == nil {
-		content, err := os.ReadFile(filepath.Join(genServerPath, "direct_url.json"))
-		if err != nil {
-			return "", err
-		}
-
-		var directUrl map[string]any
-		if err := json.Unmarshal(content, &directUrl); err != nil {
-			return "", err
-		}
-		if directUrl["url"] == nil {
-			return "", fmt.Errorf("direct_url.json does not contain a url key")
-		}
-
-		urlPath, err := StripFilePrefix(directUrl["url"].(string))
-		if err != nil {
-			return "", err
-		}
-
-		genServerPath = filepath.Join(urlPath, "src", "gen_server")
-		if _, err := os.Stat(genServerPath); err != nil {
-			return "", err
-		}
-
-		return filepath.Clean(genServerPath), nil
-	}
-
-	return "", fmt.Errorf("gen-server not found in site-packages")
-}
-
-func StripFilePrefix(uri string) (string, error) {
-	const fileScheme = "file://"
-
-	if !strings.HasPrefix(uri, fileScheme) {
-		return "", fmt.Errorf("invalid file URI: %s", uri)
-	}
-
-	uri = strings.TrimPrefix(uri, fileScheme)
-
-	// Handle Windows paths
-	if runtime.GOOS == "windows" {
-		// Replace forward slashes with backslashes
-		uri = strings.ReplaceAll(uri, "/", "\\")
-
-		// Check if the path starts with a drive letter (e.g., C:)
-		if len(uri) > 2 && uri[1] == ':' {
-			return uri, nil
-		}
-
-		// Handle UNC paths (file://server/share/path)
-		if strings.HasPrefix(uri, "\\\\") {
-			return uri, nil
-		}
-
-		// Remove any leading backslashes that were added unnecessarily
-		uri = strings.TrimPrefix(uri, "\\")
-
-		// Prepend the UNC path prefix for absolute paths
-		if strings.HasPrefix(uri, "\\") {
-			return "\\" + uri, nil
-		}
-	} else {
-		// On Unix-like systems, decode any URL-encoded characters
-		decoded, err := url.PathUnescape(uri)
-		if err != nil {
-			return "", fmt.Errorf("error unescaping path: %w", err)
-		}
-		return decoded, nil
-	}
-
-	return uri, nil
-}

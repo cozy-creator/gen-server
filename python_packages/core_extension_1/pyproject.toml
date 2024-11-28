@@ -11,7 +11,7 @@ dependencies = [
     "accelerate@git+https://github.com/huggingface/accelerate.git",
     "bitsandbytes",
     "controlnet_aux",
-    "gen_server",
+    "cozy_runtime",
     "groundingdino-py",
     "huggingface_hub",
     "image_utils",
