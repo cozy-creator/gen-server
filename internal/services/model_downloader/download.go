@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy-creator/hf-hub/hub"
 	"github.com/cozy-creator/hf-hub/hub/pipeline"
     "github.com/vbauerster/mpb/v7"
     "github.com/vbauerster/mpb/v7/decor"
@@ -40,6 +41,53 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 		zap.String("model_id", modelID),
 		zap.String("repo_id", repoID),
 	)
+
+	// Check if this is a component download
+    if strings.Contains(modelID, "_") {
+        // This is a component - use snapshot download
+        parts := strings.Split(repoID, "/")
+        if len(parts) > 2 {
+            // Has subfolder - use pattern matching
+            baseRepo := strings.Join(parts[:2], "/")
+            subFolder := strings.Join(parts[2:], "/")
+            
+            params := &hub.DownloadParams{
+                Repo: &hub.Repo{
+                    Id: baseRepo,
+                    Type: hub.ModelRepoType,
+                },
+                AllowPatterns: []string{fmt.Sprintf("%s/*", subFolder)},
+            }
+            
+            m.logger.Info("Downloading component subfolder",
+                zap.String("repo", baseRepo),
+                zap.String("subfolder", subFolder),
+            )
+
+            _, err := m.hubClient.Download(params)
+            if err != nil {
+                return fmt.Errorf("failed to download component subfolder: %w", err)
+            }
+        } else {
+            // Download entire repo
+            params := &hub.DownloadParams{
+                Repo: &hub.Repo{
+                    Id: repoID,
+                    Type: hub.ModelRepoType,
+                },
+            }
+            
+            m.logger.Info("Downloading full component repo",
+                zap.String("repo", repoID),
+            )
+
+            _, err := m.hubClient.Download(params)
+            if err != nil {
+                return fmt.Errorf("failed to download component repo: %w", err)
+            }
+        }
+        return nil
+    }
 
 	variants := []string{
 		"bf16",

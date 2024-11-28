@@ -10,6 +10,7 @@ import (
     "github.com/cozy-creator/hf-hub/hub"
     "go.uber.org/zap"
 	"github.com/vbauerster/mpb/v7"
+	"github.com/cozy-creator/gen-server/internal/config"
 )
 
 
@@ -67,7 +68,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				return
 			default:
 				downloaded, err := m.IsDownloaded(modelID)
-			if err != nil {
+				if err != nil {
 				errorChan <- fmt.Errorf("failed to check if model %s is downloaded: %w", modelID, err)
 				return
 			}
@@ -117,19 +118,62 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 		return fmt.Errorf("failed to parse model source: %w", err)
 	}
 
+	// download main model
 	if err := m.downloadFromSource(modelID, source); err != nil {
 		return fmt.Errorf("failed to download model: %w", err)
 	}
 
+	componentProgress := mpb.New(
+		mpb.WithWidth(60),
+		mpb.WithRefreshRate(180*time.Millisecond),
+	)
+
 	// download components
-	for name, comp := range modelConfig.Components {
-		compSource, err := ParseModelSource(comp.Source)
-		if err != nil {
-			return fmt.Errorf("failed to parse component source for %s: %w", name, err)
+	if len(modelConfig.Components) > 0 {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(modelConfig.Components))
+
+		for name, comp := range modelConfig.Components {
+			wg.Add(1)
+			go func(name string, comp *config.ComponentDefs) {
+				defer wg.Done()
+
+				m.progressMu.Lock()
+				m.progress = componentProgress
+				m.progressMu.Unlock()
+			
+				compSource, err := ParseModelSource(comp.Source)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to parse component source for %s: %w", name, err)
+					return
+				}
+
+				if err := m.downloadFromSource(fmt.Sprintf("%s_%s", modelID, name), compSource); err != nil {
+					errChan <- fmt.Errorf("failed to download component %s: %w", name, err)
+				}
+			}(name, comp)
 		}
 
-		if err := m.downloadFromSource(fmt.Sprintf("%s_%s", modelID, name), compSource); err != nil {
-			return fmt.Errorf("failed to download component %s: %w", name, err)
+		// wait for all components to download
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			componentProgress.Wait()
+			close(done)
+			close(errChan)
+		}()
+
+		// wait for all components to download or context to be cancelled
+		select {
+		case <-m.ctx.Done():
+			return m.ctx.Err()
+		case <-done:
+			// check for any errors
+			for err := range errChan {
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 
