@@ -22,12 +22,12 @@
         "guidance_scale": 0.0
       },
       "flux.1-dev": {
-        "num_inference_steps": 20,
+        "num_inference_steps": 28,
         "max_sequence_length": 512,
         "guidance_scale": 3.5
       },
       "openflux.1": {
-        "num_inference_steps": 20,
+        "num_inference_steps": 28,
         "max_sequence_length": 512,
         "guidance_scale": 3.5
       },
@@ -53,7 +53,7 @@
             "default_positive_prompt": "score_9, score_8_up, score_7_up, BREAK",
             "default_negative_prompt": "score_4, score_5, score_6,",
             "guidance_scale": 8.5,
-            "num_inference_steps": 25
+            "num_inference_steps": 20
         }
     },
     "diffuser_class_defaults": {
