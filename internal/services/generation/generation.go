@@ -12,6 +12,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
@@ -61,46 +62,106 @@ type GenerationErrorData struct {
 	JobID        string `msgpack:"job_id"`
 }
 
-func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
-	for {
-		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
-		if err != nil {
-			return err
-		}
+func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.App, downloader types.ModelDownloader) error {
+    // start downloading queue processor
+    go processDownloadingQueue(ctx, mq, downloader)
 
-		data, err := mq.GetMessageData(message)
-		if err != nil {
-			return err
-		}
+    // main processing loop for ready models
+    for {
+        message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
+        if err != nil {
+            return err
+        }
 
-		var request types.GenerateParams
-		if err := json.Unmarshal(data, &request); err != nil {
-			logger.Error("Failed to parse request data", err)
-			continue
-		}
-		fmt.Println("requestid: ", request.ID)
-		outputs, errorc := requestHandler(ctx, cfg, &request)
-		generationTopic := getGenerationTopic(request.ID)
+        data, err := mq.GetMessageData(message)
+        if err != nil {
+            return err
+        }
 
-		select {
-		case err := <-errorc:
-			mq.Publish(ctx, generationTopic, []byte("END"))
-			return err
-		case <-ctx.Done():
-			mq.Publish(ctx, generationTopic, []byte("END"))
-			break
-		default:
-			for output := range outputs {
-				if err := mq.Publish(ctx, generationTopic, output); err != nil {
-					return err
-				}
-			}
-		}
+        var request types.GenerateParams
+        if err := json.Unmarshal(data, &request); err != nil {
+            logger.Error("Failed to parse request data", err)
+            continue
+        }
 
-		if err := mq.Publish(ctx, generationTopic, []byte("END")); err != nil {
-			return fmt.Errorf("error publishing end message: %w", err)
-		}
-	}
+        modelState := downloader.GetModelState(request.Model)
+        generationTopic := getGenerationTopic(request.ID)
+
+        // If model is downloading, move to downloading queue
+        if modelState == types.ModelStateDownloading {
+            if err := mq.Publish(ctx, config.DefaultDownloadingTopic, data); err != nil {
+                logger.Error("Failed to move request to downloading queue", err)
+            }
+            continue
+        }
+
+        // process normal request
+        outputs, errorc := requestHandler(ctx, cfg, &request)
+
+        select {
+        case err := <-errorc:
+            if err != nil {
+                logger.Error("Error in request handler", err)
+                if pubErr := mq.Publish(ctx, generationTopic, []byte("END")); pubErr != nil {
+                    return fmt.Errorf("error publishing end message after error: %w", pubErr)
+                }
+                continue
+            }
+        case <-ctx.Done():
+            if err := mq.Publish(ctx, generationTopic, []byte("END")); err != nil {
+                return fmt.Errorf("error publishing end message on shutdown: %w", err)
+            }
+            return ctx.Err()
+        default:
+            for output := range outputs {
+                if err := mq.Publish(ctx, generationTopic, output); err != nil {
+                    return err
+                }
+            }
+        }
+
+        if err := mq.Publish(ctx, generationTopic, []byte("END")); err != nil {
+            return fmt.Errorf("error publishing end message: %w", err)
+        }
+    }
+}
+
+func processDownloadingQueue(ctx context.Context, mq mq.MQ, downloader types.ModelDownloader) {
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        default:
+            message, err := mq.Receive(ctx, config.DefaultDownloadingTopic)
+            if err != nil {
+                logger.Error("Error receiving from downloading queue", err)
+                continue
+            }
+
+            data, err := mq.GetMessageData(message)
+            if err != nil {
+                logger.Error("Error getting message data", err)
+                continue
+            }
+
+            var request types.GenerateParams
+            if err := json.Unmarshal(data, &request); err != nil {
+                logger.Error("Failed to parse request data", err)
+                continue
+            }
+
+            // waiting for model to be ready
+            if err := downloader.WaitForModelReady(ctx, request.Model); err != nil {
+                logger.Error("Failed waiting for model", err)
+                continue
+            }
+
+            // move back to main queue
+            if err := mq.Publish(ctx, config.DefaultGenerateTopic, data); err != nil {
+                logger.Error("Failed to requeue request", err)
+            }
+        }
+    }
 }
 
 func requestHandler(ctx context.Context, cfg *config.Config, data *types.GenerateParams) (chan []byte, chan error) {

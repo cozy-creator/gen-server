@@ -165,7 +165,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 	)
 
 	if err := handleGenerationBegin(app, params.ID); err != nil {
-		logger.Error("error handling generation begin: ", err)
+		// logger.Error("error handling generation begin: ", err)
 		return err
 	}
 

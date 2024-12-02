@@ -3,9 +3,11 @@ import requests
 import websockets
 import asyncio
 import os
+import json
+import sseclient
 
 class CozyClient:
-    def __init__(self, base_url="http://localhost:8881", api_key=None):
+    def __init__(self, base_url="http://localhost:8883", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/msgpack',
@@ -17,36 +19,55 @@ class CozyClient:
         url = f"{self.base_url}/v1/jobs/submit"
         packed_data = msgpack.packb(params)
         response = requests.post(url, data=packed_data, headers=self.headers)
-        return msgpack.unpackb(response.content)
+
+        # Check for HTTP errors
+        response.raise_for_status()
+
+        # Parse the response as JSON
+        try:
+            unpacked_data = json.loads(response.content)
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON response:", response.content)
+            raise ValueError("Malformed server response") from e
+
+        return unpacked_data
 
     async def generate_stream(self, params):
-        """Asynchronous streaming generation"""
-        url = f"{self.base_url}/v1/jobs/stream"
+        """Asynchronous SSE streaming generation"""
+        # Submit the job
+        submit_url = f"{self.base_url}/v1/jobs/submit"
         packed_data = msgpack.packb(params)
-        response = requests.post(f"{self.base_url}/v1/jobs/submit", 
-                               data=packed_data, 
-                               headers=self.headers)
-        job_data = msgpack.unpackb(response.content)
-        job_id = job_data['id']
-        
-        ws_url = f"ws://localhost:8881/v1/jobs/{job_id}/stream"
-        async with websockets.connect(ws_url) as websocket:
-            while True:
-                msg = await websocket.recv()
-                if msg == b'END':
-                    break
-                yield msgpack.unpackb(msg)
+        submit_response = requests.post(submit_url, data=packed_data, headers=self.headers)
+        submit_response.raise_for_status()
+
+        # Parse the job submission response (JSON)
+        job_data = json.loads(submit_response.content)
+        job_id = job_data.get('id')
+        if not job_id:
+            raise ValueError("Job ID missing in server response")
+
+        # Open the SSE stream
+        stream_url = f"{self.base_url}/v1/jobs/{job_id}/stream"
+        stream_response = requests.get(stream_url, stream=True, headers=self.headers)
+        print("Stream response Content:", stream_response.content)
+        stream_response.raise_for_status()
+
+        # Use SSEClient for streaming events
+        client = sseclient.SSEClient(stream_response)
+
+        for event in client.events():
+            yield json.loads(event.data)
 
 # Example usage
 async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sd1.5-runwayml",
-        "positive_prompt": "a cat sitting on a windowsill",
-        "negative_prompt": "blurry, low quality",
+        "model": "sd1.5-stable",
+        "positive_prompt": "A woman (8k, RAW photo, highest quality), hyperrealistic, intricate abstract, intricate artwork, abstract style, mesmerizing, painful, convergence of [technology:nature:25], neural circuitry, mythical beast, mechanical parts, glowing wires, [thunder:roots:15] emerged to body, intertwines with delicate tendrils of flora, forming a symbiotic masterpiece of organic beauty, artificial precision, non-representational, colors and shapes, expression of feelings, imaginative, highly detailed, extremely high-resolution details, photographic, realism pushed to extreme, fine texture, 4k, ultra-detailed, high quality, high contrast",
+        "negative_prompt": "verybadimagenegative_v1.3, (worst quality, low quality:1.4), lowres, bad anatomy, normal quality, monochrome, grayscale, text, signature, watermark, logo",
         "num_outputs": 1,
-        "random_seed": 42,
+        "random_seed": 43,
         "aspect_ratio": "1/1",
         "output_format": "png"
     }
@@ -56,8 +77,8 @@ async def main():
     print("Sync result:", result)
 
     # Streaming request
-    async for event in client.generate_stream(params):
-        print("Stream event:", event)
+    # async for event in client.generate_stream(params):
+    #     print("Stream event:", event)
 
 if __name__ == "__main__":
     asyncio.run(main())

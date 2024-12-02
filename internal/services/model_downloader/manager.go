@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/types"
     "github.com/cozy-creator/hf-hub/hub"
     "go.uber.org/zap"
 	"github.com/vbauerster/mpb/v7"
@@ -22,7 +23,9 @@ type ModelDownloaderManager struct {
 	civitaiAPIKey string
 	progress		*mpb.Progress
 	progressMu		sync.Mutex
-	subscriptionManager *SubscriptionManager
+	modelStates     map[string]types.ModelState
+	modelReadyChans map[string][]chan struct{}
+	stateMu         sync.RWMutex
 }
 
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
@@ -45,8 +48,69 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 		ctx: 		app.Context(),
 		civitaiAPIKey: civitaiAPIKey,
 		progress:		progress,
-		subscriptionManager: NewSubscriptionManager(),
+		modelStates:     make(map[string]types.ModelState),
+		modelReadyChans: make(map[string][]chan struct{}),
 	}, nil
+}
+
+func (m *ModelDownloaderManager) GetModelState(modelID string) types.ModelState {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+	
+	state, exists := m.modelStates[modelID]
+	if !exists {
+		return types.ModelStateNotFound
+	}
+	return state
+}
+
+func (m *ModelDownloaderManager) SetModelState(modelID string, state types.ModelState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	m.modelStates[modelID] = state
+
+	// if model becomes ready, notify all waiting goroutines
+	if state == types.ModelStateReady {
+		if chans, exists := m.modelReadyChans[modelID]; exists {
+			for _, ch := range chans {
+				close(ch)
+			}
+			delete(m.modelReadyChans, modelID)
+		}
+	}
+}
+
+func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID string) error {
+	readyChan := make(chan struct{})
+
+	m.stateMu.Lock()
+	state, exists := m.modelStates[modelID]
+	if !exists || state == types.ModelStateNotFound {
+		m.stateMu.Unlock()
+		return fmt.Errorf("model %s not found", modelID)
+	}
+
+	// if model is already ready, return immediately
+	if state == types.ModelStateReady {
+		m.stateMu.Unlock()
+		return nil
+	}
+
+	// Model is downloading, register a listener
+	if m.modelReadyChans == nil {
+		m.modelReadyChans = make(map[string][]chan struct{})
+	}
+	m.modelReadyChans[modelID] = append(m.modelReadyChans[modelID], readyChan)
+	m.stateMu.Unlock()
+
+	// wait for model to be ready or context to be cancelled
+	select {
+	case <-readyChan:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (m *ModelDownloaderManager) InitializeModels() error {
@@ -72,21 +136,25 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				downloaded, err := m.IsDownloaded(modelID)
 				if err != nil {
 					errorChan <- fmt.Errorf("failed to check if model %s is downloaded: %w", modelID, err)
-					m.subscriptionManager.SetModelStatus(modelID, StatusFailed)
 					return
 				}
+				
+				if downloaded {
+                    m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+                    m.SetModelState(modelID, types.ModelStateReady)
+                    return
+                }
 
-			if !downloaded {
-				m.subscriptionManager.SetModelStatus(modelID, StatusDownloading)
-				m.logger.Info("Downloading model", zap.String("model_id", modelID))
-				if err := m.Download(modelID); err != nil {
-					errorChan <- fmt.Errorf("failed to download model %s: %w", modelID, err)
-					m.subscriptionManager.SetModelStatus(modelID, StatusFailed)
-				   }
-				} else {
-					m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
-					m.subscriptionManager.SetModelStatus(modelID, StatusReady)
-				}
+                m.logger.Info("Downloading model", zap.String("model_id", modelID))
+                m.SetModelState(modelID, types.ModelStateDownloading)
+                
+                if err := m.Download(modelID); err != nil {
+                    m.SetModelState(modelID, types.ModelStateNotFound)
+                    errorChan <- fmt.Errorf("failed to download model %s: %w", modelID, err)
+                    return
+                }
+                
+                m.SetModelState(modelID, types.ModelStateReady)
 			}
 		}(modelID)
 	}
@@ -101,6 +169,12 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 
     select {
     case <-ctx.Done():
+		// clean up model states for any downloading models
+        for modelID := range pipelineDefs {
+            if m.GetModelState(modelID) == types.ModelStateDownloading {
+                m.SetModelState(modelID, types.ModelStateNotFound)
+            }
+        }
         return context.Canceled
     case <-done:
         // Check for any errors
@@ -113,12 +187,16 @@ func (m *ModelDownloaderManager) InitializeModels() error {
     }
 }
 
-func (m *ModelDownloaderManager) WaitForModel(modelID string) error {
-    resultChan := m.subscriptionManager.Subscribe(modelID)
-    return <-resultChan
-}
-
 func (m *ModelDownloaderManager) Download(modelID string) error {
+	m.SetModelState(modelID, types.ModelStateDownloading)
+    defer func() {
+        // Set state based on error
+        if err := recover(); err != nil {
+            m.SetModelState(modelID, types.ModelStateNotFound)
+            panic(err) // re-panic after updating state
+        }
+    }()
+
 	modelConfig, ok := m.app.Config().PipelineDefs[modelID]
 	if !ok {
 		return fmt.Errorf("model %s not found in config", modelID)
@@ -177,6 +255,9 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 			}
 		}
 	}
+
+	// if download succeeds, set state to ready
+	m.SetModelState(modelID, types.ModelStateReady)
 
 	return nil
 }

@@ -40,6 +40,11 @@
       },
       "illustrious.xl": {
         "category": "pony"
+      },
+      "sd1.5-andre": {
+        "scheduler": "DPM++ 2M Karras",
+        "guidance_scale": 7.0,
+        "num_inference_steps": 25
       }
     },
     "cozy_categories": {

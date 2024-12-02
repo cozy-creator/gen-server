@@ -54,6 +54,7 @@ logging.basicConfig(
 
 # Constants
 VRAM_SAFETY_MARGIN_GB = 7.0
+DEFAULT_MAX_VRAM_BUFFER_GB = 2.0
 RAM_SAFETY_MARGIN_GB = 4.0
 VRAM_THRESHOLD = 1.4
 
@@ -249,7 +250,7 @@ class ModelMemoryManager:
         # Memory tracking
         self.vram_usage: float = 0
         self.ram_usage: float = 0
-        self.max_vram: float = self._get_total_vram()
+        self.max_vram: float = self._get_total_vram() - DEFAULT_MAX_VRAM_BUFFER_GB
         self.system_ram: float = psutil.virtual_memory().total / (1024**3)
 
         # State flags
@@ -566,6 +567,7 @@ class ModelMemoryManager:
             if load_location in ["needs_space", "gpu_optimized"]:
                 self._make_space_for_model(estimated_size)
                 load_location = self._determine_load_location(estimated_size)
+                print(f"Load location after making space: {load_location}")
 
             # Load the model
             pipeline = await self._load_model_by_source(model_id, model_config, gpu)

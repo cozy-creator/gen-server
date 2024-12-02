@@ -120,6 +120,11 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}
 	defer app.Close()
 
+	downloaderManager, err := model_downloader.NewModelDownloaderManager(app)
+	if err != nil {
+        return fmt.Errorf("failed to initialize model downloader manager: %w", err)
+    }
+
 	cfg := app.Config()
 
 	wg.Add(4)
@@ -142,7 +147,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := runGenerationProcessessor(ctx, cfg, app.MQ()); err != nil {
+		if err := runGenerationProcessessor(ctx, cfg, app.MQ(), app, downloaderManager); err != nil {
 			errc <- err
 		}
 	}()
@@ -156,7 +161,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := downloadEnabledModels(app); err != nil {
+		if err := downloadEnabledModels(app, downloaderManager); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				errc <- fmt.Errorf("model download error: %w", err)
 			}
@@ -265,8 +270,8 @@ func runPythonRuntime(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func runGenerationProcessessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
-	if err := generation.RunProcessor(ctx, cfg, mq); err != nil {
+func runGenerationProcessessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.App, downloader *model_downloader.ModelDownloaderManager) error {
+	if err := generation.RunProcessor(ctx, cfg, mq, app, downloader); err != nil {
 		return err
 	}
 
@@ -281,17 +286,13 @@ func runWorkflowProcessor(app *app.App) error {
 	return nil
 }
 
-func downloadEnabledModels(app *app.App) error {
-    manager, err := model_downloader.NewModelDownloaderManager(app)
-    if err != nil {
-        return err
-    }
+func downloadEnabledModels(app *app.App, downloaderManager *model_downloader.ModelDownloaderManager) error {
 
 	ctx := app.Context()
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- manager.InitializeModels()
+		errChan <- downloaderManager.InitializeModels()
 	}()
 
 	select {

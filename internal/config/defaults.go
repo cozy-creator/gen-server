@@ -5,8 +5,9 @@ import "errors"
 const TCPPort = 8882
 
 var (
-	DefaultGenerateTopic  = "cozy-creator/generations/requests"
-	DefaultGeneratePrefix = DefaultGenerateTopic + ":"
+	DefaultGenerateTopic    = "cozy-creator/generations/requests"
+	DefaultDownloadingTopic = "cozy-creator/generations/downloading"
+	DefaultGeneratePrefix   = DefaultGenerateTopic + ":"
 
 	DefaultStreamsTopic = "cozy-creator/streams"
 )
