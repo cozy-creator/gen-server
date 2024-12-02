@@ -76,6 +76,10 @@ pipeline_defs:
     class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/914390?type=Model&format=SafeTensor&size=full&fp=fp16
 
+  babes_by_stable_yogi.v4.xl.fp16:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/984905?type=Model&format=SafeTensor&size=full&fp=fp16
+
   playground2.5:
     source: hf:playgroundai/playground-v2.5-1024px-aesthetic
 
