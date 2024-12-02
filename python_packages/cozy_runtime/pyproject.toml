@@ -21,6 +21,7 @@ dependencies = [
     "aiohttp_middlewares",
     "backoff",
     "blake3",
+    "diffusers@git+https://github.com/huggingface/diffusers.git",
     "einops",
     "grpcio",
     "gunicorn",
@@ -39,7 +40,6 @@ dependencies = [
     "tqdm",
     "typing_extensions",
     "uuid",
-    # "diffusers@git+https://github.com/huggingface/diffusers.git"
 ]
 
 [project.optional-dependencies]
@@ -47,6 +47,7 @@ performance = ["accelerate", "triton", "xformers"]
 
 [project.scripts]
 cozy-runtime = "cozy_runtime.main:main"
+cozy_runtime = "cozy_runtime.main:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
