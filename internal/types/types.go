@@ -33,6 +33,7 @@ type GenerateParamsRequest struct {
 	PositivePrompt string `json:"positive_prompt" msgpack:"positive_prompt"`
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`
+	PresignedURL   string `json:"presigned_url" msgpack:"presigned_url"`
 }
 
 // Internal type with server-generated ID
