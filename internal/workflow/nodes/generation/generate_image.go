@@ -35,7 +35,7 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 
 	fmt.Println("Output format: ", outputFormat)
 
-	params := types.GenerateParams{
+	params := types.GenerateParamsRequest{
 		Model:          model,
 		NumOutputs:     numOutputs,
 		RandomSeed:     randomSeed,

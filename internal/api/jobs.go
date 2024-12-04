@@ -40,10 +40,26 @@ type ImageResponse struct {
 	MimeType string `json:"mime_type"`
 }
 
-func SubmitRequest(c *gin.Context) {
-	var params = types.GenerateParams{}
-	if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+func SubmitRequestHandler(c *gin.Context) {
+	var params = types.GenerateParamsRequest{}
+	contentType := c.ContentType()
+	if contentType == "" {
+		contentType = "application/json" // Default to JSON
+	}
+
+	switch contentType {
+	case "application/msgpack":
+		if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
+			return
+		}
+	case "application/json":
+		if err := c.ShouldBindWith(&params, binding.JSON); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
 		return
 	}
 
@@ -69,13 +85,13 @@ func SubmitRequest(c *gin.Context) {
 
 	go generation.GenerateImageAsync(app, reqParams)
 	c.JSON(http.StatusOK, types.GenerationResponse{
-		Input:  reqParams,
 		ID:     reqParams.ID,
+		Input:  &params,
 		Status: generation.StatusInQueue,
 	})
 }
 
-func GetJob(c *gin.Context) {
+func GetJobHandler(c *gin.Context) {
 	id := c.Param("id")
 	if _, err := uuid.Parse(id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
@@ -109,7 +125,7 @@ func GetJobStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": job.Status})
 }
 
-func StreamJob(c *gin.Context) {
+func StreamJobHandler(c *gin.Context) {
 	id := c.Param("id")
 	if _, err := uuid.Parse(id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
@@ -161,10 +177,26 @@ func StreamJob(c *gin.Context) {
 	}
 }
 
-func SubmitAndStreamRequest(c *gin.Context) {
-	var body types.GenerateParams
-	if err := c.ShouldBindWith(&body, binding.MsgPack); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
+func SubmitAndStreamRequestHandler(c *gin.Context) {
+	var body types.GenerateParamsRequest
+	contentType := c.ContentType()
+	if contentType == "" {
+		contentType = "application/json" // Default to JSON
+	}
+
+	switch contentType {
+	case "application/msgpack":
+		if err := c.ShouldBindWith(&body, binding.MsgPack); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
+			return
+		}
+	case "application/json":
+		if err := c.ShouldBindWith(&body, binding.JSON); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
 		return
 	}
 

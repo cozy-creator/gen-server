@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func ExecuteWorkflow(ctx *gin.Context) {
+func ExecuteWorkflowHandler(ctx *gin.Context) {
 	var workflow workflow.Workflow
 	if err := ctx.BindJSON(&workflow); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
@@ -40,7 +40,7 @@ func ExecuteWorkflow(ctx *gin.Context) {
 	ctx.JSON(http.StatusAccepted, gin.H{"status": "pending", "id": workflow.ID})
 }
 
-func StreamWorkflow(ctx *gin.Context) {
+func StreamWorkflowHandler(ctx *gin.Context) {
 	id := ctx.Param("id")
 	if id == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "missing workflow id"})

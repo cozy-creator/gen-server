@@ -28,20 +28,20 @@ func (s *Server) SetupRoutes(app *app.App) {
 		fmt.Println("Warning: authentication is disabled for all requests")
 	}
 
-	apiV1.POST("/upload", handlerWrapper(app, api.UploadFile))
+	apiV1.POST("/upload", handlerWrapper(app, api.UploadFileHandler))
 
-	apiV1.GET("/jobs/:id", handlerWrapper(app, api.GetJob))
-	apiV1.GET("/jobs/:id/stream", handlerWrapper(app, api.StreamJob))
-	apiV1.POST("/jobs/submit", handlerWrapper(app, api.SubmitRequest))
-	apiV1.POST("/jobs/stream", handlerWrapper(app, api.SubmitAndStreamRequest))
+	apiV1.GET("/jobs/:id", handlerWrapper(app, api.GetJobHandler))
+	apiV1.GET("/jobs/:id/stream", handlerWrapper(app, api.StreamJobHandler))
+	apiV1.POST("/jobs/submit", handlerWrapper(app, api.SubmitRequestHandler))
+	apiV1.POST("/jobs/stream", handlerWrapper(app, api.SubmitAndStreamRequestHandler))
 
-	apiV1.POST("/workflow/execute", handlerWrapper(app, api.ExecuteWorkflow))
-	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflow))
+	apiV1.POST("/workflow/execute", handlerWrapper(app, api.ExecuteWorkflowHandler))
+	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflowHandler))
 
-	apiV1.POST("/models/load", handlerWrapper(app, api.LoadModels))
-	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatus))
-	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModels))
-	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModels))
+	apiV1.POST("/models/load", handlerWrapper(app, api.LoadModelsHandler))
+	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatusHandler))
+	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModelsHandler))
+	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModelsHandler))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

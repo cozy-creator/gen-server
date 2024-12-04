@@ -13,7 +13,7 @@ type ModelRequest struct {
 	Priority bool     `json:"priority"`
 }
 
-func LoadModels(c *gin.Context) {
+func LoadModelsHandler(c *gin.Context) {
 	var req ModelRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
@@ -30,7 +30,7 @@ func LoadModels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func GetModelStatus(c *gin.Context) {
+func GetModelStatusHandler(c *gin.Context) {
 	app := c.MustGet("app").(*app.App)
 	modelIDs := c.QueryArray("model_ids")
 
@@ -43,7 +43,7 @@ func GetModelStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "loaded_models": statuses})
 }
 
-func UnloadModels(c *gin.Context) {
+func UnloadModelsHandler(c *gin.Context) {
 	var req ModelRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
@@ -60,7 +60,7 @@ func UnloadModels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func WarmupModels(c *gin.Context) {
+func WarmupModelsHandler(c *gin.Context) {
 	var req ModelRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})

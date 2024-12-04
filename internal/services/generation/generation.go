@@ -9,10 +9,10 @@ import (
 	"io"
 	"time"
 
+	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
-	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
@@ -214,7 +214,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 	return output, errorc
 }
 
-func NewRequest(params types.GenerateParams, mq mq.MQ) (*types.GenerateParams, error) {
+func NewRequest(params types.GenerateParamsRequest, mq mq.MQ) (*types.GenerateParams, error) {
 	newParams := types.GenerateParams{
 		ID:             uuid.NewString(),
 		OutputFormat:   params.OutputFormat,

@@ -17,19 +17,31 @@ type GeneratedOutput struct {
 }
 
 type GenerationResponse struct {
-	ID     string          `json:"id"`
-	Index  int8            `json:"index"`
-	Status string          `json:"status"`
-	Output GeneratedOutput `json:"output"`
-	Input  *GenerateParams `json:"input,omitempty"`
+	ID     string                 `json:"id"`
+	Index  int8                   `json:"index"`
+	Status string                 `json:"status"`
+	Output GeneratedOutput        `json:"output"`
+	Input  *GenerateParamsRequest `json:"input,omitempty"`
 }
 
-type GenerateParams struct {
+// Request from client - no ID field
+type GenerateParamsRequest struct {
 	Model          string `json:"model" msgpack:"model"`
 	NumOutputs     int    `json:"num_outputs" msgpack:"num_outputs"`
 	RandomSeed     int    `json:"random_seed" msgpack:"random_seed"`
 	AspectRatio    string `json:"aspect_ratio" msgpack:"aspect_ratio"`
-	ID             string `json:"id,omitempty" msgpack:"id,omitempty"`
+	PositivePrompt string `json:"positive_prompt" msgpack:"positive_prompt"`
+	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
+	OutputFormat   string `json:"output_format" msgpack:"output_format"`
+}
+
+// Internal type with server-generated ID
+type GenerateParams struct {
+	ID             string `json:"id" msgpack:"id"`
+	Model          string `json:"model" msgpack:"model"`
+	NumOutputs     int    `json:"num_outputs" msgpack:"num_outputs"`
+	RandomSeed     int    `json:"random_seed" msgpack:"random_seed"`
+	AspectRatio    string `json:"aspect_ratio" msgpack:"aspect_ratio"`
 	PositivePrompt string `json:"positive_prompt" msgpack:"positive_prompt"`
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`

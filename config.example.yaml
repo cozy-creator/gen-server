@@ -37,10 +37,12 @@ pipeline_defs:
 
   openflux.1:
     # community-provided diffusers pipeline; overwrites the FluxPipeline class_name from model_index.json
-    class_name: pipeline_flux_with_cfg
+    # Note that if a community_pipeline is used, the class_name from model_index.json, or specified here,
+    # will be ignored and replaced with the generic DiffusionPipeline class.
+    custom_pipeline: pipeline_flux_with_cfg
     source: hf:ostris/OpenFLUX.1
     
-  sd3.5-large:
+  sd3.5-large-int8:
     source: hf:stabilityai/stable-diffusion-3.5-large
     components:
       transformer:
@@ -79,7 +81,28 @@ pipeline_defs:
   babes_by_stable_yogi.v4.xl.fp16:
     class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/984905?type=Model&format=SafeTensor&size=full&fp=fp16
+    metadata:
+      display_name: Babes by Stable Yogi V4 XL
+      lineage: pony.v6
 
-  playground2.5:
-    source: hf:playgroundai/playground-v2.5-1024px-aesthetic
+  # example of all parameters:
+  # playground2.5:
+  #   source: hf:playgroundai/playground-v2.5-1024px-aesthetic
+  #   metadata:
+  #     display_name: Playground 2.5
+  #   class_name: null
+  #   custom_pipeline:
+  #   default_args:
+  #     guidance_scale: 3.5
+  #     num_inference_steps: 25
+  #   components:
+  #     scheduler:
+  #       class_name: EDMDPMSolverMultistepScheduler
+  #       kwargs:
+  #         use_kwargs_sigmas: true
+  #     text_encoder_2:
+  #       class_name: transformers.CLIPTextModelWithProjection
+  #       source: hf:playgroundai/playground-v2.5-1024px-aesthetic/text_encoder_2
+  #     unet:
+  #       lineage: playground2.5
 
