@@ -20,11 +20,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func receiveImage(requestId string, outputFormat string, app *app.App) (string, string, error) {
+func receiveImage(params *types.GenerateParams, app *app.App) (string, string, error) {
 	uploader := app.Uploader()
 	mq := app.MQ()
 
-	generationTopic := getGenerationTopic(requestId)
+	generationTopic := getGenerationTopic(params.ID)
 	output, err := mq.Receive(context.Background(), generationTopic)
 	if err != nil {
 		return "", "", err
@@ -41,15 +41,19 @@ func receiveImage(requestId string, outputFormat string, app *app.App) (string, 
 	}
 
 	outputData, modelName, err := ParseImageOutput(outputData)
-	image, err := imageutil.DecodeBmpToFormat(outputData, outputFormat)
+	image, err := imageutil.DecodeBmpToFormat(outputData, params.OutputFormat)
 	if err != nil {
 		return "", "", err
 	}
 
 	uploadUrl := make(chan string)
 	go func() {
-		extension := "." + "png"
-		uploader.UploadBytes(image, extension, false, uploadUrl)
+		if params.PresignedURL != "" {
+			uploader.UploadBytesPresigned(image, params.PresignedURL, uploadUrl)
+		} else {
+			extension := "." + "png"
+			uploader.UploadBytes(image, extension, false, uploadUrl)
+		}
 	}()
 
 	url, ok := <-uploadUrl
@@ -177,7 +181,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 			}
 			return ctx.Err()
 		default:
-			url, _, err := receiveImage(params.ID, params.OutputFormat, app)
+			url, _, err := receiveImage(params, app)
 			fmt.Println("url: ", url)
 			if err != nil {
 				if err := handleGenerationError(app, params.ID, err.Error(), "output_failed"); err != nil {
