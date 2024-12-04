@@ -1,12 +1,13 @@
 package config
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 
+	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/templates"
 
 	"github.com/joho/godotenv"
@@ -53,12 +54,16 @@ type S3Config struct {
 type PipelineDefs struct {
 	ClassName  string                    `mapstructure:"class_name" json:"class_name"`
 	Source     string                    `mapstructure:"source" json:"source"`
-	Components map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
+	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
+	Components     map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type ComponentDefs struct {
-	ClassName string `mapstructure:"class_name" json:"class_name"`
-	Source    string `mapstructure:"source" json:"source"`
+	ClassName string                    `mapstructure:"class_name" json:"class_name"`
+	Source    string                    `mapstructure:"source" json:"source"`
+	Args      map[string]interface{}    `mapstructure:"args,omitempty" json:"args,omitempty"`
 }
 
 type PulsarConfig struct {
@@ -124,13 +129,13 @@ func LoadEnvAndConfigFiles() error {
 }
 
 func readAndUnmarshalConfig() error {
-	if err := viper.ReadInConfig(); err != nil {
-		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-			fmt.Println("No config file found. Using default config.")
-		} else {
-			// return err
-		}
-	}
+	// if err := viper.ReadInConfig(); err != nil {
+	// 	if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+	// 		fmt.Println("No config file found. Using default config.")
+	// 	} else {
+	// 		// return err
+	// 	}
+	// }
 
 	// Copy Viper's internal config-state into our local struct
 	config = &Config{}
@@ -138,59 +143,87 @@ func readAndUnmarshalConfig() error {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
-	// Handle PipelineDefs separately
-	if raw := viper.Get("pipeline_defs"); raw != nil {
-		if rawMap, ok := raw.(map[string]interface{}); ok {
-			pipelineDefs := make(map[string]*PipelineDefs)
-			for key, val := range rawMap {
-				if def := unmarshalPipelineDef(val); def != nil {
-					pipelineDefs[key] = def
-				}
-			}
-			config.PipelineDefs = pipelineDefs
-		}
-	}
+	// Initialize empty PipelineDefs map (will be populated with DB models)
+    config.PipelineDefs = make(map[string]*PipelineDefs)
 
 	return nil
 }
 
-func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
-	modelMap, ok := raw.(map[string]interface{})
-	if !ok {
-		return nil
-	}
+func ModelsToPipelineDefs(models []models.Model) map[string]*PipelineDefs {
+    defs := make(map[string]*PipelineDefs)
+    for _, model := range models {
+        def := &PipelineDefs{
+            Source:         model.Source,
+            ClassName:      model.ClassName,
+            CustomPipeline: model.CustomPipeline,
+            DefaultArgs:    model.DefaultArgs,
+            Components:     make(map[string]*ComponentDefs),
+        }
 
-	def := &PipelineDefs{}
+		// fmt.Printf("model: %v\n", model)
+		// fmt.Printf("model.Components: %v\n", model.Components)
 
-	// Extract class_name
-	if className, ok := modelMap["class_name"].(string); ok {
-		def.ClassName = className
-	}
-
-	// Extract source
-	if source, ok := modelMap["source"].(string); ok {
-		def.Source = source
-	}
-
-	// Extract components
-	if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
-		def.Components = make(map[string]*ComponentDefs)
-		for compKey, compVal := range componentsRaw {
-			if compMap, ok := compVal.(map[string]interface{}); ok {
-				compDef := &ComponentDefs{}
-				if className, ok := compMap["class_name"].(string); ok {
-					compDef.ClassName = className
-				}
-				if source, ok := compMap["source"].(string); ok {
-					compDef.Source = source
-				}
-				def.Components[compKey] = compDef
-			}
-		}
-	}
-
-	return def
+        if model.Components != nil {
+            for name, comp := range model.Components {
+                if comp == nil {
+                    continue // Skip nil components
+                }
+                
+                if compMap, ok := comp.(map[string]interface{}); ok {
+                    className, _ := compMap["class_name"].(string)
+                    source, _ := compMap["source"].(string)
+                    args, _ := compMap["args"].(map[string]interface{})
+                    
+                    def.Components[name] = &ComponentDefs{
+                        ClassName: className,
+                        Source:    source,
+                        Args:      args,
+                    }
+                }
+            }
+        }
+        defs[model.Name] = def
+    }
+    return defs
 }
+
+// func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
+// 	modelMap, ok := raw.(map[string]interface{})
+// 	if !ok {
+// 		return nil
+// 	}
+
+// 	def := &PipelineDefs{}
+
+// 	// Extract class_name
+// 	if className, ok := modelMap["class_name"].(string); ok {
+// 		def.ClassName = className
+// 	}
+
+// 	// Extract source
+// 	if source, ok := modelMap["source"].(string); ok {
+// 		def.Source = source
+// 	}
+
+// 	// Extract components
+// 	if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
+// 		def.Components = make(map[string]*ComponentDefs)
+// 		for compKey, compVal := range componentsRaw {
+// 			if compMap, ok := compVal.(map[string]interface{}); ok {
+// 				compDef := &ComponentDefs{}
+// 				if className, ok := compMap["class_name"].(string); ok {
+// 					compDef.ClassName = className
+// 				}
+// 				if source, ok := compMap["source"].(string); ok {
+// 					compDef.Source = source
+// 				}
+// 				def.Components[compKey] = compDef
+// 			}
+// 		}
+// 	}
+
+// 	return def
+// }
 
 func IsLoaded() bool {
 	return config != nil

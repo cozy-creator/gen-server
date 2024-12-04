@@ -119,6 +119,8 @@ class TCPServer:
                     connection, addr = self.socket.accept()
                     connection.settimeout(self.timeout)
 
+                    self._cleanup_threads()
+
                     if len(self.threads) >= self.max_threads:
                         self.logger.warning(
                             "Max thread limit reached, rejecting connection"
@@ -137,8 +139,6 @@ class TCPServer:
                     continue
                 except Exception as e:
                     self.logger.error(f"Error accepting connection: {e}")
-
-            self._cleanup_threads()
 
         except Exception as e:
             self.logger.error(f"Failed to start server: {e}")

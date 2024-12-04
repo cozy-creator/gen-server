@@ -143,3 +143,7 @@ func (app *App) DB() *bun.DB {
 func (app *App) Uploader() *fileuploader.Uploader {
 	return app.fileuploader
 }
+
+func (app *App) GetModels(ctx context.Context, modelNames []string) ([]models.Model, error) {
+	return repository.GetModels(ctx, app.DB(), modelNames)
+}

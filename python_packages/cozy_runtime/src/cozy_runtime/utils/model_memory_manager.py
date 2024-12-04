@@ -10,6 +10,7 @@ from collections import OrderedDict
 import time
 
 import torch
+import diffusers
 
 from diffusers import (
     DiffusionPipeline,
@@ -43,8 +44,6 @@ from ..utils.load_models import load_state_dict_from_file
 from ..utils.quantize_models import quantize_model_fp8
 from ..base_types.config import PipelineConfig
 from .model_config_manager import ModelConfigManager
-
-# from OmniGen import OmniGenPipeline
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -264,33 +263,53 @@ class ModelMemoryManager:
         self.lru_cache = LRUCache()
         self.model_config_manager = ModelConfigManager()
 
-    def _setup_scheduler(
-        self, pipeline: DiffusionPipeline, scheduler_name: str
-    ) -> None:
-        """
-        Sets up the scheduler for the pipeline based on the config name.
+    # def _setup_scheduler(
+    #     self, pipeline: DiffusionPipeline, scheduler_name: str
+    # ) -> None:
+    #     """
+    #     Sets up the scheduler for the pipeline based on the config name.
 
-        Args:
-            pipeline: The diffusion pipeline
-            scheduler_name: Name of the scheduler from the config
-        """
-        if not scheduler_name or scheduler_name not in SCHEDULER_CONFIGS:
-            logger.warning(
-                f"Scheduler '{scheduler_name}' not found in configs. Using default scheduler."
-            )
+    #     Args:
+    #         pipeline: The diffusion pipeline
+    #         scheduler_name: Name of the scheduler from the config
+    #     """
+    #     if not scheduler_name or scheduler_name not in SCHEDULER_CONFIGS:
+    #         logger.warning(
+    #             f"Scheduler '{scheduler_name}' not found in configs. Using default scheduler."
+    #         )
+    #         return
+
+    #     scheduler_config = SCHEDULER_CONFIGS[scheduler_name]
+    #     try:
+    #         # Create new scheduler instance with the pipeline's existing config
+    #         new_scheduler = scheduler_config["class"].from_config(
+    #             pipeline.scheduler.config, **scheduler_config["kwargs"]
+    #         )
+    #         pipeline.scheduler = new_scheduler
+    #         logger.info(f"Successfully set scheduler to {scheduler_name}")
+    #     except Exception as e:
+    #         logger.error(f"Error setting scheduler {scheduler_name}: {e}")
+    #         logger.info("Falling back to default scheduler")
+
+    def _setup_scheduler(self, pipeline: DiffusionPipeline, model_id: str) -> None:
+        """Setup scheduler from component config"""
+        config = get_config()
+        model_config = config.pipeline_defs.get(model_id)
+        scheduler_config = model_config.get("components", {}).get("scheduler", {})
+        if not scheduler_config and scheduler_config == {}:
             return
-
-        scheduler_config = SCHEDULER_CONFIGS[scheduler_name]
+            
+        scheduler_class = scheduler_config.get("class_name")
+        scheduler_kwargs = scheduler_config.get("kwargs", {})
+        
         try:
-            # Create new scheduler instance with the pipeline's existing config
-            new_scheduler = scheduler_config["class"].from_config(
-                pipeline.scheduler.config, **scheduler_config["kwargs"]
+            new_scheduler = getattr(diffusers, scheduler_class).from_config(
+                pipeline.scheduler.config, **scheduler_kwargs
             )
             pipeline.scheduler = new_scheduler
-            logger.info(f"Successfully set scheduler to {scheduler_name}")
+            print(f"Successfully set scheduler to {scheduler_class}")
         except Exception as e:
-            logger.error(f"Error setting scheduler {scheduler_name}: {e}")
-            logger.info("Falling back to default scheduler")
+            logger.error(f"Error setting scheduler for {model_id}: {e}")
 
     def _get_memory_info(self) -> Tuple[float, float]:
         """
@@ -577,16 +596,16 @@ class ModelMemoryManager:
             print(f"Load location: {load_location}")
 
             # Get the model default configs from the model config manager
-            model_default_configs = self.model_config_manager.get_model_config(
-                model_id, pipeline.__class__.__name__
-            )
+            # model_default_configs = self.model_config_manager.get_model_config(
+            #     model_id, pipeline.__class__.__name__
+            # )
 
             # Set up scheduler if specified in config
-            if (
-                "scheduler" in model_default_configs
-                and model_default_configs["scheduler"] != ""
-            ):
-                self._setup_scheduler(pipeline, model_default_configs["scheduler"])
+            # if (
+            #     "scheduler" in model_default_configs
+            #     and model_default_configs["scheduler"] != ""
+            # ):
+            self._setup_scheduler(pipeline, model_id)
 
             # Place in appropriate memory location
             return await self._place_model_in_memory(
@@ -1512,6 +1531,7 @@ class ModelMemoryManager:
         try:
             with torch.no_grad():
                 if isinstance(pipeline, DiffusionPipeline) and callable(pipeline):
+                    print("In here!")
                     _ = pipeline(
                         prompt="This is a warm-up prompt",
                         num_inference_steps=20,
@@ -1784,6 +1804,10 @@ class ModelMemoryManager:
         Returns:
             Size in bytes
         """
+        if component_name == "scheduler":
+            return 0
+
+        print(f"Getting size for {repo_id} {component_name}")
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
         )

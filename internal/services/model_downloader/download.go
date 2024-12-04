@@ -36,6 +36,8 @@ func (m *ModelDownloaderManager) downloadFromSource(modelID string, source *Mode
 	}
 }
 
+// ignore any component that doesn't have source
+
 func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) error {
 	m.logger.Info("Downloading from HuggingFace",
 		zap.String("model_id", modelID),

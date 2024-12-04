@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/app"
 )
 
 const RUNTIME_COMMAND = "cozy-runtime"
@@ -40,8 +41,17 @@ func CreateCozyRuntimeCommand(args ...string) (*exec.Cmd, error) {
 	return nil, fmt.Errorf("the command 'cozy-runtime' is not installed in the system-path; please install it")
 }
 
-func StartPythonRuntime(ctx context.Context, cfg *config.Config) error {
+func StartPythonRuntime(ctx context.Context, cfg *config.Config, app *app.App) error {
 	ctx = context.WithoutCancel(ctx)
+
+	warmupModels, err := app.GetModels(ctx, cfg.WarmupModels)
+	if err != nil {
+		return err
+	}
+
+	cfg.PipelineDefs = config.ModelsToPipelineDefs(warmupModels)
+
+	fmt.Printf("cfg.PipelineDefs: %v\n", cfg.PipelineDefs)
 
 	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
     if err != nil {
