@@ -19,26 +19,27 @@ const (
 )
 
 type Config struct {
-	Port           int                      `mapstructure:"port"`
-	Host           string                   `mapstructure:"host"`
-	CozyHome       string                   `mapstructure:"cozy_home"`
-	Environment    string                   `mapstructure:"environment"`
-	AssetsDir      string                   `mapstructure:"assets_dir"`
-	ModelsDir      string                   `mapstructure:"models_dir"`
-	TempDir        string                   `mapstructure:"temp_dir"`
-	AuxModelsDirs  []string                 `mapstructure:"aux-models-dirs"`
-	FilesystemType string                   `mapstructure:"filesystem-type"`
-	PublicDir      string                   `mapstructure:"public_dir"`
-	DisableAuth    bool                     `mapstructure:"disable-auth"`
-	S3             *S3Config                `mapstructure:"s3"`
-	Pulsar         *PulsarConfig            `mapstructure:"pulsar"`
-	DB             *DBConfig                `mapstructure:"db"`
-	LumaAI         *LumaAIConfig            `mapstructure:"luma_ai"`
-	OpenAI         *OpenAIConfig            `mapstructure:"openai"`
-	Replicate      *ReplicateConfig         `mapstructure:"replicate"`
-	Civitai        *CivitaiConfig           `mapstructure:"civitai"`
-	PipelineDefs   map[string]*PipelineDefs	// unmarshalled manually from config.yaml
-	EnabledModels  []string                 `mapstructure:"enabled-models"`
+	Port               int                      `mapstructure:"port"`
+	Host               string                   `mapstructure:"host"`
+	CozyHome           string                   `mapstructure:"cozy_home"`
+	Environment        string                   `mapstructure:"environment"`
+	AssetsDir          string                   `mapstructure:"assets_dir"`
+	ModelsDir          string                   `mapstructure:"models_dir"`
+	TempDir            string                   `mapstructure:"temp_dir"`
+	AuxModelsDirs      []string                 `mapstructure:"aux-models-dirs"`
+	FilesystemType     string                   `mapstructure:"filesystem-type"`
+	PublicDir          string                   `mapstructure:"public_dir"`
+	DisableAuth        bool                     `mapstructure:"disable-auth"`
+	EnableSafetyFilter bool                     `mapstructure:"enable-safety-filter"`
+	S3                 *S3Config                `mapstructure:"s3"`
+	Pulsar             *PulsarConfig            `mapstructure:"pulsar"`
+	DB                 *DBConfig                `mapstructure:"db"`
+	LumaAI             *LumaAIConfig            `mapstructure:"luma_ai"`
+	OpenAI             *OpenAIConfig            `mapstructure:"openai"`
+	Replicate          *ReplicateConfig         `mapstructure:"replicate"`
+	Civitai            *CivitaiConfig           `mapstructure:"civitai"`
+	PipelineDefs       map[string]*PipelineDefs // unmarshalled manually from config.yaml
+	EnabledModels      []string                 `mapstructure:"enabled-models"`
 }
 
 type S3Config struct {
@@ -52,18 +53,18 @@ type S3Config struct {
 }
 
 type PipelineDefs struct {
-	ClassName  		string                    `mapstructure:"class_name" json:"class_name"`
-	Source    		string                    `mapstructure:"source" json:"source"`
-	CustomPipeline 	string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
-	DefaultArgs    	map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
-	Components     	map[string]*ComponentDefs `mapstructure:"components" json:"components"`
-	Metadata       	map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
+	ClassName      string                    `mapstructure:"class_name" json:"class_name"`
+	Source         string                    `mapstructure:"source" json:"source"`
+	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
+	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
+	Components     map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type ComponentDefs struct {
-	ClassName string                    `mapstructure:"class_name" json:"class_name"`
-	Source    string                    `mapstructure:"source" json:"source"`
-	Kwargs    map[string]interface{}    `mapstructure:"kwargs,omitempty" json:"kwargs,omitempty"`
+	ClassName string                 `mapstructure:"class_name" json:"class_name"`
+	Source    string                 `mapstructure:"source" json:"source"`
+	Kwargs    map[string]interface{} `mapstructure:"kwargs,omitempty" json:"kwargs,omitempty"`
 }
 
 type PulsarConfig struct {
@@ -214,7 +215,6 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 	return def
 }
 
-
 func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []models.Model) map[string]*PipelineDefs {
 	mergedDefs := make(map[string]*PipelineDefs)
 
@@ -227,18 +227,18 @@ func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []m
 	for _, model := range models {
 		if _, exists := mergedDefs[model.Name]; !exists {
 			def := &PipelineDefs{
-				Source: model.Source,
-				ClassName: model.ClassName,
+				Source:         model.Source,
+				ClassName:      model.ClassName,
 				CustomPipeline: model.CustomPipeline,
-				DefaultArgs: model.DefaultArgs,
-				Components: make(map[string]*ComponentDefs),
+				DefaultArgs:    model.DefaultArgs,
+				Components:     make(map[string]*ComponentDefs),
 			}
 
 			if model.Components != nil {
 				for name, comp := range model.Components {
 					if compMap, ok := comp.(map[string]interface{}); ok {
 						compDef := &ComponentDefs{}
-                    
+
 						if className, ok := compMap["class_name"].(string); ok {
 							compDef.ClassName = className
 						}

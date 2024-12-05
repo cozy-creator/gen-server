@@ -231,15 +231,15 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	mq := app.MQ()
 	cfg := app.Config()
 	ctx := app.Context()
-	response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
-	fmt.Println("filterres")
-	fmt.Println(response)
-	if err != nil {
-		return nil, err
-	}
+	if cfg.EnableSafetyFilter {
+		response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
+		if err != nil {
+			return nil, err
+		}
 
-	if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
-		return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
+		if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
+			return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
+		}
 	}
 
 	data, err := json.Marshal(&newParams)
