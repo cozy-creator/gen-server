@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"strings"
@@ -65,6 +66,10 @@ func init() {
 }
 
 func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
+	if cfg.OpenAI == nil {
+		return nil, errors.New("OpenAI API key not configured")
+	}
+
 	client := openai.NewClient(option.WithAPIKey(cfg.OpenAI.APIKey))
 	tmpl, err := template.New("promptFilter").Parse(GetPromptFilterTemplate())
 	if err != nil {
@@ -113,9 +118,6 @@ func FilterPrompt(ctx context.Context, cfg *config.Config, positivePrompt, negat
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("cresponse")
-	fmt.Println(response)
 
 	// filter off unknown styles
 	response.Styles = normalizeStyles(response.Styles)

@@ -31,7 +31,7 @@ var Cmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start the cozy gen-server",
 	// PreRunE: bindFlags,
-	RunE:  runApp,
+	RunE: runApp,
 }
 
 func init() {
@@ -49,6 +49,8 @@ func init() {
 	flags.String("db-dsn", "", "Database DSN (Connection URL or Path)")
 	flags.String("pulsar-url", "", "URL of the pulsar broker. Example: pulsar+ssl://my-cluster.streamnative.cloud:6651")
 
+	flags.Bool("enable-safety-filter", false, "Enable or disable the safety filter")
+
 	viper.BindPFlags(flags)
 
 	// These have to be bound manually due to nesting and hyphens
@@ -62,13 +64,14 @@ func init() {
 func bindEnvs() {
 	// Core settings (will use COZY_ prefix)
 	// Example: COZY_PORT
-    viper.BindEnv("port")
-    viper.BindEnv("host")
-    viper.BindEnv("environment")
-    viper.BindEnv("disable_auth")
-    viper.BindEnv("enabled_models")
-    viper.BindEnv("filesystem_type")
-    viper.BindEnv("public_dir")
+	viper.BindEnv("port")
+	viper.BindEnv("host")
+	viper.BindEnv("environment")
+	viper.BindEnv("disable_auth")
+	viper.BindEnv("enabled_models")
+	viper.BindEnv("filesystem_type")
+	viper.BindEnv("public_dir")
+	viper.BindEnv("enable_safety_filter")
 
 	viper.BindEnv("db.dsn")
 	viper.BindEnv("pulsar.url")
@@ -95,7 +98,7 @@ func bindEnvs() {
 
 // Initialize defaults that depend upon other environment variables being initialized first
 func initDefaults() {
-	viper.SetDefault("db.dsn", "file:" + filepath.Join(viper.GetString("cozy_home"), "data", "main.db"))
+	viper.SetDefault("db.dsn", "file:"+filepath.Join(viper.GetString("cozy_home"), "data", "main.db"))
 	viper.SetDefault("public_dir", server.GetDefaultPublicDir(viper.GetString("environment")))
 }
 
@@ -122,8 +125,8 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	downloaderManager, err := model_downloader.NewModelDownloaderManager(app)
 	if err != nil {
-        return fmt.Errorf("failed to initialize model downloader manager: %w", err)
-    }
+		return fmt.Errorf("failed to initialize model downloader manager: %w", err)
+	}
 
 	cfg := app.Config()
 
@@ -183,9 +186,9 @@ func runApp(_ *cobra.Command, _ []string) error {
 		defer shutdownCancel()
 
 		if err := server.Stop(shutdownCtx); err != nil && !errors.Is(err, context.Canceled) {
-            errc <- fmt.Errorf("error stopping server: %w", err)
-            return
-        }
+			errc <- fmt.Errorf("error stopping server: %w", err)
+			return
+		}
 
 		// wait for all gorutines with timeout
 		done := make(chan struct{})
