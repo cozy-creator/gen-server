@@ -31,7 +31,9 @@ import os
 import json
 from cozy_runtime.utils.image import tensor_to_pil
 from tqdm import tqdm
+import logging
 
+logger = logging.getLogger(__name__)
 
 class ProgressCallback:
     def __init__(self, num_steps, num_images):
@@ -73,7 +75,8 @@ class ImageGenNode(CustomNode):
     async def _get_pipeline(self, model_id: str):
         pipeline = await self.model_memory_manager.load(model_id, None)
         if pipeline is None:
-            raise ValueError(f"Model {model_id} not found in memory manager")
+            logger.error(f"Model {model_id} not found in memory manager")
+            return None
         return pipeline
 
     def _get_controlnet(self, model_id: str, controlnet_type: str, class_name: str):

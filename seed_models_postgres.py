@@ -2,9 +2,16 @@ import sqlite3
 import uuid
 import os
 import json
+from dotenv import load_dotenv
+import psycopg2
+from diffusers.schedulers import EulerAncestralDiscreteScheduler
 
 # Path to the SQLite database
-DB_PATH = os.path.join("data", "main.db")
+# DB_PATH = os.path.join("data", "main.db")
+load_dotenv()
+
+
+DB_DSN = os.getenv("DB_DSN")
 
 models_to_seed = [
     {
@@ -128,7 +135,7 @@ models_to_seed = [
 def update_database():
     try:
         # Connect to the SQLite database
-        conn = sqlite3.connect(DB_PATH)
+        conn = psycopg2.connect(DB_DSN)
         cursor = conn.cursor()
 
         for model in models_to_seed:
@@ -141,14 +148,14 @@ def update_database():
             cursor.execute(
                 """
                 UPDATE models
-                SET source = ?,
-                    class_name = ?,
-                    custom_pipeline = ?,
-                    metadata = ?,
-                    default_args = ?,
-                    components = ?,
-                    updated_at = datetime('now')
-                WHERE name = ?
+                SET source = %s,
+                    class_name = %s,
+                    custom_pipeline = %s,
+                    metadata = %s,
+                    default_args = %s,
+                    components = %s,
+                    updated_at = NOW()
+                WHERE name = %s
                 """,
                 (
                     model["source"],
@@ -170,7 +177,7 @@ def update_database():
                         id, name, source, class_name, custom_pipeline,
                         metadata, default_args, components, created_at, updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                     """,
                     (
                         model_id,

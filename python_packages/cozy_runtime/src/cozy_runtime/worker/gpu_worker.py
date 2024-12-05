@@ -74,6 +74,10 @@ async def generate_images_non_io(
             # Run the appropriate node
             result = await image_gen_node(**params)
 
+            if result is None:
+                logger.error(f"No result from image generation node for model {model_id}")
+                return
+
             images = result["images"]
 
             tensor_images = images.to("cpu")

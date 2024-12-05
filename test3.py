@@ -63,7 +63,7 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "juggernaut-lpw",
+        "model": "playground2.5",
         "positive_prompt": "A woman (8k, RAW photo, highest quality), hyperrealistic, intricate abstract, intricate artwork, abstract style",
         "negative_prompt": "verybadimagenegative_v1.3, (worst quality, low quality:1.4), lowres, bad anatomy, normal quality, monochrome, grayscale, text, signature, watermark, logo",
         "num_outputs": 1,
