@@ -34,6 +34,7 @@ type Config struct {
 	Pulsar         *PulsarConfig            `mapstructure:"pulsar"`
 	DB             *DBConfig                `mapstructure:"db"`
 	LumaAI         *LumaAIConfig            `mapstructure:"luma_ai"`
+	OpenAI         *OpenAIConfig            `mapstructure:"openai"`
 	Replicate      *ReplicateConfig         `mapstructure:"replicate"`
 	Civitai        *CivitaiConfig           `mapstructure:"civitai"`
 	PipelineDefs   map[string]*PipelineDefs // unmarshalled manually from config.yaml
@@ -75,6 +76,10 @@ type DBConfig struct {
 }
 
 type LumaAIConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+type OpenAIConfig struct {
 	APIKey string `mapstructure:"api_key"`
 }
 

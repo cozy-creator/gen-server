@@ -12,6 +12,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
+	"github.com/cozy-creator/gen-server/internal/services/ethicalfilter"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
@@ -214,7 +215,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 	return output, errorc
 }
 
-func NewRequest(params types.GenerateParamsRequest, mq mq.MQ) (*types.GenerateParams, error) {
+func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.GenerateParams, error) {
 	newParams := types.GenerateParams{
 		ID:             uuid.NewString(),
 		OutputFormat:   params.OutputFormat,
@@ -225,6 +226,20 @@ func NewRequest(params types.GenerateParamsRequest, mq mq.MQ) (*types.GeneratePa
 		PositivePrompt: params.PositivePrompt,
 		NegativePrompt: params.NegativePrompt,
 		PresignedURL:   params.PresignedURL,
+	}
+
+	mq := app.MQ()
+	cfg := app.Config()
+	ctx := app.Context()
+	response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
+	fmt.Println("filterres")
+	fmt.Println(response)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
+		return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
 	}
 
 	data, err := json.Marshal(&newParams)

@@ -64,7 +64,7 @@ func SubmitRequestHandler(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(params, app.MQ())
+	reqParams, err := generation.NewRequest(params, app)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -201,7 +201,7 @@ func SubmitAndStreamRequestHandler(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(body, app.MQ())
+	reqParams, err := generation.NewRequest(body, app)
 	fmt.Println("Params-: ", reqParams)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})

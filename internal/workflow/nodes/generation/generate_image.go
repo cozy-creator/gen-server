@@ -45,7 +45,7 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 		PositivePrompt: positivePrompt,
 	}
 
-	reqParams, err := generation.NewRequest(params, app.MQ())
+	reqParams, err := generation.NewRequest(params, app)
 	if err != nil {
 		return nil, err
 	}
