@@ -11,6 +11,7 @@ import time
 
 import torch
 import diffusers
+import numpy as np
 
 from diffusers import (
     DiffusionPipeline,
@@ -45,8 +46,7 @@ logging.basicConfig(
 # Constants
 VRAM_SAFETY_MARGIN_GB = 7.0
 DEFAULT_MAX_VRAM_BUFFER_GB = 2.0
-RAM_SAFETY_MARGIN_GB = 4.0
-VRAM_THRESHOLD = 1.4
+RAM_SAFETY_MARGIN_GB = 10.0
 
 
 class GPUEnum(Enum):
@@ -206,40 +206,15 @@ class ModelMemoryManager:
         self.is_in_device: bool = False
         self.should_quantize: bool = False
 
+        # is start up load
+        self.is_startup_load: bool = False
+
         # Managers and caches
         self.model_downloader = get_model_downloader()
         self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.lru_cache = LRUCache()
         self.model_config_manager = ModelConfigManager()
-
-    # def _setup_scheduler(
-    #     self, pipeline: DiffusionPipeline, scheduler_name: str
-    # ) -> None:
-    #     """
-    #     Sets up the scheduler for the pipeline based on the config name.
-
-    #     Args:
-    #         pipeline: The diffusion pipeline
-    #         scheduler_name: Name of the scheduler from the config
-    #     """
-    #     if not scheduler_name or scheduler_name not in SCHEDULER_CONFIGS:
-    #         logger.warning(
-    #             f"Scheduler '{scheduler_name}' not found in configs. Using default scheduler."
-    #         )
-    #         return
-
-    #     scheduler_config = SCHEDULER_CONFIGS[scheduler_name]
-    #     try:
-    #         # Create new scheduler instance with the pipeline's existing config
-    #         new_scheduler = scheduler_config["class"].from_config(
-    #             pipeline.scheduler.config, **scheduler_config["kwargs"]
-    #         )
-    #         pipeline.scheduler = new_scheduler
-    #         logger.info(f"Successfully set scheduler to {scheduler_name}")
-    #     except Exception as e:
-    #         logger.error(f"Error setting scheduler {scheduler_name}: {e}")
-    #         logger.info("Falling back to default scheduler")
 
     def _setup_scheduler(self, pipeline: DiffusionPipeline, model_id: str) -> None:
         """Setup scheduler from component config"""
@@ -368,6 +343,12 @@ class ModelMemoryManager:
         Returns:
             String indicating load location: "gpu", "gpu_optimized", "needs_space", or "none"
         """
+        if self.is_startup_load:
+            available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
+            if model_size <= available_vram:
+                return "gpu"
+            return "none"
+
         # If model is bigger than total VRAM, it must be optimized
         if model_size > self.max_vram:
             if self._can_load_to_ram(model_size):
@@ -548,16 +529,6 @@ class ModelMemoryManager:
 
             print(f"Load location: {load_location}")
 
-            # Get the model default configs from the model config manager
-            # model_default_configs = self.model_config_manager.get_model_config(
-            #     model_id, pipeline.__class__.__name__
-            # )
-
-            # Set up scheduler if specified in config
-            # if (
-            #     "scheduler" in model_default_configs
-            #     and model_default_configs["scheduler"] != ""
-            # ):
             self._setup_scheduler(pipeline, model_id)
 
             # Place in appropriate memory location
@@ -1370,40 +1341,6 @@ class ModelMemoryManager:
         else:
             logger.info(f"No optimization needed for {model_id}")
 
-    # def _determine_optimizations(
-    #     self,
-    #     available_vram_gb: float,
-    #     model_size_gb: float,
-    #     force_full_optimization: bool
-    # ) -> Tuple[List[Tuple[str, str, Dict[str, Any]]], bool]:
-    #     """
-    #     Determine which optimizations to apply based on available resources.
-
-    #     Args:
-    #         available_vram_gb: Available VRAM in GB
-    #         model_size_gb: Model size in GB
-    #         force_full_optimization: Whether to force full optimizations
-
-    #     Returns:
-    #         Tuple of (list of optimizations, whether full optimization is needed)
-    #     """
-    #     optimizations = []
-
-    #     if self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value:
-    #         force_full_optimization = False
-    #     elif available_vram_gb >= GPUEnum.VERY_HIGH.value:
-    #         force_full_optimization = False
-    #     elif available_vram_gb > model_size_gb:
-    #         if force_full_optimization and available_vram_gb < GPUEnum.HIGH.value:
-    #             optimizations = self._get_full_optimizations()
-    #             force_full_optimization = True
-    #     else:
-    #         if not (self.should_quantize and available_vram_gb >= GPUEnum.HIGH.value):
-    #             optimizations = self._get_full_optimizations()
-    #             force_full_optimization = True
-
-    #     return optimizations, force_full_optimization
-
     def _get_full_optimizations(self) -> List[Tuple[str, str, Dict[str, Any]]]:
         """
         Get list of all available optimizations.
@@ -1470,6 +1407,84 @@ class ModelMemoryManager:
         elif torch.backends.mps.is_available():
             pass  # MPS doesn't need explicit cache clearing
 
+    async def initialize_startup_models(self, model_ids: List[str]) -> None:
+        """Inititalize models at startup with randomization"""
+        if not model_ids:
+            logger.info("No models configured for enabled models")
+            return
+        
+        self.is_startup_load = True
+        try:
+            model_configs = {}
+            model_sizes = {}
+
+            for model_id in model_ids:
+                model_config = get_config().pipeline_defs[model_id]
+                if not model_config:
+                    logger.warning(f"Model {model_id} not found in pipeline_defs")
+                    continue
+
+                try:
+                    size = await self._get_model_size(model_config, model_id)
+                    model_sizes[model_id] = size
+                    model_configs[model_id] = model_config
+                except Exception as e:
+                    logger.error(f"Error getting model size for {model_id}: {e}")
+                    continue
+
+            # Create randomized order of models
+            available_models = list(model_ids)
+            # available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
+
+            rng = np.random.default_rng()
+            random_models = rng.permutation(available_models).tolist()
+
+            logger.info(f"Loading models in random order: {random_models}")
+            total_loaded = 0
+            total_size = 0
+
+            for model_id in random_models:
+                estimated_size = model_sizes[model_id]
+
+                # Check if exceed available VRAM
+                if estimated_size > (self._get_available_vram() - VRAM_SAFETY_MARGIN_GB):
+                    logger.info(
+                        f"Stopping model loading: Next model {model_id} "
+                        f"({estimated_size:.2f} GB) would exceed available inference Memory "
+                        f"({self._get_available_vram() - VRAM_SAFETY_MARGIN_GB:.2f} GB)"
+                    )
+                    break
+
+                try:
+                    pipeline = await self.load(model_id)
+                    if pipeline is not None:
+                        total_loaded += 1
+                        total_size += estimated_size
+                        logger.info(
+                            f"Successfully loaded model {model_id} "
+                            f"({total_loaded}/{len(random_models)}). "
+                            f"Total VRAM used: {total_size:.2f} GB"
+                        )
+
+                        # warm up the model
+                        logger.info(f"Warming up model {model_id}")
+                        await self.warmup_pipeline(model_id)
+                    else:
+                        logger.warning(f"Failed to load model {model_id}")
+                
+                except Exception as e:
+                    logger.error(f"Error loading model {model_id}: {e}")
+
+            logger.info(
+                f"Startup loading complete. Loaded and warmed up {total_loaded}/{len(random_models)} "
+                f"models using {total_size:.2f}GB/{self.max_vram - VRAM_SAFETY_MARGIN_GB:.2f}GB available VRAM"
+            )
+        except Exception as e:
+            logger.error(f"Error initializing startup models: {e}")
+        finally:
+            self.is_startup_load = False
+
+
     async def warmup_pipeline(self, model_id: str) -> None:
         """
         Warm up a pipeline by running a test inference.
@@ -1477,47 +1492,39 @@ class ModelMemoryManager:
         Args:
             model_id: Model identifier
         """
-
-        if model_id:
-            logger.info(f"Loading model {model_id} for warm-up")
-            pipeline = await self.load(model_id)
-
         if model_id not in self.loaded_models:
-            logger.warning(f"Model {model_id} is not loaded")
-            return
+            if not self.is_startup_load:
+                logger.info(f"Loading model {model_id} for warm-up")
+                pipeline = await self.load(model_id)
+                if pipeline is None:
+                    logger.warning(f"Failed to load model {model_id} for warm-up")
+                    return
+            else:
+                logger.warning(f"Model {model_id} is not loaded")
+                return
+        else:
+            pipeline = self.loaded_models[model_id]
 
-        # if model_id in self.cpu_models:
-        #     logger.info(f"Loading model {model_id} from CPU to GPU")
-        #     self.load(model_id)
-
-        pipeline = self.loaded_models[model_id]
-        if pipeline is None:
-            logger.warning("Failed to load model {} for warm-up".format(model_id))
-            return
-
-        logger.info("Warming up pipeline for model {}".format(model_id))
+        logger.info(f"Warming up pipeline for model {model_id}")
 
         try:
             with torch.no_grad():
                 if isinstance(pipeline, DiffusionPipeline) and callable(pipeline):
                     _ = pipeline(
                         prompt="This is a warm-up prompt",
-                        num_inference_steps=20,
+                        num_inference_steps=4,
                         output_type="pil",
                     )
                 else:
                     logger.warning(
-                        "Unsupported pipeline type for warm-up: {}".format(
-                            type(pipeline)
-                        )
+                        f"Unsupported pipeline type for warm-up: {type(pipeline)}"
                     )
         except Exception as e:
-            logger.error(
-                "Error during warm-up for model {}: {}".format(model_id, str(e))
-            )
+            logger.error(f"Error during warm-up for model {model_id}: {str(e)}")
 
         self.flush_memory()
-        logger.info("Warm-up completed for model {}".format(model_id))
+        logger.info(f"Warm-up completed for model {model_id}")
+
 
     def get_all_model_ids(self) -> List[str]:
         """

@@ -179,21 +179,21 @@ def startup_extensions(_config: RuntimeConfig):
 
 async def load_and_warmup_models(config: RuntimeConfig):
     model_memory_manager = get_model_memory_manager()
-    model_ids = model_memory_manager.get_all_model_ids()
     enabled_models = config.enabled_models
 
-    logger.info(f"Warming up the following models: {enabled_models}")
+    if not enabled_models:
+        logger.info("No models configured for startup loading")
+        return
 
-    for model_id in model_ids:
-        if model_id in enabled_models:
-            try:
-                logger.info(f"Loading and warming up model: {model_id}")
-                # await model_memory_manager.load(model_id, None)
-                await model_memory_manager.warmup_pipeline(model_id)
-            except Exception as e:
-                logger.error(f"Error loading or warming up model {model_id}: {e}")
+    logger.info(f"Initializing startup models: {enabled_models}")
+    
+    try:
+        await model_memory_manager.initialize_startup_models(enabled_models)
+    except Exception as e:
+        logger.error(f"Error during startup model initialization: {e}")
+        raise
 
-    logger.info("Finished loading and warming up models")
+    logger.info("Finished initializing startup models")
 
 
 async def main_async():
