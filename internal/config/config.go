@@ -7,8 +7,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/cozy-creator/gen-server/internal/templates"
 	"github.com/cozy-creator/gen-server/internal/db/models"
+	"github.com/cozy-creator/gen-server/internal/templates"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
@@ -37,8 +37,8 @@ type Config struct {
 	OpenAI         *OpenAIConfig            `mapstructure:"openai"`
 	Replicate      *ReplicateConfig         `mapstructure:"replicate"`
 	Civitai        *CivitaiConfig           `mapstructure:"civitai"`
-	PipelineDefs   map[string]*PipelineDefs // unmarshalled manually from config.yaml
-	WarmupModels   []string                 `mapstructure:"warmup-models"`
+	PipelineDefs   map[string]*PipelineDefs	// unmarshalled manually from config.yaml
+	EnabledModels  []string                 `mapstructure:"enabled-models"`
 }
 
 type S3Config struct {
@@ -52,12 +52,12 @@ type S3Config struct {
 }
 
 type PipelineDefs struct {
-	ClassName  string                    `mapstructure:"class_name" json:"class_name"`
-	Source     string                    `mapstructure:"source" json:"source"`
-	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
-	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
-	Components     map[string]*ComponentDefs `mapstructure:"components" json:"components"`
-	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
+	ClassName  		string                    `mapstructure:"class_name" json:"class_name"`
+	Source    		string                    `mapstructure:"source" json:"source"`
+	CustomPipeline 	string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
+	DefaultArgs    	map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
+	Components     	map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	Metadata       	map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type ComponentDefs struct {

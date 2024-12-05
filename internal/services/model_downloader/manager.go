@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
-	"github.com/cozy-creator/gen-server/internal/types"
-    "github.com/cozy-creator/hf-hub/hub"
-    "go.uber.org/zap"
-	"github.com/vbauerster/mpb/v7"
 	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/hf-hub/hub"
+	"github.com/vbauerster/mpb/v7"
+	"go.uber.org/zap"
 )
 
 
@@ -116,13 +116,13 @@ func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID 
 func (m *ModelDownloaderManager) InitializeModels() error {
 	ctx := m.ctx
 
-	if len(m.app.Config().WarmupModels) == 0 {
-        m.logger.Info("No models configured for warmup")
+	if len(m.app.Config().EnabledModels) == 0 {
+        m.logger.Info("No models enabled for generation")
         return nil
     }
 
 	// Get and merge pipeline defs from both config and DB
-    if err := m.app.GetPipelineDefs(ctx, m.app.Config().WarmupModels); err != nil {
+    if err := m.app.GetPipelineDefs(ctx, m.app.Config().EnabledModels); err != nil {
         return err
     }
 

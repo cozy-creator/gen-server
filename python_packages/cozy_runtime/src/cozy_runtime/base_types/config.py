@@ -41,5 +41,5 @@ class RuntimeConfig:
     host: str = field(default_factory=default_host)
     port: int = 8882
     pipeline_defs: dict[str, PipelineConfig] = field(default_factory=dict)
-    warmup_models: list[str] = field(default_factory=list)
+    enabled_models: list[str] = field(default_factory=list)
     models_path: str = field(default_factory=default_models_path)

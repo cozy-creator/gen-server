@@ -60,7 +60,8 @@ func UnloadModelsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func WarmupModelsHandler(c *gin.Context) {
+// This is supposed to add models to the list of enabled models
+func EnableModelsHandler(c *gin.Context) {
 	var req ModelRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
@@ -68,7 +69,7 @@ func WarmupModelsHandler(c *gin.Context) {
 	}
 
 	app := c.MustGet("app").(*app.App)
-	if err := models.WarmupModels(app, req.ModelIDs); err != nil {
+	if err := models.EnableModels(app, req.ModelIDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}

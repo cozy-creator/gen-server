@@ -1,5 +1,3 @@
-# gen_server/model_command_handler.py
-
 from typing import List, Dict, Any, Optional
 import json
 import asyncio
@@ -28,11 +26,11 @@ class ModelCommandHandler:
                     "message": "Models unloaded"
                 }
                 
-            elif command["command"] == "warmup":
-                await self._handle_warmup(command["model_ids"])
+            elif command["command"] == "enable":
+                await self._handle_enable(command["model_ids"])
                 return {
                     "status": "done",
-                    "message": "Models warmed up"
+                    "message": "Models enabled"
                 }
                 
             elif command["command"] == "status":
@@ -55,10 +53,11 @@ class ModelCommandHandler:
             print(f"Unloading model: {model_id}")
             self.model_manager.unload(model_id)
             
-    async def _handle_warmup(self, model_ids: List[str]):
-        """Handle warming up models"""
+    async def _handle_enable(self, model_ids: List[str]):
+        """Handle enabling models"""
         for model_id in model_ids:
-            await self.model_manager.warm_up_pipeline(model_id)
+            # TODO: this is not the right function
+            await self.model_manager.warmup_pipeline(model_id)
             
     async def _handle_status(self, model_ids: List[str]) -> bytes:
         """Handle getting model status"""

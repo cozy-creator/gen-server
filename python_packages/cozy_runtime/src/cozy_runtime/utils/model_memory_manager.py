@@ -1470,7 +1470,7 @@ class ModelMemoryManager:
         elif torch.backends.mps.is_available():
             pass  # MPS doesn't need explicit cache clearing
 
-    async def warm_up_pipeline(self, model_id: str) -> None:
+    async def warmup_pipeline(self, model_id: str) -> None:
         """
         Warm up a pipeline by running a test inference.
 
@@ -1529,15 +1529,15 @@ class ModelMemoryManager:
         config = get_config()
         return list(config.pipeline_defs.keys())
 
-    def get_warmup_models(self) -> List[str]:
+    def get_enabled_models(self) -> List[str]:
         """
         Get list of models that should be warmed up.
 
         Returns:
-            List of model identifiers for warm-up
+            List of model identifiers to be used for generation
         """
         config = get_config()
-        return config.warmup_models
+        return config.enabled_models
 
     def unload(self, model_id: str) -> None:
         """

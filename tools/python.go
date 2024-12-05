@@ -44,7 +44,7 @@ func CreateCozyRuntimeCommand(args ...string) (*exec.Cmd, error) {
 func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) error {
 	ctx = context.WithoutCancel(ctx)
 
-	if err := app.GetPipelineDefs(ctx, cfg.WarmupModels); err != nil {
+	if err := app.GetPipelineDefs(ctx, cfg.EnabledModels); err != nil {
         return err
     }
 
@@ -64,8 +64,8 @@ func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) e
 		"--models-path", cfg.ModelsDir,
 	}
 
-	if len(cfg.WarmupModels) > 0 {
-		args = append(args, "--warmup-models", strings.Join(cfg.WarmupModels, ","))
+	if len(cfg.EnabledModels) > 0 {
+		args = append(args, "--enabled-models", strings.Join(cfg.EnabledModels, ","))
 	}
 	if len(pipelineDefsJson) > 0 {
 		args = append(args, "--pipeline-defs", string(pipelineDefsJson))

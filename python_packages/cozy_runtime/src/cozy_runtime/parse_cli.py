@@ -27,8 +27,8 @@ def parse_pipeline_defs(value: Optional[str]) -> dict[str, PipelineConfig]:
         return {}
 
 
-def parse_warmup_models(value: Optional[str]) -> list[str]:
-    """Parse warmup models from command line argument"""
+def parse_enabled_models(value: Optional[str]) -> list[str]:
+    """Parse enabled models from command line argument"""
     if not value:
         return []
 
@@ -70,9 +70,9 @@ def parse_arguments() -> RuntimeConfig:
         help="JSON string of pipeline definitions",
     )
     parser.add_argument(
-        "--warmup-models",
+        "--enabled-models",
         type=str,
-        default=default_config.warmup_models,
+        default=default_config.enabled_models,
         help="Comma-separated list or JSON array of models to warm up",
     )
     parser.add_argument(
@@ -91,7 +91,7 @@ def parse_arguments() -> RuntimeConfig:
         host=args.host,
         port=args.port,
         pipeline_defs=parse_pipeline_defs(args.pipeline_defs),
-        warmup_models=parse_warmup_models(args.warmup_models),
+        enabled_models=parse_enabled_models(args.enabled_models),
         models_path=args.models_path or os.path.join(args.home_dir, "models"),
     )
 

@@ -38,10 +38,13 @@ func (s *Server) SetupRoutes(app *app.App) {
 	apiV1.POST("/workflow/execute", handlerWrapper(app, api.ExecuteWorkflowHandler))
 	apiV1.GET("/workflow/:id/stream", handlerWrapper(app, api.StreamWorkflowHandler))
 
-	apiV1.POST("/models/load", handlerWrapper(app, api.LoadModelsHandler))
+	// Admin-only API endpoints
+	// TO DO: these should not be exposed to the public API--currently they are
+	// TO DO: none of these endpoints are well thought out
 	apiV1.GET("/models/status", handlerWrapper(app, api.GetModelStatusHandler))
+	apiV1.POST("/models/load", handlerWrapper(app, api.LoadModelsHandler))
 	apiV1.POST("/models/unload", handlerWrapper(app, api.UnloadModelsHandler))
-	apiV1.POST("/models/warmup", handlerWrapper(app, api.WarmupModelsHandler))
+	apiV1.POST("/models/enable", handlerWrapper(app, api.EnableModelsHandler))
 }
 
 func handlerWrapper(app *app.App, f func(c *gin.Context)) gin.HandlerFunc {

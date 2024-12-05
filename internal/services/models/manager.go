@@ -35,9 +35,9 @@ func LoadModels(app *app.App, modelIDs []string, priority bool) error {
 	return sendModelCommand(app, req)
 }
 
-func WarmupModels(app *app.App, modelIDs []string) error {
+func EnableModels(app *app.App, modelIDs []string) error {
 	req := ModelLoadRequest{
-		Command:  "warmup",
+		Command:  "enable",
 		ModelIDs: modelIDs,
 	}
 

@@ -91,6 +91,8 @@ async def verify_and_download_models(config: RuntimeConfig):
 
 
 def request_handler(context: RequestContext):
+    """ Handles incoming messages from the TCP server """
+    
     data = context.data()
     logger.info(f"TCP Server received data: {data}")
 
@@ -98,7 +100,7 @@ def request_handler(context: RequestContext):
         json_data = json.loads(data.decode())
         logger.info(f"Decoded JSON: {json_data}")
 
-        # Check if this is a model management command
+        # Process model management commands
         if "command" in json_data:
             logger.info(f"Processing model command: {json_data['command']}")
             command_handler = ModelCommandHandler()
@@ -175,19 +177,19 @@ def startup_extensions(_config: RuntimeConfig):
     )
 
 
-async def load_and_warm_up_models(config: RuntimeConfig):
+async def load_and_warmup_models(config: RuntimeConfig):
     model_memory_manager = get_model_memory_manager()
     model_ids = model_memory_manager.get_all_model_ids()
-    warmup_models = config.warmup_models
+    enabled_models = config.enabled_models
 
-    logger.info(f"Warming up the following models: {warmup_models}")
+    logger.info(f"Warming up the following models: {enabled_models}")
 
     for model_id in model_ids:
-        if model_id in warmup_models:
+        if model_id in enabled_models:
             try:
                 logger.info(f"Loading and warming up model: {model_id}")
                 # await model_memory_manager.load(model_id, None)
-                await model_memory_manager.warm_up_pipeline(model_id)
+                await model_memory_manager.warmup_pipeline(model_id)
             except Exception as e:
                 logger.error(f"Error loading or warming up model {model_id}: {e}")
 
@@ -206,7 +208,7 @@ async def main_async():
     # await verify_and_download_models(config)
 
     # Load and warm up models
-    await load_and_warm_up_models(config)
+    await load_and_warmup_models(config)
 
     # Run the TCP server
     run_tcp_server(config)

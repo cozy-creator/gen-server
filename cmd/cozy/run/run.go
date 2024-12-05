@@ -42,7 +42,7 @@ func init() {
 	flags.String("host", "localhost", "Host to run the server on")
 	flags.String("environment", "dev", "Environment configuration")
 	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
-	flags.StringSlice("warmup-models", []string{}, "Models to be loaded and warmed up on startup")
+	flags.StringSlice("enabled-models", []string{}, "List of model-ids that will be used for generation")
 	flags.String("filesystem-type", "local", "Filesystem type: 'local' or 's3'")
 	flags.String("public-dir", "", "Path where static files should be served from. Relative paths are relative to the current working directory, not the location of the gen-server executable.")
 
@@ -66,7 +66,7 @@ func bindEnvs() {
     viper.BindEnv("host")
     viper.BindEnv("environment")
     viper.BindEnv("disable_auth")
-    viper.BindEnv("warmup_models")
+    viper.BindEnv("enabled_models")
     viper.BindEnv("filesystem_type")
     viper.BindEnv("public_dir")
 
