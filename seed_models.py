@@ -56,7 +56,7 @@ models_to_seed = [
             "display_name": "Juggernaut LPW",
         },
         "source": "hf:RunDiffusion/Juggernaut-XL-v9",
-        "custom_pipeline": "lpw_stable_diffusion",
+        "custom_pipeline": "lpw_stable_diffusion_xl",
     }
 ]
 

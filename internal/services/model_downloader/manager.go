@@ -116,20 +116,17 @@ func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID 
 func (m *ModelDownloaderManager) InitializeModels() error {
 	ctx := m.ctx
 
-	warmupModels, err := m.app.GetModels(ctx, m.app.Config().WarmupModels)
-	// fmt.Printf("warmupModels: %v\n", warmupModels)
-	if err != nil {
-		return fmt.Errorf("failed to get warmup models: %w", err)
-	}
+	if len(m.app.Config().WarmupModels) == 0 {
+        m.logger.Info("No models configured for warmup")
+        return nil
+    }
 
-	m.app.Config().PipelineDefs = config.ModelsToPipelineDefs(warmupModels)
+	// Get and merge pipeline defs from both config and DB
+    if err := m.app.GetPipelineDefs(ctx, m.app.Config().WarmupModels); err != nil {
+        return err
+    }
 
 	pipelineDefs := m.app.Config().PipelineDefs
-	// fmt.Printf("pipelineDefs: %v\n", pipelineDefs)
-	if len(pipelineDefs) == 0 {
-		m.logger.Info("No models configured in pipeline definitions")
-		return nil
-	}
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(pipelineDefs))

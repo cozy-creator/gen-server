@@ -16,21 +16,12 @@ from diffusers import (
     DiffusionPipeline,
     FluxInpaintPipeline,
     FluxPipeline,
-    EulerDiscreteScheduler,
-    EulerAncestralDiscreteScheduler,
-    DPMSolverMultistepScheduler,
-    DPMSolverSinglestepScheduler,
-    KDPM2DiscreteScheduler,
-    KDPM2AncestralDiscreteScheduler,
-    HeunDiscreteScheduler,
-    LMSDiscreteScheduler,
-    DEISMultistepScheduler,
-    UniPCMultistepScheduler,
-    FlowMatchEulerDiscreteScheduler,
+
 )
 from diffusers.loaders import FromSingleFileMixin
 from huggingface_hub.constants import HF_HUB_CACHE
 from huggingface_hub.file_download import repo_folder_name
+from huggingface_hub.utils import EntryNotFoundError
 
 from ..config import get_config
 from ..globals import (
@@ -67,47 +58,6 @@ class GPUEnum(Enum):
     VERY_HIGH = 30
 
 
-# Scheduler mapping
-SCHEDULER_CONFIGS = {
-    "DPM++ 2M": {"class": DPMSolverMultistepScheduler, "kwargs": {}},
-    "DPM++ 2M Karras": {
-        "class": DPMSolverMultistepScheduler,
-        "kwargs": {"use_karras_sigmas": True},
-    },
-    "DPM++ 2M SDE": {
-        "class": DPMSolverMultistepScheduler,
-        "kwargs": {"algorithm_type": "sde-dpmsolver++"},
-    },
-    "DPM++ 2M SDE Karras": {
-        "class": DPMSolverMultistepScheduler,
-        "kwargs": {"use_karras_sigmas": True, "algorithm_type": "sde-dpmsolver++"},
-    },
-    "DPM++ SDE": {"class": DPMSolverSinglestepScheduler, "kwargs": {}},
-    "DPM++ SDE Karras": {
-        "class": DPMSolverSinglestepScheduler,
-        "kwargs": {"use_karras_sigmas": True},
-    },
-    "DPM2": {"class": KDPM2DiscreteScheduler, "kwargs": {}},
-    "DPM2 Karras": {
-        "class": KDPM2DiscreteScheduler,
-        "kwargs": {"use_karras_sigmas": True},
-    },
-    "DPM2 a": {"class": KDPM2AncestralDiscreteScheduler, "kwargs": {}},
-    "DPM2 a Karras": {
-        "class": KDPM2AncestralDiscreteScheduler,
-        "kwargs": {"use_karras_sigmas": True},
-    },
-    "Euler": {"class": EulerDiscreteScheduler, "kwargs": {}},
-    "Euler Ancestral": {"class": EulerAncestralDiscreteScheduler, "kwargs": {}},
-    "Heun": {"class": HeunDiscreteScheduler, "kwargs": {}},
-    "LMS": {"class": LMSDiscreteScheduler, "kwargs": {}},
-    "LMS Karras": {
-        "class": LMSDiscreteScheduler,
-        "kwargs": {"use_karras_sigmas": True},
-    },
-    "DEIS": {"class": DEISMultistepScheduler, "kwargs": {}},
-    "UniPC": {"class": UniPCMultistepScheduler, "kwargs": {}},
-}
 
 # Keys correspond to diffusers pipeline classes
 MODEL_COMPONENTS = {
@@ -295,7 +245,9 @@ class ModelMemoryManager:
         """Setup scheduler from component config"""
         config = get_config()
         model_config = config.pipeline_defs.get(model_id)
-        scheduler_config = model_config.get("components", {}).get("scheduler", {})
+        print(f"Model config: {model_config}")
+        components = model_config.get("components", {})
+        scheduler_config = components.get("scheduler", {}) if components else {}
         if not scheduler_config and scheduler_config == {}:
             return
             
@@ -307,6 +259,7 @@ class ModelMemoryManager:
                 pipeline.scheduler.config, **scheduler_kwargs
             )
             pipeline.scheduler = new_scheduler
+
             print(f"Successfully set scheduler to {scheduler_class}")
         except Exception as e:
             logger.error(f"Error setting scheduler for {model_id}: {e}")
@@ -1064,13 +1017,24 @@ class ModelMemoryManager:
             print(
                 f"repo_id={repo_id},torch_dtype={torch_dtype},local_files_only=True,variant={variant},pipeline_kwargs={pipeline_kwargs},"
             )
-            pipeline = pipeline_class.from_pretrained(
-                repo_id,
-                torch_dtype=torch_dtype,
-                local_files_only=True,
-                variant=variant,
-                **pipeline_kwargs,
-            )
+            try:
+                pipeline = pipeline_class.from_pretrained(
+                    repo_id,
+                    torch_dtype=torch_dtype,
+                    local_files_only=True,
+                    variant=variant,
+                    **pipeline_kwargs,
+                )
+            except EntryNotFoundError as e:
+                print(f"Custom pipeline '{custom_pipeline}' not found: {e}")
+                print("Falling back to the default pipeline...")
+                del pipeline_kwargs["custom_pipeline"]
+                pipeline = pipeline_class.from_pretrained(
+                    repo_id,
+                    variant=variant,
+                    torch_dtype=torch_dtype,
+                    **pipeline_kwargs,
+                )
 
             self.flush_memory()
             self.loaded_model = pipeline
@@ -1103,19 +1067,24 @@ class ModelMemoryManager:
             if isinstance(model_config, dict):
                 class_name = model_config.get("class_name")
                 components = model_config.get("components")
+                custom_pipeline = model_config.get("custom_pipeline")
             else:
                 class_name = model_config.class_name
                 components = model_config.components
 
+            if custom_pipeline:
+                pipeline_kwargs["custom_pipeline"] = custom_pipeline
+
             if components:
                 for key, component in components.items():
-                    main_model_source = model_config.get("source")  
-                    if component and component.source:
-                        pipeline_kwargs[key] = await self._prepare_component(
-                            main_model_source,component, class_name, key
-                        )
-                    elif component and component.source is None:
-                        pipeline_kwargs[key] = None
+                    main_model_source = model_config.get("source")
+                    # Check if component and also id component has .source attribute
+                    if component:
+                        component_source = component.get("source", None)
+                        if component_source:
+                            pipeline_kwargs[key] = await self._prepare_component(
+                                main_model_source,component, class_name, key
+                            )
 
             # Handle custom pipeline if specified as string
             # if isinstance(class_name, str):
@@ -1531,7 +1500,6 @@ class ModelMemoryManager:
         try:
             with torch.no_grad():
                 if isinstance(pipeline, DiffusionPipeline) and callable(pipeline):
-                    print("In here!")
                     _ = pipeline(
                         prompt="This is a warm-up prompt",
                         num_inference_steps=20,

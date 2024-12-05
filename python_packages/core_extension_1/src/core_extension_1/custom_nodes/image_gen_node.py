@@ -144,6 +144,7 @@ class ImageGenNode(CustomNode):
             # repo_id = pipeline._name_or_path
 
             class_name = pipeline.__class__.__name__
+            print(f"Class name: {class_name}")
 
             model_config = self.config_manager.get_model_config(model_id, class_name)
 
@@ -194,12 +195,12 @@ class ImageGenNode(CustomNode):
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
             # Set up default positive prompt if it exists in model_config
-            if "default_positive_prompt" in model_config:
-                positive_prompt = (
-                    model_config["default_positive_prompt"] + ", " + positive_prompt
-                )
-            else:
-                positive_prompt = positive_prompt
+            # if "default_positive_prompt" in model_config:
+            #     positive_prompt = (
+            #         model_config["default_positive_prompt"] + ", " + positive_prompt
+            #     )
+            # else:
+            #     positive_prompt = positive_prompt
 
             gen_params = {
                 "prompt": positive_prompt,
@@ -214,20 +215,19 @@ class ImageGenNode(CustomNode):
 
             if isinstance(pipeline, FluxPipeline):
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
-            else:
-                if model_id != "playground2.5":
-                    # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
-                    # Check model_config for negative prompt and append it to the negative prompt
-                    if "default_negative_prompt" in model_config:
-                        gen_params["negative_prompt"] = (
-                            model_config["default_negative_prompt"]
-                            + ", "
-                            + negative_prompt
-                        )
-                    else:
-                        gen_params["negative_prompt"] = negative_prompt
+                # if model_id != "playground2.5":
+                #     # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
+                #     # Check model_config for negative prompt and append it to the negative prompt
+                #     if "default_negative_prompt" in model_config:
+                #         gen_params["negative_prompt"] = (
+                #             model_config["default_negative_prompt"]
+                #             + ", "
+                #             + negative_prompt
+                #         )
+                #     else:
+                #         gen_params["negative_prompt"] = negative_prompt
 
-                    print(f"Negative Prompt: {gen_params['negative_prompt']}")
+                # print(f"Negative Prompt: {gen_params['negative_prompt']}")
 
             print(f"Prompt: {gen_params['prompt']}")
 

@@ -15,30 +15,22 @@ DEFAULTS = {
     "diffuser_class_defaults": {
       "StableDiffusionXLPipeline": {
         "scheduler": "",
-        "default_positive_prompt": "",
-        "default_negative_prompt": "",
         "guidance_scale": 7.0,
         "num_inference_steps": 20
       },
       "StableDiffusionPipeline": {
         "scheduler": "",
-        "default_positive_prompt": "",
-        "default_negative_prompt": "",
         "guidance_scale": 7.0,
         "num_inference_steps": 25
       },
       "StableDiffusion3Pipeline": {
         "scheduler": "",
-        "default_positive_prompt": "",
-        "default_negative_prompt": "",
         "guidance_scale": 7.0,
         "num_inference_steps": 28
       }
     },
     "global_default": {
       "scheduler": "",
-      "default_positive_prompt": "",
-      "default_negative_prompt": "",
       "guidance_scale": 7.0,
       "num_inference_steps": 25
     }
