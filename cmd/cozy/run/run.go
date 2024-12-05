@@ -140,7 +140,7 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := runPythonRuntime(ctx, cfg); err != nil {
+		if err := runPythonRuntime(ctx, app, cfg); err != nil {
 			errc <- err
 		}
 	}()
@@ -261,8 +261,8 @@ func createNewApp() (*app.App, error) {
 	return app, nil
 }
 
-func runPythonRuntime(ctx context.Context, cfg *config.Config) error {
-	if err := tools.StartPythonRuntime(ctx, cfg); err != nil {
+func runPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) error {
+	if err := tools.StartPythonRuntime(ctx, app, cfg); err != nil {
 		fmt.Println(err)
 		return err
 	}

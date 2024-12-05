@@ -115,11 +115,18 @@ func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID 
 
 func (m *ModelDownloaderManager) InitializeModels() error {
 	ctx := m.ctx
+
+	if len(m.app.Config().WarmupModels) == 0 {
+        m.logger.Info("No models configured for warmup")
+        return nil
+    }
+
+	// Get and merge pipeline defs from both config and DB
+    if err := m.app.GetPipelineDefs(ctx, m.app.Config().WarmupModels); err != nil {
+        return err
+    }
+
 	pipelineDefs := m.app.Config().PipelineDefs
-	if len(pipelineDefs) == 0 {
-		m.logger.Info("No models configured in pipeline definitions")
-		return nil
-	}
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(pipelineDefs))
@@ -212,6 +219,8 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 		return fmt.Errorf("failed to download model: %w", err)
 	}
 
+	fmt.Printf("modelConfig: %v\n", modelConfig)
+
 	// download components
 	if len(modelConfig.Components) > 0 {
 		var wg sync.WaitGroup
@@ -221,6 +230,11 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 			wg.Add(1)
 			go func(name string, comp *config.ComponentDefs) {
 				defer wg.Done()
+
+				// check if component has source else skip
+				if comp.Source == "" {
+					return
+				}
 			
 				compSource, err := ParseModelSource(comp.Source)
 				if err != nil {
@@ -282,6 +296,11 @@ func (m *ModelDownloaderManager) IsDownloaded(modelID string) (bool, error) {
 
 	// check components
 	for name, comp := range modelConfig.Components {
+		// check if component has source else skip
+		if comp.Source == "" {
+			continue
+		}
+
 		compSource, err := ParseModelSource(comp.Source)
 		if err != nil {
 			return false, fmt.Errorf("invalid component source for %s: %w", name, err)

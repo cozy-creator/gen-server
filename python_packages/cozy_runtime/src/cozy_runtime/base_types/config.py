@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ class PipelineConfig:
 class ComponentConfig:
     source: str
     class_name: Optional[str | tuple[str, str]]
+    kwargs: Optional[dict[str, Any]]
 
 
 def default_home_dir() -> str:

@@ -143,3 +143,30 @@ func (app *App) DB() *bun.DB {
 func (app *App) Uploader() *fileuploader.Uploader {
 	return app.fileuploader
 }
+
+func (app *App) GetModels(ctx context.Context, modelNames []string) ([]models.Model, error) {
+	return repository.GetModels(ctx, app.DB(), modelNames)
+}
+
+func (app *App) GetPipelineDefs(ctx context.Context, modelNames []string) error {
+	// Filter models that are not in the config
+	var modelsToQuery []string
+	for _, name := range modelNames {
+		if _, exists := app.config.PipelineDefs[name]; !exists {
+			modelsToQuery = append(modelsToQuery, name)
+		}
+	}
+
+	// Query DB only if needed
+	if len(modelsToQuery) > 0 {
+		dbModels, err := app.GetModels(ctx, modelsToQuery)
+		if err != nil {
+			return fmt.Errorf("failed to get models from DB: %w", err)
+		}
+
+		// Merge with existing pipeline defs
+		app.config.PipelineDefs = config.MergeModelsToPipelineDefs(app.config.PipelineDefs, dbModels)
+	}
+
+	return nil
+}

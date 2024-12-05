@@ -7,7 +7,7 @@ import json
 import sseclient
 
 class CozyClient:
-    def __init__(self, base_url="http://localhost:8883", api_key=None):
+    def __init__(self, base_url="http://localhost:8881", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/vnd.msgpack',
@@ -63,8 +63,8 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sd1.5-stable",
-        "positive_prompt": "A woman (8k, RAW photo, highest quality), hyperrealistic, intricate abstract, intricate artwork, abstract style, mesmerizing, painful, convergence of [technology:nature:25], neural circuitry, mythical beast, mechanical parts, glowing wires, [thunder:roots:15] emerged to body, intertwines with delicate tendrils of flora, forming a symbiotic masterpiece of organic beauty, artificial precision, non-representational, colors and shapes, expression of feelings, imaginative, highly detailed, extremely high-resolution details, photographic, realism pushed to extreme, fine texture, 4k, ultra-detailed, high quality, high contrast",
+        "model": "juggernaut-xl-v9",
+        "positive_prompt": "A woman (8k, RAW photo, highest quality), hyperrealistic, intricate abstract, intricate artwork, abstract style",
         "negative_prompt": "verybadimagenegative_v1.3, (worst quality, low quality:1.4), lowres, bad anatomy, normal quality, monochrome, grayscale, text, signature, watermark, logo",
         "num_outputs": 1,
         "random_seed": 43,

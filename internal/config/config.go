@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/cozy-creator/gen-server/internal/templates"
-
+	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
@@ -53,12 +53,16 @@ type S3Config struct {
 type PipelineDefs struct {
 	ClassName  string                    `mapstructure:"class_name" json:"class_name"`
 	Source     string                    `mapstructure:"source" json:"source"`
-	Components map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
+	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
+	Components     map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type ComponentDefs struct {
-	ClassName string `mapstructure:"class_name" json:"class_name"`
-	Source    string `mapstructure:"source" json:"source"`
+	ClassName string                    `mapstructure:"class_name" json:"class_name"`
+	Source    string                    `mapstructure:"source" json:"source"`
+	Kwargs    map[string]interface{}    `mapstructure:"kwargs,omitempty" json:"kwargs,omitempty"`
 }
 
 type PulsarConfig struct {
@@ -172,6 +176,16 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 		def.Source = source
 	}
 
+	// Extract custom_pipeline
+	if customPipeline, ok := modelMap["custom_pipeline"].(string); ok {
+		def.CustomPipeline = customPipeline
+	}
+
+	// Extract default_args
+	if defaultArgs, ok := modelMap["default_args"].(map[string]interface{}); ok {
+		def.DefaultArgs = defaultArgs
+	}
+
 	// Extract components
 	if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
 		def.Components = make(map[string]*ComponentDefs)
@@ -184,12 +198,62 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 				if source, ok := compMap["source"].(string); ok {
 					compDef.Source = source
 				}
+				if kwargs, ok := compMap["kwargs"].(map[string]interface{}); ok {
+					compDef.Kwargs = kwargs
+				}
 				def.Components[compKey] = compDef
 			}
 		}
 	}
 
 	return def
+}
+
+
+func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []models.Model) map[string]*PipelineDefs {
+	mergedDefs := make(map[string]*PipelineDefs)
+
+	// Copy existing defs
+	for modelID, def := range existingDefs {
+		mergedDefs[modelID] = def
+	}
+
+	// Add DB models only if they don't exist in the config
+	for _, model := range models {
+		if _, exists := mergedDefs[model.Name]; !exists {
+			def := &PipelineDefs{
+				Source: model.Source,
+				ClassName: model.ClassName,
+				CustomPipeline: model.CustomPipeline,
+				DefaultArgs: model.DefaultArgs,
+				Components: make(map[string]*ComponentDefs),
+			}
+
+			if model.Components != nil {
+				for name, comp := range model.Components {
+					if compMap, ok := comp.(map[string]interface{}); ok {
+						compDef := &ComponentDefs{}
+                    
+						if className, ok := compMap["class_name"].(string); ok {
+							compDef.ClassName = className
+						}
+						if source, ok := compMap["source"].(string); ok {
+							compDef.Source = source
+						}
+						if kwargs, ok := compMap["kwargs"].(map[string]interface{}); ok {
+							compDef.Kwargs = kwargs
+						}
+
+						def.Components[name] = compDef
+					}
+				}
+			}
+
+			mergedDefs[model.Name] = def
+		}
+	}
+
+	return mergedDefs
 }
 
 func IsLoaded() bool {

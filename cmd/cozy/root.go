@@ -88,6 +88,7 @@ func initConfig() {
 	// Set defaults that depend upon the location of the cozy home directory
 	viper.SetDefault("config_file", filepath.Join(viper.GetString("cozy_home"), "config.yaml"))
 
+
 	// Load environment variables and config files
 	if err := config.LoadEnvAndConfigFiles(); err != nil {
 		fmt.Println(err)

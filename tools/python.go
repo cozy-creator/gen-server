@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 )
 
@@ -40,14 +41,20 @@ func CreateCozyRuntimeCommand(args ...string) (*exec.Cmd, error) {
 	return nil, fmt.Errorf("the command 'cozy-runtime' is not installed in the system-path; please install it")
 }
 
-func StartPythonRuntime(ctx context.Context, cfg *config.Config) error {
+func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) error {
 	ctx = context.WithoutCancel(ctx)
+
+	if err := app.GetPipelineDefs(ctx, cfg.WarmupModels); err != nil {
+        return err
+    }
 
 	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
     if err != nil {
         log.Printf("failed to marshal pipeline defs: %v", err)
         pipelineDefsJson = []byte{}
     }
+
+	fmt.Println("Pipeline defs: ", cfg.PipelineDefs)
 
 	args := []string{
 		"--home-dir", cfg.CozyHome,
@@ -184,4 +191,3 @@ func GetPythonSitePackagesPath() (string, error) {
 	codeString := "import sysconfig; print(sysconfig.get_paths()['purelib'])"
 	return ExecutePythonCommandWithOutput("-c", codeString)
 }
-
