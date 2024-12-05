@@ -52,6 +52,13 @@ pipeline_defs:
 
   sdxl.base:
     source: hf:stabilityai/stable-diffusion-xl-base-1.0
+  
+  illustrious.xl:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/889818?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    metadata:
+      display_name: Illustrious XL
+      lineage: sdxl.base
 
   pony.v6:
     # civiitai does not provide model_index.json files, hence class_name must be specified manually
@@ -65,10 +72,6 @@ pipeline_defs:
   wai.ani.ponyxl:
     class_name: StableDiffusionXLPipeline
     source: https://civitai.com/api/download/models/1065370?type=Model&format=SafeTensor&size=pruned&fp=fp16
-
-  illustrious.xl:
-    class_name: StableDiffusionXLPipeline
-    source: https://civitai.com/api/download/models/889818?type=Model&format=SafeTensor&size=pruned&fp=fp16
 
   real.dream.pony:
     class_name: StableDiffusionXLPipeline
@@ -90,6 +93,11 @@ pipeline_defs:
   #   source: hf:playgroundai/playground-v2.5-1024px-aesthetic
   #   metadata:
   #     display_name: Playground 2.5
+  #     lineage: playground2.5
+  #     description: whatever
+  #     tags:
+  #       - whatever
+  #       - aesthetic
   #   class_name: null
   #   custom_pipeline:
   #   default_args:

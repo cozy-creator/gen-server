@@ -10,9 +10,9 @@ class CozyClient:
     def __init__(self, base_url="http://localhost:8883", api_key=None):
         self.base_url = base_url
         self.headers = {
-            'Content-Type': 'application/msgpack',
+            'Content-Type': 'application/vnd.msgpack',
             'X-API-Key': api_key
-        } if api_key else {'Content-Type': 'application/msgpack'}
+        } if api_key else {'Content-Type': 'application/vnd.msgpack'}
 
     def generate(self, params):
         """Synchronous generation request"""

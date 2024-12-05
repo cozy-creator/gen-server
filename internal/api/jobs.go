@@ -48,7 +48,7 @@ func SubmitRequestHandler(c *gin.Context) {
 	}
 
 	switch contentType {
-	case "application/msgpack":
+	case "application/vnd.msgpack":
 		if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
 			return
@@ -185,7 +185,7 @@ func SubmitAndStreamRequestHandler(c *gin.Context) {
 	}
 
 	switch contentType {
-	case "application/msgpack":
+	case "application/vnd.msgpack":
 		if err := c.ShouldBindWith(&body, binding.MsgPack); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
 			return
