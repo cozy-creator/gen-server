@@ -165,9 +165,10 @@ func runApp(_ *cobra.Command, _ []string) error {
 	go func() {
 		defer wg.Done()
 		if err := downloadEnabledModels(app, downloaderManager); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				errc <- fmt.Errorf("model download error: %w", err)
-			}
+			fmt.Println("model download error: ", err)
+			// if !errors.Is(err, context.Canceled) {
+			// 	errc <- fmt.Errorf("model download error: %w", err)
+			// }
 		}
 	}()
 
