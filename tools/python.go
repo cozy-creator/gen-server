@@ -44,10 +44,6 @@ func CreateCozyRuntimeCommand(args ...string) (*exec.Cmd, error) {
 func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) error {
 	ctx = context.WithoutCancel(ctx)
 
-	if err := app.GetPipelineDefs(ctx, cfg.EnabledModels); err != nil {
-        return err
-    }
-
 	pipelineDefsJson, err := json.Marshal(cfg.PipelineDefs)
     if err != nil {
         log.Printf("failed to marshal pipeline defs: %v", err)

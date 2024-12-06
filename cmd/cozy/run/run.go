@@ -123,6 +123,9 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}
 	defer app.Close()
 
+	// Load pipeline defs from Database for enabled models
+	config.LoadPipelineDefsFromDB(ctx, app.DB())
+
 	downloaderManager, err := model_downloader.NewModelDownloaderManager(app)
 	if err != nil {
 		return fmt.Errorf("failed to initialize model downloader manager: %w", err)
@@ -291,7 +294,6 @@ func runWorkflowProcessor(app *app.App) error {
 }
 
 func downloadEnabledModels(app *app.App, downloaderManager *model_downloader.ModelDownloaderManager) error {
-
 	ctx := app.Context()
 
 	errChan := make(chan error, 1)

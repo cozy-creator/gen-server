@@ -121,11 +121,6 @@ func (m *ModelDownloaderManager) InitializeModels() error {
         return nil
     }
 
-	// Get and merge pipeline defs from both config and DB
-    if err := m.app.GetPipelineDefs(ctx, m.app.Config().EnabledModels); err != nil {
-        return err
-    }
-
 	pipelineDefs := m.app.Config().PipelineDefs
 
 	var wg sync.WaitGroup

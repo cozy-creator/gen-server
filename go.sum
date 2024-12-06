@@ -142,8 +142,6 @@ github.com/containerd/errdefs v0.1.0/go.mod h1:YgWiiHtLmSeBrvpw+UfPijzbLaB77mEG1
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
 github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/cozy-creator/hf-hub v0.0.0-20241122225038-d35a30339a2d h1:UDckenrASuQnThS76SvWVEqWJVd/HE5dFatxov3bkFU=
-github.com/cozy-creator/hf-hub v0.0.0-20241122225038-d35a30339a2d/go.mod h1:8g8wxV07XSLJyBfZ6ekZQfhLKkF0a4WSuxkjj1QRgq8=
 github.com/cozy-creator/hf-hub v0.0.0-20241127165809-ef3f97a11106 h1:vC2AwN/WSJG9tCcmiYPTQJpHHnsvCbbm+7mQrcgZW74=
 github.com/cozy-creator/hf-hub v0.0.0-20241127165809-ef3f97a11106/go.mod h1:8g8wxV07XSLJyBfZ6ekZQfhLKkF0a4WSuxkjj1QRgq8=
 github.com/cpuguy83/dockercfg v0.3.1 h1:/FpZ+JaygUR/lZP2NlFI2DVfrOEMAIKP5wWEJdoYe9E=
@@ -406,8 +404,6 @@ github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=
 github.com/onsi/ginkgo v1.16.5/go.mod h1:+E8gABHa3K6zRBolWtd+ROzc/U5bkGt0FwiG042wbpU=
 github.com/onsi/gomega v1.19.0 h1:4ieX6qQjPP/BfC3mpsAtIGGlxTWPeA3Inl/7DtXw1tw=
 github.com/onsi/gomega v1.19.0/go.mod h1:LY+I3pBVzYsTBU1AnDwOSxaYi9WoWiqgwooUqq9yPro=
-github.com/openai/openai-go v0.1.0-alpha.38 h1:j/rL0aEIHWnWaPgA8/AXYKCI79ZoW44NTIpn7qfMEXQ=
-github.com/openai/openai-go v0.1.0-alpha.38/go.mod h1:3SdE6BffOX9HPEQv8IL/fi3LYZ5TUpRYaqGQZbyk11A=
 github.com/openai/openai-go v0.1.0-alpha.39 h1:FvoNWy7BPhA0TjGOK5huRGU5sAUEx2jeubLXz34K9LE=
 github.com/openai/openai-go v0.1.0-alpha.39/go.mod h1:3SdE6BffOX9HPEQv8IL/fi3LYZ5TUpRYaqGQZbyk11A=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=

@@ -1,16 +1,19 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
+	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/db/models"
-	"github.com/cozy-creator/gen-server/internal/templates"
+	"github.com/cozy-creator/gen-server/internal/db/repository"
+	templates "github.com/cozy-creator/gen-server/internal/file_templates"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
+	"github.com/uptrace/bun"
 )
 
 const (
@@ -38,8 +41,8 @@ type Config struct {
 	OpenAI             *OpenAIConfig            `mapstructure:"openai"`
 	Replicate          *ReplicateConfig         `mapstructure:"replicate"`
 	Civitai            *CivitaiConfig           `mapstructure:"civitai"`
-	PipelineDefs       map[string]*PipelineDefs // unmarshalled manually from config.yaml
-	EnabledModels      []string                 `mapstructure:"enabled-models"`
+	PipelineDefs       PipelineDefs				// Manually unmarshaled
+	EnabledModels      []string					`mapstructure:"enabled_models"`
 }
 
 type S3Config struct {
@@ -52,19 +55,30 @@ type S3Config struct {
 	EndpointUrl string `mapstructure:"endpoint_url"`
 }
 
-type PipelineDefs struct {
+type PipelineDefs map[string]*PipelineDef
+
+type PipelineDef struct {
 	ClassName      string                    `mapstructure:"class_name" json:"class_name"`
 	Source         string                    `mapstructure:"source" json:"source"`
 	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
 	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
-	Components     map[string]*ComponentDefs `mapstructure:"components" json:"components"`
+	Components     ComponentDef              `mapstructure:"components" json:"components"`
 	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
+
+type ComponentDef map[string]*ComponentDefs
 
 type ComponentDefs struct {
 	ClassName string                 `mapstructure:"class_name" json:"class_name"`
 	Source    string                 `mapstructure:"source" json:"source"`
 	Kwargs    map[string]interface{} `mapstructure:"kwargs,omitempty" json:"kwargs,omitempty"`
+}
+
+type Metadata struct {
+	DisplayName string   `json:"display_name,omitempty"`
+	Lineage     string   `json:"lineage,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 type PulsarConfig struct {
@@ -114,7 +128,7 @@ func LoadEnvAndConfigFiles() error {
 
 	// Set the assets directory, models directory, and temp directory in viper
 	cozyHome := viper.GetString("cozy_home")
-	if err := createCozyHomeDirs(cozyHome); err != nil {
+	if err := templates.CreateCozyHomeDirs(cozyHome); err != nil {
 		return err
 	}
 	viper.Set("temp_dir", path.Join(cozyHome, "temp"))
@@ -128,7 +142,7 @@ func LoadEnvAndConfigFiles() error {
 		return err
 	}
 
-	writeExampleTemplates()
+	templates.WriteExampleTemplates()
 
 	return nil
 }
@@ -142,6 +156,17 @@ func readAndUnmarshalConfig() error {
 		}
 	}
 
+	// Clean whitespace from `enabled_models` list
+	if enabledModels := viper.GetStringSlice("enabled_models"); len(enabledModels) > 0 {
+		cleanedModels := make([]string, 0, len(enabledModels))
+		for _, model := range enabledModels {
+			if cleaned := strings.TrimSpace(model); cleaned != "" {
+				cleanedModels = append(cleanedModels, cleaned)
+			}
+		}
+		viper.Set("enabled_models", cleanedModels)
+	}
+
 	// Copy Viper's internal config-state into our local struct
 	config = &Config{}
 	if err := viper.Unmarshal(&config); err != nil {
@@ -151,7 +176,7 @@ func readAndUnmarshalConfig() error {
 	// Handle PipelineDefs separately
 	if raw := viper.Get("pipeline_defs"); raw != nil {
 		if rawMap, ok := raw.(map[string]interface{}); ok {
-			pipelineDefs := make(map[string]*PipelineDefs)
+			pipelineDefs := PipelineDefs{}
 			for key, val := range rawMap {
 				if def := unmarshalPipelineDef(val); def != nil {
 					pipelineDefs[key] = def
@@ -164,13 +189,13 @@ func readAndUnmarshalConfig() error {
 	return nil
 }
 
-func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
+func unmarshalPipelineDef(raw interface{}) *PipelineDef {
 	modelMap, ok := raw.(map[string]interface{})
 	if !ok {
 		return nil
 	}
 
-	def := &PipelineDefs{}
+	def := &PipelineDef{}
 
 	// Extract class_name
 	if className, ok := modelMap["class_name"].(string); ok {
@@ -215,8 +240,20 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDefs {
 	return def
 }
 
-func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []models.Model) map[string]*PipelineDefs {
-	mergedDefs := make(map[string]*PipelineDefs)
+// Fetch pipleine defs from DB and merge with existing defs
+func LoadPipelineDefsFromDB(ctx context.Context, db *bun.DB) error {
+	dbModels, err := repository.GetModels(ctx, db, config.EnabledModels)
+	if err != nil {
+		return fmt.Errorf("failed to get models from DB: %w", err)
+	}
+
+	config.PipelineDefs = mergeModelsToPipelineDefs(config.PipelineDefs, dbModels)
+
+	return nil
+}
+
+func mergeModelsToPipelineDefs(existingDefs PipelineDefs, models []models.Model) PipelineDefs {
+	mergedDefs := PipelineDefs{}
 
 	// Copy existing defs
 	for modelID, def := range existingDefs {
@@ -226,7 +263,7 @@ func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []m
 	// Add DB models only if they don't exist in the config
 	for _, model := range models {
 		if _, exists := mergedDefs[model.Name]; !exists {
-			def := &PipelineDefs{
+			def := &PipelineDef{
 				Source:         model.Source,
 				ClassName:      model.ClassName,
 				CustomPipeline: model.CustomPipeline,
@@ -258,6 +295,13 @@ func MergeModelsToPipelineDefs(existingDefs map[string]*PipelineDefs, models []m
 		}
 	}
 
+	// Remove models without a source
+	for modelID, def := range mergedDefs {
+		if def.Source == "" {
+			delete(mergedDefs, modelID)
+		}
+	}
+
 	return mergedDefs
 }
 
@@ -273,42 +317,3 @@ func MustGetConfig() *Config {
 	return config
 }
 
-func createCozyHomeDirs(cozyHome string) error {
-	subdirs := []string{"assets", "models", "temp"}
-	if err := os.MkdirAll(cozyHome, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create cozyhome directory: %w", err)
-	}
-
-	for _, subdir := range subdirs {
-		dir := filepath.Join(cozyHome, subdir)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create %s directory: %w", subdir, err)
-		}
-	}
-
-	return nil
-}
-
-func writeExampleTemplates() error {
-	cozyHome := viper.GetString("cozy_home")
-	exampleEnvFilePath := filepath.Join(cozyHome, ".env.example")
-	exampleConfigFilePath := filepath.Join(cozyHome, "config.example.yaml")
-
-	// Check to see if exampleEnvFilePath does not exist, and if it doesn't then create it
-	if _, err := os.Stat(exampleEnvFilePath); os.IsNotExist(err) {
-		err = templates.WriteEnv(exampleEnvFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to create .env file: %w", err)
-		}
-	}
-
-	// Check to see if exampleConfigFilePath does not exist, and if it doesn't then create it
-	if _, err := os.Stat(exampleConfigFilePath); os.IsNotExist(err) {
-		err = templates.WriteConfig(exampleConfigFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to create config.yaml file: %w", err)
-		}
-	}
-
-	return nil
-}
