@@ -8,6 +8,7 @@ from typing import Optional, Any, Dict, List, Tuple, Union, Type
 import psutil
 from collections import OrderedDict
 import time
+import sys
 
 import torch
 import diffusers
@@ -40,7 +41,7 @@ from .model_config_manager import ModelConfigManager
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", stream=sys.stdout
 )
 
 # Constants
@@ -971,7 +972,7 @@ class ModelMemoryManager:
             Loaded pipeline or None if loading failed
         """
         try:
-            pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config)
+            pipeline_kwargs = await self._prepare_pipeline_kwargs(model_config, variant)
             variant = None if variant == "" else variant
             # TO DO: make this more robust
             torch_dtype = (
@@ -1019,7 +1020,7 @@ class ModelMemoryManager:
             return None
 
     async def _prepare_pipeline_kwargs(
-        self, model_config: Optional[PipelineConfig]
+        self, model_config: Optional[PipelineConfig], variant: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Prepare kwargs for pipeline initialization.
@@ -1054,7 +1055,7 @@ class ModelMemoryManager:
                         component_source = component.get("source", None)
                         if component_source:
                             pipeline_kwargs[key] = await self._prepare_component(
-                                main_model_source,component, class_name, key
+                                main_model_source,component, class_name, key, variant
                             )
 
             # Handle custom pipeline if specified as string
@@ -1073,6 +1074,7 @@ class ModelMemoryManager:
         component: PipelineConfig,
         model_class_name: Optional[Union[str, Tuple[str, str]]],
         key: str,
+        variant: Optional[str] = None,
     ) -> Any:
         """
         Prepare a model component based on its configuration.
@@ -1094,15 +1096,15 @@ class ModelMemoryManager:
             if not source.endswith((".safetensors", ".bin", ".ckpt", ".pt")):
                 # check if the url has more than 2 forward slashes. If it does, the last one is the subfolder, the source is the first part
                 # e.g. hf:cozy-creator/Flux.1-schnell-8bit/transformer this will be, source = hf:cozy-creator/Flux.1-schnell-8bit, subfolder = transformer
-                if source.count("/") > 2:
+                if source.count("/") > 1:
                     repo_id = "/".join(source.split("/")[:-1])
                     subfolder = source.split("/")[-1]
                     return await self._load_diffusers_component(
-                        main_model_source.replace("hf:", ""), repo_id.replace("hf:", ""), subfolder
+                        main_model_source.replace("hf:", ""), repo_id.replace("hf:", ""), subfolder, variant
                     )
                 else:
                     return await self._load_diffusers_component(
-                        main_model_source.replace("hf:", ""), source.replace("hf:", "")
+                        main_model_source.replace("hf:", ""), source.replace("hf:", ""), variant
                     )
             else:
                 return self._load_custom_component(source, model_class_name, key)
@@ -1885,7 +1887,7 @@ class ModelMemoryManager:
         return file.endswith((".safetensors", ".bin", ".ckpt"))
 
     async def _load_diffusers_component(
-        self, main_model_repo: str, component_repo: str, component_name: Optional[str] = None
+        self, main_model_repo: str, component_repo: str, component_name: Optional[str] = None, variant: Optional[str] = None
     ) -> Any:
         """
         Load a diffusers component.
@@ -1915,17 +1917,28 @@ class ModelMemoryManager:
             model_class = getattr(module, class_name)
 
             if component_name:
-                component = model_class.from_pretrained(
-                    component_repo,
-                    subfolder=component_name,
-                    torch_dtype=torch.bfloat16
-                    if "flux" in component_repo.lower()
-                    else torch.float16,
-                )
+                if variant:
+                    component = model_class.from_pretrained(
+                        component_repo,
+                        subfolder=component_name,
+                        variant=variant,
+                        torch_dtype=torch.bfloat16
+                        if "flux" in component_repo.lower()
+                        else torch.float16,
+                    )
+                else:
+                    component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
+                        if "flux" in component_repo.lower()
+                        else torch.float16,)
             else:
-                component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
-                    if "flux" in component_repo.lower()
-                    else torch.float16,)
+                if variant:
+                    component = model_class.from_pretrained(component_repo, variant=variant, torch_dtype=torch.bfloat16
+                        if "flux" in component_repo.lower()
+                        else torch.float16,)
+                else:
+                    component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
+                        if "flux" in component_repo.lower()
+                        else torch.float16,)
 
             if self.should_quantize:
                 quantize_model_fp8(component)

@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.33
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.3
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cozy-creator/hf-hub v0.0.0-20241127165809-ef3f97a11106
+	github.com/cozy-creator/hf-hub v0.0.0-20241206201717-75a2ec552353
 	github.com/gabriel-vasile/mimetype v1.4.5
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-contrib/cors v1.7.2
@@ -157,8 +157,8 @@ require (
 	golang.org/x/crypto v0.29.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/net v0.29.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/term v0.26.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

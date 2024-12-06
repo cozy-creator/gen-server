@@ -63,9 +63,9 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "playground2.5",
-        "positive_prompt": "A woman (8k, RAW photo, highest quality), hyperrealistic, intricate abstract, intricate artwork, abstract style",
-        "negative_prompt": "verybadimagenegative_v1.3, (worst quality, low quality:1.4), lowres, bad anatomy, normal quality, monochrome, grayscale, text, signature, watermark, logo",
+        "model": "sd1.5-andre",
+        "positive_prompt": "A beautiful woman colourful",
+        "negative_prompt": "",
         "num_outputs": 1,
         "random_seed": 43,
         "aspect_ratio": "1/1",

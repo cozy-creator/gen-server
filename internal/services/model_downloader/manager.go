@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"os"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
@@ -22,7 +23,6 @@ type ModelDownloaderManager struct {
 	ctx 		context.Context
 	civitaiAPIKey string
 	progress		*mpb.Progress
-	progressMu		sync.Mutex
 	modelStates     map[string]types.ModelState
 	modelReadyChans map[string][]chan struct{}
 	stateMu         sync.RWMutex
@@ -30,6 +30,7 @@ type ModelDownloaderManager struct {
 
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 	hubClient := hub.DefaultClient()
+	
 
 	civitaiAPIKey := ""
 	if app.Config().Civitai != nil {
@@ -38,8 +39,11 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 
 	progress := mpb.New(
 		mpb.WithWidth(60),
-		mpb.WithRefreshRate(180*time.Millisecond),
+		mpb.WithRefreshRate(5*time.Second),
+		mpb.WithOutput(os.Stderr),
 	)
+
+	hubClient.Progress = progress
 
 	return &ModelDownloaderManager{
 		app: 		app,
@@ -185,6 +189,9 @@ func (m *ModelDownloaderManager) InitializeModels() error {
                 return fmt.Errorf("error during model initialization: %w", err)
             }
         }
+
+		m.progress.Wait()
+
         return nil
     }
 }

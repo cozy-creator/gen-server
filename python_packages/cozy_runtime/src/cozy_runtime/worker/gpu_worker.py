@@ -7,11 +7,12 @@ import torch
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry  # type: ignore
 
+import sys
 
 from ..globals import get_custom_nodes
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
