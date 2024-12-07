@@ -53,7 +53,7 @@ func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) e
 	args := []string{
 		"--home-dir", cfg.CozyHome,
 		"--environment", cfg.Environment,
-		"--host", cfg.Host,
+		"--host", "localhost", // we are not using cfg.Host, because cozy-runtime is accessible internally only
 		"--port", strconv.Itoa(config.TCPPort),
 		"--models-path", cfg.ModelsDir,
 	}

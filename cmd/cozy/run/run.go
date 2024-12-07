@@ -38,8 +38,14 @@ func init() {
 	cobra.OnInitialize(initDefaults)
 	flags := Cmd.Flags()
 
+	// Change default host to 0.0.0.0 if running in a docker container
+	defaultHost := "localhost"
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		defaultHost = "0.0.0.0"
+	}
+
 	flags.Int("port", 8881, "Port to run the server on")
-	flags.String("host", "localhost", "Host to run the server on")
+	flags.String("host", defaultHost, "Host to run the server on")
 	flags.String("environment", "dev", "Environment configuration")
 	flags.Bool("disable-auth", false, "Disable authentication when receiving requests")
 	flags.StringSlice("enabled-models", []string{}, "List of model-ids that will be used for generation")
@@ -320,7 +326,7 @@ func runServer(app *app.App) (*server.Server, error) {
 
 	errc := make(chan error, 1)
 	go func() {
-		fmt.Printf("Gen-Server Started on Port %v\n", app.Config().Port)
+		fmt.Printf("Gen-Server Started on %v:%v\n", app.Config().Host, app.Config().Port)
 		errc <- server.Start()
 	}()
 

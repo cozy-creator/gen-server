@@ -23,13 +23,16 @@ type App struct {
 	config       	*config.Config
 	ctx          	context.Context
 	cancelFunc   	context.CancelFunc
-	fileuploader 	*fileuploader.Uploader
+	fileuploader 		*fileuploader.Uploader
 
-	Logger           *zap.Logger
-	JobRepository    repository.IJobRepository
-	ImageRepository  repository.IImageRepository
-	APIKeyRepository repository.IAPIKeyRepository
-	EventRepository  repository.IEventRepository
+	Logger           	*zap.Logger
+	
+	APIKeyRepository 		repository.IAPIKeyRepository
+	EventRepository 		repository.IEventRepository
+	ImageRepository 		repository.IImageRepository
+	// JobMetricRepository 	repository.IJobMetricRepository
+	JobRepository   		repository.IJobRepository
+	// PipelineDefRepository 	repository.IPipelineDefRepository
 }
 
 type OptionFunc func(app *App)
@@ -88,9 +91,11 @@ func (app *App) InitializeDB() error {
 		func(ctx context.Context, tx bun.Tx) error {
 			tables := []interface{}{
 				(*models.APIKey)(nil),
-				(*models.Job)(nil),
-				(*models.Image)(nil),
 				(*models.Event)(nil),
+				(*models.Image)(nil),
+				(*models.Job)(nil),
+				(*models.JobMetric)(nil),
+				(*models.PipelineDef)(nil),
 			}
 
 			for _, table := range tables {
@@ -109,10 +114,12 @@ func (app *App) InitializeDB() error {
 	}
 
 	app.db = db.GetDB()
-	app.JobRepository = repository.NewJobRepository(app.db)
-	app.ImageRepository = repository.NewImageRepository(app.db)
-	app.EventRepository = repository.NewEventRepository(app.db)
 	app.APIKeyRepository = repository.NewAPIKeyRepository(app.db)
+	app.EventRepository = repository.NewEventRepository(app.db)
+	app.ImageRepository = repository.NewImageRepository(app.db)
+	app.JobRepository = repository.NewJobRepository(app.db)
+	// app.JobMetricRepository = repository.NewJobMetricRepository(app.db)
+	// app.PipelineDefRepository = repository.NewPipelineDefRepository(app.db)
 	return nil
 }
 

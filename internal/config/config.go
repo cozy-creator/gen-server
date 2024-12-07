@@ -63,7 +63,7 @@ type PipelineDef struct {
 	Source         string                    `mapstructure:"source" json:"source"`
 	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
 	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
-	Components     ComponentDefs              `mapstructure:"components" json:"components"`
+	Components     ComponentDefs             `mapstructure:"components" json:"components"`
 	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
@@ -155,6 +155,11 @@ func readAndUnmarshalConfig() error {
 		} else {
 			// return err
 		}
+	}
+	
+	// So it's not nil
+	if viper.GetStringMap("pipeline_defs") == nil {
+		viper.Set("pipeline_defs", PipelineDefs{})
 	}
 
 	cleanEnabledModels()
