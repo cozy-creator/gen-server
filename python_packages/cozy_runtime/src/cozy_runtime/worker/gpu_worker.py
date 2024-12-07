@@ -29,7 +29,6 @@ async def generate_images_non_io(
     task_data: dict[str, Any],
 ) -> AsyncGenerator[Tuple[str, torch.Tensor], None]:
     """Generates images based on the provided task data."""
-    logger.info(f"Generating images with task data: {task_data}")
     start = time.time()
 
     custom_nodes = get_custom_nodes()
@@ -62,7 +61,6 @@ async def generate_images_non_io(
                 "num_images": num_outputs,
                 "random_seed": random_seed,
             }
-            print(f"Params: {params}")
 
             if source_image:
                 # Add image-to-image specific parameters
@@ -76,7 +74,9 @@ async def generate_images_non_io(
             result = await image_gen_node(**params)
 
             if result is None:
-                logger.error(f"No result from image generation node for model {model_id}")
+                logger.error(
+                    f"No result from image generation node for model {model_id}"
+                )
                 return
 
             images = result["images"]
@@ -94,9 +94,7 @@ async def generate_images_non_io(
             yield (model_id, tensor_images)
         except Exception as e:
             traceback.print_exc()
-            logger.error(
-                f"Error generating images for model '{model_id}': {e}"
-            )
+            logger.error(f"Error generating images for model '{model_id}': {e}")
     except Exception as e:
         traceback.print_exc()
         logger.error(f"Error in image generation workflow: {e}")

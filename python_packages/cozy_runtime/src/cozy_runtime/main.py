@@ -98,7 +98,6 @@ def request_handler(context: RequestContext):
 
     try:
         json_data = json.loads(data.decode())
-        logger.info(f"Decoded JSON: {json_data}")
 
         # Process model management commands
         if "command" in json_data:

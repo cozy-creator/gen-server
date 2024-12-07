@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/cozy-creator/gen-server/internal/app"
@@ -220,8 +221,8 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 		ID:             uuid.NewString(),
 		OutputFormat:   params.OutputFormat,
 		Model:          params.Model,
-		NumOutputs:     params.NumOutputs,
-		RandomSeed:     params.RandomSeed,
+		NumOutputs:     func() int { if params.NumOutputs == nil { return 1 } else { return *params.NumOutputs } }(),
+		RandomSeed:     func() int { if params.RandomSeed == nil { return rand.Intn(1 << 32) } else { return *params.RandomSeed } }(),
 		AspectRatio:    params.AspectRatio,
 		PositivePrompt: params.PositivePrompt,
 		NegativePrompt: params.NegativePrompt,

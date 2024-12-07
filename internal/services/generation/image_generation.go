@@ -259,12 +259,18 @@ func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) err
 func handleImageOutput(app *app.App, id, url, mimeType string) error {
 	ctx := app.Context()
 	tx, err := app.DB().BeginTx(ctx, nil)
-	image := models.NewImage(url, uuid.MustParse(id), mimeType)
-	if _, err := app.ImageRepository.WithTx(&tx).Create(ctx, image); err != nil {
+	if err != nil {
+		return err
+	}
+	// Ensure rollback in case of error
+	defer func() {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
-			return err
 		}
+	}()
+
+	image := models.NewImage(url, uuid.MustParse(id), mimeType)
+	if _, err := app.ImageRepository.WithTx(&tx).Create(ctx, image); err != nil {
 		logger.Error("error creating image: ", err)
 		return err
 	}

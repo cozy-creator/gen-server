@@ -24,6 +24,7 @@ import (
 // 	OutputFormat string `json:"output_format"`
 // }
 
+// TO DO: this code is all wrong and unsafe; it will panic if the inputs are not what we expect
 func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]interface{}, error) {
 	model := inputs["model"].(string)
 	aspectRatio := inputs["aspect_ratio"].(string)
@@ -37,8 +38,8 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 
 	params := types.GenerateParamsRequest{
 		Model:          model,
-		NumOutputs:     numOutputs,
-		RandomSeed:     randomSeed,
+		NumOutputs:     &numOutputs,
+		RandomSeed:     &randomSeed,
 		AspectRatio:    aspectRatio,
 		OutputFormat:   outputFormat,
 		NegativePrompt: negativePrompt,
@@ -50,7 +51,6 @@ func GenerateImage(app *app.App, inputs map[string]interface{}) (map[string]inte
 		return nil, err
 	}
 
-	fmt.Println("params: ", reqParams)
 	images, err := receiveImages(reqParams.ID, app.Uploader(), app.MQ())
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func receiveImages(requestId string, uploader *fileuploader.Uploader, queue mq.M
 			break
 		}
 
-		outputData, _, err = generation.ParseImageOutput(outputData)
+		outputData, _, _ = generation.ParseImageOutput(outputData)
 		image, err := imagenode.DecodeImage(outputData, "bmp")
 		if err != nil {
 			fmt.Println("error: ", err)

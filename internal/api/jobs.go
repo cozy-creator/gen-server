@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/google/uuid"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -77,7 +78,6 @@ func SubmitRequestHandler(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Params: ", reqParams)
 	id := uuid.MustParse(reqParams.ID)
 	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
 		fmt.Println("Error creating job: ", err)
@@ -177,66 +177,63 @@ func StreamJobHandler(c *gin.Context) {
 	}
 }
 
-func SubmitAndStreamRequestHandler(c *gin.Context) {
+func SubmitAndStreamRequestHandler(ctx *gin.Context) {
 	var body types.GenerateParamsRequest
-	contentType := c.ContentType()
+	contentType := ctx.ContentType()
 	if contentType == "" {
 		contentType = "application/json" // Default to JSON
 	}
 
 	switch contentType {
 	case "application/vnd.msgpack":
-		if err := c.ShouldBindWith(&body, binding.MsgPack); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
+		if err := ctx.ShouldBindWith(&body, binding.MsgPack); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
 			return
 		}
 	case "application/json":
-		if err := c.ShouldBindWith(&body, binding.JSON); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
+		if err := ctx.ShouldBindWith(&body, binding.JSON); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
 			return
 		}
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
 		return
 	}
 
-	app := c.MustGet("app").(*app.App)
+	app := ctx.MustGet("app").(*app.App)
 	reqParams, err := generation.NewRequest(body, app)
-	fmt.Println("Params-: ", reqParams)
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
 	id := uuid.MustParse(reqParams.ID)
-	fmt.Println("ID: ", id, reqParams.ID)
 	encodedParams, err := msgpack.Marshal(reqParams)
 	if err != nil {
 		fmt.Println("Error marshaling params: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	idd := uuid.MustParse(reqParams.ID)
-	fmt.Println("IDd: ", idd, reqParams.ID)
-
-	fmt.Println("Params: ", reqParams)
 	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
 		fmt.Println("Error creating job: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
+	// Main execution thread
 	go generation.GenerateImageAsync(app, reqParams)
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.WriteHeader(http.StatusOK)
-	c.Writer.Flush()
+
+	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	ctx.Writer.Header().Set("Cache-Control", "no-cache")
+	ctx.Writer.Header().Set("Connection", "keep-alive")
+	ctx.Writer.WriteHeader(http.StatusOK)
+	ctx.Writer.Flush()
 
 	for {
 		select {
-		case <-c.Request.Context().Done():
+		case <-ctx.Request.Context().Done():
 			return
 		default:
 			topic := config.DefaultStreamsTopic + "/" + reqParams.ID
@@ -250,6 +247,7 @@ func SubmitAndStreamRequestHandler(c *gin.Context) {
 			}
 
 			messageData, err := app.MQ().GetMessageData(message)
+
 			if err != nil {
 				continue
 			}
@@ -257,12 +255,19 @@ func SubmitAndStreamRequestHandler(c *gin.Context) {
 				break
 			}
 
-			if _, err := c.Writer.Write(messageData); err != nil {
+			// TO DO: remove this log
+			var messageContent map[string]interface{}
+			if err := msgpack.Unmarshal(messageData, &messageContent); err != nil {
+				fmt.Println("Error unmarshaling message data: ", err)
+			}
+			messageJSON, _ := json.MarshalIndent(messageContent, "", "  ")
+			fmt.Printf("Message: %s\n", string(messageJSON))
+
+			if _, err := ctx.Writer.Write(messageData); err != nil {
 				continue
 			}
 
-			fmt.Println("data: ", string(messageData))
-			c.Writer.Flush()
+			ctx.Writer.Flush()
 		}
 	}
 }

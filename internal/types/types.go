@@ -27,8 +27,8 @@ type GenerationResponse struct {
 // Request from client - no ID field
 type GenerateParamsRequest struct {
 	Model          string `json:"model" msgpack:"model"`
-	NumOutputs     int    `json:"num_outputs" msgpack:"num_outputs"`
-	RandomSeed     int    `json:"random_seed" msgpack:"random_seed"`
+	NumOutputs     *int   `json:"num_outputs" msgpack:"num_outputs"`
+	RandomSeed     *int   `json:"random_seed" msgpack:"random_seed"`
 	AspectRatio    string `json:"aspect_ratio" msgpack:"aspect_ratio"`
 	PositivePrompt string `json:"positive_prompt" msgpack:"positive_prompt"`
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
