@@ -91,8 +91,8 @@ async def verify_and_download_models(config: RuntimeConfig):
 
 
 def request_handler(context: RequestContext):
-    """ Handles incoming messages from the TCP server """
-    
+    """Handles incoming messages from the TCP server"""
+
     data = context.data()
     logger.info(f"TCP Server received data: {data}")
 
@@ -156,7 +156,7 @@ def run_tcp_server(config: RuntimeConfig):
     server = TCPServer(port=config.port, host=config.host)
 
     server.set_handler(request_handler)
-    server.start(lambda addr, port: print(f"Server started on {addr}:{port}"))
+    server.start(lambda addr, port: print(f"Python runtime available on {addr}:{port}"))
 
 
 def startup_extensions(_config: RuntimeConfig):
@@ -186,19 +186,16 @@ async def load_and_warmup_models(config: RuntimeConfig):
         return
 
     logger.info(f"Initializing startup models: {enabled_models}")
-    
+
     try:
         await model_memory_manager.initialize_startup_models(enabled_models)
     except Exception as e:
         logger.error(f"Error during startup model initialization: {e}")
         raise
 
-    logger.info("Finished initializing startup models")
-
 
 async def main_async():
     config = parse_arguments()
-    print("All python definitions found: ", config)
 
     set_config(config)  # Do we need these dumb global variables?
 

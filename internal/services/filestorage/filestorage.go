@@ -34,7 +34,6 @@ type FileStorage interface {
 
 func NewFileStorage(cfg *config.Config) (FileStorage, error) {
 	filesystem := strings.ToLower(cfg.FilesystemType)
-	fmt.Println("filesystem: ", filesystem)
 
 	if filesystem == strings.ToLower(config.FilesystemLocal) {
 		return NewLocalFileStorage(cfg)

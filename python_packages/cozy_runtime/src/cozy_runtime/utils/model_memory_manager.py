@@ -18,8 +18,8 @@ from diffusers import (
     DiffusionPipeline,
     FluxInpaintPipeline,
     FluxPipeline,
-
 )
+
 from diffusers.loaders import FromSingleFileMixin
 from huggingface_hub.constants import HF_HUB_CACHE
 from huggingface_hub.file_download import repo_folder_name
@@ -41,7 +41,9 @@ from .model_config_manager import ModelConfigManager
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", stream=sys.stdout
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
 )
 
 # Constants
@@ -57,7 +59,6 @@ class GPUEnum(Enum):
     MEDIUM = 14
     HIGH = 22
     VERY_HIGH = 30
-
 
 
 # Keys correspond to diffusers pipeline classes
@@ -217,19 +218,23 @@ class ModelMemoryManager:
         self.lru_cache = LRUCache()
         self.model_config_manager = ModelConfigManager()
 
+    # If the scheduler is not set in `pipeline_defs`, then we'll rely on diffusers to pick a default
+    # scheduler.
     def _setup_scheduler(self, pipeline: DiffusionPipeline, model_id: str) -> None:
         """Setup scheduler from component config"""
         config = get_config()
         model_config = config.pipeline_defs.get(model_id)
-        print(f"Model config: {model_config}")
+        if not model_config:
+            logger.error(f"Model {model_id} not found in configuration")
+            return
         components = model_config.get("components", {})
         scheduler_config = components.get("scheduler", {}) if components else {}
-        if not scheduler_config and scheduler_config == {}:
+        if not scheduler_config:
             return
-            
+
         scheduler_class = scheduler_config.get("class_name")
         scheduler_kwargs = scheduler_config.get("kwargs", {})
-        
+
         try:
             new_scheduler = getattr(diffusers, scheduler_class).from_config(
                 pipeline.scheduler.config, **scheduler_kwargs
@@ -1055,7 +1060,7 @@ class ModelMemoryManager:
                         component_source = component.get("source", None)
                         if component_source:
                             pipeline_kwargs[key] = await self._prepare_component(
-                                main_model_source,component, class_name, key, variant
+                                main_model_source, component, class_name, key, variant
                             )
 
             # Handle custom pipeline if specified as string
@@ -1100,11 +1105,16 @@ class ModelMemoryManager:
                     repo_id = "/".join(source.split("/")[:-1])
                     subfolder = source.split("/")[-1]
                     return await self._load_diffusers_component(
-                        main_model_source.replace("hf:", ""), repo_id.replace("hf:", ""), subfolder, variant
+                        main_model_source.replace("hf:", ""),
+                        repo_id.replace("hf:", ""),
+                        subfolder,
+                        variant,
                     )
                 else:
                     return await self._load_diffusers_component(
-                        main_model_source.replace("hf:", ""), source.replace("hf:", ""), variant
+                        main_model_source.replace("hf:", ""),
+                        source.replace("hf:", ""),
+                        variant,
                     )
             else:
                 return self._load_custom_component(source, model_class_name, key)
@@ -1414,7 +1424,7 @@ class ModelMemoryManager:
         if not model_ids:
             logger.info("No models configured for enabled models")
             return
-        
+
         self.is_startup_load = True
         try:
             model_configs = {}
@@ -1449,7 +1459,9 @@ class ModelMemoryManager:
                 estimated_size = model_sizes[model_id]
 
                 # Check if exceed available VRAM
-                if estimated_size > (self._get_available_vram() - VRAM_SAFETY_MARGIN_GB):
+                if estimated_size > (
+                    self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
+                ):
                     logger.info(
                         f"Stopping model loading: Next model {model_id} "
                         f"({estimated_size:.2f} GB) would exceed available inference Memory "
@@ -1473,7 +1485,7 @@ class ModelMemoryManager:
                         await self.warmup_pipeline(model_id)
                     else:
                         logger.warning(f"Failed to load model {model_id}")
-                
+
                 except Exception as e:
                     logger.error(f"Error loading model {model_id}: {e}")
 
@@ -1485,7 +1497,6 @@ class ModelMemoryManager:
             logger.error(f"Error initializing startup models: {e}")
         finally:
             self.is_startup_load = False
-
 
     async def warmup_pipeline(self, model_id: str) -> None:
         """
@@ -1526,7 +1537,6 @@ class ModelMemoryManager:
 
         self.flush_memory()
         logger.info(f"Warm-up completed for model {model_id}")
-
 
     def get_all_model_ids(self) -> List[str]:
         """
@@ -1887,7 +1897,11 @@ class ModelMemoryManager:
         return file.endswith((".safetensors", ".bin", ".ckpt"))
 
     async def _load_diffusers_component(
-        self, main_model_repo: str, component_repo: str, component_name: Optional[str] = None, variant: Optional[str] = None
+        self,
+        main_model_repo: str,
+        component_repo: str,
+        component_name: Optional[str] = None,
+        variant: Optional[str] = None,
     ) -> Any:
         """
         Load a diffusers component.
@@ -1927,18 +1941,28 @@ class ModelMemoryManager:
                         else torch.float16,
                     )
                 else:
-                    component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
+                    component = model_class.from_pretrained(
+                        component_repo,
+                        torch_dtype=torch.bfloat16
                         if "flux" in component_repo.lower()
-                        else torch.float16,)
+                        else torch.float16,
+                    )
             else:
                 if variant:
-                    component = model_class.from_pretrained(component_repo, variant=variant, torch_dtype=torch.bfloat16
+                    component = model_class.from_pretrained(
+                        component_repo,
+                        variant=variant,
+                        torch_dtype=torch.bfloat16
                         if "flux" in component_repo.lower()
-                        else torch.float16,)
+                        else torch.float16,
+                    )
                 else:
-                    component = model_class.from_pretrained(component_repo, torch_dtype=torch.bfloat16
+                    component = model_class.from_pretrained(
+                        component_repo,
+                        torch_dtype=torch.bfloat16
                         if "flux" in component_repo.lower()
-                        else torch.float16,)
+                        else torch.float16,
+                    )
 
             if self.should_quantize:
                 quantize_model_fp8(component)

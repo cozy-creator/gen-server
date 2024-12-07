@@ -9,13 +9,13 @@ import (
 
 func init() {
 	Migrations.MustRegister(func(ctx context.Context, db *bun.DB) error {
-		if _, err := db.NewCreateTable().Model((*models.Model)(nil)).IfNotExists().Exec(ctx); err != nil {
+		if _, err := db.NewCreateTable().Model((*models.PipelineDef)(nil)).IfNotExists().Exec(ctx); err != nil {
 			return err
 		}
 
 		return nil
 	}, func(ctx context.Context, db *bun.DB) error {
-		if _, err := db.NewDropTable().Model((*models.Model)(nil)).IfExists().Exec(ctx); err != nil {
+		if _, err := db.NewDropTable().Model((*models.PipelineDef)(nil)).IfExists().Exec(ctx); err != nil {
 			return err
 		}
 		return nil

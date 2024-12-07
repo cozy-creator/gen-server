@@ -50,8 +50,6 @@ func StartPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) e
         pipelineDefsJson = []byte{}
     }
 
-	fmt.Println("Pipeline defs: ", cfg.PipelineDefs)
-
 	args := []string{
 		"--home-dir", cfg.CozyHome,
 		"--environment", cfg.Environment,

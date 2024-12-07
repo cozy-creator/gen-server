@@ -3,9 +3,9 @@ package model_downloader
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
-	"os"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
@@ -146,7 +146,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				}
 				
 				if downloaded {
-                    m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+                    // m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
                     m.SetModelState(modelID, types.ModelStateReady)
                     return
                 }
@@ -230,7 +230,7 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 
 		for name, comp := range modelConfig.Components {
 			wg.Add(1)
-			go func(name string, comp *config.ComponentDefs) {
+			go func(name string, comp *config.ComponentDef) {
 				defer wg.Done()
 
 				// check if component has source else skip

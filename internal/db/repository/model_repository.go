@@ -7,11 +7,13 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func GetModels(ctx context.Context, db *bun.DB, modelNames []string) ([]models.Model, error) {
-	var models []models.Model
+func GetPipelineDefs(ctx context.Context, db *bun.DB, pipelineNames []string) ([]models.PipelineDef, error) {
+	var pipelineDefs []models.PipelineDef
+
 	err := db.NewSelect().
-		Model(&models).
-		Where("name IN (?)", bun.In(modelNames)).
+		Model(&pipelineDefs).
+		Where("name IN (?)", bun.In(pipelineNames)).
 		Scan(ctx)
-	return models, err
+
+	return pipelineDefs, err
 }

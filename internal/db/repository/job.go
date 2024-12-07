@@ -29,8 +29,6 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) (*models.Jo
 		return nil, fmt.Errorf("job model is nil")
 	}
 
-	fmt.Println(r.db.NewInsert().Model(job).Returning("*").String())
-
 	if err := r.db.NewInsert().Model(job).Returning("*").Scan(ctx); err != nil {
 		return nil, err
 	}

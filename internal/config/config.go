@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/db/models"
@@ -62,13 +63,13 @@ type PipelineDef struct {
 	Source         string                    `mapstructure:"source" json:"source"`
 	CustomPipeline string                    `mapstructure:"custom_pipeline,omitempty" json:"custom_pipeline,omitempty"`
 	DefaultArgs    map[string]interface{}    `mapstructure:"default_args,omitempty" json:"default_args,omitempty"`
-	Components     ComponentDef              `mapstructure:"components" json:"components"`
+	Components     ComponentDefs              `mapstructure:"components" json:"components"`
 	Metadata       map[string]interface{}    `mapstructure:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
-type ComponentDef map[string]*ComponentDefs
+type ComponentDefs map[string]*ComponentDef
 
-type ComponentDefs struct {
+type ComponentDef struct {
 	ClassName string                 `mapstructure:"class_name" json:"class_name"`
 	Source    string                 `mapstructure:"source" json:"source"`
 	Kwargs    map[string]interface{} `mapstructure:"kwargs,omitempty" json:"kwargs,omitempty"`
@@ -156,16 +157,7 @@ func readAndUnmarshalConfig() error {
 		}
 	}
 
-	// Clean whitespace from `enabled_models` list
-	if enabledModels := viper.GetStringSlice("enabled_models"); len(enabledModels) > 0 {
-		cleanedModels := make([]string, 0, len(enabledModels))
-		for _, model := range enabledModels {
-			if cleaned := strings.TrimSpace(model); cleaned != "" {
-				cleanedModels = append(cleanedModels, cleaned)
-			}
-		}
-		viper.Set("enabled_models", cleanedModels)
-	}
+	cleanEnabledModels()
 
 	// Copy Viper's internal config-state into our local struct
 	config = &Config{}
@@ -187,6 +179,28 @@ func readAndUnmarshalConfig() error {
 	}
 
 	return nil
+}
+
+// Clean whitespace from `enabled_models` list.
+// Also convert to lowercase and check if it contains only allowed characters.
+func cleanEnabledModels() {
+	// This pattern allows letters, numbers, hyphens, underscores, and dots only
+	validModelPattern := regexp.MustCompile(`^[a-z0-9._-]+$`)
+
+	// Get the enabled models from Viper
+	if enabledModels := viper.GetStringSlice("enabled_models"); len(enabledModels) > 0 {
+		cleanedModels := make([]string, 0, len(enabledModels))
+		for _, model := range enabledModels {
+			// Trim whitespace and convert to lowercase, remove commas
+			cleaned := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(model, `,`, ``)))
+			// Validate using regex
+			if cleaned != "" && validModelPattern.MatchString(cleaned) {
+				cleanedModels = append(cleanedModels, cleaned)
+			}
+		}
+		// Set the cleaned models back in Viper
+		viper.Set("enabled_models", cleanedModels)
+	}
 }
 
 func unmarshalPipelineDef(raw interface{}) *PipelineDef {
@@ -219,10 +233,10 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDef {
 
 	// Extract components
 	if componentsRaw, ok := modelMap["components"].(map[string]interface{}); ok {
-		def.Components = make(map[string]*ComponentDefs)
+		def.Components = ComponentDefs{}
 		for compKey, compVal := range componentsRaw {
 			if compMap, ok := compVal.(map[string]interface{}); ok {
-				compDef := &ComponentDefs{}
+				compDef := &ComponentDef{}
 				if className, ok := compMap["class_name"].(string); ok {
 					compDef.ClassName = className
 				}
@@ -240,19 +254,24 @@ func unmarshalPipelineDef(raw interface{}) *PipelineDef {
 	return def
 }
 
-// Fetch pipleine defs from DB and merge with existing defs
+// For all `enabled_models`, fetch pipleine defs from DB and merge with existing defs
 func LoadPipelineDefsFromDB(ctx context.Context, db *bun.DB) error {
-	dbModels, err := repository.GetModels(ctx, db, config.EnabledModels)
+	dbModels, err := repository.GetPipelineDefs(ctx, db, config.EnabledModels)
 	if err != nil {
-		return fmt.Errorf("failed to get models from DB: %w", err)
+		return fmt.Errorf("failed to get pipeline defs from DB: %w", err)
 	}
 
-	config.PipelineDefs = mergeModelsToPipelineDefs(config.PipelineDefs, dbModels)
+	newDefs := mergePipelineDefs(config.PipelineDefs, dbModels)
+
+	// Update in our global config and in Viper internally
+	config.PipelineDefs = newDefs
+	viper.Set("pipeline_defs", newDefs)
 
 	return nil
 }
 
-func mergeModelsToPipelineDefs(existingDefs PipelineDefs, models []models.Model) PipelineDefs {
+// This will not overwrite existing defs in the config.
+func mergePipelineDefs(existingDefs PipelineDefs, incomingDefs []models.PipelineDef) PipelineDefs {
 	mergedDefs := PipelineDefs{}
 
 	// Copy existing defs
@@ -260,22 +279,81 @@ func mergeModelsToPipelineDefs(existingDefs PipelineDefs, models []models.Model)
 		mergedDefs[modelID] = def
 	}
 
-	// Add DB models only if they don't exist in the config
-	for _, model := range models {
-		if _, exists := mergedDefs[model.Name]; !exists {
+	// Merge incoming defs into existing defs
+	for _, model := range incomingDefs {
+		if existingDef, exists := mergedDefs[model.Name]; exists {
+			// Update only the fields that are null or empty in existingDef
+			if existingDef.Source == "" {
+				existingDef.Source = model.Source
+			}
+			if existingDef.ClassName == "" {
+				existingDef.ClassName = model.ClassName
+			}
+			if existingDef.CustomPipeline == "" {
+				existingDef.CustomPipeline = model.CustomPipeline
+			}
+			if existingDef.DefaultArgs == nil {
+				existingDef.DefaultArgs = model.DefaultArgs
+			}
+			if existingDef.Metadata == nil {
+				existingDef.Metadata = model.Metadata
+			}
+			if existingDef.Components == nil {
+				existingDef.Components = make(ComponentDefs)
+			}
+			// Merge components
+			for name, comp := range model.Components {
+				compMap, ok := comp.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				if existingComp, exists := existingDef.Components[name]; exists {
+					if existingComp.ClassName == "" {
+						if className, ok := compMap["class_name"].(string); ok {
+							existingComp.ClassName = className
+						}
+					}
+					if existingComp.Source == "" {
+						if source, ok := compMap["source"].(string); ok {
+							existingComp.Source = source
+						}
+					}
+					if existingComp.Kwargs == nil {
+						if kwargs, ok := compMap["kwargs"].(map[string]interface{}); ok {
+							existingComp.Kwargs = kwargs
+						}
+					}
+				} else {
+					// Add new component if it doesn't exist
+					compDef := &ComponentDef{}
+					if className, ok := compMap["class_name"].(string); ok {
+						compDef.ClassName = className
+					}
+					if source, ok := compMap["source"].(string); ok {
+						compDef.Source = source
+					}
+					if kwargs, ok := compMap["kwargs"].(map[string]interface{}); ok {
+						compDef.Kwargs = kwargs
+					}
+					existingDef.Components[name] = compDef
+				}
+			}
+		} else {
+			// Add new model if it doesn't exist
 			def := &PipelineDef{
 				Source:         model.Source,
 				ClassName:      model.ClassName,
 				CustomPipeline: model.CustomPipeline,
 				DefaultArgs:    model.DefaultArgs,
-				Components:     make(map[string]*ComponentDefs),
+				Metadata:       model.Metadata,
+				Components:     ComponentDefs{},
 			}
 
 			if model.Components != nil {
 				for name, comp := range model.Components {
 					if compMap, ok := comp.(map[string]interface{}); ok {
-						compDef := &ComponentDefs{}
-
+						compDef := &ComponentDef{}
 						if className, ok := compMap["class_name"].(string); ok {
 							compDef.ClassName = className
 						}
@@ -285,7 +363,6 @@ func mergeModelsToPipelineDefs(existingDefs PipelineDefs, models []models.Model)
 						if kwargs, ok := compMap["kwargs"].(map[string]interface{}); ok {
 							compDef.Kwargs = kwargs
 						}
-
 						def.Components[name] = compDef
 					}
 				}

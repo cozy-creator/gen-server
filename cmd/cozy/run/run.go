@@ -49,7 +49,7 @@ func init() {
 	flags.String("db-dsn", "", "Database DSN (Connection URL or Path)")
 	flags.String("pulsar-url", "", "URL of the pulsar broker. Example: pulsar+ssl://my-cluster.streamnative.cloud:6651")
 
-	flags.Bool("enable-safety-filter", false, "Enable or disable the safety filter")
+	flags.Bool("enable-safety-filter", false, "If enabled, generation requests will be evaluated by ChatGPT first, and rejected if the prompt is unsafe.")
 
 	viper.BindPFlags(flags)
 
@@ -123,8 +123,12 @@ func runApp(_ *cobra.Command, _ []string) error {
 	}
 	defer app.Close()
 
-	// Load pipeline defs from Database for enabled models
-	config.LoadPipelineDefsFromDB(ctx, app.DB())
+	// TO DO: remove this block
+	configJSON, err := json.MarshalIndent(app.Config(), "", "  ")
+	if err != nil {
+		fmt.Printf("failed to marshal config: %v\n", err)
+	}
+	fmt.Printf("Finalized config: %s\n", configJSON)
 
 	downloaderManager, err := model_downloader.NewModelDownloaderManager(app)
 	if err != nil {
@@ -242,13 +246,6 @@ func createNewApp() (*app.App, error) {
 		return nil, err
 	}
 
-	// TO DO: remove this block
-	configJSON, err := json.MarshalIndent(app.Config(), "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
-	}
-	fmt.Printf("Finalized config: %s\n", configJSON)
-
 	if err := app.InitializeMQ(); err != nil {
 		fmt.Println("Error initializing MQ: ", err)
 		return nil, err
@@ -257,6 +254,9 @@ func createNewApp() (*app.App, error) {
 	if err := app.InitializeDB(); err != nil {
 		return nil, err
 	}
+
+	// Load pipeline defs from Database for enabled models
+	config.LoadPipelineDefsFromDB(app.Context(), app.DB())
 
 	filestorage, err := filestorage.NewFileStorage(app.Config())
 	if err != nil {
