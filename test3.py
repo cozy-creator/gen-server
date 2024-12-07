@@ -63,11 +63,11 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sd1.5-andre",
+        "model": "juggernaut-xl-v9",
         "positive_prompt": "A beautiful woman colourful",
         "negative_prompt": "",
         "num_outputs": 1,
-        "random_seed": 43,
+        # "random_seed": 43,
         "aspect_ratio": "1/1",
         "output_format": "png"
     }

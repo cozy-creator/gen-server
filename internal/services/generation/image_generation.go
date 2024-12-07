@@ -165,7 +165,8 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
 	var (
 		index int8
-		urls  []string
+		urls  = make([]string, 0, params.NumOutputs)  	// For collecting all URLs
+        batch = make([]string, 0, params.NumOutputs) 	// For progress tracking (i.e. the batch of urls we've received)
 	)
 
 	if err := handleGenerationBegin(app, params.ID); err != nil {
@@ -192,28 +193,41 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 				return err
 			}
 
-			if url == "" {
-				if err := handleGenerationCompletion(app, params.ID); err != nil {
-					logger.Error("error handling generation completion: ", err)
-					return err
-				}
-				callback(urls, index, params.Model, StatusCompleted)
-				return nil
-			} else {
-				urls = append(urls, url)
-				if err := handleImageOutput(app, params.ID, url, "image/png"); err != nil {
-					logger.Error("error handling image output: ", err)
-					return err
-				}
-			}
+			if url == "" {                
+                // if we have any successful outputs, mark as completed
+                if len(urls) > 0 {
+                    if err := handleGenerationCompletion(app, params.ID); err != nil {
+                        logger.Error("error handling generation completion: ", err)
+                        return err
+                    }
+                    callback(urls, index, params.Model, StatusCompleted)
+                    return nil
+                }
 
-			if len(urls) == cap(urls) {
-				imgUrls := append([]string(nil), urls...)
-				callback(imgUrls, index, params.Model, StatusInProgress)
+                // if no URLs, it means generation failed
+                if err := handleGenerationError(app, params.ID, "No valid outputs received", "no_output"); err != nil {
+                    logger.Error("error handling generation error: ", err)
+                }
+                return fmt.Errorf("no valid outputs received from generation")
+            }
 
-				index++
-				urls = nil
-			}
+            // Successfully received a URL
+            urls = append(urls, url)
+            batch = append(batch, url)
+
+            if err := handleImageOutput(app, params.ID, url, "image/png"); err != nil {
+                logger.Error("error handling image output: ", err)
+                return err
+            }
+
+			// if batch is full, send progress update
+            if len(batch) == params.NumOutputs {
+                batchCopy := make([]string, len(batch))
+                copy(batchCopy, batch)
+                callback(batchCopy, index, params.Model, StatusInProgress)
+                index++
+                batch = batch[:0]
+            }
 		}
 	}
 }
@@ -253,6 +267,14 @@ func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) err
 		return err
 	}
 
+	// print message data
+	// stateMsg := fmt.Sprintf(`Message: {"data": {"error_message": "%s", "job_id": "%s", "status": "%s"}, "type": "status"}`, 
+    //     errMsg,
+    //     id, 
+    //     status,
+    // )
+    // fmt.Println(stateMsg)
+
 	return nil
 }
 
@@ -263,9 +285,12 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 		return err
 	}
 	// Ensure rollback in case of error
+	var committed bool
 	defer func() {
-		if err := tx.Rollback(); err != nil {
-			logger.Error("Error rolling back transaction:", err.Error())
+		if !committed {
+			if err := tx.Rollback(); err != nil {
+				logger.Error("Error rolling back transaction:", err.Error())
+			}
 		}
 	}()
 
@@ -295,6 +320,8 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 		logger.Error("Error committing transaction:", err.Error())
 		return err
 	}
+
+	committed = true
 
 	data, err := msgpack.Marshal(&GenerationEvent{Data: eventData, Type: event.Type})
 	if err != nil {
@@ -351,6 +378,17 @@ func handleGenerationError(app *app.App, id, errMsg, errType string) error {
 		logger.Error("error beginning transaction: ", err)
 		return err
 	}
+
+	// ensure rollback in case of error
+    var committed bool
+    defer func() {
+        if !committed {
+            if err := tx.Rollback(); err != nil {
+                logger.Error("Error rolling back transaction:", err.Error())
+            }
+        }
+    }()
+
 	eventData := GenerationErrorData{
 		JobID:        id,
 		ErrorType:    errType,
@@ -393,6 +431,14 @@ func handleGenerationError(app *app.App, id, errMsg, errType string) error {
 		logger.Error("error publishing event in output: ", err)
 		return err
 	}
+
+	// commit the transaction
+	if err := tx.Commit(); err != nil {
+		logger.Error("Error committing transaction:", err.Error())
+		return err
+	}
+
+	committed = true
 
 	return nil
 }
