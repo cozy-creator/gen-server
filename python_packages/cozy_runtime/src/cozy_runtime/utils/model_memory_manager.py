@@ -27,16 +27,14 @@ from huggingface_hub.utils import EntryNotFoundError
 
 from ..config import get_config
 from ..globals import (
-    get_hf_model_manager,
+    # get_hf_model_manager,
     get_architectures,
     get_available_torch_device,
     get_model_downloader,
 )
 from .model_downloader import ModelSource
 from ..utils.load_models import load_state_dict_from_file
-from ..utils.quantize_models import quantize_model_fp8
 from ..base_types.config import PipelineConfig
-from .model_config_manager import ModelConfigManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -206,17 +204,15 @@ class ModelMemoryManager:
 
         # State flags
         self.is_in_device: bool = False
-        self.should_quantize: bool = False
 
         # is start up load
         self.is_startup_load: bool = False
 
         # Managers and caches
         self.model_downloader = get_model_downloader()
-        self.hf_model_manager = get_hf_model_manager()
+        # self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.lru_cache = LRUCache()
-        self.model_config_manager = ModelConfigManager()
 
     # If the scheduler is not set in `pipeline_defs`, then we'll rely on diffusers to pick a default
     # scheduler.
@@ -583,7 +579,7 @@ class ModelMemoryManager:
 
                 # Get model index and use as fallback in case class_name is unspecified
                 if class_name is None or class_name == "":
-                    model_index = await self.hf_model_manager.get_diffusers_multifolder_components(
+                    model_index = await self.model_downloader.get_diffusers_multifolder_components(
                         path
                     )
                     if model_index and "_class_name" in model_index:
@@ -1915,7 +1911,7 @@ class ModelMemoryManager:
         """
         try:
             model_index = (
-                await self.hf_model_manager.get_diffusers_multifolder_components(
+                await self.model_downloader.get_diffusers_multifolder_components(
                     main_model_repo
                 )
             )
@@ -1964,8 +1960,6 @@ class ModelMemoryManager:
                         else torch.float16,
                     )
 
-            if self.should_quantize:
-                quantize_model_fp8(component)
 
             return component
 
@@ -2005,9 +1999,6 @@ class ModelMemoryManager:
             architecture = architecture_class()
             architecture.load(state_dict)
             model = architecture.model
-
-            if self.should_quantize:
-                quantize_model_fp8(model)
 
             return model
 

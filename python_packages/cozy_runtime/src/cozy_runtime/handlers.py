@@ -1,5 +1,5 @@
 from typing import List, Optional
-from .globals import get_hf_model_manager, get_model_memory_manager
+from .globals import get_model_memory_manager
 from .utils.model_config_manager import ModelConfigManager
 from diffusers import (
     DiffusionPipeline,
@@ -19,7 +19,6 @@ import torch
 models = {}
 
 config_manager = ModelConfigManager()
-hf_model_manager = get_hf_model_manager()
 model_memory_manager = get_model_memory_manager()
 
 

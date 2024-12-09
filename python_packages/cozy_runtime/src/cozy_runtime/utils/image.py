@@ -56,42 +56,6 @@ def torch_bgr_to_pil_image(tensor: torch.Tensor) -> Image:
     return Image.fromarray(arr, "RGB")
 
 
-def upscale_image(
-    component_namespace: str,
-    image_path: str,
-    model_path: str,
-    output_path: str,
-):
-    components = from_file(model_path, get_torch_device())
-    component = components.get(component_namespace)
-    if component is None:
-        raise TypeError(f"Component '{component_namespace}' not found in model.")
-
-    input_tensor = image_to_tensor(image_path)
-    with torch.no_grad():
-        output_tensor = component.model(input_tensor.to(get_torch_device()))
-
-        output_img = torch_bgr_to_pil_image(output_tensor)
-        save_image(output_img, output_path)
-
-
-def upscale(model, image: torch.Tensor, device):
-    if image.device != torch.device(device):
-        image = image.to(device)
-
-    # TODO: Check if the model is already on the correct device
-    with torch.no_grad():
-        return model(image)
-
-
-def remove_background(model, image: torch.Tensor, device):
-    if image.device != torch.device(device):
-        image = image.to(device)
-
-    with torch.no_grad():
-        return model(image)
-
-
 def tensor_to_pil(tensor: torch.Tensor) -> list[Image.Image]:
     """
     Convert a batch of PyTorch tensors to a list of PIL Images.

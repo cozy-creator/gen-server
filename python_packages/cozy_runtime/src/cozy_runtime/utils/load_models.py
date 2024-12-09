@@ -37,8 +37,6 @@ def from_file(
 
     metadata = read_safetensors_metadata(path)
 
-    # print(state_dict.keys())
-
     return from_state_dict(state_dict, metadata, device, registry)
 
 

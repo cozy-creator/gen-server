@@ -9,14 +9,11 @@ import time
 import warnings
 from typing import Any, Callable
 
-from .base_types.custom_node import custom_node_validator
-from .globals import update_custom_nodes, update_architectures
+
 from .tcp_server import TCPServer, RequestContext
 from .worker.gpu_worker import generate_images_non_io
-from .utils.extension_loader import load_extensions
 from .utils.image import tensor_to_bytes
 from .globals import get_model_memory_manager
-from .utils.model_downloader import ModelSource, ModelManager
 from .model_command_handler import ModelCommandHandler
 
 from .base_types.config import RuntimeConfig
@@ -38,56 +35,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-
-async def verify_and_download_models(config: RuntimeConfig):
-    """Verify and download all models on startup"""
-
-    async with ModelManager() as manager:
-        # Prepare download tasks for main models
-        main_tasks = []
-        for model_id, model_info in config.pipeline_defs.items():
-            source = ModelSource(model_info.source)
-            is_downloaded, variant = await manager.is_downloaded(model_id)
-            print(
-                f"Model {model_id} is downloaded: {is_downloaded}, variant: {variant}"
-            )
-
-            if not is_downloaded:
-                task = asyncio.create_task(manager.download_model(model_id, source))
-                main_tasks.append((model_id, task))
-
-        # Prepare download tasks for components
-        component_tasks = []
-        for model_id, model_info in config.pipeline_defs.items():
-            if model_info.components is not None:
-                for comp_name, comp_info in model_info.components.items():
-                    if isinstance(comp_info, dict) and "source" in comp_info:
-                        comp_source = ModelSource(comp_info.source)
-                        comp_id = f"{model_id}/{comp_name}"
-
-                        is_downloaded, _ = await manager.is_downloaded(comp_id)
-                        if not is_downloaded:
-                            task = asyncio.create_task(
-                                manager.download_model(comp_id, comp_source)
-                            )
-                            component_tasks.append((comp_id, task))
-
-        # Wait for all main models to download
-        for model_id, task in main_tasks:
-            try:
-                await task
-                logger.info(f"Downloaded {model_id}")
-            except Exception as e:
-                logger.error(f"Failed to download {model_id}: {e}")
-
-        # Wait for all components to download
-        for comp_id, task in component_tasks:
-            try:
-                await task
-                logger.info(f"Downloaded component {comp_id}")
-            except Exception as e:
-                logger.error(f"Failed to download component {comp_id}: {e}")
 
 
 def request_handler(context: RequestContext):
@@ -158,22 +105,22 @@ def run_tcp_server(config: RuntimeConfig):
     server.start(lambda addr, port: print(f"Python runtime available on {addr}:{port}"))
 
 
-def startup_extensions(_config: RuntimeConfig):
-    start_time_custom_nodes = time.time()
+# def startup_extensions(_config: RuntimeConfig):
+#     start_time_custom_nodes = time.time()
 
-    custom_nodes = load_extensions(
-        "cozy_creator.custom_nodes", validator=custom_node_validator
-    )
-    if not custom_nodes:
-        logger.warning("No custom nodes were loaded! Generation cannot function.")
+#     custom_nodes = load_extensions(
+#         "cozy_creator.custom_nodes", validator=custom_node_validator
+#     )
+#     if not custom_nodes:
+#         logger.warning("No custom nodes were loaded! Generation cannot function.")
 
-    update_custom_nodes(custom_nodes)
+#     update_custom_nodes(custom_nodes)
 
-    update_architectures(load_extensions("cozy_creator.architectures"))
+#     update_architectures(load_extensions("cozy_creator.architectures"))
 
-    print(
-        f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
-    )
+#     print(
+#         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
+#     )
 
 
 async def load_and_warmup_models(config: RuntimeConfig):
@@ -198,10 +145,7 @@ async def main_async():
 
     set_config(config)  # Do we need these dumb global variables?
 
-    startup_extensions(config)
-
-    # Verify and download models
-    # await verify_and_download_models(config)
+    # startup_extensions(config)
 
     # Load and warm up models
     await load_and_warmup_models(config)

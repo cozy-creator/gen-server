@@ -9,8 +9,6 @@ from requests.packages.urllib3.util.retry import Retry  # type: ignore
 
 import sys
 
-from ..globals import get_custom_nodes
-
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -31,8 +29,6 @@ async def generate_images_non_io(
     """Generates images based on the provided task data."""
     start = time.time()
 
-    custom_nodes = get_custom_nodes()
-
     try:
         model_id = task_data.get("model")
         positive_prompt = task_data.get("positive_prompt")
@@ -47,10 +43,14 @@ async def generate_images_non_io(
 
         if source_image:
             # Use image-to-image node
-            image_gen_node = custom_nodes["core_extension_1.image_to_image_node"]()
+            # image_gen_node = custom_nodes["core_extension_1.image_to_image_node"]()
+            from inference.custom_nodes.image_to_image_node import ImageToImageNode
+            image_gen_node = ImageToImageNode()
         else:
             # Use regular image generation node
-            image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+            # image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
+            from inference.custom_nodes.image_gen_node import ImageGenNode
+            image_gen_node = ImageGenNode()
 
         try:
             # Run the ImageGenNode

@@ -145,9 +145,7 @@ RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 
 # Install the cozy_runtime package and its plugin-python_packages
 COPY python_packages/ ./python_packages
-RUN pip install ./python_packages/cozy_runtime[performance] && \
-    pip install ./python_packages/image_utils && \
-    pip install ./python_packages/core_extension_1
+RUN pip install ./python_packages/cozy_runtime[performance]
 
 # Copy the web bundle we built in stage-1
 COPY --from=web-builder /app/web/dist /srv/www/cozy

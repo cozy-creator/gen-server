@@ -12,6 +12,7 @@ venv/
 *.log
 test2.py
 .new_test/
+.testvenv/
 
 # system files
 *.DS_Store

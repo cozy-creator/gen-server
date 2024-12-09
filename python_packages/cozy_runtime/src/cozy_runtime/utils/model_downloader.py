@@ -597,36 +597,6 @@ class ModelManager:
 
         return False
 
-    # def _check_file_downloaded(self, file_path: str) -> bool:
-    #     # Keep only the name between and after the first slash including the slash
-    #     repo_folder = os.path.dirname(file_path)
-
-    #     storage_folder = os.path.join(
-    #         self.cache_dir, repo_folder_name(repo_id=repo_folder, repo_type="model")
-    #     )
-
-    #     # Get the safetensors file name by splitting the repo_id by '/' and getting the last element
-    #     weights_name = file_path.split("/")[-1]
-
-    #     if not os.path.exists(storage_folder):
-    #         storage_folder = os.path.join(self.cache_dir, repo_folder)
-    #         if not os.path.exists(storage_folder):
-    #             return False
-    #         else:
-    #             full_path = os.path.join(storage_folder, weights_name)
-    #             return os.path.exists(full_path) and not full_path.endswith(
-    #                 ".incomplete"
-    #             )
-
-    #     refs_path = os.path.join(storage_folder, "refs", "main")
-    #     if not os.path.exists(refs_path):
-    #         return False
-
-    #     with open(refs_path, "r") as f:
-    #         commit_hash = f.read().strip()
-
-    #     full_path = os.path.join(storage_folder, "snapshots", commit_hash, weights_name)
-    #     return os.path.exists(full_path) and not full_path.endswith(".incomplete")
 
     def _check_file_downloaded(self, path: str) -> bool:
         """Check if a file exists and is complete in the cache"""
@@ -771,9 +741,3 @@ class ModelManager:
             logger.error(f"Error retrieving model_index.json for {repo_id}: {e}")
             return None
 
-    # Keep all your existing HF-specific methods:
-    # - get_diffusers_multifolder_components
-    # - _check_repo_downloaded
-    # - download
-    # - delete
-    # etc.

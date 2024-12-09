@@ -41,14 +41,6 @@ class ModelConfigManager:
     def __init__(self, config_path: str = model_config_path):
         self.config_path = config_path
         self.config: Dict[str, Any] = DEFAULTS
-        # self.load_config()
-
-    # def load_config(self):
-    #     if os.path.exists(self.config_path):
-    #         with open(self.config_path, "r") as f:
-    #             self.config = json.load(f)
-    #     else:
-    #         raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
 
     def get_model_config(self, repo_id: str, class_name: str) -> Dict[str, Any]:
         model_config = get_config().pipeline_defs.get(repo_id, {}).get("default_args", {})
@@ -60,19 +52,11 @@ class ModelConfigManager:
         # Get class default settings
         class_config = self.config["diffuser_class_defaults"].get(class_name, {})
 
-        # Get category settings
-        # model_config = self.config["repo_defaults"].get(repo_id, {})
-        # category = model_config.get("category", None)
-        # category_config = (
-        #     self.config["cozy_categories"].get(category, {}) if category else {}
-        # )
-
         # Merge configurations, with the order of precedence being:
-        # model_config > category_config > class_config > global_config
+        # model_config > class_config > global_config
         final_config = {
             **global_config,
             **class_config,
-            # **category_config,
             **model_config,
         }
 
