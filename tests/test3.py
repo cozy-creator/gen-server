@@ -7,7 +7,7 @@ import json
 import sseclient
 
 class CozyClient:
-    def __init__(self, base_url="http://localhost:8881", api_key=None):
+    def __init__(self, base_url="https://g2jgawb4bi02yy-8881.proxy.runpod.net/", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/vnd.msgpack',
@@ -63,7 +63,7 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sd1.5-andre",
+        "model": "flux.1-schnell-fp8",
         "positive_prompt": "A beautiful woman colourful",
         "negative_prompt": "",
         "num_outputs": 1,

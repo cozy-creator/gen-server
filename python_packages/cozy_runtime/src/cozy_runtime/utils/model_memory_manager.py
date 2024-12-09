@@ -1939,6 +1939,7 @@ class ModelMemoryManager:
                 else:
                     component = model_class.from_pretrained(
                         component_repo,
+                        subfolder=component_name,
                         torch_dtype=torch.bfloat16
                         if "flux" in component_repo.lower()
                         else torch.float16,
