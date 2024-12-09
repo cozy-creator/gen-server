@@ -323,7 +323,7 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 
 	committed = true
 
-	data, err := msgpack.Marshal(&types.GenerationEvent{Data: eventData, Type: types.StatusEventType})
+	data, err := msgpack.Marshal(&types.GenerationEvent{Data: eventData, Type: types.OutputEventType})
 	if err != nil {
 		logger.Error("error marshaling event: ", err)
 		return err
