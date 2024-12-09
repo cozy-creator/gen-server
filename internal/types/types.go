@@ -1,5 +1,47 @@
 package types
 
+type JobStatus string
+
+const (
+	StatusInProgress JobStatus = "IN_PROGRESS"
+	StatusCompleted  JobStatus = "COMPLETED"
+	StatusCancelled  JobStatus = "CANCELED"
+	StatusInQueue    JobStatus = "IN_QUEUE"
+	StatusFailed     JobStatus = "FAILED"
+)
+
+type EventType = string
+
+const (
+	StatusEventType EventType = "status"
+	ErrorEventType  EventType = "error"
+	OutputEventType EventType = "output"
+)
+
+type GenerationEvent struct {
+	Type EventType   `msgpack:"type"`
+	Data interface{} `msgpack:"data"`
+}
+
+type GenerationOutputData struct {
+	Url       string `msgpack:"url"`
+	JobID     string `msgpack:"job_id"`
+	MimeType  string `msgpack:"mime_type"`
+	FileBytes []byte `msgpack:"file_bytes"`
+}
+
+type GenerationStatusData struct {
+	JobID        string    `msgpack:"job_id"`
+	Status       JobStatus `msgpack:"status"`
+	ErrorMessage string    `msgpack:"error_message"`
+}
+
+type GenerationErrorData struct {
+	ErrorType    string `msgpack:"error_type"`
+	ErrorMessage string `msgpack:"error_message"`
+	JobID        string `msgpack:"job_id"`
+}
+
 const (
 	FileResponseType = "file"
 	JSONResponseType = "json"
@@ -19,7 +61,7 @@ type GeneratedOutput struct {
 type GenerationResponse struct {
 	ID     string                 `json:"id"`
 	Index  int8                   `json:"index"`
-	Status string                 `json:"status"`
+	Status JobStatus              `json:"status"`
 	Output GeneratedOutput        `json:"output"`
 	Input  *GenerateParamsRequest `json:"input,omitempty"`
 }
@@ -48,21 +90,6 @@ type GenerateParams struct {
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`
 	PresignedURL   string `json:"presigned_url" msgpack:"presigned_url"`
 }
-
-// type GenerateParamsRequest struct {
-// 	ID             string         `json:"id,omitempty"`
-// 	Models         map[string]int `json:"models"`
-// 	Style          string         `json:"style,omitempty"` // Added for Replicate
-// 	Size           string         `json:"size,omitempty"`  // Added for Replicate
-// 	RandomSeed     int            `json:"random_seed"`
-// 	AspectRatio    string         `json:"aspect_ratio"`
-// 	PositivePrompt string         `json:"positive_prompt"`
-// 	NegativePrompt string         `json:"negative_prompt,omitempty"`
-// 	WebhookUrl     string         `json:"webhook_url,omitempty"`
-// 	OutputFormat   string         `json:"output_format"`
-// 	SourceImage    interface{}    `json:"source_image,omitempty"` // Added for image-to-image
-// 	Strength       float32        `json:"strength,omitempty"`     // Added for image-to-image
-// }
 
 type Video struct {
 	Content interface{}

@@ -87,7 +87,7 @@ func SubmitRequestHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, types.GenerationResponse{
 		ID:     reqParams.ID,
 		Input:  &params,
-		Status: generation.StatusInQueue,
+		Status: types.StatusInQueue,
 	})
 }
 

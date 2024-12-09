@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/db/models"
+	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/uptrace/bun"
 )
 
@@ -13,7 +14,7 @@ type IJobRepository interface {
 	WithTx(tx *bun.Tx) IJobRepository
 	WithDB(db *bun.DB) IJobRepository
 	GetFullByID(ctx context.Context, id string) (*models.Job, error)
-	UpdateJobStatusByID(ctx context.Context, id string, status models.JobStatus) error
+	UpdateJobStatusByID(ctx context.Context, id string, status types.JobStatus) error
 }
 
 type JobRepository struct {
@@ -71,7 +72,7 @@ func (r *JobRepository) DeleteByID(ctx context.Context, id string) error {
 	return err
 }
 
-func (r *JobRepository) UpdateJobStatusByID(ctx context.Context, id string, status models.JobStatus) error {
+func (r *JobRepository) UpdateJobStatusByID(ctx context.Context, id string, status types.JobStatus) error {
 	_, err := r.db.NewUpdate().Model(&models.Job{}).Where("id = ?", id).Set("status = ?", status).Exec(ctx)
 	return err
 }

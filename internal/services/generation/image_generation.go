@@ -69,7 +69,7 @@ func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.G
 	errc := make(chan error, 1)
 	outputc := make(chan types.GenerationResponse)
 
-	sendResponse := func(urls []string, index int8, currentModel string, status string) {
+	sendResponse := func(urls []string, index int8, currentModel string, status types.JobStatus) {
 		if len(urls) > 0 {
 			outputc <- types.GenerationResponse{
 				Output: types.GeneratedOutput{
@@ -112,7 +112,7 @@ func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
 	// 	}
 	// }
 
-	sendResponse := func(urls []string, index int8, currentModel, status string) {
+	sendResponse := func(urls []string, index int8, currentModel string, status types.JobStatus) {
 		// 	response := types.GenerationResponse{
 		// 		Index:  index,
 		// 		Input:  params,
@@ -162,7 +162,7 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 	return outputBuffer.Bytes(), modelName, nil
 }
 
-func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel, status string)) error {
+func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel string, status types.JobStatus)) error {
 	var (
 		index int8
 		urls  = make([]string, 0, params.NumOutputs)  	// For collecting all URLs
@@ -178,7 +178,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 		select {
 		case <-ctx.Done():
 			if len(urls) > 0 {
-				callback(urls, index, params.Model, StatusCancelled)
+				callback(urls, index, params.Model, types.StatusCancelled)
 			}
 			return ctx.Err()
 		default:
@@ -200,7 +200,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
                         logger.Error("error handling generation completion: ", err)
                         return err
                     }
-                    callback(urls, index, params.Model, StatusCompleted)
+                    callback(urls, index, params.Model, types.StatusCompleted)
                     return nil
                 }
 
@@ -224,7 +224,7 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
             if len(batch) == params.NumOutputs {
                 batchCopy := make([]string, len(batch))
                 copy(batchCopy, batch)
-                callback(batchCopy, index, params.Model, StatusInProgress)
+                callback(batchCopy, index, params.Model, types.StatusInProgress)
                 index++
                 batch = batch[:0]
             }
@@ -232,15 +232,15 @@ func processImageGen(ctx context.Context, params *types.GenerateParams, app *app
 	}
 }
 
-func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) error {
-	eventData := GenerationStatusData{
+func publishStatusEvent(app *app.App, tx *bun.Tx, id string, status types.JobStatus, errMsg string) error {
+	eventData := types.GenerationStatusData{
 		JobID:        id,
 		Status:       status,
 		ErrorMessage: errMsg,
 	}
 
 	ctx := app.Context()
-	event := models.NewEvent(uuid.MustParse(id), "status", eventData)
+	event := models.NewEvent(uuid.MustParse(id), types.StatusEventType, eventData)
 	if tx != nil {
 		if _, err := app.EventRepository.WithTx(tx).Create(ctx, event); err != nil {
 			if err := tx.Rollback(); err != nil {
@@ -257,7 +257,7 @@ func publishStatusEvent(app *app.App, tx *bun.Tx, id, status, errMsg string) err
 		}
 	}
 
-	data, err := msgpack.Marshal(&GenerationEvent{Type: event.Type, Data: eventData})
+	data, err := msgpack.Marshal(&types.GenerationEvent{Type: types.StatusEventType, Data: eventData})
 	if err != nil {
 		logger.Error("error marshaling event: ", err)
 		return err
@@ -300,13 +300,13 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 		return err
 	}
 
-	eventData := GenerationOutputData{
+	eventData := types.GenerationOutputData{
 		Url:       url,
 		JobID:     id,
 		FileBytes: []byte{},
 		MimeType:  mimeType,
 	}
-	event := models.NewEvent(uuid.MustParse(id), "output", eventData)
+	event := models.NewEvent(uuid.MustParse(id), types.OutputEventType, eventData)
 	if _, err := app.EventRepository.WithTx(&tx).Create(ctx, event); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
@@ -323,7 +323,7 @@ func handleImageOutput(app *app.App, id, url, mimeType string) error {
 
 	committed = true
 
-	data, err := msgpack.Marshal(&GenerationEvent{Data: eventData, Type: event.Type})
+	data, err := msgpack.Marshal(&types.GenerationEvent{Data: eventData, Type: types.StatusEventType})
 	if err != nil {
 		logger.Error("error marshaling event: ", err)
 		return err
@@ -345,7 +345,7 @@ func handleGenerationCompletion(app *app.App, id string) error {
 		return err
 	}
 
-	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusCompleted); err != nil {
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, types.StatusCompleted); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
 			return err
@@ -353,7 +353,7 @@ func handleGenerationCompletion(app *app.App, id string) error {
 		return err
 	}
 
-	if err := publishStatusEvent(app, &tx, id, StatusCompleted, ""); err != nil {
+	if err := publishStatusEvent(app, &tx, id, types.StatusCompleted, ""); err != nil {
 		logger.Error("error publishing status event: ", err)
 		return err
 	}
@@ -389,13 +389,13 @@ func handleGenerationError(app *app.App, id, errMsg, errType string) error {
         }
     }()
 
-	eventData := GenerationErrorData{
+	eventData := types.GenerationErrorData{
 		JobID:        id,
 		ErrorType:    errType,
 		ErrorMessage: errMsg,
 	}
 
-	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusFailed); err != nil {
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, types.StatusFailed); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
 			return err
@@ -405,7 +405,7 @@ func handleGenerationError(app *app.App, id, errMsg, errType string) error {
 		return err
 	}
 
-	event := models.NewEvent(uuid.MustParse(id), "error", eventData)
+	event := models.NewEvent(uuid.MustParse(id), types.ErrorEventType, eventData)
 	if _, err := app.EventRepository.WithTx(&tx).Create(ctx, event); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
@@ -416,12 +416,12 @@ func handleGenerationError(app *app.App, id, errMsg, errType string) error {
 		return err
 	}
 
-	if err := publishStatusEvent(app, &tx, id, StatusFailed, errMsg); err != nil {
+	if err := publishStatusEvent(app, &tx, id, types.StatusFailed, errMsg); err != nil {
 		logger.Error("error publishing status event in output: ", err)
 		return err
 	}
 
-	data, err := msgpack.Marshal(&GenerationEvent{Type: event.Type, Data: eventData})
+	data, err := msgpack.Marshal(&types.GenerationEvent{Type: types.ErrorEventType, Data: eventData})
 	if err != nil {
 		logger.Error("error marshaling event in output: ", err)
 		return err
@@ -451,7 +451,7 @@ func handleGenerationBegin(app *app.App, id string) error {
 		return err
 	}
 
-	if job.Status != models.JobStatusQueued {
+	if job.Status != types.StatusInQueue {
 		logger.Error("job is not in queue")
 		return fmt.Errorf("job is not in queue")
 	}
@@ -462,7 +462,7 @@ func handleGenerationBegin(app *app.App, id string) error {
 		return err
 	}
 
-	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, models.JobStatusProgress); err != nil {
+	if err := app.JobRepository.WithTx(&tx).UpdateJobStatusByID(ctx, id, types.StatusInProgress); err != nil {
 		if err := tx.Rollback(); err != nil {
 			logger.Error("Error rolling back transaction:", err.Error())
 			return err
@@ -472,7 +472,7 @@ func handleGenerationBegin(app *app.App, id string) error {
 		return err
 	}
 
-	if err := publishStatusEvent(app, &tx, id, StatusInProgress, ""); err != nil {
+	if err := publishStatusEvent(app, &tx, id, types.StatusInProgress, ""); err != nil {
 		logger.Error("error publishing status event in gen begin: ", err)
 		return err
 	}
