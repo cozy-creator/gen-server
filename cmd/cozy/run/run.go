@@ -89,7 +89,7 @@ func bindEnvs() {
 	viper.BindEnv("s3.region_name")
 	viper.BindEnv("s3.bucket_name")
 	viper.BindEnv("s3.folder")
-	viper.BindEnv("s3.public_url")
+	viper.BindEnv("s3.vanity_url")
 	viper.BindEnv("s3.endpoint_url")
 
 	// External API services (does NOT use COZY_ prefix)

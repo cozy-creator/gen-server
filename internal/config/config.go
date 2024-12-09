@@ -161,7 +161,7 @@ func readAndUnmarshalConfig() error {
 	if viper.GetStringMap("pipeline_defs") == nil {
 		viper.Set("pipeline_defs", PipelineDefs{})
 	}
-
+	
 	cleanEnabledModels()
 
 	// Copy Viper's internal config-state into our local struct
