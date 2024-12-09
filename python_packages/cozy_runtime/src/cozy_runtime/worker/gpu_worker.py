@@ -44,12 +44,12 @@ async def generate_images_non_io(
         if source_image:
             # Use image-to-image node
             # image_gen_node = custom_nodes["core_extension_1.image_to_image_node"]()
-            from inference.custom_nodes.image_to_image_node import ImageToImageNode
+            from ..inference.custom_nodes.image_to_image_node import ImageToImageNode
             image_gen_node = ImageToImageNode()
         else:
             # Use regular image generation node
             # image_gen_node = custom_nodes["core_extension_1.image_gen_node"]()
-            from inference.custom_nodes.image_gen_node import ImageGenNode
+            from ..inference.custom_nodes.image_gen_node import ImageGenNode
             image_gen_node = ImageGenNode()
 
         try:
