@@ -50,15 +50,6 @@ DEFAULT_MAX_VRAM_BUFFER_GB = 2.0
 RAM_SAFETY_MARGIN_GB = 10.0
 
 
-class GPUEnum(Enum):
-    """GPU memory thresholds in GB for different optimization levels."""
-
-    LOW = 7
-    MEDIUM = 14
-    HIGH = 22
-    VERY_HIGH = 30
-
-
 # Keys correspond to diffusers pipeline classes
 MODEL_COMPONENTS = {
     "FluxPipeline": [
@@ -204,15 +195,13 @@ class ModelMemoryManager:
 
         # State flags
         self.is_in_device: bool = False
-
-        # is start up load
         self.is_startup_load: bool = False
 
         # Managers and caches
         self.model_downloader = get_model_downloader()
-        # self.hf_model_manager = get_hf_model_manager()
         self.cache_dir = HF_HUB_CACHE
         self.lru_cache = LRUCache()
+
 
     # If the scheduler is not set in `pipeline_defs`, then we'll rely on diffusers to pick a default
     # scheduler.
@@ -263,6 +252,7 @@ class ModelMemoryManager:
         """
         return psutil.virtual_memory().available / (1024**3)
 
+
     def _get_total_vram(self) -> float:
         """
         Get total VRAM available on the system.
@@ -289,81 +279,31 @@ class ModelMemoryManager:
             logger.debug(f"Available VRAM: {available_vram_gb:.2f} GB")
             return available_vram_gb
         return 100
-
-    def _can_load_to_ram(self, model_size: float) -> bool:
+    
+    def _need_optimization(self, model_size: float) -> bool:
         """
-        Check if a model can be loaded into RAM.
+        Check if a model needs optimization to fit in GPU memory.
 
         Args:
             model_size: Size of the model in GB
 
         Returns:
-            Boolean indicating if model can fit in RAM
+            True if the model needs optimization, False otherwise
         """
-        print("In Available RAM")
-        available_ram = self._get_available_ram() - RAM_SAFETY_MARGIN_GB
-        logger.debug(
-            f"Available RAM: {available_ram:.2f} GB, Model size: {model_size:.2f} GB"
-        )
-        return available_ram >= model_size
-
-    def _can_load_model(self, model_size: float) -> Tuple[bool, bool]:
+        return model_size > self.max_vram
+    
+    def _can_fit_gpu(self, model_size: float) -> bool:
         """
-        Check if a model can be loaded to GPU.
+        Check if a model can fit in GPU memory.
 
         Args:
             model_size: Size of the model in GB
 
         Returns:
-            Tuple of (can_load_without_optimization, needs_optimization)
+            True if the model can fit in GPU memory, False otherwise
         """
-        # First check if model is bigger than total VRAM
-        if model_size > self.max_vram:
-            logger.debug(
-                f"Model size ({model_size:.2f} GB) exceeds total VRAM ({self.max_vram:.2f} GB)"
-            )
-            return True, True  # Can load but needs optimization
-
-        # Model can theoretically fit in VRAM
-        available_vram = self._get_available_vram()
-        if model_size <= available_vram - VRAM_SAFETY_MARGIN_GB:
-            logger.debug("Can load without optimization - sufficient VRAM available")
-            return True, False
-
-        # Not enough available VRAM but model can fit in total VRAM
-        # Will need to make space but no optimization needed
-        logger.debug("Need to make space in VRAM")
-        return False, False
-
-    def _determine_load_location(self, model_size: float) -> str:
-        """
-        Determine optimal location to load the model based on available resources.
-
-        Args:
-            model_size: Size of the model in GB
-
-        Returns:
-            String indicating load location: "gpu", "gpu_optimized", "needs_space", or "none"
-        """
-        if self.is_startup_load:
-            available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
-            if model_size <= available_vram:
-                return "gpu"
-            return "none"
-
-        # If model is bigger than total VRAM, it must be optimized
-        if model_size > self.max_vram:
-            if self._can_load_to_ram(model_size):
-                return "gpu_optimized"  # Will use CPU offload
-            return "none"  # Can't even fit in CPU
-
-        # Model can fit in total VRAM
-        available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
-        if model_size <= available_vram:
-            return "gpu"
-
-        # Need to make space in VRAM first
-        return "needs_space"
+        return (model_size <= (self._get_available_vram() - VRAM_SAFETY_MARGIN_GB))
+    
 
     async def load(
         self, model_id: str, gpu: Optional[int] = None, pipe_type: Optional[str] = None
@@ -393,95 +333,15 @@ class ModelMemoryManager:
             self.lru_cache.access(model_id, "gpu")
             return self.loaded_models[model_id]
 
+        # CPU-offloaded models
         if model_id in self.cpu_models:
-            return await self._handle_cpu_model_load(model_id)
+            logger.info(f"Model {model_id} is CPU-offloaded and ready")
+            self.lru_cache.access(model_id, "cpu")
+            return self.cpu_models[model_id]
 
         # Load new model
         return await self._load_new_model(model_id, gpu, pipe_type)
 
-    async def _handle_cpu_model_load(
-        self, model_id: str
-    ) -> Optional[DiffusionPipeline]:
-        """
-        Handle loading of a model that exists in CPU memory.
-
-        Attempts to move the model to GPU if possible, applying optimizations
-        or keeping in CPU if necessary.
-
-        Args:
-            model_id: Identifier for the model
-
-        Returns:
-            Pipeline object or None if operation failed
-        """
-        logger.info(f"Model {model_id} is in CPU memory")
-        model_size = self.model_sizes[model_id]
-
-        # Attempt GPU transfer if possible
-        available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
-
-        if model_size > available_vram:
-            self._make_space_for_model(model_size)
-
-        can_load_gpu, need_optimization = self._can_load_model(model_size)
-        if not can_load_gpu:
-            logger.info(f"Insufficient GPU memory for {model_id}, keeping in CPU")
-            return self.cpu_models[model_id]
-
-        # Move model from CPU to GPU
-        try:
-            pipeline = self.cpu_models.pop(model_id)
-            self.ram_usage -= model_size
-
-            if need_optimization:
-                logger.info(f"Applying optimizations for {model_id}")
-                self.apply_optimizations(pipeline, model_id, True)
-                self._restore_cpu_model(model_id, pipeline, model_size)
-                return pipeline
-
-            if self._move_model_to_gpu(pipeline, model_id):
-                logger.info(f"Successfully moved {model_id} to GPU")
-                self._update_gpu_model(model_id, pipeline, model_size)
-
-                return pipeline
-
-            logger.info(f"Failed to move {model_id} to GPU, keeping in CPU")
-            self._restore_cpu_model(model_id, pipeline, model_size)
-            return pipeline
-
-        except Exception as e:
-            logger.error(f"Error handling CPU model load for {model_id}: {str(e)}")
-            return None
-
-    def _update_gpu_model(
-        self, model_id: str, pipeline: DiffusionPipeline, model_size: float
-    ) -> None:
-        """
-        Update GPU model tracking after successful model movement.
-
-        Args:
-            model_id: Model identifier
-            pipeline: The pipeline that was moved
-            model_size: Size of the model in GB
-        """
-        self.loaded_models[model_id] = pipeline
-        self.vram_usage += model_size
-        self.lru_cache.remove(model_id, "cpu")
-        self.lru_cache.access(model_id, "gpu")
-
-    def _restore_cpu_model(
-        self, model_id: str, pipeline: DiffusionPipeline, model_size: float
-    ) -> None:
-        """
-        Restore model to CPU tracking after failed GPU movement.
-
-        Args:
-            model_id: Model identifier
-            pipeline: The pipeline to restore
-            model_size: Size of the model in GB
-        """
-        self.cpu_models[model_id] = pipeline
-        self.ram_usage += model_size
 
     async def _load_new_model(
         self, model_id: str, gpu: Optional[int] = None, pipe_type: Optional[str] = None
@@ -511,41 +371,68 @@ class ModelMemoryManager:
                 logger.error(f"Model {model_id} not found in configuration")
                 return None
 
-            # Prepare memory and determine load location
+            # Prepare memory
             estimated_size = await self._get_model_size(model_config, model_id)
-            load_location = self._determine_load_location(estimated_size)
 
-            if load_location == "none":
-                logger.error(f"Insufficient memory to load model {model_id}")
-                return None
+            # try direct gpu load
+            if self._can_fit_gpu(estimated_size):
+                pipeline = await self._load_model_by_source(model_id, model_config)
+                if pipeline is None:
+                    return None
+                
+                self._setup_scheduler(pipeline, model_id)
+                if self._move_model_to_gpu(pipeline, model_id):
+                    self.loaded_models[model_id] = pipeline
+                    self.model_sizes[model_id] = estimated_size
+                    self.vram_usage += estimated_size
+                    self.lru_cache.access(model_id, "gpu")
+                    return pipeline
+                else:
+                    logger.error(f"Failed to move {model_id} to GPU")
+                    return None
+                
+            # if not enough space, try to make space
+            self._free_space_for_model(estimated_size)
+            if self._can_fit_gpu(estimated_size):
+                pipeline = await self._load_model_by_source(model_id, model_config)
+                if pipeline is None:
+                    return None
+                
+                self._setup_scheduler(pipeline, model_id)
+                if self._move_model_to_gpu(pipeline, model_id):
+                    self.loaded_models[model_id] = pipeline
+                    self.model_sizes[model_id] = estimated_size
+                    self.vram_usage += estimated_size
+                    self.lru_cache.access(model_id, "gpu")
+                    return pipeline
+                else:
+                    logger.error(f"Failed to move {model_id} to GPU")
+                    return None
+                
+            # if still not enough VRAM, apply optimization (CPU offload)
+            if self._need_optimization(estimated_size):
+                pipeline = await self._load_model_by_source(model_id, model_config)
+                if pipeline is None:
+                    return None
+                self._setup_scheduler(pipeline, model_id)
+                logger.info(f"Applying optimizations for {model_id}")
+                self.apply_optimizations(pipeline, model_id, True)
 
-            if load_location in ["needs_space", "gpu_optimized"]:
-                self._make_space_for_model(estimated_size)
-                load_location = self._determine_load_location(estimated_size)
-                print(f"Load location after making space: {load_location}")
-
-            # Load the model
-            pipeline = await self._load_model_by_source(model_id, model_config, gpu)
-            if pipeline is None:
-                return None
-
-            print(f"Load location: {load_location}")
-
-            self._setup_scheduler(pipeline, model_id)
-
-            # Place in appropriate memory location
-            return await self._place_model_in_memory(
-                pipeline, model_id, estimated_size, load_location
-            )
-
+                self.cpu_models[model_id] = pipeline
+                self.model_sizes[model_id] = estimated_size
+                self.lru_cache.access(model_id, "cpu")
+                return pipeline
+            
+            logger.error(f"Insufficient memory to load model {model_id}")
+            return None
+        
         except Exception as e:
             logger.error("Error loading new model {}: {}".format(model_id, str(e)))
             traceback.print_exc()
             return None
 
     async def _load_model_by_source(
-        self, model_id: str, model_config: PipelineConfig, gpu: Optional[int]
-    ) -> Optional[DiffusionPipeline]:
+        self, model_id: str, model_config: PipelineConfig) -> Optional[DiffusionPipeline]:
         """
         Load a model based on its source configuration.
 
@@ -589,11 +476,11 @@ class ModelMemoryManager:
                         return None
 
                 return await self.load_huggingface_model(
-                    model_id, path, class_name, gpu, variant, model_config
+                    model_id, path, class_name, variant, model_config
                 )
             elif prefix in ["file", "ct"]:
                 return await self.load_single_file_model(
-                    model_id, path, prefix, gpu, class_name
+                    model_id, path, prefix, class_name
                 )
             elif source.startswith(("http://", "https://")):
                 # Handle Civitai/direct download models
@@ -611,7 +498,7 @@ class ModelMemoryManager:
                     return None
 
                 return await self.load_single_file_model(
-                    model_id, cached_path, "file", gpu, class_name
+                    model_id, cached_path, "file", class_name
                 )
             else:
                 logger.error(f"Unsupported model source prefix: {prefix}")
@@ -619,82 +506,30 @@ class ModelMemoryManager:
         except Exception as e:
             logger.error("Error loading model from source: {}".format(str(e)))
             return None
-
-    def _make_space_for_model(self, model_size: float) -> None:
-        """
-        Attempt to free up memory space for a new model.
-
-        Implements a sophisticated memory management strategy:
-        1. First try to move models to CPU if possible
-        2. If that's not possible, unload models completely
-        3. Tracks all memory changes through LRU cache
-
-        Args:
-            model_size: Size of the model requiring space in GB
-        """
+        
+    def _free_space_for_model(self, model_size: float) -> None:
         available_vram = self._get_available_vram() - VRAM_SAFETY_MARGIN_GB
-
-        # If model is bigger than total VRAM, we need to clear everything
-        if model_size > self.max_vram:
-            logger.info("Model exceeds total VRAM - clearing all GPU models")
-            gpu_models = list(self.loaded_models.keys())
-            for model_id in gpu_models:
-                self._move_model_to_cpu_for_space(model_id, self.model_sizes[model_id])
+        if available_vram >= model_size:
             return
+        
+        space_needed = model_size - available_vram
+        logger.info(f"Need to free {space_needed:.2f} GB of VRAM")
 
-        # If model can fit in total VRAM but needs space
-        if available_vram < model_size:
-            space_needed = model_size - available_vram
-            logger.info(f"Need to free {space_needed:.2f} GB of VRAM")
+        gpu_models = [
+            (mid, self.model_sizes[mid])
+            for mid in self.lru_cache.get_lru_models("gpu")
+        ]
 
-            # Get GPU models in LRU order
-            gpu_models = [
-                (mid, self.model_sizes[mid])
-                for mid in self.lru_cache.get_lru_models("gpu")
-            ]
+        freed_space = 0
+        for model_id, size in gpu_models:
+            if freed_space >= space_needed:
+                break
 
-            freed_space = 0
-            for model_id, size in gpu_models:
-                if freed_space >= space_needed:
-                    break
+            freed_space += self._unload_model_for_space(model_id, size, "gpu")
 
-                # Try to move to CPU first
-                if self._can_load_to_ram(size):
-                    freed_space += self._move_model_to_cpu_for_space(model_id, size)
-                else:
-                    # If can't move to CPU, unload completely
-                    freed_space += self._unload_model_for_space(model_id, size, "gpu")
+            if self._get_available_vram() - VRAM_SAFETY_MARGIN_GB >= model_size:
+                break
 
-                print(f"Freed space: {freed_space}")
-
-                if self._get_available_vram() - VRAM_SAFETY_MARGIN_GB >= model_size:
-                    break
-
-    def _move_model_to_cpu_for_space(self, model_id: str, model_size: float) -> float:
-        """
-        Move a model from GPU to CPU to free up space.
-
-        Args:
-            model_id: Model identifier
-            model_size: Size of the model in GB
-
-        Returns:
-            Amount of space freed in GB
-        """
-        logger.info(f"Moving {model_id} to CPU to make space in GPU")
-        pipeline = self.loaded_models.pop(model_id)
-        self.vram_usage -= model_size
-
-        if self._move_model_to_cpu(pipeline, model_id):
-            self.cpu_models[model_id] = pipeline
-            self.ram_usage += model_size
-            self.lru_cache.remove(model_id, "gpu")
-            self.lru_cache.access(model_id, "cpu")
-            return model_size
-
-        del pipeline
-        self.lru_cache.remove(model_id, "gpu")
-        return model_size
 
     def _unload_model_for_space(
         self, model_id: str, model_size: float, device: str
@@ -742,31 +577,6 @@ class ModelMemoryManager:
                 self.vram_usage -= model_size
                 self.lru_cache.remove(model_id, "gpu")
 
-            if device == "cpu" and model_id in self.cpu_models:
-                pipeline = self.cpu_models[model_id]
-
-                # Same cleanup for CPU models
-                for attr in [
-                    "vae",
-                    "unet",
-                    "text_encoder",
-                    "text_encoder_2",
-                    "tokenizer",
-                    "scheduler",
-                    "transformer",
-                    "tokenizer_2",
-                    "text_encoder_3",
-                    "tokenizer_3",
-                ]:
-                    if hasattr(pipeline, attr) and getattr(pipeline, attr) is not None:
-                        component = getattr(pipeline, attr)
-                        delattr(pipeline, attr)
-                        del component
-
-                del self.cpu_models[model_id]
-                self.ram_usage -= model_size
-                self.lru_cache.remove(model_id, "cpu")
-
             # Force garbage collection and memory clearing
             self.flush_memory()
 
@@ -785,54 +595,6 @@ class ModelMemoryManager:
             self.flush_memory()
             return model_size
 
-    def _move_model_to_cpu(self, pipeline: DiffusionPipeline, model_id: str) -> bool:
-        """
-        Safely move a model to CPU memory with proper dtype handling.
-
-        Args:
-            pipeline: The pipeline to move
-            model_id: Identifier of the model
-
-        Returns:
-            Boolean indicating success of the operation
-        """
-        # Skip if it's OmniGen pipeline
-        if pipeline.__class__.__name__ == "OmniGenPipeline":
-            return True
-
-        try:
-            self.flush_memory()
-
-            # Store original dtype
-            if model_id not in self.model_types:
-                self._store_model_dtype(pipeline, model_id)
-
-            pipeline = pipeline.to("cpu", silence_dtype_warnings=True)
-            self.flush_memory()
-            return True
-
-        except Exception as e:
-            logger.error("Failed to move model {} to CPU: {}".format(model_id, str(e)))
-            return False
-
-    def _store_model_dtype(self, pipeline: DiffusionPipeline, model_id: str) -> None:
-        """
-        Store the original dtype of a model for future reference.
-
-        Args:
-            pipeline: The pipeline to get dtype from
-            model_id: Model identifier
-        """
-        if hasattr(pipeline, "dtype"):
-            self.model_types[model_id] = pipeline.dtype
-        else:
-            for attr in ["vae", "unet", "text_encoder", "transformer"]:
-                if hasattr(pipeline, attr):
-                    component = getattr(pipeline, attr)
-                    if hasattr(component, "dtype"):
-                        self.model_types[model_id] = component.dtype
-                        break
-
     def _move_model_to_gpu(self, pipeline: DiffusionPipeline, model_id: str) -> bool:
         """
         Safely move a model to GPU memory with proper dtype handling.
@@ -850,21 +612,10 @@ class ModelMemoryManager:
 
         try:
             device = get_available_torch_device()
-            # Store the original pipeline components for cleanup
-
-            # cpu_components = {}
-            # for attr in ["vae", "unet", "text_encoder", "text_encoder_2", "transformer"]:
-            #     if hasattr(pipeline, attr) and getattr(pipeline, attr) is not None:
-            #         cpu_components[attr] = getattr(pipeline, attr)
 
             pipeline = pipeline.to(device=device)
 
             print("Done with moving to GPU")
-
-            # for attr, component in cpu_components.items():
-            #     if hasattr(component, "parameters"):
-            #         print(f"Clearing {attr} parameters")
-            #     del component
 
             self.flush_memory()
             return True
@@ -879,82 +630,11 @@ class ModelMemoryManager:
             self.flush_memory()
             return False
 
-    async def _place_model_in_memory(
-        self,
-        pipeline: DiffusionPipeline,
-        model_id: str,
-        model_size: float,
-        load_location: str,
-    ) -> Optional[DiffusionPipeline]:
-        """
-        Place a loaded model in the appropriate memory location.
-
-        Args:
-            pipeline: The loaded pipeline
-            model_id: Model identifier
-            model_size: Size of the model in GB
-            load_location: Target location ("gpu", "gpu_optimized", "needs_space")
-
-        Returns:
-            The pipeline in its final location or None if placement failed
-        """
-        try:
-            # Handle OmniGen pipeline
-            if pipeline.__class__.__name__ == "OmniGenPipeline":
-                self.loaded_models[model_id] = pipeline
-                self.model_sizes[model_id] = model_size
-                self.vram_usage += model_size
-                self.lru_cache.access(model_id, "gpu")
-                return pipeline
-
-            if load_location == "needs_space":
-                self._make_space_for_model(model_size)
-                if self._move_model_to_gpu(pipeline, model_id):
-                    self.loaded_models[model_id] = pipeline
-                    self.model_sizes[model_id] = model_size
-                    self.vram_usage += model_size
-                    self.lru_cache.access(model_id, "gpu")
-                    return pipeline
-                logger.error(
-                    f"Failed to move model {model_id} to GPU after making space"
-                )
-                return None
-
-            if load_location == "gpu":
-                print(f"Moving {model_id} to GPU")
-                if self._move_model_to_gpu(pipeline, model_id):
-                    self.loaded_models[model_id] = pipeline
-                    self.model_sizes[model_id] = model_size
-                    self.vram_usage += model_size
-                    self.lru_cache.access(model_id, "gpu")
-                    return pipeline
-                logger.error(f"Failed to move model {model_id} to GPU")
-                return None
-
-            elif load_location == "gpu_optimized":
-                # Clear GPU completely before optimizing
-                self._make_space_for_model(model_size)
-                self.apply_optimizations(pipeline, model_id, True)
-                self.cpu_models[model_id] = pipeline
-                self.model_sizes[model_id] = model_size
-                self.ram_usage += model_size
-                self.lru_cache.access(model_id, "cpu")
-                return pipeline
-
-            return None
-
-        except Exception as e:
-            logger.error(
-                "Error placing model {} in memory: {}".format(model_id, str(e))
-            )
-            return None
-
     async def load_huggingface_model(
         self,
         model_id: str,
         repo_id: str,
         class_name: Union[str, Tuple[str, str]],
-        gpu: Optional[int] = None,
         variant: Optional[str] = None,
         model_config: Optional[PipelineConfig] = None,
     ) -> Optional[DiffusionPipeline]:
@@ -1059,10 +739,6 @@ class ModelMemoryManager:
                                 main_model_source, component, class_name, key, variant
                             )
 
-            # Handle custom pipeline if specified as string
-            # if isinstance(class_name, str):
-            #     pipeline_kwargs["custom_pipeline"] = class_name
-
             return pipeline_kwargs
 
         except Exception as e:
@@ -1123,7 +799,6 @@ class ModelMemoryManager:
         model_id: str,
         path: str,
         prefix: str,
-        gpu: Optional[int] = None,
         class_name: Optional[Union[str, Tuple[str, str]]] = None,
     ) -> Optional[DiffusionPipeline]:
         """
@@ -1232,9 +907,7 @@ class ModelMemoryManager:
         """
         try:
             # Determine appropriate dtype based on model type
-            torch_dtype = (
-                torch.bfloat16 if "flux" in model_id.lower() else torch.float16
-            )
+            torch_dtype = torch.bfloat16 if "flux" in model_id.lower() else torch.float16
 
             # Load the model with appropriate dtype
             pipeline = pipeline_class.from_single_file(path, torch_dtype=torch_dtype)
@@ -1642,23 +1315,7 @@ class ModelMemoryManager:
         """
         model = self.get_model(model_id)
         return model.device if model else None
-
-    # def _get_model_size(self, model_config: Dict[str, Any]) -> float:
-    #     """
-    #     Calculate the total size of a model including all its components.
-
-    #     Args:
-    #         model_config: Model configuration dictionary
-
-    #     Returns:
-    #         Total size in GB
-    #     """
-    #     if any(prefix in model_config["source"] for prefix in ["ct:", "file:"]):
-    #         path = model_config["source"].replace("ct:", "").replace("file:", "")
-    #         return os.path.getsize(path) / (1024**3)
-
-    #     repo_id = model_config["source"].replace("hf:", "")
-    #     return self._calculate_repo_size(repo_id, model_config)
+    
 
     async def _get_model_size(
         self, model_config: PipelineConfig, model_id: str
@@ -1728,7 +1385,7 @@ class ModelMemoryManager:
         else:
             components = model_config.components
 
-        if components and components:
+        if components:
             for key, component in components.items():
                 if isinstance(component, dict) and "source" in component:
                     component_size = self._calculate_component_size(

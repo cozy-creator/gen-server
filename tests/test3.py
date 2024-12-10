@@ -6,6 +6,9 @@ import os
 import json
 import sseclient
 
+
+# http://localhost:8881
+
 class CozyClient:
     def __init__(self, base_url="http://localhost:8881", api_key=None):
         self.base_url = base_url
@@ -58,13 +61,27 @@ class CozyClient:
         for event in client.events():
             yield json.loads(event.data)
 
+
+[
+  "flux.1-schnell-fp8",
+  "sd3.5-large-int8",
+  "playground2.5",
+  "pony.v6",
+  "cyberrealistic.pony",
+  "wai.ani.ponyxl",
+  "illustrious.xl",
+  "real.dream.pony",
+  "pony.realism",
+  "babes_by_stable_yogi.v4.xl",
+  "ebara-pony-xl"
+]
 # Example usage
 async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sd1.5-andre",
-        "positive_prompt": "A beautiful woman colourful",
+        "model": "playground",
+        "positive_prompt": "A anime man fighting a peanut butter under the sea in space",
         "negative_prompt": "",
         "num_outputs": 1,
         # "random_seed": 43,
