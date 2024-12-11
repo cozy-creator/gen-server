@@ -22,6 +22,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/services/model_downloader"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
 	"github.com/cozy-creator/gen-server/tools"
+	"go.uber.org/zap"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -304,14 +305,27 @@ func downloadEnabledModels(app *app.App, downloaderManager *model_downloader.Mod
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- downloaderManager.InitializeModels()
+		app.Logger.Info("Starting model downloads")
+		err := downloaderManager.InitializeModels()
+        if err != nil {
+            app.Logger.Error("Download failed", zap.Error(err))
+        }
+        errChan <- err
 	}()
 
 	select {
 	case <-ctx.Done():
+		app.Logger.Warn("Context cancelled - reason", 
+            zap.Error(ctx.Err()),
+            zap.Stack("stack"))
 		return context.Canceled
 	case err := <-errChan:
-		return err
+		if err != nil {
+            app.Logger.Error("Download error", zap.Error(err))
+            return err
+        }
+        app.Logger.Info("Downloads completed successfully")
+        return nil
 	}
 }
 
