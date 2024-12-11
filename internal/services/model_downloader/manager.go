@@ -39,8 +39,8 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 
 	progress := mpb.New(
 		mpb.WithWidth(60),
-		mpb.WithRefreshRate(5*time.Second),
-		mpb.WithOutput(os.Stderr),
+		mpb.WithRefreshRate(1*time.Second),
+		mpb.WithOutput(os.Stdout),
 	)
 
 	hubClient.Progress = progress
