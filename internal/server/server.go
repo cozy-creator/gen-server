@@ -19,11 +19,9 @@ type Server struct {
 	inner      *http.Server
 }
 
-func NewServer(cfg *config.Config) (*Server, error) {
+func NewServer(config *config.Config) (*Server, error) {
+	gin.SetMode(getGinMode(config.Environment))
 	r := gin.New()
-
-	// Set gin mode
-	gin.SetMode(getGinMode(cfg.Environment))
 
 	// Setup logger middleware
 	r.Use(logger.SetLogger(
@@ -34,29 +32,29 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// Setup CORS middleware
 	r.Use(cors.New(
 		cors.Config{
-			AllowOrigins:     []string{"*"},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
-			ExposeHeaders:    []string{"Content-Length"},
+			AllowOrigins:     []string{"*"},
+			AllowHeaders:     []string{"*"},
+			ExposeHeaders:    []string{"*"},
 			AllowCredentials: true,
 			MaxAge:           300,
 		},
 	))
 
 	// Serve static files
-	if cfg.Environment == "production" {
-		r.Use(static.Serve("/", static.LocalFile("/srv/www/cozy/dist", true)))
-	} else {
-		r.Use(static.Serve("/", static.LocalFile("./web/dist", true)))
-	}
-
+	staticPath := config.PublicDir
+	// if (staticPath == "") {
+	// 	staticPath = GetDefaultPublicDir(config.Environment)
+	// }
+	r.Use(static.Serve("/", static.LocalFile(staticPath, true)))
 	r.Use(gin.Recovery())
 
 	return &Server{
+		listenAddr: fmt.Sprintf("%s:%d", config.Host, config.Port),
 		ginEngine: r,
 		inner: &http.Server{
 			Handler: r,
-			Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Addr:    fmt.Sprintf("%s:%d", config.Host, config.Port),
 		},
 	}, nil
 }
@@ -84,11 +82,20 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func getGinMode(env string) string {
 	switch env {
-	case "development":
+	case "dev":
 		return gin.DebugMode
 	case "test":
 		return gin.TestMode
 	default:
 		return gin.ReleaseMode
+	}
+}
+
+func GetDefaultPublicDir(env string) string {
+    switch env {
+    case "prod":
+        return "/srv/www/cozy/dist"
+    default:
+        return "./web/dist"
 	}
 }

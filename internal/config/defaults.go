@@ -2,11 +2,14 @@ package config
 
 import "errors"
 
-var DefaultCozyHome = "~/.cozy-creator"
+const TCPPort = 8882
 
 var (
-	DefaultGenerateTopic  = "generation"
-	DefaultGeneratePrefix = DefaultGenerateTopic + ":"
+	DefaultGenerateTopic    = "cozy-creator/generations/requests"
+	DefaultDownloadingTopic = "cozy-creator/generations/downloading"
+	DefaultGeneratePrefix   = DefaultGenerateTopic + ":"
+
+	DefaultStreamsTopic = "cozy-creator/streams"
 )
 
 var (

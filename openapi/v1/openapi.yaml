@@ -1,0 +1,536 @@
+openapi: 3.1.1
+
+info:
+  version: 0.1.0
+  title: Cozy Creator
+  description: Cozy Creator OpenAPI specification
+
+servers:
+  - url: https://api.cozy.art/v1
+    description: Production endpoint
+  - url: https://api.cozy.dev/v1
+    description: Development-branch endpoint
+
+tags:
+  - name: generation
+    description: Endpoints related to content generation
+  - name: file
+    description: Endpoints related to file uploads and retrievals
+  - name: workflow
+    description: Endpoints related to workflow execution
+
+components:
+  parameters:
+    AcceptStream:
+      name: Accept
+      in: header
+      schema:
+        type: string
+        enum: 
+          - text/event-stream
+          - application/vnd.msgpack-stream
+        default: application/vnd.msgpack-stream
+      required: false
+      description: Format the client wants to receive (defaults to msgpack stream)
+    
+    AcceptStandard:
+      name: Accept
+      in: header
+      schema:
+        type: string
+        enum:
+          - application/json
+          - application/vnd.msgpack
+        default: application/json
+      required: false
+      description: Format the client wants to receive (defaults to JSON)
+    
+    ContentType:
+      name: Content-Type
+      in: header
+      schema:
+        type: string
+        enum:
+          - application/json
+          - application/vnd.msgpack
+        default: application/json
+      required: true
+      description: Format of the data being sent
+
+  securitySchemes:
+    APIKeyHeader:
+      in: header
+      type: apiKey
+      name: X-API-Key
+  
+  schemas:
+    JobStatus:
+      type: string
+      enum: [IN_QUEUE, IN_PROGRESS, COMPLETED, FAILED]
+      description: Status of the job
+    
+    JobStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of the Job
+        status:
+          $ref: "#/components/schemas/JobStatus"
+      required: [id, status]
+
+    JobRequest:
+      type: object
+      properties:
+        models:
+          type: object
+          propertyNames:
+            pattern: ^[a-zA-Z_][a-zA-Z0-9_-]*$
+          additionalProperties:
+            type: integer
+            minimum: 1
+            maximum: 10
+          description: A map of model names (string) to their weights (integer)
+          example:
+            "sdxl": 1
+            "flux_dev": 2
+        random_seed:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+          description: The random seed to be used for generation
+        aspect_ratio:
+          type: string
+          enum: ['21/9', '16/9', '4/3', '1/1', '3/4', '9/16', '9/21']
+          description: Aspect ratio for the generated content
+        positive_prompt:
+          type: string
+          description: A positive prompt to guide the generation
+        negative_prompt:
+          type: string
+          description: A negative prompt to exclude certain elements
+        output_format:
+          type: string
+          enum: [jpg, png, webp]
+          description: The desired output format
+        webhook_url:
+          type: string
+          format: uri
+          description: URL to send the generated output to (optional)
+          example: "https://api.example.com/webhook"
+      required:
+        - models
+        - positive_prompt
+    
+    JobResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the job
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        input:
+          $ref: "#/components/schemas/JobRequest"
+        output:
+          type: object
+          patternProperties:
+            ^[a-zA-Z0-9_]+$:
+              type: array
+              items:
+                type: string
+                format: uri
+              minItems: 1
+          description: Map of model names to arrays of image URLs
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+      required: [id, status, input, output, created_at, completed_at]
+    
+    JobStreamEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [status, output]
+          description: Indicates the type of object as 'status' or 'output'
+        data:
+          type: object
+          properties:
+            job_id:
+              type: string
+              format: uuid
+              description: Unique identifier for the job
+            url:
+              type: string
+              format: uri
+              description: URL of the generated image
+            model:
+              type: string
+              description: Model used to generate the image (e.g., 'sdxl')
+            status:
+              $ref: "#/components/schemas/JobStatus"
+          required: [job_id]
+          description: An event that occurred for a job
+      required: [type, data]
+
+    UploadResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Status of the upload request
+        data:
+          type: object
+          properties:
+            url:
+              type: string
+              description: URL of the uploaded file
+
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the node
+        type:
+          type: string
+          description: The type of the node
+
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the workflow
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+          description: A list of nodes involved in the workflow
+
+    WorkflowResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the workflow
+        status:
+          type: string
+          description: The current status of the workflow execution
+
+    NodeOutput:
+      type: object
+      additionalProperties:
+        type: object
+
+    WorkflowOutput:
+      type: object
+      properties:
+        nodeID:
+          type: string
+          description: The ID of the node producing the output
+        nodeType:
+          type: string
+          description: The type of the node
+        output:
+          $ref: "#/components/schemas/NodeOutput"
+          description: The output of the node
+        error:
+          type: string
+          nullable: true
+          description: An error message, if any
+
+  responses:
+    Error400:
+      description: Bad request - invalid input parameters
+    Error401:
+      description: Unauthorized - invalid or missing API key
+    Error500:
+      description: Internal server error
+  
+paths:
+  /jobs/submit:
+    post:
+      parameters:
+        - $ref: '#/components/parameters/AcceptStandard'
+        - $ref: '#/components/parameters/ContentType'
+      tags:
+        - generation
+      summary: Submit a new job to generate images
+      operationId: submitJob
+      security:
+        - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/vnd.msgpack:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+      responses:
+        "200":
+          description: Job submitted successfully
+          content:
+            application/vnd.msgpack:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /jobs/{id}/status:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/AcceptStandard'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The job ID
+      tags:
+        - generation
+      summary: Retrieve the current status of a job
+      operationId: getJobStatus
+      security:
+        - APIKeyHeader: []
+      responses:
+        "200":
+          description: Job status retrieved successfully
+          content:
+            application/vnd.msgpack:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        "404":
+          description: Job not found
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /jobs/{id}/result:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/AcceptStandard'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The job ID
+      tags:
+        - generation
+      summary: Retrieve the completed image result of a job
+      operationId: getJobResult
+      security:
+        - APIKeyHeader: []
+      responses:
+        "200":
+          description: Job result retrieved successfully
+          content:
+            application/vnd.msgpack:
+              schema:
+                $ref: "#/components/schemas/JobResult"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResult"
+        "404":
+          description: Job not found
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+  
+  /jobs/{id}/stream-events:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/AcceptStream'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The job ID
+      tags:
+        - generation
+      summary: Stream events for a specific job
+      description: Get the event-stream produced by a job. Starts the event stream from the beginning.
+      operationId: streamJobEvents
+      security:
+        - APIKeyHeader: []
+      responses:
+        "200":
+          description: Event stream started successfully
+          content:
+            application/vnd.msgpack-stream:
+              schema:
+                type: string
+                contentMediaType: application/vnd.msgpack
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
+            text/event-stream:
+              schema:
+                type: string
+                contentMediaType: text/event-stream
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
+        "404":
+          description: Job not found
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /jobs/submit-and-stream-events:
+    post:
+      parameters:
+        - $ref: '#/components/parameters/AcceptStream'
+        - $ref: '#/components/parameters/ContentType'
+      tags:
+        - generation
+      summary: Submit a job and stream its events
+      description: Submit a job and also returns an event-stream object (async iterable)
+      operationId: submitAndStreamJob
+      security:
+        - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/vnd.msgpack:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+      responses:
+        "200":
+          description: Event stream started successfully
+          content:
+            application/vnd.msgpack-stream:
+              schema:
+                type: string
+                contentMediaType: application/vnd.msgpack
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
+            text/event-stream:
+              schema:
+                type: string
+                contentMediaType: text/event-stream
+                contentEncoding: stream
+                items:
+                  $ref: "#/components/schemas/JobStreamEvent"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+  
+  /upload:
+    post:
+      tags:
+        - file
+      summary: Uploads a file to the server
+      description: This endpoint uploads a file using a form-data request with the key `file`.
+      operationId: uploadFile
+      security:
+        - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/vnd.msgpack:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          description: Bad request, invalid file upload
+        "500":
+          description: Internal server error
+
+  /workflow/execute:
+    post:
+      tags:
+        - workflow
+      summary: Executes a workflow
+      description: This endpoint executes a workflow consisting of multiple nodes.
+      operationId: executeWorkflow
+      security:
+        - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/vnd.msgpack:
+            schema:
+              $ref: "#/components/schemas/Workflow"
+      responses:
+        "200":
+          description: Workflow execution initiated successfully
+          content:
+            application/vnd.msgpack:
+              schema:
+                $ref: "#/components/schemas/WorkflowResponse"
+        "400":
+          description: Invalid request parameters
+        "500":
+          description: Internal server error
+
+  /workflow/{id}/stream:
+    get:
+      tags:
+        - workflow
+      summary: Streams the workflow output for the given workflow ID
+      description: This endpoint returns Server-Sent Events (SSE) for streaming the output of a workflow identified by the given ID.
+      operationId: streamWorkflow
+      security:
+        - APIKeyHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique ID of the workflow to stream
+      responses:
+        "200":
+          description: Job submitted and event stream started
+          content:
+            application/stream+json:
+              schema:
+                $ref: "#/components/schemas/JobStreamEvent"
+            application/vnd.msgpack-stream:
+              schema:
+                $ref: "#/components/schemas/JobStreamEvent"
+        "400":
+          description: Invalid request parameters
+        "500":
+          description: Internal server error

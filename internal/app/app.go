@@ -2,44 +2,61 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/db"
+	"github.com/cozy-creator/gen-server/internal/db/drivers"
+	"github.com/cozy-creator/gen-server/internal/db/models"
+	"github.com/cozy-creator/gen-server/internal/db/repository"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
+	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/uptrace/bun"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	config *config.Config
+	mq           	mq.MQ
+	db           	*bun.DB
+	config       	*config.Config
+	ctx          	context.Context
+	cancelFunc   	context.CancelFunc
+	fileuploader 		*fileuploader.Uploader
 
-	db           *db.Queries
-	mq           mq.MQ
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
-	fileuploader *fileuploader.Uploader
-
-	Logger *zap.Logger
+	Logger           	*zap.Logger
+	
+	APIKeyRepository 		repository.IAPIKeyRepository
+	EventRepository 		repository.IEventRepository
+	ImageRepository 		repository.IImageRepository
+	// JobMetricRepository 	repository.IJobMetricRepository
+	JobRepository   		repository.IJobRepository
+	// PipelineDefRepository 	repository.IPipelineDefRepository
 }
 
 type OptionFunc func(app *App)
 
-func WithDB(db *db.Queries) OptionFunc {
+func WithDB(driver drivers.Driver) OptionFunc {
 	return func(app *App) {
-		app.db = db
+		app.db = driver.GetDB()
 	}
 }
 
+func WithLogger(logger *zap.Logger) OptionFunc {
+	return func(app *App) {
+		app.Logger = logger
+	}
+}
 
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	logger, err := initLogger(config.Environment)
+	logger, err := logger.InitLogger(config)
 	if err != nil {
 		return nil, err
 	}
 	defer logger.Sync()
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &App{
 		ctx:        ctx,
@@ -64,12 +81,45 @@ func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
 }
 
 func (app *App) InitializeDB() error {
-	db, err := db.NewConnection(app.config)
+	db, err := db.NewConnection(app.ctx, app.config)
 	if err != nil {
 		return err
 	}
 
-	app.db = db
+	// Ensure tables exist before initializing repositories
+	err = db.GetDB().RunInTx(app.ctx, nil,
+		func(ctx context.Context, tx bun.Tx) error {
+			tables := []interface{}{
+				(*models.APIKey)(nil),
+				(*models.Event)(nil),
+				(*models.Image)(nil),
+				(*models.Job)(nil),
+				(*models.JobMetric)(nil),
+				(*models.PipelineDef)(nil),
+			}
+
+			for _, table := range tables {
+				_, err := tx.NewCreateTable().
+					Model(table).
+					IfNotExists().
+					Exec(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to create table: %w", err)
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	app.db = db.GetDB()
+	app.APIKeyRepository = repository.NewAPIKeyRepository(app.db)
+	app.EventRepository = repository.NewEventRepository(app.db)
+	app.ImageRepository = repository.NewImageRepository(app.db)
+	app.JobRepository = repository.NewJobRepository(app.db)
+	// app.JobMetricRepository = repository.NewJobMetricRepository(app.db)
+	// app.PipelineDefRepository = repository.NewPipelineDefRepository(app.db)
 	return nil
 }
 
@@ -93,7 +143,7 @@ func (app *App) MQ() mq.MQ {
 	return app.mq
 }
 
-func (app *App) DB() *db.Queries {
+func (app *App) DB() *bun.DB {
 	return app.db
 }
 
@@ -101,10 +151,3 @@ func (app *App) Uploader() *fileuploader.Uploader {
 	return app.fileuploader
 }
 
-func initLogger(env string) (*zap.Logger, error) {
-	if env == "production" {
-		return zap.NewProduction()
-	}
-
-	return zap.NewDevelopment()
-}

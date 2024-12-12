@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func UploadFile(c *gin.Context) {
+func UploadFileHandler(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse request body"})
@@ -34,7 +34,7 @@ func UploadFile(c *gin.Context) {
 
 	url := make(chan string)
 	app := c.MustGet("app").(*app.App)
-	app.Uploader().UploadBytes(fileBytes, filepath.Ext(file.Filename), url)
+	app.Uploader().UploadBytes(fileBytes, filepath.Ext(file.Filename), false, url)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
@@ -54,7 +54,7 @@ func GetFile(c *gin.Context) {
 		return
 	}
 
-	if app.Config().Filesystem == config.FilesystemLocal {
+	if app.Config().FilesystemType == config.FilesystemLocal {
 		file, err := storage.ResolveFile(filename, "", false)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"message": "file not found"})
@@ -70,7 +70,8 @@ func GetFile(c *gin.Context) {
 			return
 		}
 
-		mimeType := mimetype.Detect(file.Content).String()
-		c.Data(http.StatusOK, mimeType, file.Content)
+		content := file.Content.([]byte)
+		mimeType := mimetype.Detect(content).String()
+		c.Data(http.StatusOK, mimeType, content)
 	}
 }

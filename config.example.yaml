@@ -1,0 +1,147 @@
+# This configuration file provides global settings for the gen-server.
+# Do not include sensitive information (tokens, keys) in a config.yaml file; place them
+# inside of the .env file and access them via os.environ.get(), or use k8s secrets.
+
+# port: 9997
+
+# db:
+#   dsn: "postgres://user:password@localhost:5432/cozy"
+
+pipeline_defs:
+  playground2.5:
+    source: hf:playgroundai/playground-v2.5-1024px-aesthetic
+
+  flux.1-schnell-fp8:
+    source: hf:black-forest-labs/FLUX.1-schnell
+    components:
+      transformer:
+        source: hf:cozy-creator/Flux.1-schnell-8bit/transformer
+      text_encoder_2:
+        source: hf:cozy-creator/Flux.1-schnell-8bit/text_encoder_2
+    default_args:
+      max_sequence_length: 256
+
+  flux.1-dev:
+    source: hf:black-forest-labs/FLUX.1-dev
+    default_args:
+      max_sequence_length: 512
+  
+  flux.1-dev-fp8:
+    source: hf:black-forest-labs/FLUX.1-dev
+    components:
+      text_encoder_2:
+        source: hf:cozy-creator/FLUX.1-dev-8bit/text_encoder_2
+      transformer:
+        source: hf:cozy-creator/FLUX.1-dev-8bit/transformer
+    default_args:
+      max_sequence_length: 512
+
+  flux.1-dev-nf4:
+    source: hf:black-forest-labs/FLUX.1-dev
+    components:
+      text_encoder_2:
+        source: hf:hf-internal-testing/flux.1-dev-nf4-pkg/text_encoder_2
+      transformer:
+        source: hf:hf-internal-testing/flux.1-dev-nf4-pkg/trasformer
+    default_args:
+      max_sequence_length: 512
+
+  openflux.1:
+    # community-provided diffusers pipeline; overwrites the FluxPipeline class_name from model_index.json
+    # Note that if a community_pipeline is used, the class_name from model_index.json, or specified here,
+    # will be ignored and replaced with the generic DiffusionPipeline class.
+    custom_pipeline: pipeline_flux_with_cfg
+    source: hf:ostris/OpenFLUX.1
+    default_args:
+      max_sequence_length: 512
+    
+  sd3.5-large-int8:
+    source: hf:stabilityai/stable-diffusion-3.5-large
+    components:
+      transformer:
+        source: hf:cozy-creator/stable-diffusion-3.5-large-8bit/transformer
+      text_encoder_3:
+        source: hf:cozy-creator/stable-diffusion-3.5-large-8bit/text_encoder_3
+
+  sdxl.base:
+    source: hf:stabilityai/stable-diffusion-xl-base-1.0
+  
+  illustrious.xl:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/889818?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    metadata:
+      display_name: Illustrious XL
+      lineage: sdxl.base
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+
+  pony.v6:
+    # civiitai does not provide model_index.json files, hence class_name must be specified manually
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/290640?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+
+  cyberrealistic.pony:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/953264?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+  
+  wai.ani.ponyxl:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/1065370?type=Model&format=SafeTensor&size=pruned&fp=fp16
+
+  real.dream.pony:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/832353?type=Model&format=SafeTensor&size=pruned&fp=fp16
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+
+  pony.realism:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/914390?type=Model&format=SafeTensor&size=full&fp=fp16
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+
+  babes_by_stable_yogi.v4.xl.fp16:
+    class_name: StableDiffusionXLPipeline
+    source: https://civitai.com/api/download/models/984905?type=Model&format=SafeTensor&size=full&fp=fp16
+    metadata:
+      display_name: Babes by Stable Yogi V4 XL
+      lineage: pony.v6
+    components:
+      scheduler:
+        class_name: EulerAncestralDiscreteScheduler
+
+  # example of all parameters:
+  # playground2.5:
+  #   source: hf:playgroundai/playground-v2.5-1024px-aesthetic
+  #   metadata:
+  #     display_name: Playground 2.5
+  #     lineage: playground2.5
+  #     description: whatever
+  #     tags:
+  #       - whatever
+  #       - aesthetic
+  #   class_name: null
+  #   custom_pipeline:
+  #   default_args:
+  #     guidance_scale: 3.5
+  #     num_inference_steps: 25
+  #   components:
+  #     scheduler:
+  #       class_name: EDMDPMSolverMultistepScheduler
+  #       kwargs:
+  #         use_kwargs_sigmas: true
+  #     text_encoder_2:
+  #       class_name: transformers.CLIPTextModelWithProjection
+  #       source: hf:playgroundai/playground-v2.5-1024px-aesthetic/text_encoder_2
+  #     unet:
+  #       lineage: playground2.5
+

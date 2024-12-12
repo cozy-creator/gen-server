@@ -16,7 +16,7 @@ func GetDefaultBytesMap() *MapChan[[]byte] {
 	return bytesChan
 }
 
-func (c *MapChan[T]) Get(key string) chan T {
+func (c *MapChan[T]) MustGet(key string) chan T {
 	if _, ok := c.data[key]; !ok {
 		panic(errors.New("key not found"))
 	}
@@ -29,12 +29,10 @@ func (c *MapChan[T]) Set(key string, value chan T) {
 }
 
 func (c *MapChan[T]) Delete(key string) {
-	if _, ok := c.data[key]; !ok {
-		panic(errors.New("key not found"))
+	if _, ok := c.data[key]; ok {
+		close(c.data[key])
+		delete(c.data, key)
 	}
-
-	close(c.data[key])
-	delete(c.data, key)
 }
 
 func (c *MapChan[T]) Has(key string) bool {

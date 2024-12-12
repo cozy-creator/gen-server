@@ -1,16 +1,11 @@
 package imagenode
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"image"
 
-	"image/gif"
-	"image/jpeg"
-	"image/png"
-
-	"github.com/cozy-creator/gen-server/pkg/logger"
+	"github.com/cozy-creator/gen-server/internal/app"
+	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
 )
 
 type SaveImageInputs struct {
@@ -23,58 +18,29 @@ type SaveImageOutput struct {
 	Urls []string `json:"urls"`
 }
 
-func SaveImage(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-	log := logger.GetLogger()
+func SaveImage(app *app.App, input map[string]interface{}) (map[string]interface{}, error) {
 	images := input["images"].([]image.Image)
-	format := input["format"].(string)
-	// isTemp := input["is_temp"].(bool)
+	format := input["output_format"].(string)
+	isTemp := input["is_temp"].(bool)
 
-	var (
-		urls []string
-		err  error
-	)
-
+	var urls []string
 	for _, img := range images {
-		var content bytes.Buffer
-		switch format {
-		case "png":
-			err = png.Encode(&content, img)
-		case "jpg":
-		case "jpeg":
-			err = jpeg.Encode(&content, img, nil)
-		case "gif":
-			err = gif.Encode(&content, img, nil)
-		default:
-			return nil, ErrInvalidFormat
-		}
-
+		content, err := imageutil.EncodeImage(img, format)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encode image: %w", err)
 		}
-
-		// extension := "." + format
-		// contentBytes := content.Bytes()
-		// contentHash := hashutil.Blake3Hash(contentBytes)
-		// _ := filehandler.FileInfo{
-		// 	Name:      contentHash,
-		// 	Extension: extension,
-		// 	Content:   contentBytes,
-		// 	IsTemp:    isTemp,
-		// }
 
 		response := make(chan string)
-		// worker := worker.GetUploadWorker()
-		// go worker.Upload(fileMeta, response)
+		extension := "." + format
+		go app.Uploader().UploadBytes(content, extension, isTemp, response)
 
-		url := <-response
+		url, ok := <-response
+		if !ok {
+			return nil, fmt.Errorf("failed to upload image")
+		}
+
 		urls = append(urls, url)
 	}
-
-	// return &SaveImageOutput{
-	// 	Urls: urls,
-	// }, nil
-
-	log.Info(fmt.Sprintf("%d images saved successfully", len(urls)))
 
 	return map[string]interface{}{
 		"urls": urls,

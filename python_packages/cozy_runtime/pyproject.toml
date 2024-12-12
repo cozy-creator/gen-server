@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling", "requests"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cozy_runtime"
+description = "Python runtime for AI content generation."
+version = "0.3.1"
+authors = [
+    { name = "Paul Fidika", email = "paul@fidika.com" },
+    { name = "Oghenetega Biokoro", email = "teggyg123@gmail.com" },
+]
+
+dependencies = [
+    "accelerate@git+https://github.com/huggingface/accelerate.git",
+    "aioboto3",
+    "aiofiles",
+    "aiohttp",
+    "aiohttp_cors",
+    "aioshutil",
+    "aiohttp_middlewares",
+    "backoff",
+    "bitsandbytes",
+    "blake3",
+    "controlnet_aux",
+    "cozy_runtime",
+    "diffusers@git+https://github.com/huggingface/diffusers.git",
+    "einops",
+    "firebase-admin",
+    "groundingdino-py",
+    "grpcio",
+    "gunicorn",
+    "huggingface_hub",
+    "image_utils",
+    "IP-Adapter@git+https://github.com/tencent-ailab/IP-Adapter.git",
+    "kornia",
+    "LECO@git+https://github.com/cozy-creator/LECO.git",
+    "library@git+https://github.com/cozy-creator/sd-scripts.git",
+    "mediapipe",
+    "numpy",
+    "opencv-python",
+    "optimum-quanto@git+https://github.com/huggingface/optimum-quanto.git@65ace79d6af6ccc27afbb3576541cc36b3e3a98b",
+    "ostris-ai-toolkit",
+    "peft",
+    "Pillow",
+    "protobuf",
+    "pydantic>=2.0",
+    "python-dotenv",
+    "PyYAML",
+    "requests",
+    "safetensors>=0.4.2",
+    "scikit-image",
+    "scipy",
+    "segment_anything",
+    "sentencepiece",
+    "spandrel",
+    "timm==0.6.7",
+    "torch",
+    "transformers>=4.25",
+    "tqdm",
+    "typing_extensions",
+    "uuid",
+]
+
+[project.optional-dependencies]
+performance = ["accelerate", "triton", "xformers"]
+
+[project.scripts]
+cozy-runtime = "cozy_runtime.main:main"
+cozy_runtime = "cozy_runtime.main:main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cozy_runtime"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/cozy_runtime"]

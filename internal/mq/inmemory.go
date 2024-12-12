@@ -34,7 +34,7 @@ func (q *InMemoryMQ) Publish(ctx context.Context, topic string, message []byte) 
 	}
 }
 
-func (q *InMemoryMQ) Receive(ctx context.Context, topic string) ([]byte, error) {
+func (q *InMemoryMQ) Receive(ctx context.Context, topic string) (interface{}, error) {
 	value, _ := q.topics.LoadOrStore(topic, make(chan []byte, q.maxSize))
 	ch := value.(chan []byte)
 
@@ -49,9 +49,14 @@ func (q *InMemoryMQ) Receive(ctx context.Context, topic string) ([]byte, error) 
 				q.topics.Delete(topic)
 				return nil, ErrTopicClosed
 			}
+
 			return data, nil
 		}
 	}
+}
+
+func (q *InMemoryMQ) GetMessageData(message interface{}) ([]byte, error) {
+	return message.([]byte), nil
 }
 
 func (q *InMemoryMQ) CloseTopic(topic string) error {
@@ -67,5 +72,9 @@ func (q *InMemoryMQ) CloseTopic(topic string) error {
 
 func (q *InMemoryMQ) Close() error {
 	close(q.closeCh)
+	return nil
+}
+
+func (q *InMemoryMQ) Ack(topic string, message interface{}) error {
 	return nil
 }

@@ -7,52 +7,126 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"time"
 
+	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/filestorage"
-	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
+	"github.com/cozy-creator/gen-server/internal/services/ethicalfilter"
 	"github.com/cozy-creator/gen-server/internal/types"
-	"github.com/cozy-creator/gen-server/internal/utils/hashutil"
-	"github.com/cozy-creator/gen-server/internal/utils/imageutil"
+	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
 )
 
-func StartGenerationRequestProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ) error {
+const (
+	MaxWebhookAttempts = 3
+)
+
+func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.App, downloader types.ModelDownloader) error {
+	// start downloading queue processor
+	go processDownloadingQueue(ctx, mq, downloader)
+
+	// main processing loop for ready models
 	for {
 		message, err := mq.Receive(ctx, config.DefaultGenerateTopic)
 		if err != nil {
 			return err
 		}
 
-		request, err := parseRequestData(message)
+		data, err := mq.GetMessageData(message)
 		if err != nil {
+			return err
+		}
+
+		var request types.GenerateParams
+		if err := json.Unmarshal(data, &request); err != nil {
+			logger.Error("Failed to parse request data", err)
 			continue
 		}
 
-		outputs, errorc := requestHandler(ctx, cfg, request.GenerateParams)
-		topic := config.DefaultGeneratePrefix + request.RequestId
+		modelState := downloader.GetModelState(request.Model)
+		generationTopic := getGenerationTopic(request.ID)
+
+		// If model is downloading, move to downloading queue
+		if modelState == types.ModelStateDownloading {
+			if err := mq.Publish(ctx, config.DefaultDownloadingTopic, data); err != nil {
+				logger.Error("Failed to move request to downloading queue", err)
+			}
+			continue
+		}
+
+		// process normal request
+		outputs, errorc := requestHandler(ctx, cfg, &request)
 
 		select {
 		case err := <-errorc:
-			mq.CloseTopic(topic)
-			return err
+			if err != nil {
+				logger.Error("Error in request handler", err)
+				if pubErr := mq.Publish(ctx, generationTopic, []byte("END")); pubErr != nil {
+					return fmt.Errorf("error publishing end message after error: %w", pubErr)
+				}
+				continue
+			}
 		case <-ctx.Done():
-			break
+			if err := mq.Publish(ctx, generationTopic, []byte("END")); err != nil {
+				return fmt.Errorf("error publishing end message on shutdown: %w", err)
+			}
+			return ctx.Err()
 		default:
 			for output := range outputs {
-				image, _ := imageutil.ConvertImageFromBitmap(output, request.OutputFormat)
-				mq.Publish(context.Background(), topic, image)
+				if err := mq.Publish(ctx, generationTopic, output); err != nil {
+					return err
+				}
 			}
 		}
 
-		mq.CloseTopic(topic)
+		if err := mq.Publish(ctx, generationTopic, []byte("END")); err != nil {
+			return fmt.Errorf("error publishing end message: %w", err)
+		}
 	}
 }
 
-func requestHandler(ctx context.Context, cfg *config.Config, data types.GenerateParams) (chan []byte, chan error) {
+func processDownloadingQueue(ctx context.Context, mq mq.MQ, downloader types.ModelDownloader) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			message, err := mq.Receive(ctx, config.DefaultDownloadingTopic)
+			if err != nil {
+				logger.Error("Error receiving from downloading queue", err)
+				continue
+			}
+
+			data, err := mq.GetMessageData(message)
+			if err != nil {
+				logger.Error("Error getting message data", err)
+				continue
+			}
+
+			var request types.GenerateParams
+			if err := json.Unmarshal(data, &request); err != nil {
+				logger.Error("Failed to parse request data", err)
+				continue
+			}
+
+			// waiting for model to be ready
+			if err := downloader.WaitForModelReady(ctx, request.Model); err != nil {
+				logger.Error("Failed waiting for model", err)
+				continue
+			}
+
+			// move back to main queue
+			if err := mq.Publish(ctx, config.DefaultGenerateTopic, data); err != nil {
+				logger.Error("Failed to requeue request", err)
+			}
+		}
+	}
+}
+
+func requestHandler(ctx context.Context, cfg *config.Config, data *types.GenerateParams) (chan []byte, chan error) {
 	output := make(chan []byte)
 	errorc := make(chan error, 1)
 
@@ -66,7 +140,7 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 
 		timeout := time.Duration(500) * time.Second
 		// timeout := time.Duration(cfg.TcpTimeout) * time.Second
-		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, cfg.TcpPort)
+		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
 		client, err := tcpclient.NewTCPClient(serverAddress, timeout, 1)
 		if err != nil {
 			errorc <- err
@@ -80,102 +154,82 @@ func requestHandler(ctx context.Context, cfg *config.Config, data types.Generate
 		}()
 
 		client.Send(ctx, string(params))
-
 		for {
 			sizeBytes, err := client.ReceiveFullBytes(ctx, 4)
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-					break
-				}
-
-				errorc <- err
+			if handleReceiveError(err, errorc) {
 				break
 			}
 
-			size := binary.BigEndian.Uint32(sizeBytes)
-			if size == 0 {
-				continue
-			}
-
-			// Receive the actual data based on the size
-			imageBytes, err := (client.ReceiveFullBytes(ctx, int(size)))
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+			size := int(binary.BigEndian.Uint32(sizeBytes))
+			if size != 0 {
+				var outputBytes []byte
+				outputBytes, err = client.ReceiveFullBytes(ctx, size)
+				if handleReceiveError(err, errorc) {
 					break
 				}
 
-				errorc <- err
-				break
+				output <- outputBytes
 			}
-
-			output <- imageBytes
 		}
-
 	}()
 
 	return output, errorc
 }
 
-func NewRequest(params types.GenerateParams, mq mq.MQ) (string, error) {
-	if params.ID == "" {
-		params.ID = uuid.NewString()
-	}
-	request := types.RequestGenerateParams{
-		RequestId:      params.ID,
-		GenerateParams: params,
-		OutputFormat:   "png",
-	}
-
-	data, err := json.Marshal(request)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal json data: %w", err)
+func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.GenerateParams, error) {
+	newParams := types.GenerateParams{
+		ID:             uuid.NewString(),
+		OutputFormat:   params.OutputFormat,
+		Model:          params.Model,
+		NumOutputs:     func() int { if params.NumOutputs == nil { return 1 } else { return *params.NumOutputs } }(),
+		RandomSeed:     func() int { if params.RandomSeed == nil { return rand.Intn(1 << 32) } else { return *params.RandomSeed } }(),
+		AspectRatio:    params.AspectRatio,
+		PositivePrompt: params.PositivePrompt,
+		NegativePrompt: params.NegativePrompt,
+		PresignedURL:   params.PresignedURL,
 	}
 
-	err = mq.Publish(context.Background(), config.DefaultGenerateTopic, data)
-
-	if err != nil {
-		return "", fmt.Errorf("failed to publish message to queue: %w", err)
-	}
-
-	return params.ID, nil
-}
-
-func ReceiveImage(requestId string, uploader *fileuploader.Uploader, mq mq.MQ) (string, error) {
-	topic := config.DefaultGeneratePrefix + requestId
-	image, err := mq.Receive(context.Background(), topic)
-	if err != nil {
-		fmt.Println("Error receiving image from queue:", err)
-		return "", err
-	}
-
-	uploadUrl := make(chan string)
-
-	go func() {
-		extension := "." + "png"
-		imageHash := hashutil.Blake3Hash(image)
-		fileMeta := filestorage.FileInfo{
-			Name:      imageHash,
-			Extension: extension,
-			Content:   image,
-			IsTemp:    false,
+	mq := app.MQ()
+	cfg := app.Config()
+	ctx := app.Context()
+	if cfg.EnableSafetyFilter {
+		response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
+		if err != nil {
+			return nil, err
 		}
 
-		uploader.Upload(fileMeta, uploadUrl)
-	}()
-
-	url, ok := <-uploadUrl
-	if !ok {
-		return "", nil
+		if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
+			return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
+		}
 	}
 
-	return url, nil
+	data, err := json.Marshal(&newParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json data: %w", err)
+	}
+
+	if err := mq.Publish(context.Background(), config.DefaultGenerateTopic, data); err != nil {
+		return nil, fmt.Errorf("failed to publish message to queue: %w", err)
+	}
+
+	return &newParams, nil
 }
 
-func parseRequestData(message []byte) (types.RequestGenerateParams, error) {
-	var request types.RequestGenerateParams
-	if err := json.Unmarshal(message, &request); err != nil {
-		return types.RequestGenerateParams{}, fmt.Errorf("failed to unmarshal request data: %w", err)
+func handleReceiveError(err error, errorc chan error) bool {
+	if err != nil {
+		if !(errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)) {
+			errorc <- err
+		}
+		return true
 	}
 
-	return request, nil
+	return false
+}
+
+func getGenerationTopic(requestId string) string {
+	return config.DefaultGeneratePrefix + requestId
+}
+
+func getStreamTopic(requestId string) string {
+	return config.DefaultStreamsTopic + "/" + requestId
 }

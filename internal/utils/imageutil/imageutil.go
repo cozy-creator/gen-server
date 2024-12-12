@@ -2,60 +2,72 @@ package imageutil
 
 import (
 	"bytes"
+	"fmt"
+	"image"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 
 	"golang.org/x/image/bmp"
 )
 
-func ConvertImageFromBitmap(bmpBytes []byte, format string) ([]byte, error) {
-	img, err := bmp.Decode(bytes.NewReader(bmpBytes))
-	if err != nil {
-		return nil, err
-	}
+var (
+	ErrInvalidFormat = image.ErrFormat
+)
+  
+func DecodeImage(data []byte, format string) (image.Image, error) {
+	var (
+		output image.Image
+		err    error
+	)
 
-	var output bytes.Buffer
 	switch format {
+	case "bmp":
+		output, err = bmp.Decode(bytes.NewReader(data))
 	case "png":
-		err = png.Encode(&output, img)
-	case "jpg":
-	case "jpeg":
-		options := &jpeg.Options{Quality: 90}
-		err = jpeg.Encode(&output, img, options)
+		output, err = png.Decode(bytes.NewReader(data))
+	case "jpg", "jpeg":
+		output, err = jpeg.Decode(bytes.NewReader(data))
+	case "gif":
+		output, err = gif.Decode(bytes.NewReader(data))
 	default:
-		return nil, err
+		return nil, fmt.Errorf("unsupported image format: %s", format)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return output.Bytes(), nil
+	return output, err
 }
 
-// func DecodeFromBitmap(bmpBytes []byte, format string) (image.Image, error) {
-// 	img, err := bmp.Decode(bytes.NewReader(bmpBytes))
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func DecodeBmpToFormat(data []byte, format string) ([]byte, error) {
+	img, err := DecodeImage(data, "bmp")
+	if err != nil {
+		return nil, err
+	}
 
-// 	var output bytes.Buffer
-// 	switch format {
-// 	case "png":
-// 		err = png.Encode(&output, img)
-// 	case "jpg":
-// 	case "jpeg":
-// 		options := &jpeg.Options{Quality: 90}
-// 		err = jpeg.Encode(&output, img, options)
-// 	case "gif":
-// 		err = gif.Encode(&output, img, nil)
-// 	default:
-// 		return nil, err
-// 	}
+	return EncodeImage(img, format)
+}
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func EncodeImage(img image.Image, format string) ([]byte, error) {
+	var (
+		content bytes.Buffer
+		err     error
+	)
 
-// 	return output, nil
-// }
+	switch format {
+	case "bmp":
+		err = bmp.Encode(&content, img)
+	case "png":
+		err = png.Encode(&content, img)
+	case "jpg", "jpeg":
+		err = jpeg.Encode(&content, img, nil)
+	case "gif":
+		err = gif.Encode(&content, img, nil)
+	default:
+		return nil, ErrInvalidFormat
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return content.Bytes(), nil
+}

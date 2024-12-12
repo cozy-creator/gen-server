@@ -2,33 +2,53 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	_ "embed"
+	"fmt"
+	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/config"
-
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/cozy-creator/gen-server/internal/db/drivers"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
-//go:embed sql/schema.sql
-var schema string
+func NewConnection(ctx context.Context, config *config.Config) (drivers.Driver, error) {
+	if config.DB == nil {
+		return nil, fmt.Errorf("database configuration is not set")
+	}
 
-func NewConnection(config *config.Config) (*Queries, error) {
-	driver := config.DB.Driver
-	dsn := config.DB.DSN
-
-	db, err := sql.Open(driver, dsn)
+	driver, err := detectDriver(config.DB.DSN)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := InitializeSchema(New(db)); err != nil {
-		return nil, err
+	dsn := config.DB.DSN
+	switch driver {
+	case "sqlite":
+		return drivers.NewSQLiteDriver(ctx, sqliteshim.ShimName, dsn)
+	case "libsql":
+		return drivers.NewSQLiteDriver(ctx, "libsql", dsn)
+	case "postgres":
+		return drivers.NewPGDriver(ctx, dsn)
+	default:
+		return nil, fmt.Errorf("invalid database driver: %s", driver)
 	}
-
-	return New(db), nil
 }
 
-func InitializeSchema(db *Queries) (sql.Result, error) {
-	return db.db.ExecContext(context.Background(), schema)
+func detectDriver(dsn string) (string, error) {
+	if strings.HasPrefix(dsn, "libsql://") {
+		return "libsql", nil
+	}
+
+	if strings.HasPrefix(dsn, "mysql://") || strings.Contains(dsn, "@tcp(") {
+		return "mysql", nil
+	}
+
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return "postgres", nil
+	}
+
+	if strings.HasPrefix(dsn, "sqlite3://") || strings.HasPrefix(dsn, "sqlite://") || strings.HasSuffix(dsn, ".db") || strings.Contains(dsn, ":memory:") {
+		return "sqlite", nil
+	}
+
+	return "", fmt.Errorf("unknown database driver")
 }

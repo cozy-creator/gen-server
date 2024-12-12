@@ -6,23 +6,30 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cozy-creator/gen-server/internal/mq"
+	"github.com/cozy-creator/gen-server/internal/app"
 )
 
-func StartWorkflowExecutor(ctx context.Context, queue mq.MQ) error {
+func RunProcessor(app *app.App) error {
+	ctx := app.Context()
+	queue := app.MQ()
 	for {
 		message, err := queue.Receive(ctx, "workflows")
 		if err != nil {
 			return err
 		}
 
+		messageData, err := queue.GetMessageData(message)
+		if err != nil {
+			continue
+		}
+
 		var workflow Workflow
-		if err := json.Unmarshal(message, &workflow); err != nil {
+		if err := json.Unmarshal(messageData, &workflow); err != nil {
 			fmt.Println("failed to unmarshal message:", err)
 			continue
 		}
 
-		errc := NewWorkflowExecutor(&workflow).ExecuteAsync(ctx)
+		errc := NewWorkflowExecutor(&workflow, app).ExecuteAsync()
 
 		select {
 		case err := <-errc:
@@ -35,7 +42,7 @@ func StartWorkflowExecutor(ctx context.Context, queue mq.MQ) error {
 					fmt.Println("Error executing workflow", err)
 				}
 
-				queue.CloseTopic("workflows")
+				queue.Publish(ctx, "workflows", []byte("END"))
 				return err
 			}
 		case <-ctx.Done():

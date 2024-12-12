@@ -30,3 +30,47 @@ The intention is for this to be runnable locally AND in the cloud. Right now I'm
 
 The plan is to release this all under a non-commercial usage license, and charge a licensing fee for those who want to use it commercially. I think this is a good balance between making the source-code available, allowing consumers to run locally, allowing devs to host their own instances (and not just rely on an API!), and yet still having a profitable business model that will make development sustainable.
 
+
+### Configuration and Environment Variables
+
+(TO DO)
+
+Note that relative file paths are relative to the current working directory, not the location of the gen-server executable. You can use relative file paths with flags like `--public-dir` and `--env-file`.
+
+It's recommended to use the config.yaml file as a config-map if you're deploying this in a Kubernetes environment.
+
+
+### Building Docker Container
+
+```sh
+docker build -t cozycreator/gen-server:0.3.9 .
+```
+
+### Running Container Locally
+
+Run locally on your Windows machine:
+```sh
+docker run -d \
+    --name gen-server \
+    --gpus all \
+    -v ~/.cozy-creator:~/.cozy-creator \
+    --env-file .env.local \
+    -p 8881:8881 \
+    -p 8888:8888 \
+    cozycreator/gen-server:0.3.0
+```
+
+### Running Container on Runpod
+
+(TO DO)
+
+
+### Docker Container Notes:
+
+This container only works on linux + amd64 machines (which includes Windows because Windows runs docker containers inside of WSL2 (Windows Subsystem for Linux)).
+
+Note that I wanted to create a multi-platform build, but everything else is useless because:
+
+(1) when running docker containers on MacOS (Darwin) the container runs inside of Linux, which does not have access to MPS (Apple's version of CUDA)
+
+(2) when running on a Linux/arm64 machine, pytorch installs itself in CPU mode because pytorch does not have any pre-built wheels for arm64 + CUDA. (I believe???) Note also that xformers also doesn't support ARM64 at all.

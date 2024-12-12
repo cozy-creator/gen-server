@@ -57,6 +57,7 @@ select = [
     "RUF", # Ruff-specific rules
 ]
 ignore = [
+    "RUF010",
     "E501",  # Line too long
     "I001",  # Import block is un-sorted or un-formatted
     "PLR0913",  # Too many arguments in function definition

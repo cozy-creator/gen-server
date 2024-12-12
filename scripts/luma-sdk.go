@@ -1,4 +1,4 @@
-package lumaai
+package scripts
 
 import (
 	"bytes"
@@ -16,9 +16,9 @@ type LumaAI struct {
 }
 
 type Generation struct {
-	ID        string `json:"id"`
-	State     string `json:"state"`
-	Assets    struct {
+	ID     string `json:"id"`
+	State  string `json:"state"`
+	Assets struct {
 		Video string `json:"video"`
 	} `json:"assets"`
 }
@@ -38,7 +38,7 @@ type Keyframe struct {
 
 func NewLumaAI(authToken string) *LumaAI {
 	if authToken == "" {
-		authToken = os.Getenv("LUMAAI_API_KEY")
+		authToken = os.Getenv("LUMA_AI_API_KEY")
 	}
 	return &LumaAI{AuthToken: authToken}
 }
@@ -168,7 +168,6 @@ func (l *LumaAI) DownloadVideo(url, filename string) error {
 
 	return nil
 }
-
 
 func (l *LumaAI) ExtendVideo(prompt string, generationID string, isReverse bool) (*Generation, error) {
 	keyframes := make(map[string]interface{})

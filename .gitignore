@@ -10,6 +10,9 @@ venv/
 !.vscode/settings.json
 .mypy_cache/
 *.log
+test2.py
+.new_test/
+.testvenv/
 
 # system files
 *.DS_Store
@@ -77,3 +80,6 @@ go.work
 
 
 *.zip
+
+.ignore
+x.txt

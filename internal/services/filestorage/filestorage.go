@@ -1,17 +1,28 @@
 package filestorage
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 )
 
+const (
+	FileKindBytes  = "bytes"
+	FileKindStream = "stream"
+)
+
+var (
+	ErrUnknownFileKind = errors.New("unknown file kind")
+)
+
 type FileInfo struct {
+	IsTemp    bool
 	Name      string
 	Extension string
-	Content   []byte
-	IsTemp    bool
+	Kind      string
+	Content   interface{}
 }
 
 type FileStorage interface {
@@ -21,22 +32,14 @@ type FileStorage interface {
 	ResolveFile(filename string, subfolder string, isTemp bool) (string, error)
 }
 
-func NewFileInfo(name string, extension string, content []byte, isTemp bool) FileInfo {
-	return FileInfo{
-		Name:      name,
-		Extension: extension,
-		Content:   content,
-		IsTemp:    isTemp,
-	}
-}
-
 func NewFileStorage(cfg *config.Config) (FileStorage, error) {
-	filesystem := strings.ToLower(cfg.Filesystem)
-	if filesystem == config.FilesystemLocal {
+	filesystem := strings.ToLower(cfg.FilesystemType)
+
+	if filesystem == strings.ToLower(config.FilesystemLocal) {
 		return NewLocalFileStorage(cfg)
-	} else if filesystem == config.FilesystemS3 {
+	} else if filesystem == strings.ToLower(config.FilesystemS3) {
 		return NewS3FileStorage(cfg)
 	}
 
-	return nil, fmt.Errorf("invalid filesystem type %s", cfg.Filesystem)
+	return nil, fmt.Errorf("invalid filesystem type %s", cfg.FilesystemType)
 }
