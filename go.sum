@@ -150,6 +150,8 @@ github.com/cozy-creator/hf-hub v0.0.0-20241211191048-41b1331cf897 h1:/YgZajg3+lP
 github.com/cozy-creator/hf-hub v0.0.0-20241211191048-41b1331cf897/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
 github.com/cozy-creator/hf-hub v0.0.0-20241212104047-e3e46b7bcd78 h1:wn+eDzTCRZBs1gK4XXqAaHef2pV7quOWl++iT++04YA=
 github.com/cozy-creator/hf-hub v0.0.0-20241212104047-e3e46b7bcd78/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
+github.com/cozy-creator/hf-hub v0.0.0-20241212175040-5b5d7a6bcc77 h1:sBdr2wJPS55HCMlSLfcArWlyZOriulMjHV/x1Z5nYwA=
+github.com/cozy-creator/hf-hub v0.0.0-20241212175040-5b5d7a6bcc77/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
 github.com/cpuguy83/dockercfg v0.3.1 h1:/FpZ+JaygUR/lZP2NlFI2DVfrOEMAIKP5wWEJdoYe9E=
 github.com/cpuguy83/dockercfg v0.3.1/go.mod h1:sugsbF4//dDlL/i+S+rtpIWp+5h0BHJHfjj5/jFyUJc=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
