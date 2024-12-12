@@ -201,7 +201,7 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 				return nil, err
 			}
 
-			if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
+			if !response.Accepted {
 				return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
 			}
 		} else {

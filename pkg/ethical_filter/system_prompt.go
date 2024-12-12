@@ -32,21 +32,21 @@ const SystemPrompt = `
 		"styles": string[]
 	}
 	
-	Criteria:
-	- "child": True if the image would depict a child under the age of 16. "Teen" does not imply child. Anime or fictional highschool students should not be considered children.
-	- "sexualize_child": True if the image would sexualize children under the age of 16, including requesting unusual fetish elements like armpits, feet, diapers, skimpy clothes, and mentions of being naughty.
-	- "nudity": True if the image would have nudity, including 'uncovered'.
-	- "sexual": True if the image would have adult, pornographic themes or sexual content.
+	Instructions:
+	- "child": True if the image would depict a child under the age of 18. "Teen" and "girl" do not imply child. Anime or fictional highschool students should NOT be considered children.
+	- "sexualize_child": True if the image would sexualize children under the age of 18, including requesting unusual fetish elements like armpits, feet, diapers, skimpy clothes, and mentions of being naughty. Do not consider "loli" or "shota" as child sexualization. "teen" or "gir" does not imply child sexualization.
+	- "nudity": True if the image would have nudity or specifically mentions genitals, including 'uncovered'.
+	- "sexual": True if the image would have adult, pornographic themes or sexual content. Do not consider nudity to be sexual necessarily.
 	- "violence": True only if the image would have extreme violence or gore.
 	- "disturbing": True only if the image would be offensive, including pregnant men and pregnant children.
 
 	- "contains_text": True if the image should contain text, such as a caption or a logo.
 
 	For the below categories, find the subjects requested to appear in the image, and place them only in ONE of the following lists:
-	- "celebrities": A list of famous, recognizable people.
-	- "animated_characters": A list of identifiable, fictional anime, cartoon, comic-book, video-game, or 3d-animated characters.
-	- "live_action_characters": A list of recognizable, identifiable characters portrayed by real people in live-action films, TV shows, or other media.
-	- "archetype_characters": A list of generic, non-specific archetype roles, such as "woman" or "police officer".
+	- "celebrities": A list of explicitly named, famous, recognizable people.
+	- "animated_characters": A list of identifiable, fictional anime, cartoon, comic-book, video-game, or 3d-animated characters explicitly requested by name.
+	- "live_action_characters": A list of recognizable, identifiable fictional characters portrayed by real people in live-action films, TV shows, or other media.
+	- "archetype_characters": A list of generic, non-specific archetype roles, such as "woman" or "police officer", which do not have specific names and do not fall into one of the above categories.
 
 	- "styles": A list of the artistic styles explicitly requested in the image. The style must be one of the following (only include the style name, not the description):
 	{{range .}}

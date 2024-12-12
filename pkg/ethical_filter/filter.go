@@ -33,18 +33,11 @@ type StyleCatalog []struct {
 }
 
 type PromptFilterResponse struct {
-	Type   PromptFilterResponseType `json:"status"`
-	Reason string                   `json:"reason"`
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
 }
 
-type PromptFilterResponseType string
-
 const SEED int64 = 420
-
-const (
-	PromptFilterResponseTypeApproved PromptFilterResponseType = "approved"
-	PromptFilterResponseTypeRejected PromptFilterResponseType = "rejected"
-)
 
 var styleCatalog = StyleCatalog{
 	{Name: "abstract-art", Description: "Classical European"},
@@ -122,30 +115,39 @@ func (f * EthicalFilter) EvaluatePrompt(ctx context.Context, positivePrompt, neg
 		return nil, err
 	}
 
+	response, err := f.EvaluateResponse(res)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+func (f * EthicalFilter) EvaluateResponse(res *ChatGPTFilterResponse) (PromptFilterResponse, error) {
 	// Filter out unknown styles
 	res.Styles = normalizeStyles(res.Styles)
 
 	if res.SexualizeChild || (res.Child && (res.Sexual || res.Nudity)) {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
+		return PromptFilterResponse{
+			Accepted: false,
 			Reason: "contains child sexual content",
 		}, nil
 	} else if res.Child && (res.Violence || res.Disturbing) {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
+		return PromptFilterResponse{
+			Accepted: false,
 			Reason: "contains children and violent or disturbing content",
 		}, nil
-	} else if (res.Sexual || res.Nudity) && len(res.Celebrities) > 0 || len(res.LiveActionCharacters) > 0 {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
+		// len(res.LiveActionCharacters) > 0
+	} else if (res.Sexual || res.Nudity) && len(res.Celebrities) > 0 {
+		return PromptFilterResponse{
+			Accepted: false,
 			Reason: "contains real-person sexual or nude content",
 		}, nil
 	}
 
-	return &PromptFilterResponse{
-			Type: PromptFilterResponseTypeApproved,
-		},
-		nil
+	return PromptFilterResponse{
+		Accepted: true,
+	}, nil
 }
 
 func normalizeStyles(styles []string) []string {
