@@ -1,4 +1,4 @@
-package ethicalfilter
+package ethical_filter
 
 type ChatGPTFilterResponse struct {
 	SexualizeChild       bool     `json:"sexualize_child"`

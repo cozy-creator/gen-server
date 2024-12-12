@@ -13,7 +13,7 @@ import (
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/ethicalfilter"
+	"github.com/cozy-creator/gen-server/internal/services/ethical_filter"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
@@ -193,12 +193,12 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	cfg := app.Config()
 	ctx := app.Context()
 	if cfg.EnableSafetyFilter {
-		response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
+		response, err := ethical_filter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
 		if err != nil {
 			return nil, err
 		}
 
-		if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
+		if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
 			return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
 		}
 	}

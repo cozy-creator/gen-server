@@ -1,4 +1,4 @@
-package ethicalfilter
+package ethical_filter
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"strings"
-	"time"
 
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/openai/openai-go"
@@ -26,6 +25,8 @@ type PromptFilterResponse struct {
 }
 
 type PromptFilterResponseType string
+
+const SEED int64 = 420
 
 const (
 	PromptFilterResponseTypeApproved PromptFilterResponseType = "approved"
@@ -86,8 +87,8 @@ func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, nega
 				Type: openai.F(openai.ResponseFormatJSONObjectTypeJSONObject),
 			},
 		),
-		Seed:        openai.F(int64(time.Now().Unix())),
-		Model:       openai.F(openai.ChatModelGPT4o),
+		Seed:        openai.F(SEED),
+		Model:       openai.F(openai.ChatModelGPT4oMini),
 		Temperature: openai.F(0.2),
 	})
 
