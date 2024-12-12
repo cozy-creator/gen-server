@@ -127,13 +127,18 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 
 	pipelineDefs := m.app.Config().PipelineDefs
 
+	maxConcurrentModels := 3 // Limit number of concurrent model downloads
+	modelSemaphore := make(chan struct{}, maxConcurrentModels)
+
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(pipelineDefs))
 
 	for modelID := range pipelineDefs {
+		modelSemaphore <- struct{}{}
 		wg.Add(1)
 		go func(modelID string) {
 			defer wg.Done()
+			defer func() { <-modelSemaphore }()
 
 			select {
 			case <-ctx.Done():
@@ -146,7 +151,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				}
 				
 				if downloaded {
-                    // m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+                    m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
                     m.SetModelState(modelID, types.ModelStateReady)
                     return
                 }
@@ -225,19 +230,23 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 
 	// download components
 	if len(modelConfig.Components) > 0 {
+		maxConcurrentComponents := 5 // Limit component concurrency
+		componentSemaphore := make(chan struct{}, maxConcurrentComponents)
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(modelConfig.Components))
 
 		for name, comp := range modelConfig.Components {
+			// check if component has source else skip
+			if comp.Source == "" {
+				continue
+			}
+
+			componentSemaphore <- struct{}{}
 			wg.Add(1)
 			go func(name string, comp *config.ComponentDef) {
 				defer wg.Done()
+				defer func() { <-componentSemaphore }()
 
-				// check if component has source else skip
-				if comp.Source == "" {
-					return
-				}
-			
 				compSource, err := ParseModelSource(comp.Source)
 				if err != nil {
 					errChan <- fmt.Errorf("failed to parse component source for %s: %w", name, err)
