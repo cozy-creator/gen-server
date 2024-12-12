@@ -4,15 +4,28 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"strings"
 
-	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
+
+type EthicalFilter struct {
+    client *openai.Client
+}
+
+// TO DO: perhaps in the future support multiple providers
+func NewEthicalFilter(apiKey string) (*EthicalFilter, error) {
+	if (apiKey == "") {
+		return nil, fmt.Errorf("OpenAI API key is required")
+	}
+
+    return &EthicalFilter{
+        client: openai.NewClient(option.WithAPIKey(apiKey)),
+    }, nil
+}
 
 type StyleCatalog []struct {
 	Name        string
@@ -60,12 +73,7 @@ var knownStylesMap = func() map[string]struct{} {
     return m
 }()
 
-func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
-	if cfg.OpenAI == nil {
-		return nil, errors.New("OpenAI API key not configured")
-	}
-
-	client := openai.NewClient(option.WithAPIKey(cfg.OpenAI.APIKey))
+func (f *EthicalFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
 	tmpl, err := template.New("systemPrompt").Parse(SystemPrompt)
 	if err != nil {
 		return nil, err
@@ -76,7 +84,7 @@ func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, nega
 		return nil, err
 	}
 
-	completion, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+	completion, err := f.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Messages: openai.F([]openai.ChatCompletionMessageParamUnion{
 			openai.SystemMessage(tmplBuffer.String()),
 			openai.UserMessage(fmt.Sprintf("Positive prompt: %s", positivePrompt)),
@@ -93,7 +101,7 @@ func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, nega
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("request to ChatGPT failed: %w", err)
 	}
 
 	if len(completion.Choices) == 0 || len(completion.Choices[0].Message.Content) == 0 {
@@ -108,8 +116,8 @@ func InvokeChatGPT(ctx context.Context, cfg *config.Config, positivePrompt, nega
 	return &res, nil
 }
 
-func FilterPrompt(ctx context.Context, cfg *config.Config, positivePrompt, negativePrompt string) (*PromptFilterResponse, error) {
-	res, err := InvokeChatGPT(ctx, cfg, positivePrompt, negativePrompt)
+func (f * EthicalFilter) EvaluatePrompt(ctx context.Context, positivePrompt, negativePrompt string) (*PromptFilterResponse, error) {
+	res, err := f.InvokeChatGPT(ctx, positivePrompt, negativePrompt)
 	if err != nil {
 		return nil, err
 	}
