@@ -301,7 +301,9 @@ func runWorkflowProcessor(app *app.App) error {
 }
 
 func downloadEnabledModels(app *app.App, downloaderManager *model_downloader.ModelDownloaderManager) error {
-	ctx := app.Context()
+	// ctx := app.Context()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	errChan := make(chan error, 1)
 	go func() {

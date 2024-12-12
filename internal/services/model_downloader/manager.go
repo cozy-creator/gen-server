@@ -3,7 +3,7 @@ package model_downloader
 import (
 	"context"
 	"fmt"
-	"os"
+	// "os"
 	"sync"
 	"time"
 
@@ -40,7 +40,7 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 	progress := mpb.New(
 		mpb.WithWidth(60),
 		mpb.WithRefreshRate(2*time.Second),
-		mpb.WithOutput(os.Stderr),
+		// mpb.WithOutput(os.Stderr),
 	)
 
 	hubClient.Progress = progress
@@ -118,7 +118,9 @@ func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID 
 }
 
 func (m *ModelDownloaderManager) InitializeModels() error {
-	ctx := m.ctx
+	// ctx := m.ctx
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if len(m.app.Config().EnabledModels) == 0 {
         m.logger.Info("No models enabled for generation")
@@ -127,13 +129,20 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 
 	pipelineDefs := m.app.Config().PipelineDefs
 
+	maxConcurrentModels := 3 // Limit number of concurrent model downloads
+	modelSemaphore := make(chan struct{}, maxConcurrentModels)
+
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(pipelineDefs))
 
+	done := make(chan struct{})
+
 	for modelID := range pipelineDefs {
+		modelSemaphore <- struct{}{}
 		wg.Add(1)
 		go func(modelID string) {
 			defer wg.Done()
+			defer func() { <-modelSemaphore }()
 
 			select {
 			case <-ctx.Done():
@@ -146,7 +155,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 				}
 				
 				if downloaded {
-                    // m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
+                    m.logger.Info("Model already downloaded", zap.String("model_id", modelID))
                     m.SetModelState(modelID, types.ModelStateReady)
                     return
                 }
@@ -166,7 +175,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 	}
 
 	// wait for all goroutines to finish
-	done := make(chan struct{})
+	// done := make(chan struct{})
     go func() {
         wg.Wait()
         close(done)
@@ -176,6 +185,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
     select {
     case <-ctx.Done():
 		// clean up model states for any downloading models
+		m.logger.Warn("Context cancelled, waiting for in-progress downloads to complete...")
         for modelID := range pipelineDefs {
             if m.GetModelState(modelID) == types.ModelStateDownloading {
                 m.SetModelState(modelID, types.ModelStateNotFound)
@@ -225,19 +235,23 @@ func (m *ModelDownloaderManager) Download(modelID string) error {
 
 	// download components
 	if len(modelConfig.Components) > 0 {
+		maxConcurrentComponents := 5 // Limit component concurrency
+		componentSemaphore := make(chan struct{}, maxConcurrentComponents)
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(modelConfig.Components))
 
 		for name, comp := range modelConfig.Components {
+			// check if component has source else skip
+			if comp.Source == "" {
+				continue
+			}
+
+			componentSemaphore <- struct{}{}
 			wg.Add(1)
 			go func(name string, comp *config.ComponentDef) {
 				defer wg.Done()
+				defer func() { <-componentSemaphore }()
 
-				// check if component has source else skip
-				if comp.Source == "" {
-					return
-				}
-			
 				compSource, err := ParseModelSource(comp.Source)
 				if err != nil {
 					errChan <- fmt.Errorf("failed to parse component source for %s: %w", name, err)

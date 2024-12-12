@@ -140,12 +140,8 @@ github.com/containerd/errdefs v0.1.0/go.mod h1:YgWiiHtLmSeBrvpw+UfPijzbLaB77mEG1
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
 github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/cozy-creator/hf-hub v0.0.0-20241206201717-75a2ec552353 h1:9hFXSLCwSGpZaWlJ6KA6rWA1o0e/WF0DqhRgsXg5gIM=
-github.com/cozy-creator/hf-hub v0.0.0-20241206201717-75a2ec552353/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
-github.com/cozy-creator/hf-hub v0.0.0-20241211171853-1a8f4aa9aa20 h1:aXE94BfFl5pEsL6CUPj9OZrZOBVN2QKIrRvfuMaJGcQ=
-github.com/cozy-creator/hf-hub v0.0.0-20241211171853-1a8f4aa9aa20/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
-github.com/cozy-creator/hf-hub v0.0.0-20241211183544-890fdabda532 h1:3GIq0CoaKMgW3qv0ndlIsP/FL9cnN4KYsXHQSv67GK0=
-github.com/cozy-creator/hf-hub v0.0.0-20241211183544-890fdabda532/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
+github.com/cozy-creator/hf-hub v0.0.0-20241212175040-5b5d7a6bcc77 h1:sBdr2wJPS55HCMlSLfcArWlyZOriulMjHV/x1Z5nYwA=
+github.com/cozy-creator/hf-hub v0.0.0-20241212175040-5b5d7a6bcc77/go.mod h1:uB/jCz1mf4pBBPekavQ+raFnDKcJo/n9tx1J+2QpU4U=
 github.com/cpuguy83/dockercfg v0.3.1 h1:/FpZ+JaygUR/lZP2NlFI2DVfrOEMAIKP5wWEJdoYe9E=
 github.com/cpuguy83/dockercfg v0.3.1/go.mod h1:sugsbF4//dDlL/i+S+rtpIWp+5h0BHJHfjj5/jFyUJc=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=

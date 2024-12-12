@@ -104,6 +104,13 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 		return nil
 	}
 
+    // Get model config 
+    modelConfig, ok := m.app.Config().PipelineDefs[modelID]
+    if !ok {
+        return fmt.Errorf("model config not found for %s", modelID)
+    }
+
+
 	variants := []string{
 		"bf16",
 		"fp8",
@@ -115,7 +122,16 @@ func (m *ModelDownloaderManager) downloadHuggingFace(modelID, repoID string) err
 
 	var lastErr error
 	for _, variant := range variants {
-		_, err := downloader.Download(repoID, variant, nil)
+        components := make(map[string]*hub.ComponentDef)
+		for name, comp := range modelConfig.Components {
+            if name == "scheduler" {
+                continue
+            }
+			components[name] = &hub.ComponentDef{
+				Source: comp.Source,
+			}
+		}
+		_, err := downloader.Download(repoID, variant, nil, components)
 		if err == nil {
 			m.logger.Info("Successfully downloaded model",
 				zap.String("model_id", modelID),

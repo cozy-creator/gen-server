@@ -13,8 +13,8 @@ import (
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
-	"github.com/cozy-creator/gen-server/internal/services/ethicalfilter"
 	"github.com/cozy-creator/gen-server/internal/types"
+	"github.com/cozy-creator/gen-server/pkg/ethical_filter"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
@@ -192,14 +192,22 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	mq := app.MQ()
 	cfg := app.Config()
 	ctx := app.Context()
+	// TO DO: in the future, don't create a new client for each request
 	if cfg.EnableSafetyFilter {
-		response, err := ethicalfilter.FilterPrompt(ctx, cfg, newParams.PositivePrompt, newParams.NegativePrompt)
-		if err != nil {
-			return nil, err
-		}
+		filter, err := ethical_filter.NewEthicalFilter(cfg.OpenAI.APIKey)
+		if err == nil {
+			response, err := filter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
+			if err != nil {
+				return nil, err
+			}
 
-		if response.Type == ethicalfilter.PromptFilterResponseTypeRejected {
-			return nil, fmt.Errorf("rejected by ethical filter: %s", response.Reason)
+			if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
+				return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
+			}
+		} else {
+			// If OpenAI API key is not provided, the safety filter
+			// will not be used.
+			return nil, fmt.Errorf("failed to enable safety filter: %w", err)
 		}
 	}
 
