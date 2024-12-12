@@ -1,7 +1,21 @@
 package ethicalfilter
 
-func GetPromptFilterTemplate() string {
-	return `
+type ChatGPTFilterResponse struct {
+	SexualizeChild       bool     `json:"sexualize_child"`
+	Child                bool     `json:"child"`
+	Nudity               bool     `json:"nudity"`
+	Sexual               bool     `json:"sexual"`
+	Violence             bool     `json:"violence"`
+	Disturbing           bool     `json:"disturbing"`
+	ContainsText         bool     `json:"contains_text"`
+	Celebrities          []string `json:"celebrities"`
+	AnimatedCharacters   []string `json:"animated_characters"`
+	LiveActionCharacters []string `json:"live_action_characters"`
+	ArchetypeCharacters  []string `json:"archetype_characters"`
+	Styles               []string `json:"styles"`
+}
+
+const SystemPrompt = `
 	The user is giving you a prompt to generate an image. Evaluate the user's prompt for ethical concerns and return a JSON dict:
 	{
 		"child": (boolean),
@@ -20,7 +34,7 @@ func GetPromptFilterTemplate() string {
 	
 	Criteria:
 	- "child": True if the image would depict a child under the age of 16. "Teen" does not imply child. Anime or fictional highschool students should not be considered children.
-	- "sexualize_child": True if the image would sexualize children under the age of 16, including requesting unusual fetish elements likearmpits, feet, diapers, skimpy clothes, and mentions of being naughty.
+	- "sexualize_child": True if the image would sexualize children under the age of 16, including requesting unusual fetish elements like armpits, feet, diapers, skimpy clothes, and mentions of being naughty.
 	- "nudity": True if the image would have nudity, including 'uncovered'.
 	- "sexual": True if the image would have adult, pornographic themes or sexual content.
 	- "violence": True only if the image would have extreme violence or gore.
@@ -34,6 +48,7 @@ func GetPromptFilterTemplate() string {
 	- "live_action_characters": A list of recognizable, identifiable characters portrayed by real people in live-action films, TV shows, or other media.
 	- "archetype_characters": A list of generic, non-specific archetype roles, such as "woman" or "police officer".
 
-	- "styles": The overall artistic styles of the requested image, such as "realistic", "cartoon", "anime", "digital art", "3d", etc. If no style is explicitly requested, leave empty.
+	- "styles": A list of the artistic styles explicitly requested in the image. The style must be one of the following (only include the style name, not the description):
+	{{range .}}
+	  • {{.Name}} - {{.Description}}{{end}}
 `
-}
