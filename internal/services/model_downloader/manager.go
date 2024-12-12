@@ -118,7 +118,9 @@ func (m *ModelDownloaderManager) WaitForModelReady(ctx context.Context, modelID 
 }
 
 func (m *ModelDownloaderManager) InitializeModels() error {
-	ctx := m.ctx
+	// ctx := m.ctx
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if len(m.app.Config().EnabledModels) == 0 {
         m.logger.Info("No models enabled for generation")
@@ -132,6 +134,8 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(pipelineDefs))
+
+	done := make(chan struct{})
 
 	for modelID := range pipelineDefs {
 		modelSemaphore <- struct{}{}
@@ -171,7 +175,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
 	}
 
 	// wait for all goroutines to finish
-	done := make(chan struct{})
+	// done := make(chan struct{})
     go func() {
         wg.Wait()
         close(done)
@@ -181,6 +185,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
     select {
     case <-ctx.Done():
 		// clean up model states for any downloading models
+		m.logger.Warn("Context cancelled, waiting for in-progress downloads to complete...")
         for modelID := range pipelineDefs {
             if m.GetModelState(modelID) == types.ModelStateDownloading {
                 m.SetModelState(modelID, types.ModelStateNotFound)
