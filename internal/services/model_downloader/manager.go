@@ -3,7 +3,7 @@ package model_downloader
 import (
 	"context"
 	"fmt"
-	"os"
+	// "os"
 	"sync"
 	"time"
 
@@ -40,7 +40,7 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 	progress := mpb.New(
 		mpb.WithWidth(60),
 		mpb.WithRefreshRate(2*time.Second),
-		mpb.WithOutput(os.Stderr),
+		// mpb.WithOutput(os.Stderr),
 	)
 
 	hubClient.Progress = progress
