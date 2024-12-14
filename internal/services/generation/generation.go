@@ -193,7 +193,8 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	cfg := app.Config()
 	ctx := app.Context()
 	// TO DO: in the future, don't create a new client for each request
-	if cfg.EnableSafetyFilter {
+	// We want to discover the lack of the ability to run a filter early on
+	if cfg.EnableSafetyFilter && cfg.OpenAI != nil {
 		filter, err := ethical_filter.NewEthicalFilter(cfg.OpenAI.APIKey)
 		if err == nil {
 			response, err := filter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)

@@ -40,7 +40,7 @@ func receiveImage(params *types.GenerateParams, app *app.App) (string, string, e
 		return "", "", nil
 	}
 
-	outputData, modelName, err := ParseImageOutput(outputData)
+	outputData, modelName, _ := ParseImageOutput(outputData)
 	image, err := imageutil.DecodeBmpToFormat(outputData, params.OutputFormat)
 	if err != nil {
 		return "", "", err
