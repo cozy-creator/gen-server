@@ -12,20 +12,22 @@ import (
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/fileuploader"
+	"github.com/cozy-creator/gen-server/pkg/ethical_filter"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/uptrace/bun"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	mq           	mq.MQ
-	db           	*bun.DB
-	config       	*config.Config
-	ctx          	context.Context
-	cancelFunc   	context.CancelFunc
-	fileuploader 		*fileuploader.Uploader
+	mq           			mq.MQ
+	db           			*bun.DB
+	config       			*config.Config
+	ctx          			context.Context
+	cancelFunc   			context.CancelFunc
+	fileuploader 			*fileuploader.Uploader
 
-	Logger           	*zap.Logger
+	SafetyFilter			*ethical_filter.SafetyFilter
+	Logger           		*zap.Logger
 	
 	APIKeyRepository 		repository.IAPIKeyRepository
 	EventRepository 		repository.IEventRepository
@@ -35,92 +37,131 @@ type App struct {
 	// PipelineDefRepository 	repository.IPipelineDefRepository
 }
 
-type OptionFunc func(app *App)
+// Option funcs used to initialize the App struct
+type OptionFunc func(app *App) error
 
 func WithDB(driver drivers.Driver) OptionFunc {
-	return func(app *App) {
+	return func(app *App) error {
 		app.db = driver.GetDB()
+		return nil
 	}
 }
 
 func WithLogger(logger *zap.Logger) OptionFunc {
-	return func(app *App) {
+	return func(app *App) error {
 		app.Logger = logger
+		return nil
+	}
+}
+
+func WithMQ() OptionFunc {
+    return func(app *App) error {
+        mq, err := mq.NewMQ(app.config)
+        if err != nil {
+            return err
+        }
+        app.mq = mq
+        return nil
+    }
+}
+
+func WithDBInitialization() OptionFunc {
+    return func(app *App) error {
+        dbConn, err := db.NewConnection(app.ctx, app.config)
+        if err != nil {
+            return err
+        }
+        app.db = dbConn.GetDB()
+
+        // Ensure tables exist
+        err = app.db.RunInTx(app.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+            tables := []interface{}{
+                (*models.APIKey)(nil),
+                (*models.Event)(nil),
+                (*models.Image)(nil),
+                (*models.Job)(nil),
+                (*models.JobMetric)(nil),
+                (*models.PipelineDef)(nil),
+            }
+
+            for _, table := range tables {
+                if _, err := tx.NewCreateTable().
+                    Model(table).
+                    IfNotExists().
+                    Exec(ctx); err != nil {
+                    return fmt.Errorf("failed to create table: %w", err)
+                }
+            }
+            return nil
+        })
+        if err != nil {
+            return err
+        }
+
+        // Initialize repositories
+        app.APIKeyRepository = repository.NewAPIKeyRepository(app.db)
+        app.EventRepository = repository.NewEventRepository(app.db)
+        app.ImageRepository = repository.NewImageRepository(app.db)
+        app.JobRepository = repository.NewJobRepository(app.db)
+
+        // Load pipeline defs from Database for enabled models
+        config.LoadPipelineDefsFromDB(app.Context(), app.DB())
+
+        return nil
+    }
+}
+
+func WithFileUploader() OptionFunc {
+    return func(app *App) error {
+        filestorage, err := filestorage.NewFileStorage(app.Config())
+        if err != nil {
+            return err
+        }
+        app.fileuploader = fileuploader.NewFileUploader(filestorage, 10)
+        return nil
+    }
+}
+
+func WithSafetyFilter() OptionFunc {
+	return func(app *App) error {
+		if (app.config.OpenAI == nil) {
+			return fmt.Errorf("openAI API-key is not set. Cannot enable safety filter")
+		}
+		filter, err := ethical_filter.NewSafetyFilter(app.config.OpenAI.APIKey)
+		if err != nil {
+			return err
+		}
+
+		app.SafetyFilter = filter
+		return nil
 	}
 }
 
 func NewApp(config *config.Config, options ...OptionFunc) (*App, error) {
-	logger, err := logger.InitLogger(config)
-	if err != nil {
-		return nil, err
-	}
-	defer logger.Sync()
+    logger, err := logger.InitLogger(config)
+    if err != nil {
+        return nil, err
+    }
+    defer logger.Sync()
 
-	ctx, cancel := context.WithCancel(context.Background())
+    ctx, cancel := context.WithCancel(context.Background())
 
-	return &App{
-		ctx:        ctx,
-		config:     config,
-		Logger:     logger,
-		cancelFunc: cancel,
-	}, nil
-}
+    app := &App{
+        ctx:        ctx,
+        config:     config,
+        Logger:     logger,
+        cancelFunc: cancel,
+    }
 
-func (app *App) InitializeMQ() error {
-	mq, err := mq.NewMQ(app.config)
-	if err != nil {
-		return err
-	}
+    // Apply all options
+    for _, opt := range options {
+        if err := opt(app); err != nil {
+			// Continue even if some options fail
+            app.Logger.Error("failed to apply option", zap.Error(err))
+        }
+    }
 
-	app.mq = mq
-	return nil
-}
-
-func (app *App) InitializeUploadWorker(filestorage filestorage.FileStorage) {
-	app.fileuploader = fileuploader.NewFileUploader(filestorage, 10)
-}
-
-func (app *App) InitializeDB() error {
-	db, err := db.NewConnection(app.ctx, app.config)
-	if err != nil {
-		return err
-	}
-
-	// Ensure tables exist before initializing repositories
-	err = db.GetDB().RunInTx(app.ctx, nil,
-		func(ctx context.Context, tx bun.Tx) error {
-			tables := []interface{}{
-				(*models.APIKey)(nil),
-				(*models.Event)(nil),
-				(*models.Image)(nil),
-				(*models.Job)(nil),
-				(*models.JobMetric)(nil),
-				(*models.PipelineDef)(nil),
-			}
-
-			for _, table := range tables {
-				_, err := tx.NewCreateTable().
-					Model(table).
-					IfNotExists().
-					Exec(ctx)
-				if err != nil {
-					return fmt.Errorf("failed to create table: %w", err)
-				}
-			}
-			return nil
-		})
-	if err != nil {
-		return err
-	}
-
-	app.db = db.GetDB()
-	app.APIKeyRepository = repository.NewAPIKeyRepository(app.db)
-	app.EventRepository = repository.NewEventRepository(app.db)
-	app.ImageRepository = repository.NewImageRepository(app.db)
-	app.JobRepository = repository.NewJobRepository(app.db)
-	// app.JobMetricRepository = repository.NewJobMetricRepository(app.db)
-	// app.PipelineDefRepository = repository.NewPipelineDefRepository(app.db)
-	return nil
+    return app, nil
 }
 
 func (app *App) Close() {

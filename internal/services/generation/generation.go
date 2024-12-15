@@ -190,25 +190,17 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	}
 
 	mq := app.MQ()
-	cfg := app.Config()
 	ctx := app.Context()
-	// TO DO: in the future, don't create a new client for each request
-	// We want to discover the lack of the ability to run a filter early on
-	if cfg.EnableSafetyFilter && cfg.OpenAI != nil {
-		filter, err := ethical_filter.NewEthicalFilter(cfg.OpenAI.APIKey)
-		if err == nil {
-			response, err := filter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
-			if err != nil {
-				return nil, err
-			}
 
-			if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
-				return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
-			}
-		} else {
-			// If OpenAI API key is not provided, the safety filter
-			// will not be used.
-			return nil, fmt.Errorf("failed to enable safety filter: %w", err)
+	// Use safety filter if it's enabled for every request
+	if app.SafetyFilter != nil {
+		response, err := app.SafetyFilter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
+		if err != nil {
+			return nil, err
+		}
+
+		if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
+			return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
 		}
 	}
 

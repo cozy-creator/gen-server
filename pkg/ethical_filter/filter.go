@@ -12,17 +12,17 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
-type EthicalFilter struct {
+type SafetyFilter struct {
     client *openai.Client
 }
 
 // TO DO: perhaps in the future support multiple providers
-func NewEthicalFilter(apiKey string) (*EthicalFilter, error) {
+func NewSafetyFilter(apiKey string) (*SafetyFilter, error) {
 	if (apiKey == "") {
 		return nil, fmt.Errorf("OpenAI API key is required")
 	}
 
-    return &EthicalFilter{
+    return &SafetyFilter{
         client: openai.NewClient(option.WithAPIKey(apiKey)),
     }, nil
 }
@@ -73,7 +73,7 @@ var knownStylesMap = func() map[string]struct{} {
     return m
 }()
 
-func (f *EthicalFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
+func (f *SafetyFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
 	tmpl, err := template.New("systemPrompt").Parse(SystemPrompt)
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (f *EthicalFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negat
 	return &res, nil
 }
 
-func (f * EthicalFilter) EvaluatePrompt(ctx context.Context, positivePrompt, negativePrompt string) (*PromptFilterResponse, error) {
+func (f * SafetyFilter) EvaluatePrompt(ctx context.Context, positivePrompt, negativePrompt string) (*PromptFilterResponse, error) {
 	res, err := f.InvokeChatGPT(ctx, positivePrompt, negativePrompt)
 	if err != nil {
 		return nil, err

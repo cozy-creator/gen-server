@@ -1,6 +1,8 @@
 package models
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 
@@ -12,7 +14,7 @@ type Job struct {
 
 	ID          uuid.UUID            `bun:",type:uuid,pk"`
 	Status      types.JobStatus      `bun:",notnull"`
-	Input       []byte               `bun:",notnull"`
+	Input       json.RawMessage 	`bun:"type:jsonb,notnull"`
 	Images      []Image              `bun:"rel:has-many,join:id=job_id"`
 	Events      []Event              `bun:"rel:has-many,join:id=job_id"`
 	Metric      *JobMetric           `bun:"rel:has-one,join:id=job_id"`
@@ -21,7 +23,7 @@ type Job struct {
 	CreatedAt   bun.NullTime         `bun:",nullzero,notnull,default:current_timestamp"`
 }
 
-func NewJob(id uuid.UUID, input []byte) *Job {
+func NewJob(id uuid.UUID, input json.RawMessage) *Job {
 	return &Job{
 		ID:     id,
 		Input:  input,

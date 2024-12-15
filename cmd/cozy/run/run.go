@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +18,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/server"
-	"github.com/cozy-creator/gen-server/internal/services/filestorage"
 	"github.com/cozy-creator/gen-server/internal/services/generation"
 	"github.com/cozy-creator/gen-server/internal/services/model_downloader"
 	"github.com/cozy-creator/gen-server/internal/services/workflow"
@@ -124,13 +124,25 @@ func runApp(_ *cobra.Command, _ []string) error {
 	errc := make(chan error, 4)
 	signalc := make(chan os.Signal, 1)
 
-	app, err := createNewApp()
+	cfg := config.MustGetConfig()
+	
+	options := []app.OptionFunc{
+		app.WithMQ(),
+		app.WithDBInitialization(),
+		app.WithFileUploader(),
+	}
+
+	if cfg.EnableSafetyFilter {
+		options = append(options, app.WithSafetyFilter())
+	}
+
+	app, err := app.NewApp(cfg, options...)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	defer app.Close()
 
-	// TO DO: remove this block
+	// TO DO: remove this logging block
 	configJSON, err := json.MarshalIndent(app.Config(), "", "  ")
 	if err != nil {
 		fmt.Printf("failed to marshal config: %v\n", err)
@@ -142,7 +154,9 @@ func runApp(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to initialize model downloader manager: %w", err)
 	}
 
-	cfg := app.Config()
+	// Fetch the updated config
+	// TO DO: does this change from the above line? why or why not?
+	cfg = app.Config()
 
 	wg.Add(4)
 
@@ -245,34 +259,6 @@ func runApp(_ *cobra.Command, _ []string) error {
 			return nil
 		}
 	}
-}
-
-func createNewApp() (*app.App, error) {
-	app, err := app.NewApp(config.MustGetConfig())
-	if err != nil {
-		return nil, err
-	}
-
-	if err := app.InitializeMQ(); err != nil {
-		fmt.Println("Error initializing MQ: ", err)
-		return nil, err
-	}
-
-	if err := app.InitializeDB(); err != nil {
-		return nil, err
-	}
-
-	// Load pipeline defs from Database for enabled models
-	config.LoadPipelineDefsFromDB(app.Context(), app.DB())
-
-	filestorage, err := filestorage.NewFileStorage(app.Config())
-	if err != nil {
-		return nil, err
-	}
-
-	app.InitializeUploadWorker(filestorage)
-
-	return app, nil
 }
 
 func runPythonRuntime(ctx context.Context, app *app.App, cfg *config.Config) error {
