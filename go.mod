@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.35
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.33
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.3
-	github.com/cozy-creator/hf-hub v0.0.0-20241216221211-5a1baade83f6
+	github.com/cozy-creator/hf-hub v0.0.0-20241216224144-40107328e60d
 	github.com/gabriel-vasile/mimetype v1.4.5
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-contrib/cors v1.7.2
