@@ -46,6 +46,27 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.Ap
 			continue
 		}
 
+		// handle loras if present
+		if len(request.LoRAs) > 0 {
+			fmt.Println("Downloading LoRAs")
+			loraURLs := make([]string, len(request.LoRAs))
+			for i, lora := range request.LoRAs {
+				loraURLs[i] = lora.URL
+			}
+
+			lorasWithPaths, err := downloader.DownloadMultipleLoRAs(loraURLs)
+			if err != nil {
+				logger.Error("Failed to download LoRAs", err)
+				continue
+			}
+
+			fmt.Println("LoRAs downloaded", lorasWithPaths)
+
+			for i := range request.LoRAs {
+				request.LoRAs[i].FilePath = lorasWithPaths[i]
+			}
+		}
+
 		modelState := downloader.GetModelState(request.Model)
 		generationTopic := getGenerationTopic(request.ID)
 
@@ -56,6 +77,8 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.Ap
 			}
 			continue
 		}
+
+		
 
 		// process normal request
 		outputs, errorc := requestHandler(ctx, cfg, &request)
@@ -138,6 +161,8 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 			return
 		}
 
+		fmt.Println(string(params))
+
 		timeout := time.Duration(500) * time.Second
 		// timeout := time.Duration(cfg.TcpTimeout) * time.Second
 		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
@@ -187,6 +212,7 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 		PositivePrompt: params.PositivePrompt,
 		NegativePrompt: params.NegativePrompt,
 		PresignedURL:   params.PresignedURL,
+		LoRAs:          params.LoRAs,
 	}
 
 	mq := app.MQ()

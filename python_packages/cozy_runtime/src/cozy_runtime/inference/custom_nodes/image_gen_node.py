@@ -1,5 +1,8 @@
 import traceback
 import torch
+import tempfile
+import os
+import aiohttp
 
 from typing import Callable, Optional, List
 
@@ -134,7 +137,7 @@ class ImageGenNode(CustomNode):
         openpose_image: Optional[torch.Tensor] = None,
         depth_map: Optional[torch.Tensor] = None,
         ip_adapter_embeds: Optional[torch.Tensor] = None,
-        lora_info: Optional[dict[str, any]] = None,
+        lora_params: Optional[dict[str, any]] = None,
         controlnet_model_ids: Optional[List[str]] = None,
     ):
         print(random_seed)
@@ -152,8 +155,11 @@ class ImageGenNode(CustomNode):
             model_config = self.config_manager.get_model_config(model_id, class_name)
 
             # Already handled by the method
-            if lora_info:
-                self.handle_lora(pipeline, lora_info)
+            if lora_params:
+                lora_urls = [lora_param["file_path"] for lora_param in lora_params]
+                lora_scales = [lora_param["scale"] for lora_param in lora_params]
+
+                await self.load_lora(pipeline, lora_urls, lora_scales)
                 print("DONE HANDLING LORA")
 
             controlnet_inputs = []
@@ -197,16 +203,10 @@ class ImageGenNode(CustomNode):
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
-            # Set up default positive prompt if it exists in model_config
-            # if "default_positive_prompt" in model_config:
-            #     positive_prompt = (
-            #         model_config["default_positive_prompt"] + ", " + positive_prompt
-            #     )
-            # else:
-            #     positive_prompt = positive_prompt
 
             gen_params = {
                 "prompt": positive_prompt,
+                # "negative_prompt": negative_prompt,
                 "width": width,
                 "height": height,
                 "num_inference_steps": model_config["num_inference_steps"],
@@ -218,19 +218,7 @@ class ImageGenNode(CustomNode):
 
             if isinstance(pipeline, FluxPipeline):
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
-                # if model_id != "playground2.5":
-                #     # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
-                #     # Check model_config for negative prompt and append it to the negative prompt
-                #     if "default_negative_prompt" in model_config:
-                #         gen_params["negative_prompt"] = (
-                #             model_config["default_negative_prompt"]
-                #             + ", "
-                #             + negative_prompt
-                #         )
-                #     else:
-                #         gen_params["negative_prompt"] = negative_prompt
 
-                # print(f"Negative Prompt: {gen_params['negative_prompt']}")
 
             print(f"Prompt: {gen_params['prompt']}")
 
@@ -266,12 +254,16 @@ class ImageGenNode(CustomNode):
 
             callback.close()  # Close the progress bar
 
+            if lora_params:
+                self.unload_lora(pipeline)
+
             all_images = torch.stack(image_tensors)
 
             return {"images": all_images}
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
+
 
     def setup_controlnet(self, pipeline: any, controlnet_info: dict):
         if isinstance(pipeline, FluxPipeline):
@@ -305,51 +297,94 @@ class ImageGenNode(CustomNode):
             )
 
         return new_pipeline
-
-    def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict = None):
-        if lora_info is None:
-            # If no LoRA info is provided, disable all LoRAs
+    
+    def unload_lora(self, pipeline: DiffusionPipeline):
+        """
+        Unload LoRA weights from pipeline to free memory
+        """
+        try:
             pipeline.unload_lora_weights()
+        except Exception as e:
+            print(f"Error unloading LoRA weights: {e}")
+    
+    async def load_lora(self, pipeline: DiffusionPipeline, lora_paths: List[str], lora_scales: List[float]):
+        """
+        Download and load a LoRA temprarily.
+        """
+        try:
 
-        else:
-            print("Loading LoRA weights...")
-            adapter_name = lora_info["adapter_name"]
-            print(f"Adapter Name: {adapter_name}")
-            try:
+            self.unload_lora(pipeline)
+
+            # build adapter names
+            adapter_names = []
+
+            for i, lora_path in enumerate(lora_paths):
+                adapter_name = f"lora_{i}"
+                adapter_names.append(adapter_name)
+                        
+                # Load each weights
                 pipeline.load_lora_weights(
-                    lora_info["repo_id"],
-                    weight_name=lora_info["weight_name"],
+                    lora_path,
                     adapter_name=adapter_name,
                 )
-                print(f"LoRA adapter '{adapter_name}' loaded successfully.")
-            except ValueError as e:
-                if "already in use" in str(e):
-                    print(
-                        f"LoRA adapter '{adapter_name}' is already loaded. Using existing adapter."
-                    )
 
-                else:
-                    raise e
 
-            # Set LoRA scales
-            lora_scale_dict = {}
-
-            if hasattr(pipeline, "text_encoder"):
-                lora_scale_dict["text_encoder"] = lora_info["text_encoder_scale"]
-            if hasattr(pipeline, "text_encoder_2"):
-                lora_scale_dict["text_encoder_2"] = lora_info["text_encoder_2_scale"]
-
-            # Determine if the model uses UNet or Transformer
-            if hasattr(pipeline, "unet"):
-                lora_scale_dict["unet"] = lora_info["model_scale"]
-            elif hasattr(pipeline, "transformer"):
-                lora_scale_dict["transformer"] = lora_info["model_scale"]
-
-            # Set the scales
             pipeline.set_adapters(
-                adapter_name, adapter_weights=[lora_info["model_scale"]]
+                adapter_names, adapter_weights=lora_scales
             )
-            # pipeline.fuse_lora(lora_scale=lora_info["model_scale"], adapter_name=adapter_name)
+
+            print(f"LoRA weights loaded successfully")
+
+        except Exception as e:
+            self.unload_lora(pipeline)
+            traceback.print_exc()
+            raise ValueError(f"Error loading LoRA: {e}")
+
+
+    # def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict = None):
+    #     if lora_info is None:
+    #         # If no LoRA info is provided, disable all LoRAs
+    #         pipeline.unload_lora_weights()
+
+    #     else:
+    #         print("Loading LoRA weights...")
+    #         adapter_name = lora_info["adapter_name"]
+    #         print(f"Adapter Name: {adapter_name}")
+    #         try:
+    #             pipeline.load_lora_weights(
+    #                 lora_info["repo_id"],
+    #                 weight_name=lora_info["weight_name"],
+    #                 adapter_name=adapter_name,
+    #             )
+    #             print(f"LoRA adapter '{adapter_name}' loaded successfully.")
+    #         except ValueError as e:
+    #             if "already in use" in str(e):
+    #                 print(
+    #                     f"LoRA adapter '{adapter_name}' is already loaded. Using existing adapter."
+    #                 )
+
+    #             else:
+    #                 raise e
+
+    #         # Set LoRA scales
+    #         lora_scale_dict = {}
+
+    #         if hasattr(pipeline, "text_encoder"):
+    #             lora_scale_dict["text_encoder"] = lora_info["text_encoder_scale"]
+    #         if hasattr(pipeline, "text_encoder_2"):
+    #             lora_scale_dict["text_encoder_2"] = lora_info["text_encoder_2_scale"]
+
+    #         # Determine if the model uses UNet or Transformer
+    #         if hasattr(pipeline, "unet"):
+    #             lora_scale_dict["unet"] = lora_info["model_scale"]
+    #         elif hasattr(pipeline, "transformer"):
+    #             lora_scale_dict["transformer"] = lora_info["model_scale"]
+
+    #         # Set the scales
+    #         pipeline.set_adapters(
+    #             adapter_name, adapter_weights=[lora_info["model_scale"]]
+    #         )
+    #         # pipeline.fuse_lora(lora_scale=lora_info["model_scale"], adapter_name=adapter_name)
 
     def setup_ip_adapter(self, pipeline: DiffusionPipeline, model_category: str):
         if model_category == "sdxl":

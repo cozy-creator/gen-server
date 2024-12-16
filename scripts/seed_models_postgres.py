@@ -130,6 +130,18 @@ models_to_seed = [
         "source": "hf:playgroundai/playground-v2.5-1024px-aesthetic",
     },
     {
+        "name": "auraflow0.3",
+        "source": "hf:fal/AuraFlow-v0.3"
+    },
+    {
+        "name": "auraflow",
+        "source": "hf:fal/AuraFlow"
+    },
+    {
+        "name": "auraflow0.2",
+        "source": "hf:fal/AuraFlow-v0.2"
+    },
+    {
         "name": "ebara-pony-xl",
         "source": "https://civitai.com/api/download/models/715437?type=Model&format=SafeTensor&size=full&fp=fp32",
         "class_name": "StableDiffusionXLPipeline",

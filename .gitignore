@@ -11,6 +11,7 @@ venv/
 .mypy_cache/
 *.log
 test2.py
+test5.py
 .new_test/
 .testvenv/
 
