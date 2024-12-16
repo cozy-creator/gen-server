@@ -11,7 +11,7 @@ from ip_adapter.ip_adapter_faceid import IPAdapterFaceIDXL
 # http://localhost:8881
 
 class CozyClient:
-    def __init__(self, base_url="http://localhost:8881", api_key=None):
+    def __init__(self, base_url="https://7ye1n017kcq4fo-8881.proxy.runpod.net/", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/vnd.msgpack',
@@ -88,7 +88,7 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "sdxl-base",
+        "model": "flux.1-schnell-fp8",
         "positive_prompt": "A cheerful 17-year-old girl standing outside a small shop, wearing a simple but neat outfit, smiling warmly as she helps a customer. The backdrop shows a lively market in Lagos, with colorful stalls and busy streets.",
         "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
         "num_outputs": 1,
@@ -132,7 +132,7 @@ async def main():
     ]
 
     # Synchronous request
-    result = client.generate(params, lora_config)
+    result = client.generate(params)
     print("Sync result:", result)
 
     # Streaming request

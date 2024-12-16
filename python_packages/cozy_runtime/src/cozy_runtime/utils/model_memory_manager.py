@@ -374,6 +374,8 @@ class ModelMemoryManager:
             # Prepare memory
             estimated_size = await self._get_model_size(model_config, model_id)
 
+            print(f"estimated_size for model {model_id}: {estimated_size} GB")
+
             # try direct gpu load
             if self._can_fit_gpu(estimated_size):
                 pipeline = await self._load_model_by_source(model_id, model_config)
