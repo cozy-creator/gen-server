@@ -89,8 +89,8 @@ async def main():
     
     params = {
         "model": "sd3.5-large-int8",
-        "positive_prompt": "A cheerful 17-year-old girl standing outside a small shop, wearing a simple but neat outfit, smiling warmly as she helps a customer. The backdrop shows a lively market in Lagos, with colorful stalls and busy streets.",
-        "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
+        "positive_prompt": "A close up shot of a girl cryig, emotions, tears, beautiful",
+        # "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
         "num_outputs": 1,
         # "random_seed": 43,
         "aspect_ratio": "1/1",

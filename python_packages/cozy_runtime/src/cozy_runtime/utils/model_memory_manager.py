@@ -24,6 +24,7 @@ from diffusers.loaders import FromSingleFileMixin
 from huggingface_hub.constants import HF_HUB_CACHE
 from huggingface_hub.file_download import repo_folder_name
 from huggingface_hub.utils import EntryNotFoundError
+from accelerate import utils as accelerate_utils
 
 from ..config import get_config
 from ..globals import (
@@ -564,7 +565,11 @@ class ModelMemoryManager:
 
         try:
             if device == "gpu" and model_id in self.loaded_models:
-                pipeline = self.loaded_models[model_id]
+                pipeline = self.loaded_models.pop(model_id)
+
+                if hasattr(pipeline, "remove_all_hooks"):
+                    logger.info(f"Removing all hooks for model {model_id}")
+                    pipeline.remove_all_hooks()
 
                 # # Move model to CPU first to clear CUDA memory
                 # if hasattr(pipeline, "to"):
@@ -589,13 +594,20 @@ class ModelMemoryManager:
                         del component
 
                 # Delete pipeline reference
-                del self.loaded_models[model_id]
+                # del self.loaded_models[model_id]
                 self.vram_usage -= model_size
                 self.lru_cache.remove(model_id, "gpu")
                 del pipeline
 
             if model_id in self.cpu_models:
+                logger.info(f"Unloading {model_id} from CPU memory")
                 cpu_pipeline = self.cpu_models.pop(model_id)
+
+                if hasattr(pipeline, "remove_all_hooks"):
+                    logger.info(f"Removing all hooks for CPU-offloaded model {model_id}")
+                    cpu_pipeline.remove_all_hooks()
+
+                self.lru_cache.remove(model_id, "cpu")
                 del cpu_pipeline
 
             # Force garbage collection and memory clearing
