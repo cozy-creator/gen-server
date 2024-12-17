@@ -11,7 +11,7 @@ from ip_adapter.ip_adapter_faceid import IPAdapterFaceIDXL
 # http://localhost:8881
 
 class CozyClient:
-    def __init__(self, base_url="https://7ye1n017kcq4fo-8881.proxy.runpod.net/", api_key=None):
+    def __init__(self, base_url="https://w4c0fgk98ke6ov-8881.proxy.runpod.net/", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/vnd.msgpack',

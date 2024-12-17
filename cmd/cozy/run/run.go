@@ -171,9 +171,6 @@ func runApp(_ *cobra.Command, _ []string) error {
 
 	go func() {
 		defer wg.Done()
-		if err := downloadEnabledModels(app, downloaderManager); err != nil {
-			fmt.Println("model download error: ", err)
-		}
 		if err := runPythonRuntime(ctx, app, cfg); err != nil {
 			errc <- err
 		}
@@ -193,15 +190,15 @@ func runApp(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
-	// go func() {
-	// 	defer wg.Done()
-	// 	if err := downloadEnabledModels(app, downloaderManager); err != nil {
-	// 		fmt.Println("model download error: ", err)
-	// 		// if !errors.Is(err, context.Canceled) {
-	// 		// 	errc <- fmt.Errorf("model download error: %w", err)
-	// 		// }
-	// 	}
-	// }()
+	go func() {
+		defer wg.Done()
+		if err := downloadEnabledModels(app, downloaderManager); err != nil {
+			fmt.Println("model download error: ", err)
+			// if !errors.Is(err, context.Canceled) {
+			// 	errc <- fmt.Errorf("model download error: %w", err)
+			// }
+		}
+	}()
 
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 

@@ -1397,6 +1397,7 @@ class ModelMemoryManager:
 
         total_size_gb = total_size / (1024**3)
         logger.debug(f"Total size: {total_size_gb:.2f} GB")
+        print(f"Total size: {total_size_gb:.2f} GB")
         return total_size_gb
 
     def _calculate_component_size(
@@ -1427,9 +1428,11 @@ class ModelMemoryManager:
             else component_source.split("/")[-1]
         )
 
-        total_size = self._get_size_for_repo(
-            component_repo, component_name
-        ) - self._get_size_for_repo(repo_id, key)
+        # total_size = self._get_size_for_repo(
+        #     component_repo, component_name
+        # ) - self._get_size_for_repo(repo_id, key)
+
+        total_size = self._get_size_for_repo(component_repo, component_name)
 
         return total_size
 
