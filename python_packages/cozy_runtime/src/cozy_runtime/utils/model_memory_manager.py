@@ -290,7 +290,9 @@ class ModelMemoryManager:
         Returns:
             True if the model needs optimization, False otherwise
         """
-        return model_size > self.max_vram
+        print(f"model_size: {model_size} GB")
+        print(f"system_ram: {self.system_ram} GB")
+        return model_size < self.system_ram
     
     def _can_fit_gpu(self, model_size: float) -> bool:
         """
