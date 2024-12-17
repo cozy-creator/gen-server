@@ -3,6 +3,7 @@ import torch
 import tempfile
 import os
 import aiohttp
+import inspect
 
 from typing import Callable, Optional, List
 
@@ -18,6 +19,7 @@ from diffusers import (
     FluxControlNetPipeline,
     FluxTransformer2DModel,
     StableDiffusion3Pipeline,
+    AuraFlowPipeline,
 )
 
 from cozy_runtime.utils.image import aspect_ratio_to_dimensions
@@ -74,6 +76,11 @@ class ImageGenNode(CustomNode):
         self.config_manager = ModelConfigManager()
         self.model_memory_manager = get_model_memory_manager()
         self.controlnets = {}
+
+    def _supports_callback_on_step_end(self, pipeline) -> bool:
+        """Check if the pipeline's __call__ method supports 'callback_on_step_end'."""
+        call_signature = inspect.signature(pipeline.__call__)
+        return 'callback_on_step_end' in call_signature.parameters
 
     async def _get_pipeline(self, model_id: str):
         pipeline = await self.model_memory_manager.load(model_id, None)
@@ -238,19 +245,29 @@ class ImageGenNode(CustomNode):
 
             # Run inference
             for i in range(num_images):
-                with torch.no_grad():
-                    output = pipeline(
-                        **gen_params,
-                        callback_on_step_end=callback.on_step_end,
-                        callback_on_step_end_tensor_inputs=["latents"],
-                    ).images
+                # If the pipeline supports callback_on_step_end, use it
+                if self._supports_callback_on_step_end(pipeline):
+                    with torch.no_grad():
+                        output = pipeline(
+                            **gen_params,
+                            callback_on_step_end=callback.on_step_end,
+                            callback_on_step_end_tensor_inputs=["latents"],
+                        ).images
+
+                    callback.on_image_complete()  # Signal completion of an image
+                else:
+                    pipeline.set_progress_bar_config(disable=True)
+                    with torch.no_grad():
+                        output = pipeline(
+                            **gen_params,
+                        ).images
+
+                    # image_tensors.append(output[0])
 
                 image_tensors.append(output[0])
                 # Clear CUDA cache after each iteration
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-
-                callback.on_image_complete()  # Signal completion of an image
 
             callback.close()  # Close the progress bar
 
