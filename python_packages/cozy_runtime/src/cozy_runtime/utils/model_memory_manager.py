@@ -395,37 +395,48 @@ class ModelMemoryManager:
                     logger.error(f"Failed to move {model_id} to GPU")
                     return None
                 
-            # if not enough space, try to make space
-            self._free_space_for_model(estimated_size)
-            if self._can_fit_gpu(estimated_size):
-                pipeline = await self._load_model_by_source(model_id, model_config)
-                if pipeline is None:
-                    return None
+            if estimated_size <= self.max_vram - DEFAULT_MAX_VRAM_BUFFER_GB:
+                # if not enough space, try to make space
+                self._free_space_for_model(estimated_size)
+                if self._can_fit_gpu(estimated_size):
+                    pipeline = await self._load_model_by_source(model_id, model_config)
+                    if pipeline is None:
+                        return None
+                    
+                    self._setup_scheduler(pipeline, model_id)
+                    if self._move_model_to_gpu(pipeline, model_id):
+                        self.loaded_models[model_id] = pipeline
+                        self.model_sizes[model_id] = estimated_size
+                        self.vram_usage += estimated_size
+                        self.lru_cache.access(model_id, "gpu")
+                        return pipeline
+                    else:
+                        logger.error(f"Failed to move {model_id} to GPU")
+                        return None
+            else:
                 
-                self._setup_scheduler(pipeline, model_id)
-                if self._move_model_to_gpu(pipeline, model_id):
-                    self.loaded_models[model_id] = pipeline
-                    self.model_sizes[model_id] = estimated_size
-                    self.vram_usage += estimated_size
-                    self.lru_cache.access(model_id, "gpu")
-                    return pipeline
-                else:
-                    logger.error(f"Failed to move {model_id} to GPU")
-                    return None
-                
-            # if still not enough VRAM, apply optimization (CPU offload)
-            if self._need_optimization(estimated_size):
-                pipeline = await self._load_model_by_source(model_id, model_config)
-                if pipeline is None:
-                    return None
-                self._setup_scheduler(pipeline, model_id)
-                logger.info(f"Applying optimizations for {model_id}")
-                self.apply_optimizations(pipeline, model_id, True)
+                # if still not enough VRAM, apply optimization (CPU offload)
+                if self._need_optimization(estimated_size):
 
-                self.cpu_models[model_id] = pipeline
-                self.model_sizes[model_id] = estimated_size
-                self.lru_cache.access(model_id, "cpu")
-                return pipeline
+                    logger.info("Unloading all models for large model loading")
+
+                    for model_id in list(self.loaded_models.keys()):
+                        self._unload_model_for_space(model_id, self.model_sizes[model_id], "gpu")
+                    for model_id in list(self.cpu_models.keys()):
+                        self._unload_model_for_space(model_id, self.model_sizes[model_id], "cpu")
+
+                    pipeline = await self._load_model_by_source(model_id, model_config)
+                    if pipeline is None:
+                        return None
+                    
+                    self._setup_scheduler(pipeline, model_id)
+                    logger.info(f"Applying optimizations for {model_id}")
+                    self.apply_optimizations(pipeline, model_id, True)
+
+                    self.cpu_models[model_id] = pipeline
+                    self.model_sizes[model_id] = estimated_size
+                    self.lru_cache.access(model_id, "cpu")
+                    return pipeline
             
             logger.error(f"Insufficient memory to load model {model_id}")
             return None
@@ -581,6 +592,11 @@ class ModelMemoryManager:
                 del self.loaded_models[model_id]
                 self.vram_usage -= model_size
                 self.lru_cache.remove(model_id, "gpu")
+                del pipeline
+
+            if model_id in self.cpu_models:
+                cpu_pipeline = self.cpu_models.pop(model_id)
+                del cpu_pipeline
 
             # Force garbage collection and memory clearing
             self.flush_memory()
@@ -1089,7 +1105,9 @@ class ModelMemoryManager:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
             torch.cuda.synchronize()
+            logger.info("GPU memory flushed successfully")
         elif torch.backends.mps.is_available():
             pass  # MPS doesn't need explicit cache clearing
 
