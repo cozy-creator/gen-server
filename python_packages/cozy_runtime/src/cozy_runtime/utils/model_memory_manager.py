@@ -396,7 +396,7 @@ class ModelMemoryManager:
                     logger.error(f"Failed to move {model_id} to GPU")
                     return None
                 
-            if estimated_size <= self.max_vram - DEFAULT_MAX_VRAM_BUFFER_GB and len(self.loaded_models) > 0:
+            if estimated_size <= self.max_vram - VRAM_SAFETY_MARGIN_GB and len(self.loaded_models) > 0 and len(self.cpu_models) > 0:
                 # if not enough space, try to make space
                 self._free_space_for_model(estimated_size)
                 if self._can_fit_gpu(estimated_size):
@@ -414,30 +414,29 @@ class ModelMemoryManager:
                     else:
                         logger.error(f"Failed to move {model_id} to GPU")
                         return None
-            else:
+            
+            # if still not enough VRAM, apply optimization (CPU offload)
+            if self._need_optimization(estimated_size):
+
+                logger.info("Unloading all models for large model loading")
+
+                for model_id in list(self.loaded_models.keys()):
+                    self._unload_model_for_space(model_id, self.model_sizes[model_id], "gpu")
+                for model_id in list(self.cpu_models.keys()):
+                    self._unload_model_for_space(model_id, self.model_sizes[model_id], "cpu")
+
+                pipeline = await self._load_model_by_source(model_id, model_config)
+                if pipeline is None:
+                    return None
                 
-                # if still not enough VRAM, apply optimization (CPU offload)
-                if self._need_optimization(estimated_size):
+                self._setup_scheduler(pipeline, model_id)
+                logger.info(f"Applying optimizations for {model_id}")
+                self.apply_optimizations(pipeline, model_id, True)
 
-                    logger.info("Unloading all models for large model loading")
-
-                    for model_id in list(self.loaded_models.keys()):
-                        self._unload_model_for_space(model_id, self.model_sizes[model_id], "gpu")
-                    for model_id in list(self.cpu_models.keys()):
-                        self._unload_model_for_space(model_id, self.model_sizes[model_id], "cpu")
-
-                    pipeline = await self._load_model_by_source(model_id, model_config)
-                    if pipeline is None:
-                        return None
-                    
-                    self._setup_scheduler(pipeline, model_id)
-                    logger.info(f"Applying optimizations for {model_id}")
-                    self.apply_optimizations(pipeline, model_id, True)
-
-                    self.cpu_models[model_id] = pipeline
-                    self.model_sizes[model_id] = estimated_size
-                    self.lru_cache.access(model_id, "cpu")
-                    return pipeline
+                self.cpu_models[model_id] = pipeline
+                self.model_sizes[model_id] = estimated_size
+                self.lru_cache.access(model_id, "cpu")
+                return pipeline
             
             logger.error(f"Insufficient memory to load model {model_id}")
             return None
