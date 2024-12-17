@@ -1428,11 +1428,11 @@ class ModelMemoryManager:
             else component_source.split("/")[-1]
         )
 
-        # total_size = self._get_size_for_repo(
-        #     component_repo, component_name
-        # ) - self._get_size_for_repo(repo_id, key)
+        total_size = self._get_size_for_repo(
+            component_repo, component_name
+        ) - self._get_size_for_repo(repo_id, key)
 
-        total_size = self._get_size_for_repo(component_repo, component_name)
+        # total_size = self._get_size_for_repo(component_repo, component_name)
 
         return total_size
 
@@ -1503,7 +1503,10 @@ class ModelMemoryManager:
             Total size in bytes
         """
         if not os.path.isdir(folder):
-            return os.path.getsize(folder)
+            if os.path.exists(folder):
+                return os.path.getsize(folder)
+            else:
+                return 0
 
         variants = ["bf16", "fp8", "fp16", ""]
         selected_variant = next(
