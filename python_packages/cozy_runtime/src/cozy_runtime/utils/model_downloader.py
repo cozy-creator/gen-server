@@ -149,7 +149,7 @@ class ModelManager:
                 self.session = None
             return None
 
-    async def is_downloaded(self, model_id: str) -> tuple[bool, Optional[str]]:
+    async def is_downloaded(self, model_id: str, model_config: Optional[dict] = None) -> tuple[bool, Optional[str]]:
         """Check if a model is downloaded, handling all source types including Civitai filename variants"""
         try:
             config = serialize_config(get_config())
@@ -160,6 +160,13 @@ class ModelManager:
 
             source = ModelSource(model_info["source"])
 
+            # Get components from model_config
+            if model_config:
+                components = model_config.get("components", [])
+                # add the component names to an array
+                component_names = [component for component in components]
+                print(f"Component names: {component_names}")
+
             # Handle local files - just check if they exist
             if source.type == "file":
                 exists = os.path.exists(source.location)
@@ -169,7 +176,7 @@ class ModelManager:
 
             # Handle HuggingFace models as before
             if source.type == "huggingface":
-                is_downloaded, variant = self._check_repo_downloaded(source.location)
+                is_downloaded, variant = self._check_repo_downloaded(source.location, component_names)
                 print(
                     f"Repo {source.location} is downloaded: {is_downloaded}, variant: {variant}"
                 )
@@ -455,7 +462,7 @@ class ModelManager:
 
         return os.path.join(model_dir, final_filename)
 
-    def _check_repo_downloaded(self, repo_id: str) -> bool:
+    def _check_repo_downloaded(self, repo_id: str, component_names: Optional[List[str]] = None) -> bool:
         storage_folder = os.path.join(
             self.cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model")
         )
@@ -501,7 +508,12 @@ class ModelManager:
                 "tokenizer_3",
                 "safety_checker",
             }
+
             required_folders -= ignored_folders
+            if component_names:
+                required_folders -= set(component_names)
+
+            print(f"Required folders: {required_folders}")
 
             # Define variant hierarchy
             variants = [

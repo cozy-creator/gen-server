@@ -459,7 +459,8 @@ class ModelMemoryManager:
         try:
             if prefix == "hf":
                 is_downloaded, variant = await self.model_downloader.is_downloaded(
-                    model_id
+                    model_id,
+                    model_config
                 )
 
                 if not is_downloaded:
