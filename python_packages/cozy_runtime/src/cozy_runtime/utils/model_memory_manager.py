@@ -45,7 +45,7 @@ logging.basicConfig(
 )
 
 # Constants
-VRAM_SAFETY_MARGIN_GB = 7.0
+VRAM_SAFETY_MARGIN_GB = 6.5
 DEFAULT_MAX_VRAM_BUFFER_GB = 2.0
 RAM_SAFETY_MARGIN_GB = 10.0
 
@@ -395,7 +395,7 @@ class ModelMemoryManager:
                     logger.error(f"Failed to move {model_id} to GPU")
                     return None
                 
-            if estimated_size <= self.max_vram - DEFAULT_MAX_VRAM_BUFFER_GB:
+            if estimated_size <= self.max_vram - DEFAULT_MAX_VRAM_BUFFER_GB and len(self.loaded_models) > 0:
                 # if not enough space, try to make space
                 self._free_space_for_model(estimated_size)
                 if self._can_fit_gpu(estimated_size):
