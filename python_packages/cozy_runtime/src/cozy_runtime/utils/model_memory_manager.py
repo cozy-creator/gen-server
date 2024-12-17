@@ -603,7 +603,7 @@ class ModelMemoryManager:
                 logger.info(f"Unloading {model_id} from CPU memory")
                 cpu_pipeline = self.cpu_models.pop(model_id)
 
-                if hasattr(pipeline, "remove_all_hooks"):
+                if hasattr(cpu_pipeline, "remove_all_hooks"):
                     logger.info(f"Removing all hooks for CPU-offloaded model {model_id}")
                     cpu_pipeline.remove_all_hooks()
 
