@@ -81,15 +81,16 @@ class CozyClient:
   "real.dream.pony",
   "pony.realism",
   "babes_by_stable_yogi.v4.xl",
-  "ebara-pony-xl"
+  "ebara-pony-xl",
+  "auraflow"
 ]
 # Example usage
 async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "ebara-pony-xl",
-        "positive_prompt": "A corgi with a red hat",
+        "model": "playground2.5",
+        "positive_prompt": "a corgi with a red hat",
         # "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
         "num_outputs": 1,
         "random_seed": 43,

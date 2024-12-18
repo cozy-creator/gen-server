@@ -46,7 +46,7 @@ logging.basicConfig(
 )
 
 # Constants
-VRAM_SAFETY_MARGIN_GB = 6.5
+VRAM_SAFETY_MARGIN_GB = 3.0
 DEFAULT_MAX_VRAM_BUFFER_GB = 2.0
 RAM_SAFETY_MARGIN_GB = 10.0
 
@@ -647,6 +647,14 @@ class ModelMemoryManager:
 
         try:
             device = get_available_torch_device()
+
+            # check if pippeline supports vae tiling and slicing
+            if hasattr(pipeline, "enable_vae_tiling"):
+                logger.info("Enabling vae tiling")
+                pipeline.enable_vae_tiling()
+            if hasattr(pipeline, "enable_vae_slicing"):
+                logger.info("Enabling vae slicing")
+                pipeline.enable_vae_slicing()
 
             pipeline = pipeline.to(device=device)
 
