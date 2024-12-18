@@ -1152,7 +1152,7 @@ class ModelMemoryManager:
 
                 try:
                     size = await self._get_model_size(model_config, model_id)
-                    model_sizes[model_id] = size
+                    model_sizes[model_id] = size + 1.0 # add 1GB for safety margin (model inference overhead in memory)
                     model_configs[model_id] = model_config
                 except Exception as e:
                     logger.error(f"Error getting model size for {model_id}: {e}")
