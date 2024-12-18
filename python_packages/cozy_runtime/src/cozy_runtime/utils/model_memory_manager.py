@@ -377,7 +377,7 @@ class ModelMemoryManager:
                 return None
 
             # Prepare memory
-            estimated_size = await self._get_model_size(model_config, model_id)
+            estimated_size = await self._get_model_size(model_config, model_id) + 1.0 # add 1GB for safety margin (model inference overhead in memory)
 
             print(f"estimated_size for model {model_id}: {estimated_size} GB")
 
@@ -1151,8 +1151,8 @@ class ModelMemoryManager:
                     continue
 
                 try:
-                    size = await self._get_model_size(model_config, model_id)
-                    model_sizes[model_id] = size + 1.0 # add 1GB for safety margin (model inference overhead in memory)
+                    size = await self._get_model_size(model_config, model_id) + 1.0 # add 1GB for safety margin (model inference overhead in memory)
+                    model_sizes[model_id] = size 
                     model_configs[model_id] = model_config
                 except Exception as e:
                     logger.error(f"Error getting model size for {model_id}: {e}")
