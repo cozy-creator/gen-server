@@ -15,23 +15,23 @@ DEFAULTS = {
     "diffuser_class_defaults": {
       "StableDiffusionXLPipeline": {
         "scheduler": "",
-        "guidance_scale": 7.0,
-        "num_inference_steps": 20
+        "guidance_scale": 3.5,
+        "num_inference_steps": 25
       },
       "StableDiffusionPipeline": {
         "scheduler": "",
-        "guidance_scale": 7.0,
+        "guidance_scale": 3.5,
         "num_inference_steps": 25
       },
       "StableDiffusion3Pipeline": {
         "scheduler": "",
-        "guidance_scale": 7.0,
+        "guidance_scale": 3.5,
         "num_inference_steps": 28
       }
     },
     "global_default": {
       "scheduler": "",
-      "guidance_scale": 7.0,
+      "guidance_scale": 3.5,
       "num_inference_steps": 25
     }
 }
