@@ -305,6 +305,8 @@ class ModelMemoryManager:
         Returns:
             True if the model can fit in GPU memory, False otherwise
         """
+        print(f"model_size: {model_size} GB")
+        print(f"available_inference_memory: {self._get_available_vram() - VRAM_SAFETY_MARGIN_GB} GB")
         return (model_size <= (self._get_available_vram() - VRAM_SAFETY_MARGIN_GB))
     
 
@@ -396,7 +398,8 @@ class ModelMemoryManager:
                     logger.error(f"Failed to move {model_id} to GPU")
                     return None
                 
-            if estimated_size <= self.max_vram - VRAM_SAFETY_MARGIN_GB and (len(self.loaded_models) > 0 or len(self.cpu_models) > 0):
+            # TODO: Change this ugly condition
+            if estimated_size <= self.max_vram - (VRAM_SAFETY_MARGIN_GB - DEFAULT_MAX_VRAM_BUFFER_GB) and (len(self.loaded_models) > 0 or len(self.cpu_models) > 0):
                 # if not enough space, try to make space
                 self._free_space_for_model(estimated_size)
                 if self._can_fit_gpu(estimated_size):
@@ -420,10 +423,10 @@ class ModelMemoryManager:
 
                 logger.info("Unloading all models for large model loading")
 
-                for model_id in list(self.loaded_models.keys()):
-                    self._unload_model_for_space(model_id, self.model_sizes[model_id], "gpu")
-                for model_id in list(self.cpu_models.keys()):
-                    self._unload_model_for_space(model_id, self.model_sizes[model_id], "cpu")
+                for model_id_to_unload in list(self.loaded_models.keys()):
+                    self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "gpu")
+                for model_id_to_unload in list(self.cpu_models.keys()):
+                    self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "cpu")
 
                 pipeline = await self._load_model_by_source(model_id, model_config)
                 if pipeline is None:
@@ -537,11 +540,11 @@ class ModelMemoryManager:
         ]
 
         freed_space = 0
-        for model_id, size in gpu_models:
+        for model_id_to_unload, size in gpu_models:
             if freed_space >= space_needed:
                 break
 
-            freed_space += self._unload_model_for_space(model_id, size, "gpu")
+            freed_space += self._unload_model_for_space(model_id_to_unload, size, "gpu")
 
             if self._get_available_vram() - VRAM_SAFETY_MARGIN_GB >= model_size:
                 break
