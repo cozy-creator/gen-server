@@ -11,7 +11,7 @@ from ip_adapter.ip_adapter_faceid import IPAdapterFaceIDXL
 # http://localhost:8881
 
 class CozyClient:
-    def __init__(self, base_url="https://ay6yxjgavayx7v-8881.proxy.runpod.net/", api_key=None):
+    def __init__(self, base_url="https://xohlwbz03wv8ge-8881.proxy.runpod.net/", api_key=None):
         self.base_url = base_url
         self.headers = {
             'Content-Type': 'application/vnd.msgpack',
@@ -89,7 +89,7 @@ async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     
     params = {
-        "model": "flux.1-schnell-fp8",
+        "model": "pony.v6",
         "positive_prompt": "a corgi with a red hat",
         # "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
         "num_outputs": 1,
