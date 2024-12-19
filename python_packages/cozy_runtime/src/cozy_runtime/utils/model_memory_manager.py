@@ -26,7 +26,7 @@ from huggingface_hub.file_download import repo_folder_name
 from huggingface_hub.utils import EntryNotFoundError
 from accelerate import utils as accelerate_utils
 
-from ..config import get_config
+from ..config import get_config, get_environment
 from ..globals import (
     # get_hf_model_manager,
     get_architectures,
@@ -197,6 +197,7 @@ class ModelMemoryManager:
         # State flags
         self.is_in_device: bool = False
         self.is_startup_load: bool = False
+        self.environment: str = get_environment()
 
         # Managers and caches
         self.model_downloader = get_model_downloader()
@@ -419,27 +420,27 @@ class ModelMemoryManager:
                         return None
             
             # if still not enough VRAM, apply optimization (CPU offload)
-            if self._need_optimization(estimated_size):
+            if self.environment != "prod":
+                if self._need_optimization(estimated_size):
+                    logger.info("Unloading all models for large model loading")
 
-                logger.info("Unloading all models for large model loading")
+                    for model_id_to_unload in list(self.loaded_models.keys()):
+                        self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "gpu")
+                    for model_id_to_unload in list(self.cpu_models.keys()):
+                        self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "cpu")
 
-                for model_id_to_unload in list(self.loaded_models.keys()):
-                    self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "gpu")
-                for model_id_to_unload in list(self.cpu_models.keys()):
-                    self._unload_model_for_space(model_id_to_unload, self.model_sizes[model_id_to_unload], "cpu")
+                    pipeline = await self._load_model_by_source(model_id, model_config)
+                    if pipeline is None:
+                        return None
+                    
+                    self._setup_scheduler(pipeline, model_id)
+                    logger.info(f"Applying optimizations for {model_id}")
+                    self.apply_optimizations(pipeline, model_id, True)
 
-                pipeline = await self._load_model_by_source(model_id, model_config)
-                if pipeline is None:
-                    return None
-                
-                self._setup_scheduler(pipeline, model_id)
-                logger.info(f"Applying optimizations for {model_id}")
-                self.apply_optimizations(pipeline, model_id, True)
-
-                self.cpu_models[model_id] = pipeline
-                self.model_sizes[model_id] = estimated_size
-                self.lru_cache.access(model_id, "cpu")
-                return pipeline
+                    self.cpu_models[model_id] = pipeline
+                    self.model_sizes[model_id] = estimated_size
+                    self.lru_cache.access(model_id, "cpu")
+                    return pipeline
             
             logger.error(f"Insufficient memory to load model {model_id}")
             return None

@@ -18,7 +18,7 @@ from .model_command_handler import ModelCommandHandler
 
 from .base_types.config import RuntimeConfig
 from .parse_cli import parse_arguments
-from .config import set_config
+from .config import set_config, set_environment
 
 # Ignore warnings from pydantic_settings (/run/secrets does not exist)
 warnings.filterwarnings(
@@ -105,24 +105,6 @@ def run_tcp_server(config: RuntimeConfig):
     server.start(lambda addr, port: print(f"Python runtime available on {addr}:{port}"))
 
 
-# def startup_extensions(_config: RuntimeConfig):
-#     start_time_custom_nodes = time.time()
-
-#     custom_nodes = load_extensions(
-#         "cozy_creator.custom_nodes", validator=custom_node_validator
-#     )
-#     if not custom_nodes:
-#         logger.warning("No custom nodes were loaded! Generation cannot function.")
-
-#     update_custom_nodes(custom_nodes)
-
-#     update_architectures(load_extensions("cozy_creator.architectures"))
-
-#     print(
-#         f"CUSTOM_NODES loading time: {time.time() - start_time_custom_nodes:.2f} seconds"
-#     )
-
-
 async def load_and_warmup_models(config: RuntimeConfig):
     model_memory_manager = get_model_memory_manager()
     enabled_models = config.enabled_models
@@ -142,10 +124,13 @@ async def load_and_warmup_models(config: RuntimeConfig):
 
 async def main_async():
     config = parse_arguments()
+    print(f"config: {config}")
 
     set_config(config)  # Do we need these dumb global variables?
 
-    # startup_extensions(config)
+    # set environment
+    environment = config.environment
+    set_environment(environment)
 
     # Load and warm up models
     await load_and_warmup_models(config)
