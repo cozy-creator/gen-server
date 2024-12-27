@@ -1562,9 +1562,13 @@ class ModelMemoryManager:
 
         total_size = 0
         for root, _, files in os.walk(folder):
+            # skip if in root
+            if root == folder:
+                continue
             for file in files:
                 if self._is_valid_file(file, selected_variant):
                     total_size += os.path.getsize(os.path.join(root, file))
+                    break
 
         return total_size
 
