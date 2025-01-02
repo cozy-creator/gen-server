@@ -202,6 +202,26 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 }
 
 func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.GenerateParams, error) {
+	// check if enhanced prompt is enabled 
+	pipelineDef, exists := app.Config().PipelineDefs[params.Model]
+	if !exists {
+		return nil, fmt.Errorf("pipeline definition not found for model: %s", params.Model)
+	}
+
+	// fetch default positive prompt
+	defaultPrompt, ok := pipelineDef.DefaultArgs["positive_prompt"].(string)
+	if !ok {
+		defaultPrompt = "" 
+	}
+
+	// append default positive prompt if enhancePrompt is true
+	combinedPrompt := params.PositivePrompt
+	if params.EnhancePrompt && defaultPrompt != "" {
+		combinedPrompt = fmt.Sprintf("%s %s", defaultPrompt, params.PositivePrompt)
+	}
+
+	fmt.Println("combinedPrompt", combinedPrompt)
+	
 	newParams := types.GenerateParams{
 		ID:             uuid.NewString(),
 		OutputFormat:   params.OutputFormat,
@@ -209,7 +229,7 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 		NumOutputs:     func() int { if params.NumOutputs == nil { return 1 } else { return *params.NumOutputs } }(),
 		RandomSeed:     func() int { if params.RandomSeed == nil { return rand.Intn(1 << 32) } else { return *params.RandomSeed } }(),
 		AspectRatio:    params.AspectRatio,
-		PositivePrompt: params.PositivePrompt,
+		PositivePrompt: combinedPrompt,
 		NegativePrompt: params.NegativePrompt,
 		PresignedURL:   params.PresignedURL,
 		LoRAs:          params.LoRAs,

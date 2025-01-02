@@ -12,11 +12,25 @@ func GetPipelineDefs(ctx context.Context, db *bun.DB, pipelineNames []string) ([
 
 	err := db.NewSelect().
 		Model(&pipelineDefs).
+		Relation("PromptDef").
 		Where("name IN (?)", bun.In(pipelineNames)).
 		Scan(ctx)
 
 	return pipelineDefs, err
 }
+
+
+// type IPromptDefRepository interface {
+//     Repository[models.PromptDef]
+// }
+
+// type PromptDefRepository struct {
+//     db bun.IDB
+// }
+
+// func NewPromptDefRepository(db *bun.DB) IPromptDefRepository {
+//     return &PromptDefRepository{db: db}
+// }
 
 // type IPipelineDefRepository interface {
 // 	Repository[models.PipelineDef]

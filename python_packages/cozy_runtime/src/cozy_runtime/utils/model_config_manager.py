@@ -44,7 +44,6 @@ class ModelConfigManager:
 
     def get_model_config(self, pipeline_name: str, class_name: str) -> Dict[str, Any]:
         model_config = get_config().pipeline_defs.get(pipeline_name, {}).get("default_args", {})
-        print(f"model_config: {model_config}")
 
         # Get global default settings
         global_config = self.config["global_default"]
@@ -59,8 +58,6 @@ class ModelConfigManager:
             **class_config,
             **model_config,
         }
-
-        print(final_config)
 
         return final_config
 

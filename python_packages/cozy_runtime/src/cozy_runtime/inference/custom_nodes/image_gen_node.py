@@ -210,7 +210,6 @@ class ImageGenNode(CustomNode):
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
-
             gen_params = {
                 "prompt": positive_prompt,
                 # "negative_prompt": negative_prompt,
@@ -222,6 +221,13 @@ class ImageGenNode(CustomNode):
                 else None,
                 "output_type": "pt",
             }
+
+            negative_prompt = model_config.get("negative_prompt", "")
+
+            if negative_prompt:
+                gen_params["negative_prompt"] = negative_prompt
+
+                print(f"Negative prompt: {gen_params['negative_prompt']}")
 
             if isinstance(pipeline, FluxPipeline):
                 gen_params["max_sequence_length"] = model_config["max_sequence_length"]
