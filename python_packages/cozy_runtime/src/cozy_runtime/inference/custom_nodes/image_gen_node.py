@@ -21,6 +21,7 @@ from diffusers import (
     StableDiffusion3Pipeline,
     AuraFlowPipeline,
 )
+from compel import Compel, ReturnedEmbeddingsType
 
 from cozy_runtime.utils.image import aspect_ratio_to_dimensions
 from cozy_runtime.base_types import CustomNode
@@ -154,10 +155,17 @@ class ImageGenNode(CustomNode):
             if pipeline is None:
                 return None
 
-            # repo_id = pipeline._name_or_path
-
             class_name = pipeline.__class__.__name__
             print(f"Class name: {class_name}")
+
+            # initialize compel
+            compel = Compel(
+                tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2],
+                text_encoder=[pipeline.text_encoder, pipeline.text_encoder_2],
+                returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                requires_pooled=[False, True],
+                truncate_long_prompts=False
+            )
 
             model_config = self.config_manager.get_model_config(model_id, class_name)
 
@@ -211,8 +219,6 @@ class ImageGenNode(CustomNode):
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
             gen_params = {
-                "prompt": positive_prompt,
-                # "negative_prompt": negative_prompt,
                 "width": width,
                 "height": height,
                 "num_inference_steps": model_config["num_inference_steps"],
@@ -222,18 +228,39 @@ class ImageGenNode(CustomNode):
                 "output_type": "pt",
             }
 
+
             negative_prompt = model_config.get("negative_prompt", "")
 
             if negative_prompt:
-                gen_params["negative_prompt"] = negative_prompt
+                print(f"Negative prompt: {negative_prompt}")
 
-                print(f"Negative prompt: {gen_params['negative_prompt']}")
+                if class_name in ["StableDiffusionPipeline", "StableDiffusionXLPipeline"]:
+                    conditioning, pooled = compel([positive_prompt, negative_prompt])
+                    gen_params["prompt_embeds"] = conditioning[0:1]
+                    gen_params["pooled_prompt_embeds"] = pooled[0:1]
+                    gen_params["negative_prompt_embeds"] = conditioning[1:2]
+                    gen_params["negative_pooled_prompt_embeds"] = pooled[1:2]
+                else:
+                    gen_params["prompt"] = positive_prompt
+                    gen_params["negative_prompt"] = negative_prompt
+            else:
+                if class_name in ["StableDiffusionPipeline", "StableDiffusionXLPipeline"]:
+                    print("compel used")
+                    conditioning, pooled = compel([positive_prompt])
+                    gen_params["prompt_embeds"] = conditioning
+                    gen_params["pooled_prompt_embeds"] = pooled
+                else:
+                    print("compel not used")
+                    gen_params["prompt"] = positive_prompt
 
             if isinstance(pipeline, FluxPipeline):
-                gen_params["max_sequence_length"] = model_config["max_sequence_length"]
+                max_sequence_length = model_config.get("max_sequence_length", None)
+                if max_sequence_length:
+                    gen_params["max_sequence_length"] = max_sequence_length
+                else:
+                    print("max_sequence_length not found in model config")
 
-
-            print(f"Prompt: {gen_params['prompt']}")
+            print(f"Prompt: {positive_prompt}")
 
             gen_params["guidance_scale"] = model_config["guidance_scale"]
 

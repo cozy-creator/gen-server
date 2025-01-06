@@ -22,6 +22,7 @@ dependencies = [
     "backoff",
     "bitsandbytes",
     "blake3",
+    "compel",
     "controlnet_aux",
     "cozy_runtime",
     "diffusers@git+https://github.com/huggingface/diffusers.git",

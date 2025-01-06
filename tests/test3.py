@@ -83,18 +83,19 @@ class CozyClient:
   "babes_by_stable_yogi.v4.xl",
   "ebara-pony-xl",
   "auraflow",
-  "pony-realism"
+  "pony.realism"
 ]
 # Example usage
 async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
+    # A high-resolution, hyper-realistic photograph of an American corgi with a tri-color coat, wearing a blue bandana around its neck, sitting on a lush green lawn in a sunlit park, with a background of blooming flowers and tall trees, captured with a shallow depth of field, vibrant colors, and soft natural lighting.
     
     params = {
-        "model": "pony-realism",
-        "positive_prompt": "An american corgi wearing a blue bandana",
-        # "negative_prompt": "text, censored, deformed, bad hand, bad anatomy, cartoon",
+        "model": "flux.1-schnell",
+        "positive_prompt": "A majestic American corgi with a fluffy tri-color coat, sitting proudly on a small wooden bridge over a crystal-clear stream, wearing a stylish blue bandana with a paisley pattern",
+        # "negative_prompt": "score_6_up, score_5_up, score_4_up, censored, deformed, bad hand, bad anatomy, cartoon",
         "num_outputs": 1,
-        "random_seed": 43,
+        "random_seed": 45,
         "aspect_ratio": "1/1",
         "output_format": "png",
         # "enhance_prompt": True
