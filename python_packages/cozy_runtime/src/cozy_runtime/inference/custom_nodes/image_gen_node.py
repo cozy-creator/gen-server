@@ -31,7 +31,8 @@ from cozy_runtime.globals import (
     get_available_torch_device,
     get_model_memory_manager,
 )
-from diffusers import FluxPipeline
+from cozy_runtime.utils.prompt_enhancer import PromptEnhancer
+
 import os
 import json 
 from tqdm import tqdm
@@ -141,6 +142,8 @@ class ImageGenNode(CustomNode):
         negative_prompt: str = "",
         aspect_ratio: str = "1/1",
         num_images: int = 1,
+        enhance_prompt: bool = False,
+        style: str = "cinematic",
         random_seed: Optional[int] = None,
         openpose_image: Optional[torch.Tensor] = None,
         depth_map: Optional[torch.Tensor] = None,
@@ -157,6 +160,16 @@ class ImageGenNode(CustomNode):
 
             class_name = pipeline.__class__.__name__
             print(f"Class name: {class_name}")
+
+            # enhance prompt with gpt-2
+            if enhance_prompt:
+                prompt_enhancer = PromptEnhancer()
+                try:
+                    positive_prompt = prompt_enhancer.enhance_prompt(positive_prompt, style)
+                except Exception as e:
+                    print(f"Error enhancing prompt: {e}")
+                finally:
+                    del prompt_enhancer
 
             # initialize compel
             compel = Compel(

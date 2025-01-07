@@ -45,6 +45,9 @@ async def generate_images_non_io(
 
         print(f"Lora params: {lora_params}")
 
+        enhance_prompt = task_data.get("enhance_prompt", False)
+        style = task_data.get("style", "cinematic")
+
         if source_image:
             # Use image-to-image node
             # image_gen_node = custom_nodes["core_extension_1.image_to_image_node"]()
@@ -64,6 +67,8 @@ async def generate_images_non_io(
                 "negative_prompt": negative_prompt,
                 "num_images": num_outputs,
                 "random_seed": random_seed,
+                "enhance_prompt": enhance_prompt,
+                "style": style,
             }
 
             if source_image:

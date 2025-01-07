@@ -164,8 +164,11 @@ class ModelManager:
             if model_config:
                 components = model_config.get("components", [])
                 # add the component names to an array
-                component_names = [component for component in components]
-                print(f"Component names: {component_names}")
+                if isinstance(components, list):
+                    component_names = [component for component in components]
+                    print(f"Component names: {component_names}")
+                else:
+                    component_names = None
 
             # Handle local files - just check if they exist
             if source.type == "file":

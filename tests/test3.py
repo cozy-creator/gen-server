@@ -89,42 +89,44 @@ class CozyClient:
 async def main():
     client = CozyClient(api_key=os.getenv("COZY_API_KEY"))
     # A high-resolution, hyper-realistic photograph of an American corgi with a tri-color coat, wearing a blue bandana around its neck, sitting on a lush green lawn in a sunlit park, with a background of blooming flowers and tall trees, captured with a shallow depth of field, vibrant colors, and soft natural lighting.
-    
+    # score_9, score_8_up, score_7_up, BREAK, female, solo, clothing, hair, long hair, smile, fruit, food, sitting, anthro, looking at viewer, mammal, brown eyes, black hair, hi res, simple background, digital media (artwork), haplorhine
+
     params = {
-        "model": "flux.1-schnell",
-        "positive_prompt": "A majestic American corgi with a fluffy tri-color coat, sitting proudly on a small wooden bridge over a crystal-clear stream, wearing a stylish blue bandana with a paisley pattern",
+        "model": "pony.realism",
+        "positive_prompt": "one woman playing on the field",
         # "negative_prompt": "score_6_up, score_5_up, score_4_up, censored, deformed, bad hand, bad anatomy, cartoon",
-        "num_outputs": 1,
+        "num_outputs": 4,
         "random_seed": 45,
         "aspect_ratio": "1/1",
         "output_format": "png",
-        # "enhance_prompt": True
+        "enhance_prompt": True,
+        "style": "pony"
     }
 
     # https://civitai.com/api/download/models/12345
     # https://huggingface.co/ralux3/sdxl-lora/resolve/main/pytorch_lora_weights.safetensors?download=true
 
     lora_config = [
-        # {
-        #     "url": "https://civitai.com/api/download/models/259830?type=Model&format=SafeTensor",
-        #     "scale": 1.0
-        # },
         {
-            "url": "https://huggingface.co/ostris/crayon_style_lora_sdxl/resolve/main/crayons_v1_sdxl.safetensors?download=true",
-            "scale": 0.35
+            "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_offset_example-lora_1.0.safetensors?download=true",
+            "scale": 1.0
         },
+        # {
+        #     "url": "https://huggingface.co/ostris/crayon_style_lora_sdxl/resolve/main/crayons_v1_sdxl.safetensors?download=true",
+        #     "scale": 0.35
+        # },
         # {
         #     "url": "https://civitai.com/api/download/models/129888?type=Model&format=SafeTensor",
         #     "scale": 0.75
         # },
-        {
-            "url": "https://huggingface.co/ProomptEngineer/pe-balloon-diffusion-style/resolve/main/PE_BalloonStyle.safetensors?download=true",
-            "scale": 0.75
-        },
-        {
-            "url": "https://huggingface.co/Pclanglais/TintinIA/resolve/main/pytorch_lora_weights.safetensors?download=true",
-            "scale": 1.0
-        },
+        # {
+        #     "url": "https://huggingface.co/ProomptEngineer/pe-balloon-diffusion-style/resolve/main/PE_BalloonStyle.safetensors?download=true",
+        #     "scale": 0.75
+        # },
+        # {
+        #     "url": "https://huggingface.co/Pclanglais/TintinIA/resolve/main/pytorch_lora_weights.safetensors?download=true",
+        #     "scale": 1.0
+        # },
         # {
         #     "url": "https://civitai.com/api/download/models/273591?type=Model&format=SafeTensor",
         #     "scale": 1.2
@@ -136,7 +138,7 @@ async def main():
     ]
 
     # Synchronous request
-    result = client.generate(params)
+    result = client.generate(params, lora_config)
     print("Sync result:", result)
 
     # Streaming request
