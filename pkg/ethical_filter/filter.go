@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -27,51 +26,12 @@ func NewSafetyFilter(apiKey string) (*SafetyFilter, error) {
     }, nil
 }
 
-type StyleCatalog []struct {
-	Name        string
-	Description string
-}
-
 type PromptFilterResponse struct {
-	Type   PromptFilterResponseType `json:"status"`
-	Reason string                   `json:"reason"`
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
 }
-
-type PromptFilterResponseType string
 
 const SEED int64 = 420
-
-const (
-	PromptFilterResponseTypeApproved PromptFilterResponseType = "approved"
-	PromptFilterResponseTypeRejected PromptFilterResponseType = "rejected"
-)
-
-var styleCatalog = StyleCatalog{
-	{Name: "abstract-art", Description: "Classical European"},
-	{Name: "anime", Description: "Japanese animation style"},
-	{Name: "cartoon", Description: "Western animation style art, simple"},
-	{Name: "comic-book", Description: "Cartoonish, cel-shaded with with shading"},
-	{Name: "digital-art", Description: "Almost photo-realistic looking, but clearly drawn with a digital brush"},
-	{Name: "gothic", Description: "Dark, dramatic style with medieval influences"},
-	{Name: "hyperrealism", Description: "Photo-realistic, but too detailed and perfect to be real"},
-	{Name: "line-art", Description: "Hand-drawn black and white, sketch"},
-	{Name: "oil-painting", Description: "18th century hand-painted brushstrokes"},
-	{Name: "photo-realistic", Description: "Indistinguishable from a real photograph"},
-	{Name: "pixar-3d", Description: "Cartoonish 3d models, like Monsters Inc."},
-	{Name: "pop-art", Description: "Bold colors and hip-hop themed"},
-	{Name: "retro game", Description: "Pixel-art art, 80's and 90's video game style"},
-	{Name: "ukiyo-e", Description: "Traditional Japanese woodblock print style"},
-	{Name: "videogame", Description: "Realistic 3d models, like Grand Theft Auto"},
-	{Name: "watercolor", Description: "Soft, flowing style with transparent color washes"},
-}
-
-var knownStylesMap = func() map[string]struct{} {
-    m := make(map[string]struct{})
-    for _, style := range styleCatalog {
-        m[strings.ToLower(style.Name)] = struct{}{}
-    }
-    return m
-}()
 
 func (f *SafetyFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negativePrompt string) (*ChatGPTFilterResponse, error) {
 	tmpl, err := template.New("systemPrompt").Parse(SystemPrompt)
@@ -79,8 +39,9 @@ func (f *SafetyFilter) InvokeChatGPT(ctx context.Context, positivePrompt, negati
 		return nil, err
 	}
 
+	// For now, our system prompt template does not need any data
 	var tmplBuffer bytes.Buffer
-	if err := tmpl.Execute(&tmplBuffer, styleCatalog); err != nil {
+	if err := tmpl.Execute(&tmplBuffer, struct{}{}); err != nil {
 		return nil, err
 	}
 
@@ -122,40 +83,36 @@ func (f * SafetyFilter) EvaluatePrompt(ctx context.Context, positivePrompt, nega
 		return nil, err
 	}
 
-	// Filter out unknown styles
-	res.Styles = normalizeStyles(res.Styles)
+	response, err := f.EvaluateResponse(res)
+	if err != nil {
+		return nil, err
+	}
 
+	return &response, nil
+}
+
+func (f *SafetyFilter) EvaluateResponse(res *ChatGPTFilterResponse) (PromptFilterResponse, error) {
 	if res.SexualizeChild || (res.Child && (res.Sexual || res.Nudity)) {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
+		return PromptFilterResponse{
+			Accepted: false,
 			Reason: "contains child sexual content",
 		}, nil
 	} else if res.Child && (res.Violence || res.Disturbing) {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
+		return PromptFilterResponse{
+			Accepted: false,
 			Reason: "contains children and violent or disturbing content",
 		}, nil
-	} else if (res.Sexual || res.Nudity) && len(res.Celebrities) > 0 || len(res.LiveActionCharacters) > 0 {
-		return &PromptFilterResponse{
-			Type:   PromptFilterResponseTypeRejected,
-			Reason: "contains real-person sexual or nude content",
+		// len(res.LiveActionCharacters) > 0
+	} else if (res.Sexual || res.Nudity) && len(res.Celebrities) > 0 {
+		return PromptFilterResponse{
+			Accepted: false,
+			Reason: "contains non-consensual sexual or nude content of a real person",
 		}, nil
 	}
 
-	return &PromptFilterResponse{
-			Type: PromptFilterResponseTypeApproved,
-		},
-		nil
-}
-
-func normalizeStyles(styles []string) []string {
-    normalizedStyles := make([]string, 0)
-    for _, style := range styles {
-        if _, exists := knownStylesMap[strings.ToLower(style)]; exists {
-            normalizedStyles = append(normalizedStyles, strings.ToLower(style))
-        }
-    }
-    return normalizedStyles
+	return PromptFilterResponse{
+		Accepted: true,
+	}, nil
 }
 
 // func isNakedInPrompt(positivePrompt string) bool {
