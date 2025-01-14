@@ -127,6 +127,7 @@ func WithSafetyFilter() OptionFunc {
 		if (app.config.OpenAI == nil) {
 			return fmt.Errorf("openAI API-key is not set. Cannot enable safety filter")
 		}
+        
 		filter, err := ethical_filter.NewSafetyFilter(app.config.OpenAI.APIKey)
 		if err != nil {
 			return err

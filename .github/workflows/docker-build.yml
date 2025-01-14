@@ -58,8 +58,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Docker environment
+        run: |
+          brew install docker docker-buildx colima
+          colima start --arch aarch64 --memory 8 --cpu 6
+          # Wait for Docker daemon to be ready
+          sleep 10
+          docker context use colima
+          docker info
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: env.BUILDKIT_STEP_LOG_MAX_SIZE=10485760
 
       - name: Log into Docker Hub
         if: github.event_name != 'pull_request'

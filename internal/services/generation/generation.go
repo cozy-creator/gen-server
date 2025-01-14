@@ -14,7 +14,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
-	"github.com/cozy-creator/gen-server/pkg/ethical_filter"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
@@ -238,14 +237,14 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 	mq := app.MQ()
 	ctx := app.Context()
 
-	// Use safety filter if it's enabled for every request
+	// Use safety filter if it's enabled
 	if app.SafetyFilter != nil {
 		response, err := app.SafetyFilter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
 		if err != nil {
 			return nil, err
 		}
 
-		if response.Type == ethical_filter.PromptFilterResponseTypeRejected {
+		if !response.Accepted {
 			return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
 		}
 	}
