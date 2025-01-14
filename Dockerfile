@@ -116,9 +116,13 @@ RUN pip install --no-cache-dir jupyterlab
 # Hugging face's official release may be out of date
 RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers.git
 
-# Install the cozy_runtime python package
+# Install the cozy_runtime python package. Note that Triton and xformers are only available for x86 CPUs
 COPY python_packages/ ./python_packages
-RUN pip install ./python_packages/cozy_runtime[performance]
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        pip install ./python_packages/cozy_runtime[performance]; \
+    else \
+        pip install ./python_packages/cozy_runtime; \
+    fi
 
 # Copy the web bundle we built in stage-1
 COPY --from=web-builder /app/web/dist /srv/www/cozy

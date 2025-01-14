@@ -65,7 +65,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-performance = ["accelerate", "triton", "xformers"]
+performance = ["triton", "xformers"]
 
 [project.scripts]
 cozy-runtime = "cozy_runtime.main:main"

@@ -42,76 +42,57 @@ It's recommended to use the config.yaml file as a config-map if you're deploying
 
 ### Building Docker Container
 
-Single architecture build (will build for your system's architecture):
+To build a container for your system's native CPU architecture, execute the following in this folder:
 ```sh
-docker build -t cozycreator/gen-server:0.4.2 .
+docker build -t cozycreator/gen-server:local .
 ```
 
-> **Note:** I'm unable to get QEMU to work, so that I can compile to arm64 from my x86 machine. Instead, I use a GitHub action to start an arm64 runner to build the container instead. If you pull the container from dockerhub, you should get the x86 or arm64 version that matches your machine.
+Pull a prebuilt docker image from our dockerhub:
+
+```sh
+docker pull cozycreator/gen-server:latest
+```
+
+> **Note:** We use GitHub Actions to auto-build docker images. ':latest' refers to the current head of the master branch, while tags like ':0.4.2' refers to tagged releases. We have images that support both x86 and arm64 architectures, although x86 CPUS are better supported.
 
 ### Running Container Locally
 
-Run locally on your Windows machine:
+Create a .env.local file with your desired configuration (copy and modify the .env.local.example file). This command will mount your local .cozy-creator folder, where models are stored, into the docker container, so it'll have access to all models downloaded locally.
 ```sh
 docker run -d \
     --name gen-server \
     --gpus all \
-    -v ~/.cozy-creator:/root/.cozy-creator \
+    --rm \
+    -v ${HOME}/.cozy-creator:/root/.cozy-creator \
     --env-file .env.local \
     -p 8881:8881 \
     -p 8888:8888 \
-    cozycreator/gen-server:0.4.1
+    cozycreator/gen-server:latest
 ```
+
+View the status of all your docker containers:
+```sh
+docker ps -a
+```
+
+Enter the container:
+```sh
+docker exec -it gen-server /bin/bash
+```
+
+View the logs of your docker container:
+```sh
+docker logs -f gen-server
+```
+
+To view the graph-editor GUI, go to `http://localhost:8881/`
+To view the Jupyter Lab GUI, go to `http://localhost:8888/`
 
 ### Running Container on Runpod
 
 (TO DO)
 
 
-### Docker Container Notes:
+### Docker Containers on MacOS:
 
-This container only works on linux + amd64 machines (which includes Windows because Windows runs docker containers inside of WSL2 (Windows Subsystem for Linux)).
-
-Note that I wanted to create a multi-platform build, but everything else is useless because:
-
-(1) when running docker containers on MacOS (Darwin) the container runs inside of Linux, which does not have access to MPS (Apple's version of CUDA)
-
-(2) when running on a Linux/arm64 machine, pytorch installs itself in CPU mode because pytorch does not have any pre-built wheels for arm64 + CUDA. (I believe???) Note also that xformers also doesn't support ARM64 at all.
-
-
-RUN if [ "$(uname -m)" = "aarch64" ]; then \
-        # On ARM64 host, install AMD64 cross-compilation tools
-        dpkg --add-architecture amd64 && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-        gcc-x86-64-linux-gnu libc6-dev-amd64-cross \
-        libsqlite3-dev:amd64 libsqlite3-dev ca-certificates; \
-    elif [ "$(uname -m)" = "x86_64" ]; then \
-        # On AMD64 host, install ARM64 cross-compilation tools
-
-# Build the Go binary
-RUN echo "Building for architecture: $GOARCH and OS: $GOOS" && \
-    if [ "$GOARCH" = "amd64" ] && [ "$(uname -m)" = "aarch64" ]; then \
-        # Cross-compile from arm64 to amd64
-        CC=x86_64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
-    elif [ "$GOARCH" = "arm64" ] && [ "$(uname -m)" = "x86_64" ]; then \
-        # Cross-compile from amd64 to arm64
-        CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
-
-# FROM python:3.11.9-slim
-# FROM nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04 AS runtime
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runtime
-
-
-# Install CUDA toolkit 12.6, conditional on architecture
-# RUN if [ "$GOARCH" = "amd64" ]; then \
-#       wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb && \
-#       dpkg -i cuda-keyring_1.1-1_all.deb && add-apt-repository contrib && \
-#       apt-get update && apt-get install -y cuda-toolkit-12-6; \
-#     elif [ "$GOARCH" = "arm64" ]; then \
-#       echo "CUDA for ARM64 is not directly available from this repository. Please check NVIDIA's ARM support."; \
-#     else \
-#       echo "Unsupported architecture for CUDA installation"; \
-#     fi
-
-# Install Python 3.11; use deadsnakes PPA to get the latest version
+Note that Docker containers are not very useful on MacOS (Darwin) because the container runs inside of Linux, which does not have access to the system's GPU (MPS, Apple's version of CUDA). It's recommended you install the gen-server binary and cozy-runtime directly on your MacOS machine.
