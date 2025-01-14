@@ -78,8 +78,6 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.Ap
 			continue
 		}
 
-		
-
 		// process normal request
 		outputs, errorc := requestHandler(ctx, cfg, &request)
 
