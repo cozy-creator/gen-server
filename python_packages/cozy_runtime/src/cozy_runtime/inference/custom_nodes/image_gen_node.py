@@ -1,5 +1,9 @@
 import traceback
 import torch
+import tempfile
+import os
+import aiohttp
+import inspect
 
 from typing import Callable, Optional, List
 
@@ -15,7 +19,9 @@ from diffusers import (
     FluxControlNetPipeline,
     FluxTransformer2DModel,
     StableDiffusion3Pipeline,
+    AuraFlowPipeline,
 )
+from compel import Compel, ReturnedEmbeddingsType
 
 from cozy_runtime.utils.image import aspect_ratio_to_dimensions
 from cozy_runtime.base_types import CustomNode
@@ -25,7 +31,8 @@ from cozy_runtime.globals import (
     get_available_torch_device,
     get_model_memory_manager,
 )
-from diffusers import FluxPipeline
+from cozy_runtime.utils.prompt_enhancer import PromptEnhancer
+
 import os
 import json 
 from tqdm import tqdm
@@ -71,6 +78,11 @@ class ImageGenNode(CustomNode):
         self.config_manager = ModelConfigManager()
         self.model_memory_manager = get_model_memory_manager()
         self.controlnets = {}
+
+    def _supports_callback_on_step_end(self, pipeline) -> bool:
+        """Check if the pipeline's __call__ method supports 'callback_on_step_end'."""
+        call_signature = inspect.signature(pipeline.__call__)
+        return 'callback_on_step_end' in call_signature.parameters
 
     async def _get_pipeline(self, model_id: str):
         pipeline = await self.model_memory_manager.load(model_id, None)
@@ -130,11 +142,13 @@ class ImageGenNode(CustomNode):
         negative_prompt: str = "",
         aspect_ratio: str = "1/1",
         num_images: int = 1,
+        enhance_prompt: bool = False,
+        style: str = "cinematic",
         random_seed: Optional[int] = None,
         openpose_image: Optional[torch.Tensor] = None,
         depth_map: Optional[torch.Tensor] = None,
         ip_adapter_embeds: Optional[torch.Tensor] = None,
-        lora_info: Optional[dict[str, any]] = None,
+        lora_params: Optional[dict[str, any]] = None,
         controlnet_model_ids: Optional[List[str]] = None,
     ):
         print(random_seed)
@@ -144,16 +158,36 @@ class ImageGenNode(CustomNode):
             if pipeline is None:
                 return None
 
-            # repo_id = pipeline._name_or_path
-
             class_name = pipeline.__class__.__name__
             print(f"Class name: {class_name}")
+
+            # enhance prompt with gpt-2
+            if enhance_prompt:
+                prompt_enhancer = PromptEnhancer()
+                try:
+                    positive_prompt = prompt_enhancer.enhance_prompt(positive_prompt, style)
+                except Exception as e:
+                    print(f"Error enhancing prompt: {e}")
+                finally:
+                    del prompt_enhancer
+
+            # initialize compel
+            compel = Compel(
+                tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2],
+                text_encoder=[pipeline.text_encoder, pipeline.text_encoder_2],
+                returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                requires_pooled=[False, True],
+                truncate_long_prompts=False
+            )
 
             model_config = self.config_manager.get_model_config(model_id, class_name)
 
             # Already handled by the method
-            if lora_info:
-                self.handle_lora(pipeline, lora_info)
+            if lora_params:
+                lora_urls = [lora_param["file_path"] for lora_param in lora_params]
+                lora_scales = [lora_param["scale"] for lora_param in lora_params]
+
+                await self.load_lora(pipeline, lora_urls, lora_scales)
                 print("DONE HANDLING LORA")
 
             controlnet_inputs = []
@@ -197,16 +231,7 @@ class ImageGenNode(CustomNode):
 
             width, height = aspect_ratio_to_dimensions(aspect_ratio, class_name)
 
-            # Set up default positive prompt if it exists in model_config
-            # if "default_positive_prompt" in model_config:
-            #     positive_prompt = (
-            #         model_config["default_positive_prompt"] + ", " + positive_prompt
-            #     )
-            # else:
-            #     positive_prompt = positive_prompt
-
             gen_params = {
-                "prompt": positive_prompt,
                 "width": width,
                 "height": height,
                 "num_inference_steps": model_config["num_inference_steps"],
@@ -216,23 +241,39 @@ class ImageGenNode(CustomNode):
                 "output_type": "pt",
             }
 
+
+            negative_prompt = model_config.get("negative_prompt", "")
+
+            if negative_prompt:
+                print(f"Negative prompt: {negative_prompt}")
+
+                if class_name in ["StableDiffusionPipeline", "StableDiffusionXLPipeline"]:
+                    conditioning, pooled = compel([positive_prompt, negative_prompt])
+                    gen_params["prompt_embeds"] = conditioning[0:1]
+                    gen_params["pooled_prompt_embeds"] = pooled[0:1]
+                    gen_params["negative_prompt_embeds"] = conditioning[1:2]
+                    gen_params["negative_pooled_prompt_embeds"] = pooled[1:2]
+                else:
+                    gen_params["prompt"] = positive_prompt
+                    gen_params["negative_prompt"] = negative_prompt
+            else:
+                if class_name in ["StableDiffusionPipeline", "StableDiffusionXLPipeline"]:
+                    print("compel used")
+                    conditioning, pooled = compel([positive_prompt])
+                    gen_params["prompt_embeds"] = conditioning
+                    gen_params["pooled_prompt_embeds"] = pooled
+                else:
+                    print("compel not used")
+                    gen_params["prompt"] = positive_prompt
+
             if isinstance(pipeline, FluxPipeline):
-                gen_params["max_sequence_length"] = model_config["max_sequence_length"]
-                # if model_id != "playground2.5":
-                #     # TODO: this is a temporary fix to remove the negative prompt. Ensure to add it back in when the frontend is working.
-                #     # Check model_config for negative prompt and append it to the negative prompt
-                #     if "default_negative_prompt" in model_config:
-                #         gen_params["negative_prompt"] = (
-                #             model_config["default_negative_prompt"]
-                #             + ", "
-                #             + negative_prompt
-                #         )
-                #     else:
-                #         gen_params["negative_prompt"] = negative_prompt
+                max_sequence_length = model_config.get("max_sequence_length", None)
+                if max_sequence_length:
+                    gen_params["max_sequence_length"] = max_sequence_length
+                else:
+                    print("max_sequence_length not found in model config")
 
-                # print(f"Negative Prompt: {gen_params['negative_prompt']}")
-
-            print(f"Prompt: {gen_params['prompt']}")
+            print(f"Prompt: {positive_prompt}")
 
             gen_params["guidance_scale"] = model_config["guidance_scale"]
 
@@ -250,21 +291,34 @@ class ImageGenNode(CustomNode):
 
             # Run inference
             for i in range(num_images):
-                with torch.no_grad():
-                    output = pipeline(
-                        **gen_params,
-                        callback_on_step_end=callback.on_step_end,
-                        callback_on_step_end_tensor_inputs=["latents"],
-                    ).images
+                # If the pipeline supports callback_on_step_end, use it
+                if self._supports_callback_on_step_end(pipeline):
+                    with torch.no_grad():
+                        output = pipeline(
+                            **gen_params,
+                            callback_on_step_end=callback.on_step_end,
+                            callback_on_step_end_tensor_inputs=["latents"],
+                        ).images
+
+                    callback.on_image_complete()  # Signal completion of an image
+                else:
+                    pipeline.set_progress_bar_config(disable=True)
+                    with torch.no_grad():
+                        output = pipeline(
+                            **gen_params,
+                        ).images
+
+                    # image_tensors.append(output[0])
 
                 image_tensors.append(output[0])
                 # Clear CUDA cache after each iteration
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                callback.on_image_complete()  # Signal completion of an image
-
             callback.close()  # Close the progress bar
+
+            if lora_params:
+                self.unload_lora(pipeline)
 
             all_images = torch.stack(image_tensors)
 
@@ -272,6 +326,7 @@ class ImageGenNode(CustomNode):
         except Exception as e:
             traceback.print_exc()
             raise ValueError(f"Error generating images: {e}")
+
 
     def setup_controlnet(self, pipeline: any, controlnet_info: dict):
         if isinstance(pipeline, FluxPipeline):
@@ -305,51 +360,94 @@ class ImageGenNode(CustomNode):
             )
 
         return new_pipeline
-
-    def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict = None):
-        if lora_info is None:
-            # If no LoRA info is provided, disable all LoRAs
+    
+    def unload_lora(self, pipeline: DiffusionPipeline):
+        """
+        Unload LoRA weights from pipeline to free memory
+        """
+        try:
             pipeline.unload_lora_weights()
+        except Exception as e:
+            print(f"Error unloading LoRA weights: {e}")
+    
+    async def load_lora(self, pipeline: DiffusionPipeline, lora_paths: List[str], lora_scales: List[float]):
+        """
+        Download and load a LoRA temprarily.
+        """
+        try:
 
-        else:
-            print("Loading LoRA weights...")
-            adapter_name = lora_info["adapter_name"]
-            print(f"Adapter Name: {adapter_name}")
-            try:
+            self.unload_lora(pipeline)
+
+            # build adapter names
+            adapter_names = []
+
+            for i, lora_path in enumerate(lora_paths):
+                adapter_name = f"lora_{i}"
+                adapter_names.append(adapter_name)
+                        
+                # Load each weights
                 pipeline.load_lora_weights(
-                    lora_info["repo_id"],
-                    weight_name=lora_info["weight_name"],
+                    lora_path,
                     adapter_name=adapter_name,
                 )
-                print(f"LoRA adapter '{adapter_name}' loaded successfully.")
-            except ValueError as e:
-                if "already in use" in str(e):
-                    print(
-                        f"LoRA adapter '{adapter_name}' is already loaded. Using existing adapter."
-                    )
 
-                else:
-                    raise e
 
-            # Set LoRA scales
-            lora_scale_dict = {}
-
-            if hasattr(pipeline, "text_encoder"):
-                lora_scale_dict["text_encoder"] = lora_info["text_encoder_scale"]
-            if hasattr(pipeline, "text_encoder_2"):
-                lora_scale_dict["text_encoder_2"] = lora_info["text_encoder_2_scale"]
-
-            # Determine if the model uses UNet or Transformer
-            if hasattr(pipeline, "unet"):
-                lora_scale_dict["unet"] = lora_info["model_scale"]
-            elif hasattr(pipeline, "transformer"):
-                lora_scale_dict["transformer"] = lora_info["model_scale"]
-
-            # Set the scales
             pipeline.set_adapters(
-                adapter_name, adapter_weights=[lora_info["model_scale"]]
+                adapter_names, adapter_weights=lora_scales
             )
-            # pipeline.fuse_lora(lora_scale=lora_info["model_scale"], adapter_name=adapter_name)
+
+            print(f"LoRA weights loaded successfully")
+
+        except Exception as e:
+            self.unload_lora(pipeline)
+            traceback.print_exc()
+            raise ValueError(f"Error loading LoRA: {e}")
+
+
+    # def handle_lora(self, pipeline: DiffusionPipeline, lora_info: dict = None):
+    #     if lora_info is None:
+    #         # If no LoRA info is provided, disable all LoRAs
+    #         pipeline.unload_lora_weights()
+
+    #     else:
+    #         print("Loading LoRA weights...")
+    #         adapter_name = lora_info["adapter_name"]
+    #         print(f"Adapter Name: {adapter_name}")
+    #         try:
+    #             pipeline.load_lora_weights(
+    #                 lora_info["repo_id"],
+    #                 weight_name=lora_info["weight_name"],
+    #                 adapter_name=adapter_name,
+    #             )
+    #             print(f"LoRA adapter '{adapter_name}' loaded successfully.")
+    #         except ValueError as e:
+    #             if "already in use" in str(e):
+    #                 print(
+    #                     f"LoRA adapter '{adapter_name}' is already loaded. Using existing adapter."
+    #                 )
+
+    #             else:
+    #                 raise e
+
+    #         # Set LoRA scales
+    #         lora_scale_dict = {}
+
+    #         if hasattr(pipeline, "text_encoder"):
+    #             lora_scale_dict["text_encoder"] = lora_info["text_encoder_scale"]
+    #         if hasattr(pipeline, "text_encoder_2"):
+    #             lora_scale_dict["text_encoder_2"] = lora_info["text_encoder_2_scale"]
+
+    #         # Determine if the model uses UNet or Transformer
+    #         if hasattr(pipeline, "unet"):
+    #             lora_scale_dict["unet"] = lora_info["model_scale"]
+    #         elif hasattr(pipeline, "transformer"):
+    #             lora_scale_dict["transformer"] = lora_info["model_scale"]
+
+    #         # Set the scales
+    #         pipeline.set_adapters(
+    #             adapter_name, adapter_weights=[lora_info["model_scale"]]
+    #         )
+    #         # pipeline.fuse_lora(lora_scale=lora_info["model_scale"], adapter_name=adapter_name)
 
     def setup_ip_adapter(self, pipeline: DiffusionPipeline, model_category: str):
         if model_category == "sdxl":

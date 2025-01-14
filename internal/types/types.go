@@ -76,6 +76,9 @@ type GenerateParamsRequest struct {
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`
 	PresignedURL   string `json:"presigned_url" msgpack:"presigned_url"`
+	LoRAs         []LoRAParams `json:"loras,omitempty" msgpack:"loras,omitempty"`
+	EnhancePrompt bool         `json:"enhance_prompt" msgpack:"enhance_prompt"`
+	Style          string       `json:"style,omitempty" msgpack:"style,omitempty"`
 }
 
 // Internal type with server-generated ID
@@ -89,6 +92,15 @@ type GenerateParams struct {
 	NegativePrompt string `json:"negative_prompt,omitempty" msgpack:"negative_prompt,omitempty"`
 	OutputFormat   string `json:"output_format" msgpack:"output_format"`
 	PresignedURL   string `json:"presigned_url" msgpack:"presigned_url"`
+	LoRAs          []LoRAParams `json:"loras,omitempty" msgpack:"loras,omitempty"`
+	EnhancePrompt  bool         `json:"enhance_prompt" msgpack:"enhance_prompt"`
+	Style          string   `json:"style,omitempty" msgpack:"style,omitempty"`
+}
+
+type LoRAParams struct {
+	URL      string  `json:"url" msgpack:"url"`
+	Scale    float32 `json:"scale" msgpack:"scale"`
+	FilePath string  `json:"file_path,omitempty" msgpack:"file_path,omitempty"`
 }
 
 type Video struct {

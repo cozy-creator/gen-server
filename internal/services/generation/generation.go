@@ -14,7 +14,6 @@ import (
 	"github.com/cozy-creator/gen-server/internal/config"
 	"github.com/cozy-creator/gen-server/internal/mq"
 	"github.com/cozy-creator/gen-server/internal/types"
-	"github.com/cozy-creator/gen-server/pkg/ethical_filter"
 	"github.com/cozy-creator/gen-server/pkg/logger"
 	"github.com/cozy-creator/gen-server/pkg/tcpclient"
 	"github.com/google/uuid"
@@ -44,6 +43,27 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.Ap
 		if err := json.Unmarshal(data, &request); err != nil {
 			logger.Error("Failed to parse request data", err)
 			continue
+		}
+
+		// handle loras if present
+		if len(request.LoRAs) > 0 {
+			fmt.Println("Downloading LoRAs")
+			loraURLs := make([]string, len(request.LoRAs))
+			for i, lora := range request.LoRAs {
+				loraURLs[i] = lora.URL
+			}
+
+			lorasWithPaths, err := downloader.DownloadMultipleLoRAs(loraURLs)
+			if err != nil {
+				logger.Error("Failed to download LoRAs", err)
+				continue
+			}
+
+			fmt.Println("LoRAs downloaded", lorasWithPaths)
+
+			for i := range request.LoRAs {
+				request.LoRAs[i].FilePath = lorasWithPaths[i]
+			}
 		}
 
 		modelState := downloader.GetModelState(request.Model)
@@ -138,6 +158,8 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 			return
 		}
 
+		fmt.Println(string(params))
+
 		timeout := time.Duration(500) * time.Second
 		// timeout := time.Duration(cfg.TcpTimeout) * time.Second
 		serverAddress := fmt.Sprintf("%s:%d", cfg.Host, config.TCPPort)
@@ -177,6 +199,26 @@ func requestHandler(ctx context.Context, cfg *config.Config, data *types.Generat
 }
 
 func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.GenerateParams, error) {
+	// check if enhanced prompt is enabled 
+	// pipelineDef, exists := app.Config().PipelineDefs[params.Model]
+	// if !exists {
+	// 	return nil, fmt.Errorf("pipeline definition not found for model: %s", params.Model)
+	// }
+
+	// // fetch default positive prompt
+	// defaultPrompt, ok := pipelineDef.DefaultArgs["positive_prompt"].(string)
+	// if !ok {
+	// 	defaultPrompt = "" 
+	// }
+
+	// // append default positive prompt if enhancePrompt is true
+	// combinedPrompt := params.PositivePrompt
+	// if params.EnhancePrompt && defaultPrompt != "" {
+	// 	combinedPrompt = fmt.Sprintf("%s %s", defaultPrompt, params.PositivePrompt)
+	// }
+
+	// fmt.Println("combinedPrompt", combinedPrompt)
+	
 	newParams := types.GenerateParams{
 		ID:             uuid.NewString(),
 		OutputFormat:   params.OutputFormat,
@@ -187,27 +229,23 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 		PositivePrompt: params.PositivePrompt,
 		NegativePrompt: params.NegativePrompt,
 		PresignedURL:   params.PresignedURL,
+		LoRAs:          params.LoRAs,
+		EnhancePrompt:  params.EnhancePrompt,
+		Style:          params.Style,
 	}
 
 	mq := app.MQ()
-	cfg := app.Config()
 	ctx := app.Context()
-	// TO DO: in the future, don't create a new client for each request
-	if cfg.EnableSafetyFilter {
-		filter, err := ethical_filter.NewEthicalFilter(cfg.OpenAI.APIKey)
-		if err == nil {
-			response, err := filter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
-			if err != nil {
-				return nil, err
-			}
 
-			if !response.Accepted {
-				return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
-			}
-		} else {
-			// If OpenAI API key is not provided, the safety filter
-			// will not be used.
-			return nil, fmt.Errorf("failed to enable safety filter: %w", err)
+	// Use safety filter if it's enabled
+	if app.SafetyFilter != nil {
+		response, err := app.SafetyFilter.EvaluatePrompt(ctx,  newParams.PositivePrompt, newParams.NegativePrompt)
+		if err != nil {
+			return nil, err
+		}
+
+		if !response.Accepted {
+			return nil, fmt.Errorf("request rejected by safety filter: %s", response.Reason)
 		}
 	}
 

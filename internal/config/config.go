@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"encoding/json"
 
 	"github.com/cozy-creator/gen-server/internal/db/models"
 	"github.com/cozy-creator/gen-server/internal/db/repository"
@@ -266,6 +267,9 @@ func LoadPipelineDefsFromDB(ctx context.Context, db *bun.DB) error {
 		return fmt.Errorf("failed to get pipeline defs from DB: %w", err)
 	}
 
+	data, _ := json.MarshalIndent(dbModels, "", "  ")
+	fmt.Printf("dbModels: %s\n", data)
+
 	newDefs := mergePipelineDefs(config.PipelineDefs, dbModels)
 
 	// Update in our global config and in Viper internally
@@ -344,6 +348,15 @@ func mergePipelineDefs(existingDefs PipelineDefs, incomingDefs []models.Pipeline
 					existingDef.Components[name] = compDef
 				}
 			}
+
+			// Include positive and negative prompts
+			if model.PromptDef != nil {
+				if existingDef.DefaultArgs == nil {
+					existingDef.DefaultArgs = make(map[string]interface{})
+				}
+				existingDef.DefaultArgs["positive_prompt"] = model.PromptDef.PositivePrompt
+				existingDef.DefaultArgs["negative_prompt"] = model.PromptDef.NegativePrompt
+			}
 		} else {
 			// Add new model if it doesn't exist
 			def := &PipelineDef{
@@ -371,6 +384,15 @@ func mergePipelineDefs(existingDefs PipelineDefs, incomingDefs []models.Pipeline
 						def.Components[name] = compDef
 					}
 				}
+			}
+
+			// Include positive and negative prompts
+			if model.PromptDef != nil {
+				if def.DefaultArgs == nil {
+					def.DefaultArgs = make(map[string]interface{})
+				}
+				def.DefaultArgs["positive_prompt"] = model.PromptDef.PositivePrompt
+				def.DefaultArgs["negative_prompt"] = model.PromptDef.NegativePrompt
 			}
 
 			mergedDefs[model.Name] = def

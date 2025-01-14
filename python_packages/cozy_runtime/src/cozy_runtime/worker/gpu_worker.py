@@ -30,6 +30,7 @@ async def generate_images_non_io(
     start = time.time()
 
     try:
+        print(f"Task data: {task_data}")
         model_id = task_data.get("model")
         positive_prompt = task_data.get("positive_prompt")
         negative_prompt = task_data.get("negative_prompt", "")
@@ -40,6 +41,12 @@ async def generate_images_non_io(
         # Determine which node to use based on presence of source_image
         source_image = task_data.get("source_image")
         strength = task_data.get("strength", 0.8)
+        lora_params = task_data.get("loras", None)
+
+        print(f"Lora params: {lora_params}")
+
+        enhance_prompt = task_data.get("enhance_prompt", False)
+        style = task_data.get("style", "cinematic")
 
         if source_image:
             # Use image-to-image node
@@ -60,6 +67,8 @@ async def generate_images_non_io(
                 "negative_prompt": negative_prompt,
                 "num_images": num_outputs,
                 "random_seed": random_seed,
+                "enhance_prompt": enhance_prompt,
+                "style": style,
             }
 
             if source_image:
@@ -69,6 +78,9 @@ async def generate_images_non_io(
             else:
                 # Add regular generation specific parameters
                 params["aspect_ratio"] = aspect_ratio
+
+            if lora_params:
+                params["lora_params"] = lora_params
 
             # Run the appropriate node
             result = await image_gen_node(**params)

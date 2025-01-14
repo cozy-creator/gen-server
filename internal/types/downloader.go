@@ -13,4 +13,5 @@ const (
 type ModelDownloader interface {
     GetModelState(modelID string) ModelState
     WaitForModelReady(ctx context.Context, modelID string) error
+    DownloadMultipleLoRAs(urls []string) ([]string, error)
 }

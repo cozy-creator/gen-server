@@ -6,9 +6,11 @@ import (
 	// "os"
 	"sync"
 	"time"
+	"path/filepath"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
+	"github.com/cozy-creator/gen-server/internal/services/lora_cache"
 	"github.com/cozy-creator/gen-server/internal/types"
 	"github.com/cozy-creator/hf-hub/hub"
 	"github.com/vbauerster/mpb/v7"
@@ -22,10 +24,11 @@ type ModelDownloaderManager struct {
 	logger 		*zap.Logger
 	ctx 		context.Context
 	civitaiAPIKey string
-	progress		*mpb.Progress
+	// progress		*mpb.Progress
 	modelStates     map[string]types.ModelState
 	modelReadyChans map[string][]chan struct{}
 	stateMu         sync.RWMutex
+	loraCache		*lora_cache.LoRACache
 }
 
 func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
@@ -45,15 +48,25 @@ func NewModelDownloaderManager(app *app.App) (*ModelDownloaderManager, error) {
 
 	hubClient.Progress = progress
 
+	// initialize lora cache
+	loraCache, err := lora_cache.NewLoRACache(lora_cache.Config{
+		EvictionThreshold: 97,
+		BaseDir: filepath.Join(app.Config().ModelsDir, "loras"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize LoRA cache: %w", err)
+	}
+
 	return &ModelDownloaderManager{
 		app: 		app,
 		hubClient: 	hubClient,
 		logger: 	app.Logger.Named("model_downloader"),
 		ctx: 		app.Context(),
 		civitaiAPIKey: civitaiAPIKey,
-		progress:		progress,
+		// progress:		progress,
 		modelStates:     make(map[string]types.ModelState),
 		modelReadyChans: make(map[string][]chan struct{}),
+		loraCache:		loraCache,
 	}, nil
 }
 
@@ -200,7 +213,7 @@ func (m *ModelDownloaderManager) InitializeModels() error {
             }
         }
 
-		m.progress.Wait()
+		// m.progress.Wait()
 
         return nil
     }

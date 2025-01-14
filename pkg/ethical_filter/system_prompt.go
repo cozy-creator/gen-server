@@ -12,7 +12,6 @@ type ChatGPTFilterResponse struct {
 	AnimatedCharacters   []string `json:"animated_characters"`
 	LiveActionCharacters []string `json:"live_action_characters"`
 	ArchetypeCharacters  []string `json:"archetype_characters"`
-	Styles               []string `json:"styles"`
 }
 
 const SystemPrompt = `
@@ -28,8 +27,7 @@ const SystemPrompt = `
 		"celebrities": string[],
 		"animated_characters": string[],
 		"live_action_characters": string[],
-		"archetype_characters": string[],
-		"styles": string[]
+		"archetype_characters": string[]
 	}
 	
 	Instructions:
@@ -43,12 +41,8 @@ const SystemPrompt = `
 	- "contains_text": True if the image should contain text, such as a caption or a logo.
 
 	For the below categories, find the subjects requested to appear in the image, and place them only in ONE of the following lists:
-	- "celebrities": A list of explicitly named, famous, recognizable people.
-	- "animated_characters": A list of identifiable, fictional anime, cartoon, comic-book, video-game, or 3d-animated characters explicitly requested by name.
-	- "live_action_characters": A list of recognizable, identifiable fictional characters portrayed by real people in live-action films, TV shows, or other media.
-	- "archetype_characters": A list of generic, non-specific archetype roles, such as "woman" or "police officer", which do not have specific names and do not fall into one of the above categories.
-
-	- "styles": A list of the artistic styles explicitly requested in the image. The style must be one of the following (only include the style name, not the description):
-	{{range .}}
-	  • {{.Name}} - {{.Description}}{{end}}
+	- "celebrities": A list of explicitly named, famous, recognizable persons.
+	- "animated_characters": A list of explicitly named, fictional anime, cartoon, comic-book, video-game, or 3d-animated characters.
+	- "live_action_characters": A list of explicitly named, identifiable fictional characters portrayed by real people in live-action films, TV shows, or other media.
+	- "archetype_characters": A list of generic, non-specific archetype roles, such as "woman", "celebrity", or "jpop idol", which do not have specific names and do not fall into one of the above categories.
 `

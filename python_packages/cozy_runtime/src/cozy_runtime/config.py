@@ -26,6 +26,24 @@ def set_config(config: RuntimeConfig):
     cozy_config = config
 
 
+def set_environment(environment: str):
+    """
+    Sets the global environment variable.
+    """
+    global ENVIRONMENT
+    ENVIRONMENT = environment
+
+
+def get_environment() -> str:
+    """
+    Returns the global environment variable.
+    """
+    if ENVIRONMENT is None:
+        raise ValueError("Environment has not been set yet")
+
+    return ENVIRONMENT
+
+
 def get_config() -> RuntimeConfig:
     """
     Returns the global configuration object. This is only available if the config has been loaded, which happens at

@@ -40,7 +40,7 @@ func receiveImage(params *types.GenerateParams, app *app.App) (string, string, e
 		return "", "", nil
 	}
 
-	outputData, modelName, err := ParseImageOutput(outputData)
+	outputData, modelName, _ := ParseImageOutput(outputData)
 	image, err := imageutil.DecodeBmpToFormat(outputData, params.OutputFormat)
 	if err != nil {
 		return "", "", err
@@ -64,6 +64,7 @@ func receiveImage(params *types.GenerateParams, app *app.App) (string, string, e
 	return url, modelName, nil
 }
 
+// This function is not currently used
 func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.GenerationResponse, error) {
 	ctx := app.Context()
 	errc := make(chan error, 1)
@@ -105,6 +106,7 @@ func GenerateImageSync(app *app.App, params *types.GenerateParams) (chan types.G
 
 func GenerateImageAsync(app *app.App, params *types.GenerateParams) {
 	ctx := app.Context()
+	// TO DO: do not discard cancel here
 	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
 	// invoke := func(response types.GenerationResponse) {
 	// 	if err := webhookutil.InvokeWithRetries(ctx, params.WebhookUrl, response, MaxWebhookAttempts); err != nil {
@@ -162,7 +164,17 @@ func ParseImageOutput(output []byte) ([]byte, string, error) {
 	return outputBuffer.Bytes(), modelName, nil
 }
 
-func processImageGen(ctx context.Context, params *types.GenerateParams, app *app.App, callback func(urls []string, index int8, currentModel string, status types.JobStatus)) error {
+func processImageGen(
+    ctx context.Context,
+    params *types.GenerateParams,
+    app *app.App,
+    callback func(
+        urls []string,
+        index int8,
+        currentModel string,
+        status types.JobStatus,
+    ),
+) error {
 	var (
 		index int8
 		urls  = make([]string, 0, params.NumOutputs)  	// For collecting all URLs

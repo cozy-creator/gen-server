@@ -34,7 +34,7 @@ func (m *ModelDownloaderManager) getCachePath(modelID string, source *ModelSourc
 
 }
 
-func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
+func isRepoDownloaded(hubClient *hub.Client, repoID string, component string) (bool, error) {
     // Check if repo exists in cache
     storageFolder := filepath.Join(hubClient.CacheDir, repoFolderName(repoID, "model"))
     if !pathExists(storageFolder) {
@@ -54,9 +54,23 @@ func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
         return false, nil
     }
 
+    if component != "" {
+        componentPath := filepath.Join(snapshotPath, component)
+        if !pathExists(componentPath) {
+            return false, nil
+        }
+
+        if !checkFolderCompletenessWithVariants(componentPath) {
+            return false, nil
+        }
+
+        return true, nil
+    }
+
     // check model_index.json exists
     modelIndexPath := filepath.Join(snapshotPath, "model_index.json")
     if pathExists(modelIndexPath) {
+        fmt.Println("model_index.json found for ", repoID)
         data, err := os.ReadFile(modelIndexPath)
         if err != nil {
             return false, nil
@@ -93,66 +107,16 @@ func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
             delete(requiredFolders, ignored)
         }
 
-        variants := []string{"bf16", "fp8", "fp16", ""}
-
-        checkFolderCompleteness := func(folderPath string, variant string) bool {
-            if !pathExists(folderPath) {
-                return false
-            }
-
-            err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
-                if err != nil {
-                    return err
-                }
-
-                if info.IsDir() {
-                    return nil
-                }
-
-                // Check for incomplete files
-                if strings.HasSuffix(info.Name(), ".incomplete") {
-                    return fmt.Errorf("incomplete file found")
-                }
-
-                // Check for variant-specific files
-                if variant != "" {
-                    if strings.HasSuffix(info.Name(), fmt.Sprintf("%s.safetensors", variant)) ||
-                        strings.HasSuffix(info.Name(), fmt.Sprintf("%s.bin", variant)) {
-                        return fmt.Errorf("found complete file")
-                    }
-                } else {
-                    // Check for non-variant files
-                    if strings.HasSuffix(info.Name(), ".safetensors") ||
-                        strings.HasSuffix(info.Name(), ".bin") ||
-                        strings.HasSuffix(info.Name(), ".ckpt") {
-                        return fmt.Errorf("found complete file")
-                    }
-                }
-
-                return nil
-            })
-            
-            return err != nil && err.Error() == "found complete file"
-        }
-
-        // Check if all required folders have files for a specific variant
-        checkVariantCompleteness := func(variant string) bool {
-            for folder := range requiredFolders {
-                folderPath := filepath.Join(snapshotPath, folder)
-                if !checkFolderCompleteness(folderPath, variant) {
-                    return false
-                }
-            }
-            return true
-        }
-
-        // Check variants in order of preference
-        for _, variant := range variants {
-            if checkVariantCompleteness(variant) {
-                return true, nil
+        for folder := range requiredFolders {
+            folderPath := filepath.Join(snapshotPath, folder)
+            if !checkFolderCompletenessWithVariants(folderPath) {
+                return false, nil
             }
         }
+
+        return true, nil
     } else {
+        fmt.Println("no model_index.json found")
         // For repos without model_index.json, check the blob folder
         blobFolder := filepath.Join(storageFolder, "blobs")
         if pathExists(blobFolder) {
@@ -177,15 +141,77 @@ func isRepoDownloaded(hubClient *hub.Client, repoID string) (bool, error) {
     return false, nil
 }
 
+func checkFolderCompletenessWithVariants(folderPath string) bool {
+    variants := []string{"bf16", "fp16", "fp8", ""}
+    for _, variant := range variants {
+        if checkFolderCompleteness(folderPath, variant) {
+            return true
+        }
+    }
+    return false
+}
+
+func checkFolderCompleteness(folderPath string, variant string) bool {
+    if !pathExists(folderPath) {
+        return false
+    }
+
+    err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+
+        if info.IsDir() {
+            return nil
+        }
+
+        // Check for incomplete files
+        if strings.HasSuffix(info.Name(), ".incomplete") {
+            return fmt.Errorf("incomplete file found")
+        }
+
+        // Check for variant-specific files
+        if variant != "" {
+            if strings.HasSuffix(info.Name(), fmt.Sprintf("%s.safetensors", variant)) ||
+                strings.HasSuffix(info.Name(), fmt.Sprintf("%s.bin", variant)) {
+                return fmt.Errorf("found complete file")
+            }
+        } else {
+            // Check for non-variant files
+            if strings.HasSuffix(info.Name(), ".safetensors") ||
+                strings.HasSuffix(info.Name(), ".bin") ||
+                strings.HasSuffix(info.Name(), ".ckpt") {
+                return fmt.Errorf("found complete file")
+            }
+        }
+
+        return nil
+    })
+
+    return err != nil && err.Error() == "found complete file"
+}
+
 
 
 func (m *ModelDownloaderManager) isSourceDownloaded(modelID string, source *ModelSource) (bool, error) {
     switch source.Type {
     case SourceTypeHuggingface:
-        downloaded, err := isRepoDownloaded(m.hubClient, source.Location)
+        var repoID, component string
+
+        parts := strings.Split(source.Location, "/")
+        if len(parts) > 2 {
+            repoID = strings.Join(parts[:2], "/")
+            component = parts[2]
+        } else {
+            repoID = source.Location
+            component = ""
+        }
+
+        downloaded, err := isRepoDownloaded(m.hubClient, repoID, component)
         if err != nil {
             return false, fmt.Errorf("repo not downloaded: %w", err)
         }
+        fmt.Println("repo downloaded: ", downloaded, "for ", source.Location)
         return downloaded, nil
 
     case SourceTypeFile:

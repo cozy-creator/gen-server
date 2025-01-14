@@ -1,7 +1,6 @@
-# Set default values for GOARCH and GOOS
-ARG GOARCH=amd64
-ARG GOOS=linux
-
+# These ARGs can be overridden during build
+ARG TARGETARCH
+ARG TARGETOS=linux
 
 # Stage 1: Build the web bundle
 FROM node:22-bookworm-slim AS web-builder
@@ -29,30 +28,11 @@ RUN wget https://github.com/user-attachments/files/17084728/dist.zip -O /app/web
 # Stage 2: Build the Go binary
 FROM golang:1.23 AS go-builder
 
-RUN if [ "$(uname -m)" = "aarch64" ]; then \
-        # On ARM64 host, install AMD64 cross-compilation tools
-        dpkg --add-architecture amd64 && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-        gcc-x86-64-linux-gnu libc6-dev-amd64-cross \
-        libsqlite3-dev:amd64 libsqlite3-dev ca-certificates; \
-    elif [ "$(uname -m)" = "x86_64" ]; then \
-        # On AMD64 host, install ARM64 cross-compilation tools
-        dpkg --add-architecture arm64 && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-        gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
-        libsqlite3-dev:arm64 libsqlite3-dev ca-certificates; \
-    fi && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Import the build arguments
+ARG TARGETARCH
+ARG TARGETOS
 
-# Ensure that we are building from this local copy of the files
-ENV SERVICE_NAME=gen-server
-ENV NAMESPACE=cozy-creator
-ENV APP=/src/${NAMESPACE}/${SERVICE_NAME}/
-ENV WORKDIR=${GOPATH}${APP}
-WORKDIR $WORKDIR
+WORKDIR /src
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -70,23 +50,17 @@ COPY tools tools
 COPY main.go .
 
 # Build the Go binary
-RUN echo "Building for architecture: $GOARCH and OS: $GOOS" && \
-    if [ "$GOARCH" = "amd64" ] && [ "$(uname -m)" = "aarch64" ]; then \
-        # Cross-compile from arm64 to amd64
-        CC=x86_64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
-    elif [ "$GOARCH" = "arm64" ] && [ "$(uname -m)" = "x86_64" ]; then \
-        # Cross-compile from amd64 to arm64
-        CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
-    else \
-        # Native compilation (when target architecture matches host)
-        CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build -o cozy .; \
-    fi
+RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o cozy .
 
 
 # Stage 3: Build Python environment and final image
 # FROM python:3.11.9-slim
 # FROM nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04 AS runtime
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runtime
+
+# Import the build arguments again for the final stage
+ARG TARGETARCH
+ARG TARGETOS
 
 WORKDIR /app
 
@@ -127,12 +101,11 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch for CUDA 12.4 if possible
-RUN if [ "$GOARCH" = "amd64" ] || [ "$GOARCH" = "x86_64" ]; then \
-    # Install xformers only if it's x86_64
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
         pip install -U --no-cache-dir torch torchvision torchaudio \
         xformers --index-url https://download.pytorch.org/whl/cu124; \
     else \
-        echo "xformers is unavailable on $GOARCH architecture"; \
+        echo "xformers is unavailable on $TARGETARCH architecture"; \
         pip3 install torch torchvision torchaudio; \
     fi
 
@@ -149,20 +122,14 @@ RUN pip install ./python_packages/cozy_runtime[performance]
 
 # Copy the web bundle we built in stage-1
 COPY --from=web-builder /app/web/dist /srv/www/cozy
-
-# Copy the binary we built in stage-2
-ENV SERVICE_NAME=gen-server
-ENV NAMESPACE=cozy-creator
-ENV APP=/src/${NAMESPACE}/${SERVICE_NAME}/
-ENV GOPATH=/go
-COPY --from=go-builder ${GOPATH}${APP}/cozy /usr/local/bin/cozy
+COPY --from=go-builder /src/cozy /usr/local/bin/cozy
 
 # Copy start script
 COPY scripts/start.sh .
-RUN chmod +x start.sh
 
 # remove any Windows line endings, just in case
-RUN sed -i 's/\r$//' /app/start.sh
+RUN chmod +x start.sh && \
+    sed -i 's/\r$//' /app/start.sh
 
 # Gen-server and Jupyter Lab ports
 EXPOSE 8881 8888

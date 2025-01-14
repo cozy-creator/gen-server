@@ -41,233 +41,97 @@ type ImageResponse struct {
 	MimeType string `json:"mime_type"`
 }
 
-func SubmitRequestHandler(c *gin.Context) {
-	var params = types.GenerateParamsRequest{}
-	contentType := c.ContentType()
-	if contentType == "" {
-		contentType = "application/json" // Default to JSON
-	}
+// ===== Helper Functions =====
 
-	switch contentType {
-	case "application/vnd.msgpack":
-		if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
-			return
-		}
-	case "application/json":
-		if err := c.ShouldBindWith(&params, binding.JSON); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
-			return
-		}
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
-		return
-	}
+// Parse request parameters
+func parseGenerateParams(c *gin.Context) (*types.GenerateParamsRequest, error) {
+    var params types.GenerateParamsRequest
+    contentType := c.ContentType()
+    if contentType == "" {
+        contentType = "application/json" // Default to JSON
+    }
 
-	app := c.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(params, app)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
+    switch contentType {
+    case "application/vnd.msgpack":
+        if err := c.ShouldBindWith(&params, binding.MsgPack); err != nil {
+            return nil, fmt.Errorf("failed to parse msgpack request body: %w", err)
+        }
+    case "application/json":
+        if err := c.ShouldBindWith(&params, binding.JSON); err != nil {
+            return nil, fmt.Errorf("failed to parse json request body: %w", err)
+        }
+    default:
+        return nil, fmt.Errorf("unsupported content type: %s", contentType)
+    }
 
-	encodedParams, err := msgpack.Marshal(reqParams)
-	if err != nil {
-		fmt.Println("Error marshaling params: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
+    return &params, nil
+}
 
-	id := uuid.MustParse(reqParams.ID)
-	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
-		fmt.Println("Error creating job: ", err)
-	}
+func submitJob(c *gin.Context, params *types.GenerateParamsRequest) (*types.GenerateParams, error) {
+    app := c.MustGet("app").(*app.App)
+    reqParams, err := generation.NewRequest(*params, app)
+    if err != nil {
+        return nil, err
+    }
+
+	encodedParams, err := json.Marshal(reqParams)
+    if err != nil {
+        return nil, fmt.Errorf("error marshaling params: %w", err)
+    }
+
+    id := uuid.MustParse(reqParams.ID)
+    if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
+        return nil, fmt.Errorf("error creating job: %w", err)
+    }
 
 	go generation.GenerateImageAsync(app, reqParams)
-	c.JSON(http.StatusOK, types.GenerationResponse{
-		ID:     reqParams.ID,
-		Input:  &params,
-		Status: types.StatusInQueue,
-	})
+	
+	return reqParams, nil
 }
 
-func GetJobHandler(c *gin.Context) {
-	id := c.Param("id")
-	if _, err := uuid.Parse(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
-		return
-	}
-
-	app := c.MustGet("app").(*app.App)
-	job, err := app.JobRepository.GetFullByID(app.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"data": toJobResponse(job)})
-}
-
-func GetJobStatus(c *gin.Context) {
-	id := c.Param("id")
-	if _, err := uuid.Parse(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
-		return
-	}
-
-	app := c.MustGet("app").(*app.App)
-	job, err := app.JobRepository.GetByID(app.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": job.Status})
-}
-
-func StreamJobHandler(c *gin.Context) {
-	id := c.Param("id")
-	if _, err := uuid.Parse(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
-		return
-	}
-
+// Handle SSE streaming
+func streamJobEvents(c *gin.Context, jobID string) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.WriteHeader(http.StatusOK)
-	c.Writer.Flush()
+    c.Writer.Header().Set("Connection", "keep-alive")
+    c.Writer.WriteHeader(http.StatusOK)
+    c.Writer.Flush()
 
-	app := c.MustGet("app").(*app.App)
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		default:
-			topic := config.DefaultStreamsTopic + "/" + id
-			message, err := app.MQ().Receive(app.Context(), topic)
-			if err != nil {
-				if errors.Is(err, mq.ErrTopicClosed) || errors.Is(err, mq.ErrQueueClosed) {
-					break
-				}
+    app := c.MustGet("app").(*app.App)
+    topic := config.DefaultStreamsTopic + "/" + jobID
 
-				continue
-			}
+    for {
+        select {
+        case <-c.Request.Context().Done():
+            return
+        default:
+            message, err := app.MQ().Receive(app.Context(), topic)
+            if err != nil {
+                if errors.Is(err, mq.ErrTopicClosed) || errors.Is(err, mq.ErrQueueClosed) {
+                    return
+                }
+                continue
+            }
 
-			messageData, err := app.MQ().GetMessageData(message)
-			if err != nil {
-				continue
-			}
-			if bytes.Equal(messageData, []byte("END")) {
-				if err := app.MQ().CloseTopic(topic); err != nil {
-					fmt.Println("Error closing topic:", err)
-				}
+            messageData, err := app.MQ().GetMessageData(message)
+            if err != nil {
+                continue
+            }
 
-				if _, err := fmt.Fprintf(c.Writer, "data: {\"type\":\"message\", \"data\":\"%s\"}\n\n", "END"); err != nil {
-					fmt.Println("Error writing to stream:", err)
-				}
-				break
-			}
+            if bytes.Equal(messageData, []byte("END")) {
+                if err := app.MQ().CloseTopic(topic); err != nil {
+                    fmt.Println("Error closing topic:", err)
+                }
+                if _, err := fmt.Fprintf(c.Writer, "data: {\"type\":\"message\", \"data\":\"%s\"}\n\n", "END"); err != nil {
+                    fmt.Println("Error writing to stream:", err)
+                }
+                return
+            }
 
-			if _, err = fmt.Fprintf(c.Writer, "data: %s\n\n", string(messageData)); err != nil {
-				continue
-			}
+            if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", string(messageData)); err != nil {
+                continue
+            }
 			c.Writer.Flush()
-		}
-	}
-}
-
-func SubmitAndStreamRequestHandler(ctx *gin.Context) {
-	var body types.GenerateParamsRequest
-	contentType := ctx.ContentType()
-	if contentType == "" {
-		contentType = "application/json" // Default to JSON
-	}
-
-	switch contentType {
-	case "application/vnd.msgpack":
-		if err := ctx.ShouldBindWith(&body, binding.MsgPack); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse msgpack request body"})
-			return
-		}
-	case "application/json":
-		if err := ctx.ShouldBindWith(&body, binding.JSON); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"message": "failed to parse json request body"})
-			return
-		}
-	default:
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": "unsupported content type: " + contentType})
-		return
-	}
-
-	app := ctx.MustGet("app").(*app.App)
-	reqParams, err := generation.NewRequest(body, app)
-
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	id := uuid.MustParse(reqParams.ID)
-	encodedParams, err := msgpack.Marshal(reqParams)
-	if err != nil {
-		fmt.Println("Error marshaling params: ", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	if _, err := app.JobRepository.Create(app.Context(), models.NewJob(id, encodedParams)); err != nil {
-		fmt.Println("Error creating job: ", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
-	// Main execution thread
-	go generation.GenerateImageAsync(app, reqParams)
-
-	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
-	ctx.Writer.Header().Set("Cache-Control", "no-cache")
-	ctx.Writer.Header().Set("Connection", "keep-alive")
-	ctx.Writer.WriteHeader(http.StatusOK)
-	ctx.Writer.Flush()
-
-	for {
-		select {
-		case <-ctx.Request.Context().Done():
-			return
-		default:
-			topic := config.DefaultStreamsTopic + "/" + reqParams.ID
-			message, err := app.MQ().Receive(app.Context(), topic)
-			if err != nil {
-				if errors.Is(err, mq.ErrTopicClosed) || errors.Is(err, mq.ErrQueueClosed) {
-					break
-				}
-
-				continue
-			}
-
-			messageData, err := app.MQ().GetMessageData(message)
-
-			if err != nil {
-				continue
-			}
-			if bytes.Equal(messageData, []byte("END")) {
-				break
-			}
-
-			// TO DO: remove this log
-			var messageContent map[string]interface{}
-			if err := msgpack.Unmarshal(messageData, &messageContent); err != nil {
-				fmt.Println("Error unmarshaling message data: ", err)
-			}
-			messageJSON, _ := json.MarshalIndent(messageContent, "", "  ")
-			fmt.Printf("Message: %s\n", string(messageJSON))
-
-			if _, err := ctx.Writer.Write(messageData); err != nil {
-				continue
-			}
-
-			ctx.Writer.Flush()
 		}
 	}
 }
@@ -295,7 +159,7 @@ func toJobResponse(job *models.Job) *JobResponse {
 	}
 
 	var decodedInput map[string]interface{}
-	if err := msgpack.Unmarshal(job.Input, &decodedInput); err != nil {
+	if err := json.Unmarshal(job.Input, &decodedInput); err != nil {
 		fmt.Println("Error unmarshaling input: ", err)
 		return nil
 	}
@@ -310,3 +174,89 @@ func toJobResponse(job *models.Job) *JobResponse {
 		CompletedAt: &job.CompletedAt.Time,
 	}
 }
+
+// ===== API Route Handlers =====
+
+func SubmitRequestHandler(c *gin.Context) {
+    params, err := parseGenerateParams(c)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+        return
+    }
+
+    reqParams, err := submitJob(c, params)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, types.GenerationResponse{
+        ID:     reqParams.ID,
+        Input:  params,
+		Status: types.StatusInQueue,
+	})
+}
+
+func GetJobHandler(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+		return
+	}
+
+	app := c.MustGet("app").(*app.App)
+	job, err := app.JobRepository.GetFullByID(app.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	data := toJobResponse(job)
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func GetJobStatus(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+		return
+	}
+
+	app := c.MustGet("app").(*app.App)
+	job, err := app.JobRepository.GetByID(app.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": job.Status})
+}
+
+func StreamJobHandler(c *gin.Context) {
+    id := c.Param("id")
+    if _, err := uuid.Parse(id); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": "invalid job id"})
+        return
+    }
+    
+    streamJobEvents(c, id)
+}
+
+func SubmitAndStreamRequestHandler(c *gin.Context) {
+    // Parse and submit the job
+    params, err := parseGenerateParams(c)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+        return
+    }
+
+    reqParams, err := submitJob(c, params)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+        return
+    }
+
+    streamJobEvents(c, reqParams.ID)
+}
+
