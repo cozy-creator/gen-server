@@ -9,6 +9,8 @@ import (
 	"io"
 	"math/rand"
 	"time"
+	"net/http"
+	"bytes"
 
 	"github.com/cozy-creator/gen-server/internal/app"
 	"github.com/cozy-creator/gen-server/internal/config"
@@ -44,6 +46,24 @@ func RunProcessor(ctx context.Context, cfg *config.Config, mq mq.MQ, app *app.Ap
 			logger.Error("Failed to parse request data", err)
 			continue
 		}
+
+		// Handle LoRA recommendations if enabled
+        if request.UseLoraRecommender && len(request.LoRAs) == 0 {
+            recommendations, err := getLoraRecommendations(request.PositivePrompt, "SDXL 1.0", 5)
+            if err != nil {
+                logger.Error("Failed to get LoRA recommendations", err)
+                continue
+            }
+
+            // Convert recommendations to LoRA params
+            request.LoRAs = make([]types.LoRAParams, 0)
+            for _, rec := range recommendations {
+                request.LoRAs = append(request.LoRAs, types.LoRAParams{
+                    URL:   rec.DownloadURL,
+                    Scale: rec.Weight,
+                })
+            }
+        }
 
 		// handle loras if present
 		if len(request.LoRAs) > 0 {
@@ -146,6 +166,34 @@ func processDownloadingQueue(ctx context.Context, mq mq.MQ, downloader types.Mod
 	}
 }
 
+func getLoraRecommendations(prompt string, baseModel string, topK int) (map[string]types.LoraRecommendation, error) {
+    reqBody := map[string]interface{}{
+        "prompt":     prompt,
+        "base_model": baseModel,
+        "top_k":      topK,
+    }
+
+    jsonData, err := json.Marshal(reqBody)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.Post("http://localhost:8080/api/recommendations", 
+                          "application/json", 
+                          bytes.NewBuffer(jsonData))
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var recommendations map[string]types.LoraRecommendation
+    if err := json.NewDecoder(resp.Body).Decode(&recommendations); err != nil {
+        return nil, err
+    }
+
+    return recommendations, nil
+}
+
 func requestHandler(ctx context.Context, cfg *config.Config, data *types.GenerateParams) (chan []byte, chan error) {
 	output := make(chan []byte)
 	errorc := make(chan error, 1)
@@ -232,6 +280,7 @@ func NewRequest(params types.GenerateParamsRequest, app *app.App) (*types.Genera
 		LoRAs:          params.LoRAs,
 		EnhancePrompt:  params.EnhancePrompt,
 		Style:          params.Style,
+		UseLoraRecommender: params.UseLoraRecommender,
 	}
 
 	mq := app.MQ()

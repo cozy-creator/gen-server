@@ -165,10 +165,11 @@ class ImageGenNode(CustomNode):
             if enhance_prompt:
                 prompt_enhancer = PromptEnhancer()
                 try:
-                    positive_prompt = prompt_enhancer.enhance_prompt(positive_prompt, style)
+                    enhanced_prompt = prompt_enhancer.enhance_prompt(positive_prompt, style)
                 except Exception as e:
                     print(f"Error enhancing prompt: {e}")
                 finally:
+                    positive_prompt = enhanced_prompt
                     del prompt_enhancer
 
             # initialize compel

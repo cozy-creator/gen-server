@@ -79,6 +79,7 @@ type GenerateParamsRequest struct {
 	LoRAs         []LoRAParams `json:"loras,omitempty" msgpack:"loras,omitempty"`
 	EnhancePrompt bool         `json:"enhance_prompt" msgpack:"enhance_prompt"`
 	Style          string       `json:"style,omitempty" msgpack:"style,omitempty"`
+	UseLoraRecommender bool `json:"use_lora_recommender" msgpack:"use_lora_recommender"`
 }
 
 // Internal type with server-generated ID
@@ -95,6 +96,7 @@ type GenerateParams struct {
 	LoRAs          []LoRAParams `json:"loras,omitempty" msgpack:"loras,omitempty"`
 	EnhancePrompt  bool         `json:"enhance_prompt" msgpack:"enhance_prompt"`
 	Style          string   `json:"style,omitempty" msgpack:"style,omitempty"`
+	UseLoraRecommender bool `json:"use_lora_recommender" msgpack:"use_lora_recommender"`
 }
 
 type LoRAParams struct {
@@ -106,4 +108,10 @@ type LoRAParams struct {
 type Video struct {
 	Content interface{}
 	Kind    string
+}
+
+type LoraRecommendation struct {
+    Title       string  `json:"title"`
+    DownloadURL string  `json:"download_url"` 
+    Weight      float32 `json:"weight"`
 }

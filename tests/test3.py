@@ -92,15 +92,16 @@ async def main():
     # score_9, score_8_up, score_7_up, BREAK, female, solo, clothing, hair, long hair, smile, fruit, food, sitting, anthro, looking at viewer, mammal, brown eyes, black hair, hi res, simple background, digital media (artwork), haplorhine
 
     params = {
-        "model": "pony.realism",
-        "positive_prompt": "one woman playing on the field",
+        "model": "juggernaut-xl-v9",
+        "positive_prompt": "anime, pastel color, 1girl, holding instrument electric guitar, playing instrument, pleated skirt, spotlight, standing, looking away, blush, gloom, feet out of frame, gibson les paul, guitar, hair ornament, cube hair ornament, blue eyes, pink long hair, pink track jacket, bangs, hair between eyes, one side up,",
         # "negative_prompt": "score_6_up, score_5_up, score_4_up, censored, deformed, bad hand, bad anatomy, cartoon",
-        "num_outputs": 4,
-        "random_seed": 45,
+        "num_outputs": 1,
+        "random_seed": 1020,
         "aspect_ratio": "1/1",
         "output_format": "png",
-        "enhance_prompt": True,
-        "style": "pony"
+        "use_lora_recommender": True
+        # "enhance_prompt": True,
+        # "style": "pony"
     }
 
     # https://civitai.com/api/download/models/12345
@@ -138,7 +139,7 @@ async def main():
     ]
 
     # Synchronous request
-    result = client.generate(params, lora_config)
+    result = client.generate(params)
     print("Sync result:", result)
 
     # Streaming request
